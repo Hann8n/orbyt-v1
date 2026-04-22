@@ -15,6 +15,7 @@ import { useFollowMutation } from '../../services/data/ProfileService';
 import { isCurrentUser } from '../../stores/profileInteractionStore';
 import { useUserStore } from '../../stores/userStore';
 import { FontFamily, Typography } from '@/utils/components/typography';
+import { authorListRowStyle } from './ItemStyles';
 
 interface User {
   did: string;
@@ -122,7 +123,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
             backgroundColor={Colors.transparent}
             nameFontWeight="Figtree-SemiBold"
             customFontSize={16}
-            style={styles.authorItem}
+            style={[styles.authorItem, authorListRowStyle]}
             onPress={() => handleUserPress(item.did)}
           />
           {shouldShowFollowButton && isActionButton && (
@@ -248,6 +249,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingTop: 0,
+    paddingHorizontal: 20,
   },
   userItemContainer: {
     flexDirection: 'row',
@@ -255,10 +257,6 @@ const styles = StyleSheet.create({
   },
   authorItem: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    marginBottom: 0,
-    borderRadius: 0,
   },
   actionButton: {
     flexShrink: 0,

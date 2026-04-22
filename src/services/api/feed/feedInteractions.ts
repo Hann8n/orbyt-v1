@@ -3,9 +3,11 @@
  */
 import { AppBskyFeedDefs } from '@atproto/api';
 import { AtprotoCore } from '../core';
+import { getAtprotoBridge } from '../agentBridge';
 import { deduplicateRequest } from '../inFlightDedup';
 import { logger } from '../../../utils/logger';
 import { ALGORITHMIC_FEED_PROVIDERS } from '../../../utils/constants';
+import { getAppViewDidFallbackForBackend } from '../../auth/backendResolver';
 import { setVideoFeedbackInStorage } from './videoFeedbackStorage';
 import type { Interaction } from '../types';
 import {
@@ -13,7 +15,7 @@ import {
   setFeedInteractionsSupported,
 } from './feedInteractionSupport';
 
-const APPVIEW_SERVICE_PROXY = 'did:web:api.bsky.app#bsky_appview' as const;
+const APPVIEW_SERVICE_PROXY = getAppViewDidFallbackForBackend();
 const feedProxyDidCache = new Map<string, string | null>();
 
 async function getFeedGeneratorProxy(feed: string | undefined): Promise<string | null> {
@@ -183,7 +185,9 @@ export async function sendFeedInteractions(
   const events = interactions
     .map(interaction => interaction.event)
     .filter((event): event is string => typeof event === 'string');
-  const proxyTarget = (await getFeedGeneratorProxy(feed)) ?? APPVIEW_SERVICE_PROXY;
+  const bridgeAppViewDid = getAtprotoBridge().appViewDid;
+  const proxyTarget =
+    (await getFeedGeneratorProxy(feed)) ?? bridgeAppViewDid ?? APPVIEW_SERVICE_PROXY;
 
   logInteractionDiagnosticOnce('attempt', 'Sending feed interactions (first attempt)', {
     feed: feed ?? null,

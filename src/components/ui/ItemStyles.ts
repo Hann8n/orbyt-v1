@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, type ViewStyle } from 'react-native';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { FontFamily, Typography } from '../../utils/components/typography';
 import { Colors } from './UI';
@@ -107,3 +107,13 @@ export const sharedListRowStyles = StyleSheet.create({
     borderBottomColor: Colors.neutral[800],
   },
 });
+
+/** Flat full-width row style for author lists in sheet/list contexts. */
+export const authorListRowStyle: ViewStyle = {
+  paddingVertical: 8,
+  paddingHorizontal: 0,
+  marginBottom: 0,
+  borderRadius: 0,
+  borderBottomWidth: StyleSheet.hairlineWidth,
+  borderBottomColor: Colors.neutral[800],
+};

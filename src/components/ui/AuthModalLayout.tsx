@@ -51,6 +51,8 @@ interface AuthModalLayoutProps {
    * padding (e.g. add-account copy above the CTA). Defaults to `AUTH_STICKY_INNER_PADDING_TOP`.
    */
   stickyInnerPaddingTop?: number;
+  /** Hide sticky footer chrome (background + top border) for simple CTA-only footers. */
+  disableStickyFooterChrome?: boolean;
 }
 
 /**
@@ -65,6 +67,7 @@ const AuthModalLayout: React.FC<AuthModalLayoutProps> = ({
   stickyFooter,
   keyboardOverlapSpace,
   stickyInnerPaddingTop = AUTH_STICKY_INNER_PADDING_TOP,
+  disableStickyFooterChrome = false,
 }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -144,6 +147,7 @@ const AuthModalLayout: React.FC<AuthModalLayoutProps> = ({
         <View
           style={[
             styles.stickyInner,
+            disableStickyFooterChrome && styles.stickyInnerNoChrome,
             { paddingTop: stickyInnerPaddingTop, paddingBottom: stickyBottomPad },
           ]}
         >
@@ -216,6 +220,10 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Colors.neutral[800],
     backgroundColor: Colors.neutral[975],
+  },
+  stickyInnerNoChrome: {
+    borderTopWidth: 0,
+    backgroundColor: Colors.transparent,
   },
 });
 

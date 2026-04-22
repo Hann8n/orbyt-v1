@@ -197,6 +197,7 @@ function RootNavigator() {
           <Stack.Screen name="settings" options={modalSlideUpOptions} />
           <Stack.Screen name="edit-profile" options={modalSlideUpOptions} />
           <Stack.Screen name="add-account" options={modalSlideUpOptions} />
+          <Stack.Screen name="add-account-sign-up" options={modalSlideUpOptions} />
           <Stack.Screen
             name="profile-image-viewer"
             options={{

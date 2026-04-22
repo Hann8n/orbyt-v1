@@ -3,6 +3,9 @@ import { ApplicationReleaseType } from 'expo-application';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import type { Agent } from '@atproto/api';
+import type { OAuthSession } from '@atproto/oauth-client';
+import { resolvePdsEndpointForDid } from '@/services/api/pdsEndpointResolver';
 
 /**
  * Get the native app version (store-facing).
@@ -46,6 +49,58 @@ function getBuildNumber(): string {
  */
 export function getFormattedVersion(): string {
   return getBuildVersion();
+}
+
+function formatServiceProvider(serviceProvider?: string | null): string {
+  const value = serviceProvider?.trim();
+  if (!value) return 'N/A';
+
+  try {
+    const withProtocol = value.startsWith('http://') || value.startsWith('https://');
+    const parsed = new URL(withProtocol ? value : `https://${value}`);
+    return parsed.host;
+  } catch {
+    return value;
+  }
+}
+
+type AtprotoVersionInfoOptions = {
+  did?: string | null;
+  appViewDid?: string | null;
+  oauthSession?: OAuthSession | null;
+  agent?: Agent;
+  includeOAuthScope?: boolean;
+};
+
+async function getAtprotoInfoLines(options?: AtprotoVersionInfoOptions): Promise<string[]> {
+  const did = options?.did ?? options?.oauthSession?.did ?? null;
+  const includeOAuthScope = options?.includeOAuthScope ?? true;
+  const [pds, tokenScope, handle] = await Promise.all([
+    did ? resolvePdsEndpointForDid(did) : Promise.resolve<string | null>(null),
+    includeOAuthScope && options?.oauthSession
+      ? options.oauthSession
+          .getTokenInfo(false)
+          .then(info => info.scope)
+          .catch(() => null)
+      : Promise.resolve<string | null>(null),
+    options?.agent
+      ? options.agent.api.com.atproto.server
+          .getSession()
+          .then(session => session.data.handle)
+          .catch(() => null)
+      : Promise.resolve<string | null>(null),
+  ]);
+
+  const lines = [
+    `ATProto DID: ${did ?? 'N/A'}`,
+    `ATProto Handle: ${handle ?? 'N/A'}`,
+    `ATProto PDS: ${pds ?? 'N/A'}`,
+    `ATProto AppView Proxy: ${options?.appViewDid ?? 'N/A'}`,
+  ];
+  if (includeOAuthScope) {
+    lines.push(`ATProto OAuth Scope: ${tokenScope ?? 'N/A'}`);
+  }
+  return lines;
 }
 
 /**
@@ -97,7 +152,10 @@ async function getPlatformAppInfoLines(): Promise<string[]> {
 /**
  * Get full device/app info string for support emails and error reports.
  */
-export async function getDeviceInfo(): Promise<string> {
+export async function getDeviceInfo(options?: {
+  serviceProvider?: string | null;
+  atproto?: AtprotoVersionInfoOptions;
+}): Promise<string> {
   const platform =
     Platform.OS === 'ios'
       ? 'iOS'
@@ -114,11 +172,13 @@ export async function getDeviceInfo(): Promise<string> {
   const environment = __DEV__ ? 'Debug' : 'Release';
   const applicationId = Application.applicationId ?? 'N/A';
   const applicationName = Application.applicationName ?? 'N/A';
+  const serviceProvider = formatServiceProvider(options?.serviceProvider);
 
   const installationTime = await Application.getInstallationTimeAsync().catch(() => null);
   const installationTimeText = installationTime ? installationTime.toISOString() : 'N/A';
 
   const platformAppInfo = await getPlatformAppInfoLines();
+  const atprotoInfo = await getAtprotoInfoLines(options?.atproto);
 
   return [
     appType,
@@ -132,6 +192,8 @@ export async function getDeviceInfo(): Promise<string> {
     '',
     `Application ID: ${applicationId}`,
     `Application Name: ${applicationName}`,
+    `Service Provider: ${serviceProvider}`,
+    ...(atprotoInfo.length ? ['', ...atprotoInfo] : []),
     '',
     `Installation Time: ${installationTimeText}`,
     ...(platformAppInfo.length ? ['', ...platformAppInfo] : []),

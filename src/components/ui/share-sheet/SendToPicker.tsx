@@ -48,6 +48,7 @@ import { isCurrentUser } from '../../../stores/profileInteractionStore';
 import type { ProfileViewBasic } from '../../../services/api/types';
 import type { ConvoView } from '../../../services/api/types';
 import { FontFamily, Typography } from '../../../utils/components/typography';
+import { authorListRowStyle } from '../ItemStyles';
 
 const SHEET_NAME = 'share-sheet-send-to';
 const MAX_MESSAGE_LENGTH = 300;
@@ -241,7 +242,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
             textColor={Colors.neutral[50]}
             nameFontWeight="Figtree-SemiBold"
             customFontSize={16}
-            style={styles.authorItem}
+            style={[styles.authorItem, authorListRowStyle]}
             onPress={handlePress}
           />
         </View>
@@ -503,7 +504,6 @@ const styles = StyleSheet.create({
   pickerListWrap: {
     flex: 1,
     minHeight: 0,
-    marginHorizontal: -DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
   pickerList: {
     flex: 1,
@@ -543,10 +543,6 @@ const styles = StyleSheet.create({
   },
   authorItem: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    marginBottom: 0,
-    borderRadius: 0,
   },
   disabledItem: {
     opacity: 0.5,

@@ -19,6 +19,7 @@ import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
 import ProfileService from '@/services/data/ProfileService';
 import type { ViewMode } from '@/types';
 import { FontFamily, Typography } from '@/utils/components/typography';
+import { getAtprotoBridge } from '@/services/api/agentBridge';
 
 const SettingsScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -30,6 +31,8 @@ const SettingsScreen: React.FC = () => {
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const { currentUser } = useCurrentUser();
   const { savedAccounts } = useAccountManagement();
+  const oauthSession = useUserStore(state => state.oauthSession);
+  const agent = useUserStore(state => state.agent);
 
   const profileFeedViewMode = useUserStore(state => state.profileFeedViewMode);
   const setProfileFeedViewMode = useUserStore(state => state.setProfileFeedViewMode);
@@ -157,7 +160,15 @@ const SettingsScreen: React.FC = () => {
 
   const handleOpenEmail = async (email: string) => {
     try {
-      const deviceInfo = await getDeviceInfo();
+      const atprotoBridge = getAtprotoBridge();
+      const deviceInfo = await getDeviceInfo({
+        atproto: {
+          did: oauthSession?.did ?? currentUser?.did,
+          oauthSession,
+          agent,
+          appViewDid: atprotoBridge.appViewDid,
+        },
+      });
       const subject = encodeURIComponent(t('settings.emailSubjectSupport'));
       const body = encodeURIComponent(
         `
@@ -188,12 +199,25 @@ ${deviceInfo}`
 
   const handleVersionPress = async () => {
     try {
-      const message = await getDeviceInfo();
-      Alert.alert(t('settings.versionInfo'), message, [
+      const atprotoBridge = getAtprotoBridge();
+      const atprotoOptions = {
+        did: oauthSession?.did ?? currentUser?.did,
+        oauthSession,
+        agent,
+        appViewDid: atprotoBridge.appViewDid,
+      };
+      const displayMessage = await getDeviceInfo({
+        atproto: {
+          ...atprotoOptions,
+          includeOAuthScope: false,
+        },
+      });
+      Alert.alert(t('settings.versionInfo'), displayMessage, [
         {
           text: t('common.copy'),
           onPress: async () => {
-            await Clipboard.setStringAsync(message);
+            const fullMessage = await getDeviceInfo({ atproto: atprotoOptions });
+            await Clipboard.setStringAsync(fullMessage);
             Alert.alert(t('common.success'), t('settings.versionCopied'));
           },
         },

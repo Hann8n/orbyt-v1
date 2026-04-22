@@ -291,7 +291,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
       header={
         <View style={styles.header}>
           <View style={styles.searchRow}>
-            <Icon name="search" size={ICON_SIZES.LARGE} color={Colors.neutral[200]} />
+            <Icon name="search" size={22} color={Colors.neutral[300]} />
             <TextInput
               value={query}
               onChangeText={setQuery}
@@ -387,22 +387,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: Colors.neutral[800],
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.LARGE,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.neutral[700],
+    borderColor: Colors.neutral[800],
     paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
-    paddingVertical: 11,
-    minHeight: 46,
-    boxShadow: '0 1px 6px rgba(5,7,10,0.25)',
+    paddingVertical: 10,
+    minHeight: 48,
   },
   searchInput: {
     flex: 1,
     minWidth: 0,
     color: Colors.neutral[50],
-    fontFamily: Typography.families.regular,
-    fontSize: Typography.sizes.title,
-    height: Typography.lineHeights.title,
+    fontFamily: Typography.families.medium,
+    fontSize: Typography.sizes.subtitle,
+    lineHeight: Typography.lineHeights.subtitle,
     padding: 0,
     paddingVertical: 0,
     textAlignVertical: 'center',

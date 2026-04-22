@@ -6,12 +6,22 @@ import type { Agent } from '@atproto/api';
 
 let bridgeAgent: Agent | null = null;
 let bridgeDid: string | null = null;
+let bridgeAppViewDid: string | null = null;
 
-export function setAtprotoSession(agent: Agent | null | undefined, did: string | null): void {
+export function setAtprotoSession(
+  agent: Agent | null | undefined,
+  did: string | null,
+  appViewDid?: string | null
+): void {
   bridgeAgent = agent ?? null;
   bridgeDid = did;
+  bridgeAppViewDid = appViewDid ?? null;
 }
 
-export function getAtprotoBridge(): { agent: Agent | null; did: string | null } {
-  return { agent: bridgeAgent, did: bridgeDid };
+export function getAtprotoBridge(): {
+  agent: Agent | null;
+  did: string | null;
+  appViewDid: string | null;
+} {
+  return { agent: bridgeAgent, did: bridgeDid, appViewDid: bridgeAppViewDid };
 }

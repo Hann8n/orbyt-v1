@@ -1,4 +1,8 @@
 import { ExpoOAuthClient, type ExpoOAuthClientOptions } from '@atproto/oauth-client-expo';
+import {
+  getDefaultBackendUrl as getResolverDefaultBackendUrl,
+  normalizeBackendUrl,
+} from './backendResolver';
 
 // Bundled client metadata - MUST stay byte-for-byte aligned with:
 // https://getorbyt.com/oauth-client-metadata.json
@@ -25,18 +29,38 @@ const CLIENT_METADATA: ExpoOAuthClientOptions['clientMetadata'] = {
 };
 
 let clientInstance: ExpoOAuthClient | null = null;
+const backendClients = new Map<string, ExpoOAuthClient>();
+const DEFAULT_BACKEND = getResolverDefaultBackendUrl();
+
+export function getDefaultBackendUrl(): string {
+  return DEFAULT_BACKEND;
+}
 
 /**
  * Get the OAuth client instance. Uses bundled metadata - no network fetch.
  * The @atproto/oauth-client-expo package handles session storage, token refresh,
  * and restore internally via its built-in stores.
  */
-export function getOAuthClient(): ExpoOAuthClient {
-  if (!clientInstance) {
-    clientInstance = new ExpoOAuthClient({
-      handleResolver: 'https://bsky.social',
-      clientMetadata: CLIENT_METADATA,
-    });
+export function getOAuthClient(backend?: string): ExpoOAuthClient {
+  const normalizedBackend = normalizeBackendUrl(backend);
+
+  if (normalizedBackend === DEFAULT_BACKEND) {
+    if (!clientInstance) {
+      clientInstance = new ExpoOAuthClient({
+        handleResolver: DEFAULT_BACKEND,
+        clientMetadata: CLIENT_METADATA,
+      });
+    }
+    return clientInstance;
   }
-  return clientInstance;
+
+  const existing = backendClients.get(normalizedBackend);
+  if (existing) return existing;
+
+  const client = new ExpoOAuthClient({
+    handleResolver: normalizedBackend,
+    clientMetadata: CLIENT_METADATA,
+  });
+  backendClients.set(normalizedBackend, client);
+  return client;
 }

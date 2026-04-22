@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
 import { Colors } from '@/theme';
 import AuthorItem from '@/components/ui/AuthorItem';
+import Icon from '@/components/ui/Icon';
 import type { SavedAccount } from '@/stores/userStore';
 import {
   AuthFlowError,
@@ -32,6 +33,8 @@ import { hexToRGBA } from '@/utils/formatting/colors';
 import RocketBackground from '@/components/ui/RocketBackground';
 import { isUserCancellation } from '@/utils/errors/errorHandler';
 import { FontFamily, Typography } from '@/utils/components/typography';
+import { getProviderMetadata } from '@/services/auth';
+import { useServiceProviderStore } from '@/stores/serviceProviderStore';
 
 // Login logo: PNG 4x on Android (avoids SVG stroke clipping), SVG on iOS
 const orbytLogoLoginPng = require('@/assets/orbyt-logo-login.png');
@@ -104,6 +107,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [oauthError, setOAuthError] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
+  const selectedServiceProvider = useServiceProviderStore(state => state.selectedServiceProvider);
 
   const { signIn, clearAuthError } = useAuth();
 
@@ -160,7 +164,10 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
 
       if (error instanceof AuthFlowError && error.kind === 'reauth_required') {
         try {
-          await signIn(account.originalIdentifier);
+          await signIn(account.originalIdentifier, {
+            backend: account.backend,
+            appViewDid: account.appViewDid,
+          });
           await switchAccount(account.did);
           if (onAccountSwitch) {
             await onAccountSwitch(account);
@@ -238,6 +245,9 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
 
   const renderLoginButtons = () => {
     const useLiquidGlassSignIn = isIosLiquidGlassAvailable;
+    const providerMetadata = getProviderMetadata(selectedServiceProvider);
+    const showProviderDomain =
+      providerMetadata.domain.toLowerCase() !== providerMetadata.displayName.toLowerCase();
 
     const signInButtonContent = (
       <View style={styles.buttonContent} pointerEvents="none">
@@ -258,6 +268,32 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
 
     return (
       <View style={[styles.loginButtonsContainer, loginButtonsInsetStyle]}>
+        <SquircleNativePressable
+          style={styles.serviceProviderBar}
+          onPress={() =>
+            !isLoading && router.push('/service-provider-select?target=serviceProvider')
+          }
+          disabled={isLoading}
+        >
+          <View style={styles.serviceProviderBarContent}>
+            <View style={styles.serviceProviderTextGroup}>
+              <View style={styles.serviceProviderValueRow}>
+                {providerMetadata.iconName ? (
+                  <View style={styles.serviceProviderInlineLogoWrap}>
+                    <Icon name={providerMetadata.iconName} size={18} color={Colors.neutral[50]} />
+                  </View>
+                ) : null}
+                <Text style={styles.serviceProviderValue}>{providerMetadata.displayName}</Text>
+                {showProviderDomain ? (
+                  <Text
+                    style={styles.serviceProviderDomain}
+                  >{`\u2022 ${providerMetadata.domain}`}</Text>
+                ) : null}
+              </View>
+            </View>
+            <Text style={styles.serviceProviderEdit}>{t('common.switch')}</Text>
+          </View>
+        </SquircleNativePressable>
         <SquircleNativePressable
           style={[styles.signInWithHandleButton, !useLiquidGlassSignIn && styles.whiteButton]}
           onPress={() => !isLoading && router.push('/login-sign-in')}
@@ -389,6 +425,56 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
+  },
+  serviceProviderBar: {
+    width: '100%',
+    borderRadius: BORDER_RADIUS.LARGE,
+    marginBottom: 8,
+    overflow: 'hidden',
+    backgroundColor: Colors.neutral[900],
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.neutral[800],
+  },
+  serviceProviderBarContent: {
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  serviceProviderTextGroup: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  serviceProviderValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  serviceProviderInlineLogoWrap: {
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceProviderValue: {
+    color: Colors.neutral[50],
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
+    fontFamily: FontFamily.semibold,
+  },
+  serviceProviderDomain: {
+    color: Colors.neutral[400],
+    fontSize: Typography.sizes.bodySmall,
+    lineHeight: Typography.lineHeights.bodySmall,
+    fontFamily: FontFamily.medium,
+  },
+  serviceProviderEdit: {
+    color: Colors.neutral[200],
+    fontSize: Typography.sizes.bodySmall,
+    lineHeight: Typography.lineHeights.bodySmall,
+    fontFamily: FontFamily.semibold,
   },
   signInWithHandleButton: {
     width: '100%',

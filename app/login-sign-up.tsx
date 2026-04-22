@@ -1,89 +1,89 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { View, Text, TextInput, Linking, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Linking, ActivityIndicator, StyleSheet } from 'react-native';
 import AuthModalLayout, { AUTH_KEYBOARD_OVERLAP_SIGN_UP } from '@/components/ui/AuthModalLayout';
 import { Colors } from '@/components/ui/UI';
 import Icon from '@/components/ui/Icon';
 import { useAuth } from '@/stores/userStore';
 import { checkPdsActive } from '@/services/api/pdsHealth';
-import { AUTH_INPUT_CONTENT_PADDING_START, authSheetStyles } from '@/components/ui/AuthSheetStyles';
-import { SHEET_STYLES } from '@/utils/components/truesheet';
+import { authSheetStyles } from '@/components/ui/AuthSheetStyles';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
-import { SquircleView } from '@/components/ui/Squircle';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { isUserCancellation } from '@/utils/errors/errorHandler';
-
-const DEFAULT_PDS = 'https://bsky.social';
-
-function normalizePds(input: string): string {
-  const trimmed = input.trim() || 'bsky.social';
-  const withProtocol =
-    trimmed.startsWith('http://') || trimmed.startsWith('https://')
-      ? trimmed
-      : `https://${trimmed}`;
-  return withProtocol.toLowerCase().replace(/\/+$/, '');
-}
+import {
+  getProviderMetadata,
+  normalizeBackendUrl,
+  resolveAppViewDidForBackend,
+} from '@/services/auth';
+import { useServiceProviderStore } from '@/stores/serviceProviderStore';
+import { FontFamily, Typography } from '@/utils/components/typography';
 
 export default function LoginSignUpModal() {
   const { t } = useTranslation();
+  const router = useRouter();
   const { signUp } = useAuth();
-  const [pdsUrl, setPdsUrl] = useState('');
+  const selectedServiceProvider = useServiceProviderStore(state => state.selectedServiceProvider);
+  const selectedPdsBackend = useServiceProviderStore(state => state.selectedPdsBackend);
+  const providerMetadata = getProviderMetadata(selectedServiceProvider);
+  const pdsMetadata = getProviderMetadata(selectedPdsBackend);
+  const isPdsSameAsProvider =
+    normalizeBackendUrl(selectedPdsBackend) === normalizeBackendUrl(selectedServiceProvider);
+  const showProviderDomain =
+    providerMetadata.domain.toLowerCase() !== providerMetadata.displayName.toLowerCase();
+  const showPdsDomain = pdsMetadata.domain.toLowerCase() !== pdsMetadata.displayName.toLowerCase();
   const [error, setError] = useState<string | null>(null);
   const [isSigningUp, setIsSigningUp] = useState(false);
-  const [canContinue, setCanContinue] = useState(true);
-
-  const checkAbortRef = useRef<AbortController | null>(null);
-  const lastKeyRef = useRef('');
-  const lastCheckErrorRef = useRef<string | null>(null);
+  const [canContinue, setCanContinue] = useState(false);
+  const [isCheckingProvider, setIsCheckingProvider] = useState(true);
+  const checkSeq = useRef(0);
 
   useEffect(() => {
-    const key = normalizePds(pdsUrl);
+    let isMounted = true;
+    const currentSeq = ++checkSeq.current;
 
-    if (key === DEFAULT_PDS) {
-      lastKeyRef.current = key;
-      lastCheckErrorRef.current = null;
+    const checkProvider = async () => {
       setError(null);
-      setCanContinue(true);
-      return;
-    }
+      setIsCheckingProvider(true);
+      setCanContinue(false);
 
-    if (key === lastKeyRef.current) return;
+      const checkResult = await checkPdsActive(selectedPdsBackend);
+      if (!isMounted || currentSeq !== checkSeq.current) return;
 
-    lastKeyRef.current = key;
-    setCanContinue(false);
-    lastCheckErrorRef.current = null;
+      setIsCheckingProvider(false);
+      if (checkResult.success) {
+        setCanContinue(true);
+        return;
+      }
 
-    checkAbortRef.current?.abort();
+      setCanContinue(false);
+      setError(checkResult.error || t('auth.couldNotVerifyServer'));
+    };
 
-    const ac = new AbortController();
-    checkAbortRef.current = ac;
-
-    const toCheck = pdsUrl.trim() || 'bsky.social';
-    checkPdsActive(toCheck)
-      .then(result => {
-        if (ac.signal.aborted) return;
-        setCanContinue(result.success);
-        lastCheckErrorRef.current = result.success ? null : result.error || null;
-      })
-      .catch(() => {
-        if (!ac.signal.aborted) {
-          setCanContinue(false);
-          lastCheckErrorRef.current = t('auth.couldNotCheckServer');
-        }
-      });
+    void checkProvider();
 
     return () => {
-      ac.abort();
-      checkAbortRef.current = null;
+      isMounted = false;
     };
-  }, [pdsUrl, t]);
+  }, [selectedPdsBackend, t]);
 
   const handleSignUp = useCallback(async () => {
-    const identifier = normalizePds(pdsUrl);
+    const backend = normalizeBackendUrl(selectedPdsBackend);
+    if (!canContinue) {
+      setError(t('auth.couldNotVerifyServer'));
+      return;
+    }
     setError(null);
     setIsSigningUp(true);
     try {
-      await signUp(identifier);
+      const checkResult = await checkPdsActive(backend);
+      if (!checkResult.success) {
+        setError(checkResult.error || t('auth.couldNotVerifyServer'));
+        return;
+      }
+      const appViewDid = await resolveAppViewDidForBackend(backend);
+      await signUp(backend, { backend, appViewDid });
     } catch (err) {
       if (!isUserCancellation(err)) {
         setError(t('auth.signUpFailed'));
@@ -91,16 +91,7 @@ export default function LoginSignUpModal() {
     } finally {
       setIsSigningUp(false);
     }
-  }, [pdsUrl, signUp, t]);
-
-  const onPress = () => {
-    if (isSigningUp) return;
-    if (!canContinue) {
-      setError(lastCheckErrorRef.current || t('auth.couldNotVerifyServer'));
-      return;
-    }
-    handleSignUp();
-  };
+  }, [canContinue, selectedPdsBackend, signUp, t]);
 
   const stickyFooter = (
     <View style={styles.stickyFooterStack}>
@@ -117,15 +108,15 @@ export default function LoginSignUpModal() {
         style={[
           authSheetStyles.button,
           styles.stickyCta,
-          canContinue && !isSigningUp && authSheetStyles.buttonActive,
+          canContinue && !isSigningUp && !isCheckingProvider && authSheetStyles.buttonActive,
         ]}
-        onPress={onPress}
-        disabled={!canContinue || isSigningUp}
+        onPress={handleSignUp}
+        disabled={!canContinue || isSigningUp || isCheckingProvider}
         accessibilityRole="button"
         accessibilityLabel={t('auth.continueToSignUp')}
-        accessibilityState={{ disabled: !canContinue || isSigningUp }}
+        accessibilityState={{ disabled: !canContinue || isSigningUp || isCheckingProvider }}
       >
-        {isSigningUp ? (
+        {isSigningUp || isCheckingProvider ? (
           <View style={authSheetStyles.buttonContent}>
             <ActivityIndicator
               size="small"
@@ -154,43 +145,112 @@ export default function LoginSignUpModal() {
 
   const fixedBody = (
     <>
-      <SquircleView style={authSheetStyles.inputContainer}>
-        <View style={authSheetStyles.inputContent}>
-          <Icon
-            name="cloud"
-            size={28}
-            color={Colors.neutral[400]}
-            style={authSheetStyles.inputIcon}
-          />
-          <TextInput
-            nativeID="sign-up-pds-input"
-            style={authSheetStyles.input}
-            placeholder={t('auth.accountProviderPlaceholder')}
-            placeholderTextColor={Colors.neutral[500]}
-            value={pdsUrl}
-            onChangeText={text => {
-              setPdsUrl(text);
-              setError(null);
-            }}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="go"
-            onSubmitEditing={onPress}
-            editable={!isSigningUp}
-            autoFocus
-            accessibilityLabel={t('auth.accountProviderInput')}
-            accessibilityHint={t('auth.accountProviderHint')}
-          />
-        </View>
-      </SquircleView>
-
+      <View style={styles.flowLead}>
+        <Text style={styles.flowIntroTitle}>{t('auth.signUpFlowTitle')}</Text>
+        <Text style={styles.flowIntroText}>{t('auth.signUpFlowIntro')}</Text>
+      </View>
+      <View style={styles.stepsGroup}>
+        <NativePressable
+          style={styles.stepCard}
+          onPress={() => router.push('/service-provider-select?target=serviceProvider')}
+          disabled={isSigningUp}
+          accessibilityRole="button"
+          accessibilityLabel={t('auth.accountProviderInput')}
+        >
+          <View style={styles.stepHeader}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>1</Text>
+            </View>
+            <View style={styles.stepHeaderTextGroup}>
+              <Text style={styles.stepTitle}>{t('auth.accountProviderInput')}</Text>
+              <Text style={styles.stepDescription}>{t('auth.signUpProviderStepHint')}</Text>
+            </View>
+          </View>
+          <View style={styles.stepValueRow}>
+            {providerMetadata.iconName ? (
+              <View style={styles.serviceProviderInlineLogoWrap}>
+                <Icon name={providerMetadata.iconName} size={18} color={Colors.neutral[50]} />
+              </View>
+            ) : null}
+            <View style={styles.stepValueTextGroup}>
+              <Text style={styles.serviceProviderValue} numberOfLines={1}>
+                {providerMetadata.displayName}
+              </Text>
+              {showProviderDomain ? (
+                <Text style={styles.serviceProviderDomain} numberOfLines={1}>
+                  {`\u2022 ${providerMetadata.domain}`}
+                </Text>
+              ) : null}
+            </View>
+            <View style={styles.inlineSwitchChip}>
+              <Text style={styles.inlineSwitchText}>{t('common.switch')}</Text>
+              <Icon name="arrow_right" size={14} color={Colors.neutral[300]} />
+            </View>
+          </View>
+        </NativePressable>
+        <NativePressable
+          style={styles.stepCard}
+          onPress={() => router.push('/service-provider-select?target=pds')}
+          disabled={isSigningUp}
+          accessibilityRole="button"
+          accessibilityLabel={t('auth.pdsBackendInput')}
+        >
+          <View style={styles.stepHeader}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>2</Text>
+            </View>
+            <View style={styles.stepHeaderTextGroup}>
+              <Text style={styles.stepTitle}>{t('auth.pdsBackendInput')}</Text>
+              <Text style={styles.stepDescription}>
+                {isPdsSameAsProvider
+                  ? t('auth.signUpPdsStepHintSynced')
+                  : t('auth.signUpPdsStepHint')}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.stepValueRow}>
+            {pdsMetadata.iconName ? (
+              <View style={styles.serviceProviderInlineLogoWrap}>
+                <Icon name={pdsMetadata.iconName} size={18} color={Colors.neutral[50]} />
+              </View>
+            ) : null}
+            <View style={styles.stepValueTextGroup}>
+              <Text style={styles.serviceProviderValue} numberOfLines={1}>
+                {pdsMetadata.displayName}
+              </Text>
+              {showPdsDomain ? (
+                <Text style={styles.serviceProviderDomain} numberOfLines={1}>
+                  {`\u2022 ${pdsMetadata.domain}`}
+                </Text>
+              ) : null}
+            </View>
+            <View style={styles.inlineSwitchChip}>
+              <Text style={styles.inlineSwitchText}>{t('common.switch')}</Text>
+              <Icon name="arrow_right" size={14} color={Colors.neutral[300]} />
+            </View>
+          </View>
+        </NativePressable>
+      </View>
+      <View style={styles.statusWrap}>
+        <Text
+          style={[
+            styles.statusText,
+            canContinue && !isCheckingProvider ? styles.statusTextSuccess : styles.statusTextMuted,
+          ]}
+        >
+          {isCheckingProvider
+            ? t('auth.signUpCheckingServer')
+            : canContinue
+              ? t('auth.signUpServerVerified')
+              : t('auth.couldNotVerifyServer')}
+        </Text>
+      </View>
       {error ? (
-        <View style={styles.errorBelowInput}>
+        <View style={styles.errorOnlyContainer}>
           <ErrorMessage error={error} />
         </View>
       ) : null}
-
-      <Text style={styles.descriptionBelowField}>{t('auth.enterAccountProvider')}</Text>
+      <Text style={styles.descriptionBelowField}>{t('auth.signUpFlowFooter')}</Text>
     </>
   );
 
@@ -219,13 +279,151 @@ const styles = StyleSheet.create({
     marginTop: 0,
     marginBottom: 0,
   },
-  errorBelowInput: {
+  errorOnlyContainer: {
     marginTop: 8,
   },
+  flowLead: {
+    width: '100%',
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  flowIntroTitle: {
+    color: Colors.neutral[50],
+    fontSize: Typography.sizes.subtitle,
+    lineHeight: Typography.lineHeights.subtitle,
+    fontFamily: FontFamily.semibold,
+  },
+  flowIntroText: {
+    marginTop: 3,
+    color: Colors.neutral[300],
+    fontSize: Typography.sizes.bodySmall,
+    lineHeight: Typography.lineHeights.bodySmall,
+    fontFamily: FontFamily.regular,
+  },
+  stepsGroup: {
+    gap: 8,
+  },
   descriptionBelowField: {
-    ...SHEET_STYLES.descriptionText,
-    marginLeft: AUTH_INPUT_CONTENT_PADDING_START,
+    ...authSheetStyles.footerText,
     marginTop: 12,
-    alignSelf: 'stretch',
+    textAlign: 'left',
+    color: Colors.neutral[400],
+  },
+  stepCard: {
+    width: '100%',
+    borderRadius: 12,
+    marginBottom: 0,
+    overflow: 'hidden',
+    backgroundColor: Colors.neutral[925],
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.neutral[800],
+  },
+  stepHeader: {
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stepBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    backgroundColor: Colors.neutral[850],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepBadgeText: {
+    color: Colors.neutral[200],
+    fontSize: Typography.sizes.caption,
+    lineHeight: Typography.lineHeights.caption,
+    fontFamily: FontFamily.bold,
+  },
+  stepHeaderTextGroup: {
+    flex: 1,
+    paddingHorizontal: 10,
+  },
+  stepTitle: {
+    color: Colors.neutral[50],
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
+    fontFamily: FontFamily.semibold,
+  },
+  stepDescription: {
+    marginTop: 1,
+    color: Colors.neutral[300],
+    fontSize: Typography.sizes.caption,
+    lineHeight: Typography.lineHeights.caption,
+    fontFamily: FontFamily.medium,
+  },
+  stepValueRow: {
+    minHeight: 46,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.neutral[800],
+    backgroundColor: Colors.neutral[900],
+  },
+  stepValueTextGroup: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+  },
+  serviceProviderInlineLogoWrap: {
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceProviderValue: {
+    color: Colors.neutral[50],
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
+    fontFamily: FontFamily.semibold,
+  },
+  serviceProviderDomain: {
+    color: Colors.neutral[400],
+    fontSize: Typography.sizes.bodySmall,
+    lineHeight: Typography.lineHeights.bodySmall,
+    fontFamily: FontFamily.medium,
+    flexShrink: 1,
+  },
+  inlineSwitchChip: {
+    marginLeft: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 2,
+  },
+  inlineSwitchText: {
+    color: Colors.neutral[300],
+    fontSize: Typography.sizes.caption,
+    lineHeight: Typography.lineHeights.caption,
+    fontFamily: FontFamily.semibold,
+  },
+  statusWrap: {
+    marginTop: 10,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.neutral[800],
+    backgroundColor: Colors.neutral[925],
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  statusText: {
+    fontSize: Typography.sizes.caption,
+    lineHeight: Typography.lineHeights.caption,
+    fontFamily: FontFamily.medium,
+  },
+  statusTextMuted: {
+    color: Colors.neutral[300],
+  },
+  statusTextSuccess: {
+    color: Colors.teal[300],
   },
 });

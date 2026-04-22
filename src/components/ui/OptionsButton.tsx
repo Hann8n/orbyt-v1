@@ -63,6 +63,24 @@ const textStyles = StyleSheet.create({
   },
 });
 
+const compactStyles = StyleSheet.create({
+  menuOption: {
+    minHeight: 52,
+  },
+  menuOptionContent: {
+    minHeight: 52,
+    paddingVertical: 14,
+  },
+  menuOptionText: {
+    fontSize: Typography.sizes.subtitle,
+    lineHeight: Typography.lineHeights.subtitle,
+    fontFamily: FontFamily.medium,
+  },
+  menuOptionSubtitle: {
+    marginTop: 2,
+  },
+});
+
 export type OptionsButtonLinkType = 'internal' | 'external' | 'none';
 
 interface OptionsButtonProps {
@@ -85,6 +103,7 @@ interface OptionsButtonProps {
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   containerStyle?: StyleProp<ViewStyle>;
+  compact?: boolean;
 }
 
 export const OptionsButton: React.FC<OptionsButtonProps> = ({
@@ -106,6 +125,7 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
   style,
   textStyle,
   containerStyle,
+  compact = false,
 }) => {
   // Extract color from textStyle prop
   const customTextColor = useMemo(() => {
@@ -162,28 +182,46 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
 
   const optionSurfaceStyle = [
     buttonStyles.menuOption,
+    compact && compactStyles.menuOption,
     { backgroundColor: getBackgroundColor() },
     containerStyle,
     style,
   ];
 
   const optionInner = (
-    <View style={buttonStyles.menuOptionContent}>
+    <View style={[buttonStyles.menuOptionContent, compact && compactStyles.menuOptionContent]}>
       {leftContent ? (
         leftContent
       ) : (
         <View style={buttonStyles.textColumn}>
-          <Text style={[textStyles.menuOptionText, { color: getTextColor() }, textStyle]}>
+          <Text
+            style={[
+              textStyles.menuOptionText,
+              compact && compactStyles.menuOptionText,
+              { color: getTextColor() },
+              textStyle,
+            ]}
+          >
             {label}
           </Text>
           {subtitle && (
-            <Text style={[textStyles.menuOptionSubtitle, { color: Colors.neutral[500] }]}>
+            <Text
+              style={[
+                textStyles.menuOptionSubtitle,
+                compact && compactStyles.menuOptionSubtitle,
+                { color: Colors.neutral[500] },
+              ]}
+            >
               {subtitle}
             </Text>
           )}
           {description && (
             <Text
-              style={[textStyles.menuOptionSubtitle, { color: Colors.neutral[500] }]}
+              style={[
+                textStyles.menuOptionSubtitle,
+                compact && compactStyles.menuOptionSubtitle,
+                { color: Colors.neutral[500] },
+              ]}
               numberOfLines={1}
             >
               {description}

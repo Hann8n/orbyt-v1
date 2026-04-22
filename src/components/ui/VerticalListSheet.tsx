@@ -171,13 +171,15 @@ export const VerticalListCheckboxButton: React.FC<{
   onPress: () => void;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
-}> = ({ label, description, checked, onPress, disabled, style }) => {
+  compact?: boolean;
+}> = ({ label, description, checked, onPress, disabled, style, compact = false }) => {
   return (
     <OptionsButton
       label={label}
       subtitle={description}
       onPress={onPress}
       disabled={disabled}
+      compact={compact}
       rightIcon={
         <View style={styles.checkboxButtonCheckboxWrap}>
           {checked ? (

@@ -13,7 +13,12 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { storageAdapter, storage } from '../utils/storage/storage';
 import * as SecureStore from 'expo-secure-store';
 import { Agent } from '@atproto/api';
-import { getOAuthClient } from '../services/auth';
+import { getOAuthClient, getDefaultBackendUrl } from '../services/auth';
+import {
+  getAppViewDidFallbackForBackend,
+  normalizeBackendUrl,
+  resolveAppViewDidForBackend,
+} from '../services/auth/backendResolver';
 import type { OAuthSession } from '@atproto/oauth-client';
 import { RepoService } from '../services/api/repo/RepoService';
 import { isUserCancellation, getErrorMessage } from '../utils/errors/errorHandler';
@@ -26,6 +31,7 @@ import { isOrbytChannel } from '../utils/channels/orbyt';
 import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
 import { useFollowStore } from './followStore';
+import { useServiceProviderStore } from './serviceProviderStore';
 import { queryKeys } from '../utils/query/queryKeys';
 import {
   loadPersistedColors,
@@ -114,20 +120,21 @@ const TRANSIENT_ERROR_PATTERNS = [
 // execute the restore once per DID at a time and share the in-flight result.
 const restoreInFlightByDid = new Map<string, Promise<OAuthSession>>();
 
-function restoreSessionInFlight(did: string): Promise<OAuthSession> {
-  const existing = restoreInFlightByDid.get(did);
+function restoreSessionInFlight(did: string, backend: string): Promise<OAuthSession> {
+  const key = `${backend}|${did}`;
+  const existing = restoreInFlightByDid.get(key);
   if (existing) return existing;
 
-  const client = getOAuthClient();
+  const client = getOAuthClient(backend);
   const promise = (async () => {
     try {
       return await client.restore(did);
     } finally {
-      restoreInFlightByDid.delete(did);
+      restoreInFlightByDid.delete(key);
     }
   })();
 
-  restoreInFlightByDid.set(did, promise);
+  restoreInFlightByDid.set(key, promise);
   return promise;
 }
 
@@ -167,6 +174,13 @@ export interface SavedAccount {
   avatar?: string;
   lastUsed: number;
   originalIdentifier: string; // The identifier used during initial authentication
+  backend?: string;
+  appViewDid?: string;
+}
+
+export interface AuthBackendOptions {
+  backend?: string;
+  appViewDid?: string;
 }
 
 // Subscribed channel/feed types
@@ -246,8 +260,8 @@ export interface UserState {
 
   // Actions
   // Authentication
-  signIn: (identifier: string) => Promise<void>;
-  signUp: (identifier: string) => Promise<void>;
+  signIn: (identifier: string, options?: AuthBackendOptions) => Promise<void>;
+  signUp: (identifier: string, options?: AuthBackendOptions) => Promise<void>;
   signOut: (clearAllAccounts?: boolean) => Promise<void>;
   restoreSession: (
     did: string,
@@ -339,6 +353,33 @@ const STORAGE_KEYS = {
 
 // Built-in channels that are always available but never in subscribed channels
 const BUILT_IN_CHANNELS = ['following', 'your-mix'];
+const DEFAULT_BACKEND = getDefaultBackendUrl();
+const DEFAULT_APPVIEW_DID = getAppViewDidFallbackForBackend(DEFAULT_BACKEND);
+
+const normalizeAppViewDid = (input?: string | null): string | undefined => {
+  const trimmed = input?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+};
+
+type ProxyConfigurableAgent = Agent & {
+  configureProxy?: (value: string | URL | null) => void;
+};
+
+const applyAppViewProxyToAgent = (agent: Agent, appViewDid?: string | null): void => {
+  const proxyTarget = normalizeAppViewDid(appViewDid) ?? DEFAULT_APPVIEW_DID;
+  try {
+    const maybeProxyAgent = agent as ProxyConfigurableAgent;
+    if (typeof maybeProxyAgent.configureProxy === 'function') {
+      maybeProxyAgent.configureProxy(proxyTarget);
+    }
+  } catch (error) {
+    logger.warn('Failed to configure appview proxy on agent', {
+      component: 'userStore',
+      appViewDid: proxyTarget,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+};
 
 // Helper to filter out built-in channels
 const filterBuiltInChannels = (uris: string[]): string[] => {
@@ -535,7 +576,7 @@ export const useUserStore = create<UserState>()(
         showEmailVerificationModal: false,
 
         // Authentication actions
-        signIn: async (identifier: string) => {
+        signIn: async (identifier: string, options?: AuthBackendOptions) => {
           try {
             set({
               isAuthenticating: true,
@@ -544,11 +585,16 @@ export const useUserStore = create<UserState>()(
               authStatus: 'restoring',
             });
 
-            const client = getOAuthClient();
+            const backend = normalizeBackendUrl(options?.backend);
+            const appViewDid =
+              normalizeAppViewDid(options?.appViewDid) ??
+              (await resolveAppViewDidForBackend(backend));
+            const client = getOAuthClient(backend);
             const session = await client.signIn(identifier);
             await assertRequiredOAuthScope(session);
 
             const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
+            applyAppViewProxyToAgent(agent, appViewDid);
 
             // Create account object
             const account: SavedAccount = {
@@ -559,6 +605,8 @@ export const useUserStore = create<UserState>()(
               avatar: userProfile.avatar,
               lastUsed: Date.now(),
               originalIdentifier: identifier || session.did,
+              backend,
+              appViewDid,
             };
 
             // Update saved accounts list
@@ -630,7 +678,7 @@ export const useUserStore = create<UserState>()(
           }
         },
 
-        signUp: async (identifier: string) => {
+        signUp: async (identifier: string, options?: AuthBackendOptions) => {
           try {
             set({
               isAuthenticating: true,
@@ -639,7 +687,11 @@ export const useUserStore = create<UserState>()(
               authStatus: 'restoring',
             });
 
-            const client = getOAuthClient();
+            const backend = normalizeBackendUrl(options?.backend ?? identifier);
+            const appViewDid =
+              normalizeAppViewDid(options?.appViewDid) ??
+              (await resolveAppViewDidForBackend(backend));
+            const client = getOAuthClient(backend);
             const trimmed = identifier.trim();
             let session: OAuthSession;
             try {
@@ -657,6 +709,7 @@ export const useUserStore = create<UserState>()(
             await assertRequiredOAuthScope(session);
 
             const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
+            applyAppViewProxyToAgent(agent, appViewDid);
 
             // Create account object
             const account: SavedAccount = {
@@ -667,6 +720,8 @@ export const useUserStore = create<UserState>()(
               avatar: userProfile.avatar,
               lastUsed: Date.now(),
               originalIdentifier: identifier || session.did,
+              backend,
+              appViewDid,
             };
 
             // Update saved accounts list
@@ -744,7 +799,10 @@ export const useUserStore = create<UserState>()(
 
             if (currentDid) {
               try {
-                const client = getOAuthClient();
+                const currentAccount = get().savedAccounts.find(
+                  account => account.did === currentDid
+                );
+                const client = getOAuthClient(currentAccount?.backend);
                 await client.revoke(currentDid);
               } catch (error) {
                 // Log but don't fail - session may already be invalid
@@ -760,6 +818,7 @@ export const useUserStore = create<UserState>()(
 
             if (clearAllAccounts) {
               await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCOUNTS);
+              useServiceProviderStore.getState().resetSelectedServiceProvider();
             }
 
             // Clear active account - user has logged out
@@ -809,11 +868,19 @@ export const useUserStore = create<UserState>()(
 
             loadPersistedColors(did);
 
-            // restoreSessionInFlight coalesces concurrent restores per DID (single-use refresh tokens).
-            const session = await restoreSessionInFlight(did);
+            const account = get().savedAccounts.find(acc => acc.did === did);
+            const backend = normalizeBackendUrl(account?.backend);
+            const appViewDid =
+              normalizeAppViewDid(account?.appViewDid) ??
+              (await resolveAppViewDidForBackend(backend));
+
+            // restoreSessionInFlight coalesces concurrent restores per DID+backend
+            // (single-use refresh tokens).
+            const session = await restoreSessionInFlight(did, backend);
             await assertRequiredOAuthScope(session);
 
             const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
+            applyAppViewProxyToAgent(agent, appViewDid);
 
             const originalIdentifier =
               get().savedAccounts.find(acc => acc.did === did)?.originalIdentifier ?? did;
@@ -1115,6 +1182,8 @@ export const useUserStore = create<UserState>()(
 
             // Check if account already exists
             const existingAccountIndex = accounts.findIndex(acc => acc.did === oauthSession.did);
+            const existingAccount =
+              existingAccountIndex >= 0 ? accounts[existingAccountIndex] : null;
 
             // Use provided original identifier or fallback to DID
             const accountOriginalIdentifier = originalIdentifier || oauthSession.did;
@@ -1127,6 +1196,10 @@ export const useUserStore = create<UserState>()(
               avatar: profileData?.avatar,
               lastUsed: Date.now(),
               originalIdentifier: accountOriginalIdentifier,
+              backend: normalizeBackendUrl(existingAccount?.backend),
+              appViewDid:
+                normalizeAppViewDid(existingAccount?.appViewDid) ??
+                getAppViewDidFallbackForBackend(existingAccount?.backend),
             };
 
             if (existingAccountIndex >= 0) {
@@ -1173,7 +1246,8 @@ export const useUserStore = create<UserState>()(
               await get().signOut();
             } else {
               try {
-                await getOAuthClient().revoke(did);
+                const account = get().savedAccounts.find(acc => acc.did === did);
+                await getOAuthClient(account?.backend).revoke(did);
               } catch {
                 // Best-effort revoke
               }
@@ -1608,7 +1682,10 @@ export const useUserStore = create<UserState>()(
 
             if (currentDid) {
               try {
-                const client = getOAuthClient();
+                const currentAccount = get().savedAccounts.find(
+                  account => account.did === currentDid
+                );
+                const client = getOAuthClient(currentAccount?.backend);
                 await client.revoke(currentDid);
               } catch (error) {
                 logger.debug('Could not revoke corrupted session', {
@@ -1767,15 +1844,22 @@ export const useUserStore = create<UserState>()(
             // Migration: Convert old accounts with pdsUrl to new originalIdentifier format
             const migratedAccounts = normalized.map(
               (account: SavedAccount & { pdsUrl?: string }) => {
+                const normalizedBackend = normalizeBackendUrl(account.backend);
                 if (account.pdsUrl && !account.originalIdentifier) {
                   // For backward compatibility, use handle as originalIdentifier (most common case)
                   return {
                     ...account,
                     originalIdentifier: account.handle || account.did,
+                    backend: normalizedBackend,
+                    appViewDid: normalizeAppViewDid(account.appViewDid),
                     pdsUrl: undefined, // Remove old field
                   };
                 }
-                return account;
+                return {
+                  ...account,
+                  backend: normalizedBackend,
+                  appViewDid: normalizeAppViewDid(account.appViewDid),
+                };
               }
             );
 
@@ -1966,7 +2050,13 @@ export const useUserStore = create<UserState>()(
 );
 
 const syncAtprotoBridgeFromUserState = (state: UserState) => {
-  setAtprotoSession(state.agent, state.currentUser?.did ?? null);
+  const activeDid = state.currentUser?.did ?? null;
+  const activeAccount = activeDid
+    ? state.savedAccounts.find(account => account.did === activeDid)
+    : undefined;
+  const appViewDid =
+    activeAccount?.appViewDid ?? getAppViewDidFallbackForBackend(activeAccount?.backend);
+  setAtprotoSession(state.agent, activeDid, appViewDid);
 };
 
 syncAtprotoBridgeFromUserState(useUserStore.getState());
