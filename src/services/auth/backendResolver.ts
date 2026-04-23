@@ -70,24 +70,28 @@ function extractDidFromServiceId(value: string): string | null {
 }
 
 function buildCandidateAppViewHosts(backend: string): string[] {
-  const candidateHosts = new Set<string>();
-  const staticFallbackDid = getAppViewDidFallbackForBackend(backend);
-  const staticDid = extractDidFromServiceId(staticFallbackDid);
-  if (staticDid?.startsWith('did:web:')) {
-    candidateHosts.add(staticDid.slice('did:web:'.length));
-  }
+  const candidateHosts: string[] = [];
 
   try {
     const host = new URL(backend).hostname;
-    candidateHosts.add(`api.${host}`);
+    candidateHosts.push(`api.${host}`);
     if (host.startsWith('www.')) {
-      candidateHosts.add(`api.${host.slice(4)}`);
+      candidateHosts.push(`api.${host.slice(4)}`);
     }
   } catch {
-    return Array.from(candidateHosts);
+    // invalid URL — fall through to static fallback only
   }
 
-  return Array.from(candidateHosts);
+  const staticFallbackDid = getAppViewDidFallbackForBackend(backend);
+  const staticDid = extractDidFromServiceId(staticFallbackDid);
+  if (staticDid?.startsWith('did:web:')) {
+    const staticHost = staticDid.slice('did:web:'.length);
+    if (!candidateHosts.includes(staticHost)) {
+      candidateHosts.push(staticHost);
+    }
+  }
+
+  return candidateHosts;
 }
 
 type DidDocument = {

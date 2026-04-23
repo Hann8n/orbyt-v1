@@ -52,6 +52,7 @@ export default function ServiceProviderSelectScreen() {
 
   const handleSelect = (provider: string) => {
     setPendingServiceProvider(provider);
+    setProviderInput('');
   };
 
   const handleDone = () => {

@@ -20,6 +20,7 @@ import ProfileService from '@/services/data/ProfileService';
 import type { ViewMode } from '@/types';
 import { FontFamily, Typography } from '@/utils/components/typography';
 import { getAtprotoBridge } from '@/services/api/agentBridge';
+import { useServiceProviderStore } from '@/stores/serviceProviderStore';
 
 const SettingsScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -33,6 +34,7 @@ const SettingsScreen: React.FC = () => {
   const { savedAccounts } = useAccountManagement();
   const oauthSession = useUserStore(state => state.oauthSession);
   const agent = useUserStore(state => state.agent);
+  const selectedServiceProvider = useServiceProviderStore(state => state.selectedServiceProvider);
 
   const profileFeedViewMode = useUserStore(state => state.profileFeedViewMode);
   const setProfileFeedViewMode = useUserStore(state => state.setProfileFeedViewMode);
@@ -162,6 +164,7 @@ const SettingsScreen: React.FC = () => {
     try {
       const atprotoBridge = getAtprotoBridge();
       const deviceInfo = await getDeviceInfo({
+        serviceProvider: selectedServiceProvider,
         atproto: {
           did: oauthSession?.did ?? currentUser?.did,
           oauthSession,
@@ -207,6 +210,7 @@ ${deviceInfo}`
         appViewDid: atprotoBridge.appViewDid,
       };
       const displayMessage = await getDeviceInfo({
+        serviceProvider: selectedServiceProvider,
         atproto: {
           ...atprotoOptions,
           includeOAuthScope: false,
@@ -216,7 +220,10 @@ ${deviceInfo}`
         {
           text: t('common.copy'),
           onPress: async () => {
-            const fullMessage = await getDeviceInfo({ atproto: atprotoOptions });
+            const fullMessage = await getDeviceInfo({
+              serviceProvider: selectedServiceProvider,
+              atproto: atprotoOptions,
+            });
             await Clipboard.setStringAsync(fullMessage);
             Alert.alert(t('common.success'), t('settings.versionCopied'));
           },

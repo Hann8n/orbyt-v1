@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { View, Text, Linking, ActivityIndicator, StyleSheet } from 'react-native';
 import AuthModalLayout, { AUTH_KEYBOARD_OVERLAP_SIGN_UP } from '@/components/ui/AuthModalLayout';
@@ -23,6 +23,8 @@ import { FontFamily, Typography } from '@/utils/components/typography';
 export default function LoginSignUpModal() {
   const { t } = useTranslation();
   const router = useRouter();
+  const pathname = usePathname();
+  const isAddAccount = pathname.includes('add-account');
   const { signUp } = useAuth();
   const selectedServiceProvider = useServiceProviderStore(state => state.selectedServiceProvider);
   const selectedPdsBackend = useServiceProviderStore(state => state.selectedPdsBackend);
@@ -84,6 +86,9 @@ export default function LoginSignUpModal() {
       }
       const appViewDid = await resolveAppViewDidForBackend(backend);
       await signUp(backend, { backend, appViewDid });
+      if (isAddAccount) {
+        router.dismissTo('/(tabs)/home');
+      }
     } catch (err) {
       if (!isUserCancellation(err)) {
         setError(t('auth.signUpFailed'));
