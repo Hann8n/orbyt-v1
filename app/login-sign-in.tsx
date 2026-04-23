@@ -13,6 +13,7 @@ import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { SquircleView } from '@/components/ui/Squircle';
 import { useAuth } from '@/stores/userStore';
 import { isUserCancellation } from '@/utils/errors/errorHandler';
+import { logger } from '@/utils/logger';
 import { ActorService } from '@/services/api/actor/ActorService';
 import type { ProfileViewBasic } from '@/services/api/types';
 import { queryKeys } from '@/utils/query/queryKeys';
@@ -144,6 +145,7 @@ export default function LoginSignInModal() {
     } catch (err) {
       if (!isUserCancellation(err)) {
         const errorMessage = err instanceof Error ? err.message : t('auth.signInFailed');
+        logger.error('[LoginSignIn] signIn failed', err, { handle: trimmedHandle, errorMessage });
         let userFriendlyMessage = t('auth.couldNotConnect', { handle: trimmedHandle });
 
         if (errorMessage.includes('network') || errorMessage.includes('timeout')) {

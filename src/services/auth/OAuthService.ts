@@ -1,14 +1,16 @@
 import { ExpoOAuthClient, type ExpoOAuthClientOptions } from '@atproto/oauth-client-expo';
 import {
+  ATPROTO_BASE_SCOPE,
+  BLUESKY_SCOPE_EXTENSION,
   getDefaultBackendUrl as getResolverDefaultBackendUrl,
   getScopeForBackend,
   normalizeBackendUrl,
 } from './backendResolver';
 
 // Bundled client metadata. client_id points to the hosted file at getorbyt.com which
-// the authorization server fetches to validate this client. The hosted file intentionally
-// includes legacy transition:* scopes so older app versions can still authenticate —
-// this version requests only modern scopes, which are a valid subset of what is registered.
+// the authorization server fetches to validate this client. The hosted file retains
+// legacy transition:* scopes so older app versions can still authenticate —
+// this version requests only explicit modern scopes, which are a valid subset.
 // The Expo OAuth package handles session storage, refresh, and token lifecycle internally.
 const BLUESKY_CLIENT_METADATA: ExpoOAuthClientOptions['clientMetadata'] = {
   client_id: 'https://getorbyt.com/oauth-client-metadata.json',
@@ -18,8 +20,7 @@ const BLUESKY_CLIENT_METADATA: ExpoOAuthClientOptions['clientMetadata'] = {
   tos_uri: 'https://getorbyt.com/terms',
   policy_uri: 'https://getorbyt.com/privacy',
   redirect_uris: ['com.getorbyt:/oauth/callback', 'https://getorbyt.com/oauth/callback'],
-  scope:
-    'atproto repo:* blob:*/* account:email?action=manage rpc:*?aud=did:web:api.bsky.app rpc:*?aud=did:web:api.bsky.app%23bsky_appview rpc:*?aud=did:web:api.bsky.chat%23bsky_chat',
+  scope: `${ATPROTO_BASE_SCOPE} ${BLUESKY_SCOPE_EXTENSION}`,
   grant_types: ['authorization_code', 'refresh_token'],
   response_types: ['code'],
   token_endpoint_auth_method: 'none',

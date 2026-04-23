@@ -5,6 +5,82 @@ const APPVIEW_DID_FETCH_TIMEOUT_MS = 3500;
 /** Minimum scope required by every AT Protocol OAuth server. */
 export const ATPROTO_BASE_SCOPE = 'atproto repo:* blob:*/*';
 
+// ─── Bluesky-specific scope constants ────────────────────────────────────────
+
+const BSKY_APPVIEW_AUD = 'did:web:api.bsky.app%23bsky_appview';
+
+const BSKY_APPVIEW_RPC_METHODS = [
+  'app.bsky.actor.getPreferences',
+  'app.bsky.actor.getProfile',
+  'app.bsky.actor.getSuggestions',
+  'app.bsky.actor.putPreferences',
+  'app.bsky.actor.searchActors',
+  'app.bsky.bookmark.createBookmark',
+  'app.bsky.bookmark.deleteBookmark',
+  'app.bsky.bookmark.getBookmarks',
+  'app.bsky.feed.getActorLikes',
+  'app.bsky.feed.getAuthorFeed',
+  'app.bsky.feed.getFeed',
+  'app.bsky.feed.getFeedGenerator',
+  'app.bsky.feed.getFeedGenerators',
+  'app.bsky.feed.getLikes',
+  'app.bsky.feed.getPostThread',
+  'app.bsky.feed.getPosts',
+  'app.bsky.feed.searchPosts',
+  'app.bsky.feed.sendInteractions',
+  'app.bsky.graph.getBlocks',
+  'app.bsky.graph.getFollowers',
+  'app.bsky.graph.getFollows',
+  'app.bsky.graph.getMutes',
+  'app.bsky.graph.muteActor',
+  'app.bsky.graph.unmuteActor',
+  'app.bsky.notification.getUnreadCount',
+  'app.bsky.notification.listActivitySubscriptions',
+  'app.bsky.notification.listNotifications',
+  'app.bsky.notification.putActivitySubscription',
+  'app.bsky.notification.updateSeen',
+  'app.bsky.unspecced.getPopularFeedGenerators',
+  'app.bsky.video.getUploadLimits',
+] as const;
+
+// Chat service uses the #bsky_chat fragment to identify the proxy target.
+// video.getJobStatus uses an unauthenticated agent — no scope needed.
+// chat.bsky.actor.declaration get/put are repo record ops covered by repo:*.
+const BSKY_CHAT_AUD = 'did:web:api.bsky.chat%23bsky_chat';
+
+const BSKY_CHAT_RPC_METHODS = [
+  'chat.bsky.convo.acceptConvo',
+  'chat.bsky.convo.addReaction',
+  'chat.bsky.convo.deleteMessageForSelf',
+  'chat.bsky.convo.getConvo',
+  'chat.bsky.convo.getConvoAvailability',
+  'chat.bsky.convo.getConvoForMembers',
+  'chat.bsky.convo.getLog',
+  'chat.bsky.convo.getMessages',
+  'chat.bsky.convo.leaveConvo',
+  'chat.bsky.convo.listConvos',
+  'chat.bsky.convo.muteConvo',
+  'chat.bsky.convo.removeReaction',
+  'chat.bsky.convo.sendMessage',
+  'chat.bsky.convo.sendMessageBatch',
+  'chat.bsky.convo.unmuteConvo',
+  'chat.bsky.convo.updateAllRead',
+  'chat.bsky.convo.updateRead',
+] as const;
+
+/**
+ * OAuth scope extension beyond ATPROTO_BASE_SCOPE for Bluesky backends.
+ * Uses explicit per-method rpc: scopes — wildcards (rpc:*) are not honored
+ * by api.bsky.app's token validation despite being valid per spec.
+ */
+export const BLUESKY_SCOPE_EXTENSION =
+  'account:email?action=manage ' +
+  BSKY_APPVIEW_RPC_METHODS.map(m => `rpc:${m}?aud=${BSKY_APPVIEW_AUD}`).join(' ') +
+  ' ' +
+  BSKY_CHAT_RPC_METHODS.map(m => `rpc:${m}?aud=${BSKY_CHAT_AUD}`).join(' ');
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 type BackendStaticConfig = {
   key: string;
   label: string;
@@ -22,11 +98,7 @@ const BACKEND_STATIC_CONFIG: BackendStaticConfig[] = [
     label: 'Bluesky',
     backend: 'https://bsky.social',
     appViewDid: 'did:web:api.bsky.app#bsky_appview',
-    scopeExtension:
-      'account:email?action=manage ' +
-      'rpc:*?aud=did:web:api.bsky.app ' +
-      'rpc:*?aud=did:web:api.bsky.app%23bsky_appview ' +
-      'rpc:*?aud=did:web:api.bsky.chat%23bsky_chat',
+    scopeExtension: BLUESKY_SCOPE_EXTENSION,
     publicAppviewEndpoint: 'https://public.api.bsky.app',
   },
   {
