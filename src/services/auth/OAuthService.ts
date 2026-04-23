@@ -1,13 +1,14 @@
 import { ExpoOAuthClient, type ExpoOAuthClientOptions } from '@atproto/oauth-client-expo';
 import {
   getDefaultBackendUrl as getResolverDefaultBackendUrl,
+  getScopeForBackend,
   normalizeBackendUrl,
 } from './backendResolver';
 
 // Bundled client metadata - MUST stay byte-for-byte aligned with:
 // https://getorbyt.com/oauth-client-metadata.json
 // The Expo OAuth package handles session storage, refresh, and token lifecycle internally.
-const CLIENT_METADATA: ExpoOAuthClientOptions['clientMetadata'] = {
+const BLUESKY_CLIENT_METADATA: ExpoOAuthClientOptions['clientMetadata'] = {
   client_id: 'https://getorbyt.com/oauth-client-metadata.json',
   client_name: 'orbyt',
   client_uri: 'https://getorbyt.com',
@@ -28,6 +29,22 @@ const CLIENT_METADATA: ExpoOAuthClientOptions['clientMetadata'] = {
   dpop_bound_access_tokens: true,
 };
 
+/**
+ * Build client metadata for non-Bluesky backends.
+ * The client_id URL remains the same (OAuth servers fetch it to validate the client),
+ * but the scope is narrowed to what that backend actually supports. Per OAuth spec,
+ * servers accept scope requests that are a subset of the registered max scope.
+ */
+function buildClientMetadataForBackend(
+  backend: string,
+  appViewDid?: string | null
+): ExpoOAuthClientOptions['clientMetadata'] {
+  return {
+    ...BLUESKY_CLIENT_METADATA,
+    scope: getScopeForBackend(backend, appViewDid),
+  };
+}
+
 let clientInstance: ExpoOAuthClient | null = null;
 const backendClients = new Map<string, ExpoOAuthClient>();
 const DEFAULT_BACKEND = getResolverDefaultBackendUrl();
@@ -37,30 +54,33 @@ export function getDefaultBackendUrl(): string {
 }
 
 /**
- * Get the OAuth client instance. Uses bundled metadata - no network fetch.
+ * Get the OAuth client for a backend. Uses bundled metadata for Bluesky; builds
+ * backend-appropriate metadata (scope) for other AT Protocol providers.
  * The @atproto/oauth-client-expo package handles session storage, token refresh,
  * and restore internally via its built-in stores.
  */
-export function getOAuthClient(backend?: string): ExpoOAuthClient {
+export function getOAuthClient(backend?: string, appViewDid?: string | null): ExpoOAuthClient {
   const normalizedBackend = normalizeBackendUrl(backend);
 
   if (normalizedBackend === DEFAULT_BACKEND) {
     if (!clientInstance) {
       clientInstance = new ExpoOAuthClient({
         handleResolver: DEFAULT_BACKEND,
-        clientMetadata: CLIENT_METADATA,
+        clientMetadata: BLUESKY_CLIENT_METADATA,
       });
     }
     return clientInstance;
   }
 
-  const existing = backendClients.get(normalizedBackend);
+  // Cache key includes appViewDid so scope is correct when appView changes.
+  const cacheKey = appViewDid ? `${normalizedBackend}|${appViewDid}` : normalizedBackend;
+  const existing = backendClients.get(cacheKey);
   if (existing) return existing;
 
   const client = new ExpoOAuthClient({
     handleResolver: normalizedBackend,
-    clientMetadata: CLIENT_METADATA,
+    clientMetadata: buildClientMetadataForBackend(normalizedBackend, appViewDid),
   });
-  backendClients.set(normalizedBackend, client);
+  backendClients.set(cacheKey, client);
   return client;
 }

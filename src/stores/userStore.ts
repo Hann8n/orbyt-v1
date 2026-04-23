@@ -120,12 +120,16 @@ const TRANSIENT_ERROR_PATTERNS = [
 // execute the restore once per DID at a time and share the in-flight result.
 const restoreInFlightByDid = new Map<string, Promise<OAuthSession>>();
 
-function restoreSessionInFlight(did: string, backend: string): Promise<OAuthSession> {
+function restoreSessionInFlight(
+  did: string,
+  backend: string,
+  appViewDid?: string | null
+): Promise<OAuthSession> {
   const key = `${backend}|${did}`;
   const existing = restoreInFlightByDid.get(key);
   if (existing) return existing;
 
-  const client = getOAuthClient(backend);
+  const client = getOAuthClient(backend, appViewDid);
   const promise = (async () => {
     try {
       return await client.restore(did);
@@ -589,7 +593,7 @@ export const useUserStore = create<UserState>()(
             const appViewDid =
               normalizeAppViewDid(options?.appViewDid) ??
               (await resolveAppViewDidForBackend(backend));
-            const client = getOAuthClient(backend);
+            const client = getOAuthClient(backend, appViewDid);
             const session = await client.signIn(identifier);
             await assertRequiredOAuthScope(session);
 
@@ -691,7 +695,7 @@ export const useUserStore = create<UserState>()(
             const appViewDid =
               normalizeAppViewDid(options?.appViewDid) ??
               (await resolveAppViewDidForBackend(backend));
-            const client = getOAuthClient(backend);
+            const client = getOAuthClient(backend, appViewDid);
             const trimmed = identifier.trim();
             let session: OAuthSession;
             try {
@@ -802,7 +806,7 @@ export const useUserStore = create<UserState>()(
                 const currentAccount = get().savedAccounts.find(
                   account => account.did === currentDid
                 );
-                const client = getOAuthClient(currentAccount?.backend);
+                const client = getOAuthClient(currentAccount?.backend, currentAccount?.appViewDid);
                 await client.revoke(currentDid);
               } catch (error) {
                 // Log but don't fail - session may already be invalid
@@ -876,7 +880,7 @@ export const useUserStore = create<UserState>()(
 
             // restoreSessionInFlight coalesces concurrent restores per DID+backend
             // (single-use refresh tokens).
-            const session = await restoreSessionInFlight(did, backend);
+            const session = await restoreSessionInFlight(did, backend, appViewDid);
             await assertRequiredOAuthScope(session);
 
             const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
@@ -1247,7 +1251,7 @@ export const useUserStore = create<UserState>()(
             } else {
               try {
                 const account = get().savedAccounts.find(acc => acc.did === did);
-                await getOAuthClient(account?.backend).revoke(did);
+                await getOAuthClient(account?.backend, account?.appViewDid).revoke(did);
               } catch {
                 // Best-effort revoke
               }
@@ -1661,7 +1665,9 @@ export const useUserStore = create<UserState>()(
           const { agent, currentUser } = get();
           if (!agent || !currentUser?.did) return false;
           try {
-            await agent.api.app.bsky.actor.getProfile({ actor: currentUser.did });
+            // com.atproto.server.getSession works on any AT Protocol PDS,
+            // making this check provider-agnostic.
+            await agent.api.com.atproto.server.getSession();
             return true;
           } catch (error) {
             if (requiresReauth(error)) {
@@ -1685,7 +1691,7 @@ export const useUserStore = create<UserState>()(
                 const currentAccount = get().savedAccounts.find(
                   account => account.did === currentDid
                 );
-                const client = getOAuthClient(currentAccount?.backend);
+                const client = getOAuthClient(currentAccount?.backend, currentAccount?.appViewDid);
                 await client.revoke(currentDid);
               } catch (error) {
                 logger.debug('Could not revoke corrupted session', {

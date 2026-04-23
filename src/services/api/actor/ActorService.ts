@@ -24,15 +24,18 @@ import {
 import { queryClient } from '../../../utils/query/queryClient';
 import { RepoService } from '../repo/RepoService';
 import { logger } from '../../../utils/logger';
+import { getPublicAppviewEndpointForBackend } from '../../auth/backendResolver';
 
-/** Unauthenticated App View for sign-in / pre-OAuth discovery (`app.bsky.actor.searchActors`). */
-let publicAppviewAgent: Agent | null = null;
+/** Unauthenticated AppView agents keyed by endpoint, for pre-auth queries. */
+const publicAppviewAgents = new Map<string, Agent>();
 
-function getPublicAppviewAgent(): Agent {
-  if (!publicAppviewAgent) {
-    publicAppviewAgent = new Agent({ service: 'https://public.api.bsky.app' });
-  }
-  return publicAppviewAgent;
+function getPublicAppviewAgent(endpoint?: string | null): Agent {
+  const service = endpoint ?? getPublicAppviewEndpointForBackend();
+  const cached = publicAppviewAgents.get(service);
+  if (cached) return cached;
+  const agent = new Agent({ service });
+  publicAppviewAgents.set(service, agent);
+  return agent;
 }
 
 function createOfflineBlobRef(link: string, mimeType: string): BlobRef {
@@ -185,20 +188,22 @@ export class ActorService {
   }
 
   /**
-   * Search actors via the public Bluesky App View (no session).
-   * Used before OAuth on the sign-in screen. Same lexicon as authenticated search.
-   * @see https://docs.bsky.app/docs/api/app-bsky-actor-search-actors
+   * Search actors via a public AppView (no session).
+   * Used before OAuth on the sign-in screen. Queries the public endpoint for the
+   * selected backend so handle suggestions are relevant to the provider.
+   * @param backend - AT Protocol backend URL (e.g. 'https://bsky.social')
    */
   static async searchActorsPublic(
     term: string,
-    options?: { limit?: number; cursor?: string | null }
+    options?: { limit?: number; cursor?: string | null; backend?: string | null }
   ): Promise<ProfileSearchResponse> {
     const q = term.trim().replace(/^@+/, '');
     if (q.length < 1) {
       return { profiles: [], cursor: null };
     }
     try {
-      const agent = getPublicAppviewAgent();
+      const endpoint = getPublicAppviewEndpointForBackend(options?.backend);
+      const agent = getPublicAppviewAgent(endpoint);
       const limit = Math.min(100, Math.max(1, options?.limit ?? 8));
       const params: { term: string; limit: number; cursor?: string } = { term: q, limit };
       if (options?.cursor) params.cursor = options.cursor;
