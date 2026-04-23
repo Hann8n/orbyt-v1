@@ -5,8 +5,10 @@ import {
   normalizeBackendUrl,
 } from './backendResolver';
 
-// Bundled client metadata - MUST stay byte-for-byte aligned with:
-// https://getorbyt.com/oauth-client-metadata.json
+// Bundled client metadata. client_id points to the hosted file at getorbyt.com which
+// the authorization server fetches to validate this client. The hosted file intentionally
+// includes legacy transition:* scopes so older app versions can still authenticate —
+// this version requests only modern scopes, which are a valid subset of what is registered.
 // The Expo OAuth package handles session storage, refresh, and token lifecycle internally.
 const BLUESKY_CLIENT_METADATA: ExpoOAuthClientOptions['clientMetadata'] = {
   client_id: 'https://getorbyt.com/oauth-client-metadata.json',
@@ -15,13 +17,9 @@ const BLUESKY_CLIENT_METADATA: ExpoOAuthClientOptions['clientMetadata'] = {
   logo_uri: 'https://getorbyt.com/images/orbyt-logo.png',
   tos_uri: 'https://getorbyt.com/terms',
   policy_uri: 'https://getorbyt.com/privacy',
-  // Include both native and web redirect URIs (per oauth-client-expo docs)
   redirect_uris: ['com.getorbyt:/oauth/callback', 'https://getorbyt.com/oauth/callback'],
-  // NOTE: Keep this in sync with the hosted oauth-client-metadata.json at client_id.
-  // If this differs from hosted metadata, some auth servers may cache/validate in ways
-  // that result in stale or partial grants during scope upgrades.
   scope:
-    'atproto transition:generic transition:chat.bsky transition:email account:email?action=manage repo:* blob:*/* rpc:*?aud=did:web:api.bsky.app rpc:*?aud=did:web:api.bsky.app%23bsky_appview rpc:*?aud=did:web:api.bsky.chat%23bsky_chat',
+    'atproto repo:* blob:*/* account:email?action=manage rpc:*?aud=did:web:api.bsky.app rpc:*?aud=did:web:api.bsky.app%23bsky_appview rpc:*?aud=did:web:api.bsky.chat%23bsky_chat',
   grant_types: ['authorization_code', 'refresh_token'],
   response_types: ['code'],
   token_endpoint_auth_method: 'none',

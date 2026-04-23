@@ -3,7 +3,7 @@ const DEFAULT_APPVIEW_DID = 'did:web:api.bsky.app#bsky_appview';
 const APPVIEW_DID_FETCH_TIMEOUT_MS = 3500;
 
 /** Minimum scope required by every AT Protocol OAuth server. */
-export const ATPROTO_BASE_SCOPE = 'atproto transition:generic repo:* blob:*/*';
+export const ATPROTO_BASE_SCOPE = 'atproto repo:* blob:*/*';
 
 type BackendStaticConfig = {
   key: string;
@@ -23,7 +23,7 @@ const BACKEND_STATIC_CONFIG: BackendStaticConfig[] = [
     backend: 'https://bsky.social',
     appViewDid: 'did:web:api.bsky.app#bsky_appview',
     scopeExtension:
-      'transition:chat.bsky transition:email account:email?action=manage ' +
+      'account:email?action=manage ' +
       'rpc:*?aud=did:web:api.bsky.app ' +
       'rpc:*?aud=did:web:api.bsky.app%23bsky_appview ' +
       'rpc:*?aud=did:web:api.bsky.chat%23bsky_chat',

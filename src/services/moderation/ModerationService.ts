@@ -7,6 +7,7 @@
 import { logger } from '../../utils/logger';
 import { queryClient } from '../../utils/query/queryClient';
 import { queryKeys } from '../../utils/query/queryKeys';
+import { isMissingScopeError } from '../../utils/errors/oauth';
 import {
   AppBskyActorDefs,
   type Agent,
@@ -30,10 +31,22 @@ export class ModerationService {
     if (!agent) return null;
     try {
       const prefs = await agent.getPreferences();
-      const labelDefs = await agent.getLabelDefinitions(prefs.moderationPrefs);
+      let labelDefs: Record<string, import('@atproto/api').InterpretedLabelValueDefinition[]> = {};
+      try {
+        labelDefs = await agent.getLabelDefinitions(prefs.moderationPrefs);
+      } catch (labelError) {
+        if (!isMissingScopeError(labelError)) {
+          logger.error('Failed to fetch label definitions', labelError, {
+            component: 'ModerationService',
+          });
+        }
+        // Degrade gracefully: return prefs without label definitions rather than
+        // failing entirely. Under modern scopes (no transition:generic), fetching
+        // definitions for dynamically subscribed labelers may not be possible.
+      }
       return { moderationPrefs: prefs.moderationPrefs, labelDefs };
     } catch (error) {
-      logger.error('Failed to fetch moderation prefs and label defs', error, {
+      logger.error('Failed to fetch moderation prefs', error, {
         component: 'ModerationService',
       });
       return null;
@@ -200,12 +213,28 @@ export class ModerationService {
         const { useUserStore } = await import('../../stores/userStore');
         const agent = useUserStore.getState().agent;
         if (!agent) return false;
-        const client = agent.withProxy('atproto_labeler', labelerDid);
-        await client.createModerationReport({
-          reasonType: fullReasonType,
-          subject: subjectPayload,
-          reason,
-        });
+        try {
+          const client = agent.withProxy('atproto_labeler', labelerDid);
+          await client.createModerationReport({
+            reasonType: fullReasonType,
+            subject: subjectPayload,
+            reason,
+          });
+        } catch (proxyError: unknown) {
+          if (isMissingScopeError(proxyError)) {
+            // Under modern scopes (no transition:generic), the labeler DID is not
+            // in the token's audience. Fall back to reporting through the PDS's
+            // own moderation endpoint so the report still reaches Bluesky moderation.
+            const { api } = await AtprotoCore.getApiClient();
+            await api.com.atproto.moderation.createReport({
+              reasonType: fullReasonType,
+              subject: subjectPayload,
+              reason,
+            });
+          } else {
+            throw proxyError;
+          }
+        }
       } else {
         const { api } = await AtprotoCore.getApiClient();
         await api.com.atproto.moderation.createReport({
