@@ -5,6 +5,8 @@
  * Use useMeasuredFooterHeight() so list content isn't cut off—no manual magic numbers.
  */
 
+export { voidTrueSheet } from './voidTrueSheet';
+
 export { KeyboardAwareFooter } from './KeyboardAwareFooter';
 export { useMeasuredFooterHeight } from './useMeasuredFooterHeight';
 export {

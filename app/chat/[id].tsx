@@ -37,7 +37,7 @@ import { Link, useRouter, useLocalSearchParams, useFocusEffect } from 'expo-rout
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { AppTrueSheet, SHEET_STYLES } from '@/utils/components/truesheet';
+import { AppTrueSheet, SHEET_STYLES, voidTrueSheet } from '@/utils/components/truesheet';
 import CommentInputFooter from '@/components/features/comments/CommentInputFooter';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
@@ -937,10 +937,18 @@ function MessageActionsSheet({
 
   useEffect(() => {
     if (!visible || !messageId) {
-      TrueSheet.dismiss(CHAT_MESSAGE_ACTIONS_SHEET_NAME).catch(() => {});
+      voidTrueSheet(
+        'dismiss',
+        CHAT_MESSAGE_ACTIONS_SHEET_NAME,
+        TrueSheet.dismiss(CHAT_MESSAGE_ACTIONS_SHEET_NAME)
+      );
       return;
     }
-    TrueSheet.present(CHAT_MESSAGE_ACTIONS_SHEET_NAME).catch(() => {});
+    voidTrueSheet(
+      'present',
+      CHAT_MESSAGE_ACTIONS_SHEET_NAME,
+      TrueSheet.present(CHAT_MESSAGE_ACTIONS_SHEET_NAME)
+    );
   }, [visible, messageId]);
 
   const dismissAfter = useCallback(
@@ -948,8 +956,8 @@ function MessageActionsSheet({
       fn();
       try {
         await TrueSheet.dismiss(CHAT_MESSAGE_ACTIONS_SHEET_NAME);
-      } catch {
-        // ignore
+      } catch (err) {
+        voidTrueSheet('dismiss', CHAT_MESSAGE_ACTIONS_SHEET_NAME, Promise.reject(err));
       }
       onDismiss();
     },
@@ -1347,8 +1355,10 @@ export default function ChatScreen() {
     visible: messageActionsSheetVisible,
   } = useMessageActionsSheet();
   const closePickerRef = useRef(reactionPicker.closePicker);
+  // eslint-disable-next-line react-hooks/refs
   closePickerRef.current = reactionPicker.closePicker;
   const closeMessageActionsRef = useRef(closeMessageActionsSheet);
+  // eslint-disable-next-line react-hooks/refs
   closeMessageActionsRef.current = closeMessageActionsSheet;
 
   const isInConvo = !!convo;
@@ -1669,9 +1679,11 @@ export default function ChatScreen() {
     return items;
   }, [messagesData]);
 
+  // eslint-disable-next-line react-hooks/refs
   if (convoId != null && convoId !== previousConvoIdRef.current) {
     previousConvoIdRef.current = convoId;
     // Animate only when we're actually loading (no cache); if we have data already, skip
+    // eslint-disable-next-line react-hooks/refs
     shouldAnimateEnteringRef.current =
       messagesLoading || (messagesData?.messages?.length ?? 0) === 0;
   }
@@ -1916,6 +1928,7 @@ export default function ChatScreen() {
     ]);
   }, [otherDid, reportConversation, t]);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const handleBlockToggle = useCallback(() => {
     const did = profile?.did ?? otherDid ?? '';
     if (!did) return;
@@ -2136,7 +2149,11 @@ export default function ChatScreen() {
             accessibilityRole="button"
             accessibilityLabel={t('a11y.chatOptions')}
             onPress={() => {
-              TrueSheet.present(CHAT_HEADER_MENU_SHEET_NAME).catch(() => {});
+              voidTrueSheet(
+                'present',
+                CHAT_HEADER_MENU_SHEET_NAME,
+                TrueSheet.present(CHAT_HEADER_MENU_SHEET_NAME)
+              );
             }}
           >
             <MoreFillIcon size={24} color={Colors.neutral[50]} />
@@ -2181,7 +2198,11 @@ export default function ChatScreen() {
           <VerticalListButton
             label={t('chat.goToProfile')}
             onPress={() => {
-              TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME).catch(() => {});
+              voidTrueSheet(
+                'dismiss',
+                CHAT_HEADER_MENU_SHEET_NAME,
+                TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME)
+              );
               handleViewProfile();
             }}
           />
@@ -2189,7 +2210,11 @@ export default function ChatScreen() {
         <VerticalListButton
           label={isConvoMuted ? t('chat.unmute') : t('chat.muteConversation')}
           onPress={() => {
-            TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME).catch(() => {});
+            voidTrueSheet(
+              'dismiss',
+              CHAT_HEADER_MENU_SHEET_NAME,
+              TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME)
+            );
             handleMuteToggle();
           }}
           disabled={muteConvoMutation.isPending}
@@ -2197,7 +2222,11 @@ export default function ChatScreen() {
         <VerticalListButton
           label={isBlocked ? t('chat.unblockAccount') : t('chat.blockAccount')}
           onPress={() => {
-            TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME).catch(() => {});
+            voidTrueSheet(
+              'dismiss',
+              CHAT_HEADER_MENU_SHEET_NAME,
+              TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME)
+            );
             handleBlockToggle();
           }}
           disabled={blockMutation.isPending || isBlockedByList}
@@ -2205,7 +2234,11 @@ export default function ChatScreen() {
         <VerticalListButton
           label={t('chat.reportConversation')}
           onPress={() => {
-            TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME).catch(() => {});
+            voidTrueSheet(
+              'dismiss',
+              CHAT_HEADER_MENU_SHEET_NAME,
+              TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME)
+            );
             handleReportConversation();
           }}
           disabled={isReportSubmitting}
@@ -2214,7 +2247,11 @@ export default function ChatScreen() {
           label={t('chat.leaveConversation')}
           danger
           onPress={() => {
-            TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME).catch(() => {});
+            voidTrueSheet(
+              'dismiss',
+              CHAT_HEADER_MENU_SHEET_NAME,
+              TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME)
+            );
             handleLeaveConvo();
           }}
           disabled={leaveConvoMutation.isPending}
@@ -2227,7 +2264,11 @@ export default function ChatScreen() {
           <VerticalListButton
             label={isBlocked ? t('chat.unblockAccount') : t('chat.blockAccount')}
             onPress={() => {
-              TrueSheet.dismiss('chat-report-or-block');
+              voidTrueSheet(
+                'dismiss',
+                'chat-report-or-block',
+                TrueSheet.dismiss('chat-report-or-block')
+              );
               handleBlockToggle();
             }}
             disabled={blockMutation.isPending || isBlockedByList}
@@ -2235,7 +2276,11 @@ export default function ChatScreen() {
           <VerticalListButton
             label={t('chat.reportConversation')}
             onPress={() => {
-              TrueSheet.dismiss('chat-report-or-block');
+              voidTrueSheet(
+                'dismiss',
+                'chat-report-or-block',
+                TrueSheet.dismiss('chat-report-or-block')
+              );
               handleReportConversation();
             }}
             disabled={isReportSubmitting}
@@ -2297,7 +2342,13 @@ export default function ChatScreen() {
               <View style={styles.acceptBarOptionButtonWrap}>
                 <OptionsButton
                   label={t('chat.reportOrBlock')}
-                  onPress={() => TrueSheet.present('chat-report-or-block')}
+                  onPress={() =>
+                    voidTrueSheet(
+                      'present',
+                      'chat-report-or-block',
+                      TrueSheet.present('chat-report-or-block')
+                    )
+                  }
                   disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
                   destructive
                   linkType="none"

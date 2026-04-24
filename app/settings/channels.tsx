@@ -15,7 +15,7 @@ import VerticalListSheet, {
   VerticalListButton,
   TrueSheet,
 } from '@/components/ui/VerticalListSheet';
-import { SHEET_STYLES } from '@/utils/components/truesheet';
+import { SHEET_STYLES, voidTrueSheet } from '@/utils/components/truesheet';
 import {
   isOrbytChannel,
   getChannelByUri,
@@ -94,12 +94,20 @@ export default function ChannelManagementScreen() {
 
   const handleChannelPress = useCallback((channel: ChannelUser) => {
     setSelectedChannel(channel);
-    TrueSheet.present('settings-channels-sheet');
+    voidTrueSheet(
+      'present',
+      'settings-channels-sheet',
+      TrueSheet.present('settings-channels-sheet')
+    );
   }, []);
 
   const handleViewChannel = useCallback(() => {
     if (selectedChannel?.uri) {
-      TrueSheet.dismiss('settings-channels-sheet');
+      voidTrueSheet(
+        'dismiss',
+        'settings-channels-sheet',
+        TrueSheet.dismiss('settings-channels-sheet')
+      );
       setSelectedChannel(null);
       goToChannel(encodeURIComponent(selectedChannel.uri));
     }
@@ -120,7 +128,11 @@ export default function ChannelManagementScreen() {
           onPress: async () => {
             try {
               await unsubscribeFromChannel(selectedChannel.uri!);
-              TrueSheet.dismiss('settings-channels-sheet');
+              voidTrueSheet(
+                'dismiss',
+                'settings-channels-sheet',
+                TrueSheet.dismiss('settings-channels-sheet')
+              );
               setSelectedChannel(null);
             } catch (error) {
               logger.error('Error unsubscribing from channel', error, {

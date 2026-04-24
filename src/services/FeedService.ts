@@ -53,8 +53,6 @@ const FEED_CONFIG = {
   maxPostsPerFetch: QUERY_CONSTANTS.FEED_PAGE_DEFAULT,
   maxSubscribedChannels: 50,
   defaultLimit: QUERY_CONSTANTS.FEED_PAGE_DEFAULT,
-  staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
-  cacheTime: 60 * 60 * 1000, // 60 minutes - increased to reduce unnecessary refetching
 } as const;
 
 /**

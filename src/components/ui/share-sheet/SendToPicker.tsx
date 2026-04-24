@@ -23,6 +23,7 @@ import {
   DEFAULT_CONTENT_PADDING_HORIZONTAL,
   useMeasuredFooterHeight,
   SHEET_SPACING,
+  voidTrueSheet,
 } from '../../../utils/components/truesheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
@@ -174,10 +175,10 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   useEffect(() => {
     if (visible) {
       if (!isSheetPresented) {
-        TrueSheet.present(SHEET_NAME).catch(() => {});
+        voidTrueSheet('present', SHEET_NAME, TrueSheet.present(SHEET_NAME));
       }
     } else if (isSheetPresented) {
-      TrueSheet.dismiss(SHEET_NAME).catch(() => {});
+      voidTrueSheet('dismiss', SHEET_NAME, TrueSheet.dismiss(SHEET_NAME));
     }
   }, [visible, isSheetPresented]);
 

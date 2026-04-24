@@ -22,7 +22,7 @@ export const DEFAULT_GRABBER_OPTIONS: GrabberOptions = {
   adaptive: false,
 };
 
-/** Default props for most app sheets (neutral surface, grabber, auto height, manual safe-area). */
+/** Default props for most app sheets. Keep manual insets to avoid footer/composer overlap. */
 export const DEFAULT_SHEET_PROPS: Pick<
   TrueSheetProps,
   'backgroundColor' | 'grabber' | 'grabberOptions' | 'detents' | 'insetAdjustment'

@@ -11,6 +11,7 @@ import {
   useMeasuredFooterHeight,
   getFooterBottomPadding,
   SHEET_STYLES,
+  voidTrueSheet,
 } from '../../../utils/components/truesheet';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
@@ -47,7 +48,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
   useSheetPresentation(visible, 'live-stream-info-sheet');
 
   const handleClosePress = useCallback(() => {
-    TrueSheet.dismiss('live-stream-info-sheet').catch(() => {});
+    voidTrueSheet('dismiss', 'live-stream-info-sheet', TrueSheet.dismiss('live-stream-info-sheet'));
   }, []);
 
   const handleOpenLink = useCallback(async (url: string) => {

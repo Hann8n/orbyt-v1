@@ -27,7 +27,11 @@ import { navigateToProfileImageViewer } from '@/utils/navigation/profileImageVie
 
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import type { TrueSheet as TrueSheetHandle } from '@lodev09/react-native-true-sheet';
-import { AppTrueSheet, useMeasuredFooterHeight } from '../../../utils/components/truesheet';
+import {
+  AppTrueSheet,
+  useMeasuredFooterHeight,
+  voidTrueSheet,
+} from '../../../utils/components/truesheet';
 
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { queryKeys } from '../../../utils/query/queryKeys';
@@ -1002,6 +1006,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   );
 
   const handleCommentDeleted = useCallback(
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     (wasReply?: boolean) => {
       if (wasReply) return;
       setDisplayedTotalComments(prev => {
@@ -1056,10 +1061,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     const postUri = post?.uri ?? null;
     if (visible && post && postUri) {
       if (presentedPostUri !== postUri) {
-        TrueSheet.present('comment-section').catch(() => {});
+        voidTrueSheet('present', 'comment-section', TrueSheet.present('comment-section'));
       }
     } else if (presentedPostUri !== null) {
-      TrueSheet.dismiss('comment-section').catch(() => {});
+      voidTrueSheet('dismiss', 'comment-section', TrueSheet.dismiss('comment-section'));
     }
   }, [visible, post, post?.uri, presentedPostUri]);
 

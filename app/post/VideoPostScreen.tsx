@@ -62,7 +62,7 @@ import VerticalListSheet, {
   VerticalListButton,
   TrueSheet,
 } from '@/components/ui/VerticalListSheet';
-import { SHEET_STYLES } from '@/utils/components/truesheet';
+import { SHEET_STYLES, voidTrueSheet } from '@/utils/components/truesheet';
 import { useRichTextSearchTrigger, RichTextSearchModal } from '@/components/ui/usersearch';
 import {
   useRichText,
@@ -1333,7 +1333,11 @@ const VideoPostScreen: React.FC = () => {
               label={t(filter.labelKey)}
               onPress={() => {
                 setCommentFilter(filter.id);
-                TrueSheet.dismiss('post-comment-settings-sheet');
+                voidTrueSheet(
+                  'dismiss',
+                  'post-comment-settings-sheet',
+                  TrueSheet.dismiss('post-comment-settings-sheet')
+                );
               }}
             />
           ))}
@@ -1354,7 +1358,11 @@ const VideoPostScreen: React.FC = () => {
             label={t('settings.none')}
             onPress={() => {
               setSelectedChannel(null);
-              TrueSheet.dismiss('post-channel-selection-sheet');
+              voidTrueSheet(
+                'dismiss',
+                'post-channel-selection-sheet',
+                TrueSheet.dismiss('post-channel-selection-sheet')
+              );
             }}
           />
           {getPostableChannels().map(channel => {
@@ -1368,7 +1376,11 @@ const VideoPostScreen: React.FC = () => {
                 style={styles.channelListButton}
                 onPress={() => {
                   setSelectedChannel(orbytChannelToSubscribedChannel(channel));
-                  TrueSheet.dismiss('post-channel-selection-sheet');
+                  voidTrueSheet(
+                    'dismiss',
+                    'post-channel-selection-sheet',
+                    TrueSheet.dismiss('post-channel-selection-sheet')
+                  );
                 }}
               >
                 <View style={styles.listButtonContent}>
@@ -1456,19 +1468,37 @@ const VideoPostScreen: React.FC = () => {
               />
               <ChannelSelector
                 selectedChannel={selectedChannel}
-                onPress={() => TrueSheet.present('post-channel-selection-sheet')}
+                onPress={() =>
+                  voidTrueSheet(
+                    'present',
+                    'post-channel-selection-sheet',
+                    TrueSheet.present('post-channel-selection-sheet')
+                  )
+                }
                 showRing={false}
               />
               <CommentFilterSelector
                 commentFilter={commentFilter}
                 getSelectedCommentFilterLabel={getSelectedCommentFilterLabel}
-                onPress={() => TrueSheet.present('post-comment-settings-sheet')}
+                onPress={() =>
+                  voidTrueSheet(
+                    'present',
+                    'post-comment-settings-sheet',
+                    TrueSheet.present('post-comment-settings-sheet')
+                  )
+                }
               />
               <ContentWarningSelector
                 selectedContentWarnings={selectedContentWarnings}
                 otherWarning={otherWarning}
                 getSelectedContentWarningsLabel={getSelectedContentWarningsLabel}
-                onPress={() => TrueSheet.present('post-content-warnings-sheet')}
+                onPress={() =>
+                  voidTrueSheet(
+                    'present',
+                    'post-content-warnings-sheet',
+                    TrueSheet.present('post-content-warnings-sheet')
+                  )
+                }
               />
               <View
                 style={[
@@ -1552,21 +1582,39 @@ const VideoPostScreen: React.FC = () => {
 
           <ChannelSelector
             selectedChannel={selectedChannel}
-            onPress={() => TrueSheet.present('post-channel-selection-sheet')}
+            onPress={() =>
+              voidTrueSheet(
+                'present',
+                'post-channel-selection-sheet',
+                TrueSheet.present('post-channel-selection-sheet')
+              )
+            }
             showRing={false}
           />
 
           <CommentFilterSelector
             commentFilter={commentFilter}
             getSelectedCommentFilterLabel={getSelectedCommentFilterLabel}
-            onPress={() => TrueSheet.present('post-comment-settings-sheet')}
+            onPress={() =>
+              voidTrueSheet(
+                'present',
+                'post-comment-settings-sheet',
+                TrueSheet.present('post-comment-settings-sheet')
+              )
+            }
           />
 
           <ContentWarningSelector
             selectedContentWarnings={selectedContentWarnings}
             otherWarning={otherWarning}
             getSelectedContentWarningsLabel={getSelectedContentWarningsLabel}
-            onPress={() => TrueSheet.present('post-content-warnings-sheet')}
+            onPress={() =>
+              voidTrueSheet(
+                'present',
+                'post-content-warnings-sheet',
+                TrueSheet.present('post-content-warnings-sheet')
+              )
+            }
           />
         </Animated.ScrollView>
       </View>

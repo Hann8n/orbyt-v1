@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/preserve-manual-memoization */
 import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
@@ -16,6 +17,7 @@ import {
   getFooterBottomPadding,
   SHEET_SPACING,
   SHEET_STYLES,
+  voidTrueSheet,
 } from '../../../utils/components/truesheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../Icon';
@@ -59,10 +61,10 @@ const ShareSheet: React.FC = () => {
   useEffect(() => {
     if (data) {
       if (!isSheetPresented) {
-        TrueSheet.present('share-sheet').catch(() => {});
+        voidTrueSheet('present', 'share-sheet', TrueSheet.present('share-sheet'));
       }
     } else if (isSheetPresented) {
-      TrueSheet.dismiss('share-sheet').catch(() => {});
+      voidTrueSheet('dismiss', 'share-sheet', TrueSheet.dismiss('share-sheet'));
     }
   }, [data, isSheetPresented]);
 
@@ -87,7 +89,7 @@ const ShareSheet: React.FC = () => {
   // Programmatic dismiss function for buttons
   const dismissSheet = useCallback(() => {
     // Let TrueSheet handle dismissal; onDidDismiss (handleDismiss) clears store state
-    TrueSheet.dismiss('share-sheet').catch(() => {});
+    voidTrueSheet('dismiss', 'share-sheet', TrueSheet.dismiss('share-sheet'));
   }, []);
 
   // Bookmark handler - instant optimistic update

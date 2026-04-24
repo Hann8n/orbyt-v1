@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { voidTrueSheet } from '../utils/components/truesheet';
 import { registerSheet, unregisterSheet } from '../utils/navigation';
 
 /**
@@ -26,7 +27,7 @@ export function useSheetPresentation(visible: boolean, name: string): void {
       hasMountedRef.current = true;
       wasVisibleRef.current = visible;
       if (visible) {
-        TrueSheet.present(name).catch(() => {});
+        voidTrueSheet('present', name, TrueSheet.present(name));
       }
       // When hidden on first mount, do not call dismiss — the native TrueSheet may not
       // exist yet (avoids "Could not find TrueSheet instance" warnings).
@@ -34,9 +35,9 @@ export function useSheetPresentation(visible: boolean, name: string): void {
     }
 
     if (visible && !wasVisibleRef.current) {
-      TrueSheet.present(name).catch(() => {});
+      voidTrueSheet('present', name, TrueSheet.present(name));
     } else if (!visible && wasVisibleRef.current) {
-      TrueSheet.dismiss(name).catch(() => {});
+      voidTrueSheet('dismiss', name, TrueSheet.dismiss(name));
     }
 
     wasVisibleRef.current = visible;
@@ -46,7 +47,7 @@ export function useSheetPresentation(visible: boolean, name: string): void {
     () => () => {
       // Only dismiss if we ever presented — avoids spurious warnings when hidden sheets unmount.
       if (wasVisibleRef.current) {
-        TrueSheet.dismiss(name).catch(() => {});
+        voidTrueSheet('dismiss', name, TrueSheet.dismiss(name));
       }
     },
     [name]
@@ -55,10 +56,10 @@ export function useSheetPresentation(visible: boolean, name: string): void {
   useEffect(() => {
     registerSheet(name, {
       present: () => {
-        TrueSheet.present(name).catch(() => {});
+        voidTrueSheet('present', name, TrueSheet.present(name));
       },
       dismiss: () => {
-        TrueSheet.dismiss(name).catch(() => {});
+        voidTrueSheet('dismiss', name, TrueSheet.dismiss(name));
       },
     });
 

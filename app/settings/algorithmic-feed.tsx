@@ -20,7 +20,11 @@ import VerticalListSheet, {
   VerticalListButton,
   TrueSheet,
 } from '@/components/ui/VerticalListSheet';
-import { SHEET_STYLES, SHEET_VERTICAL_LIST_ROW_OUTER } from '@/utils/components/truesheet';
+import {
+  SHEET_STYLES,
+  SHEET_VERTICAL_LIST_ROW_OUTER,
+  voidTrueSheet,
+} from '@/utils/components/truesheet';
 import {
   isOrbytChannel,
   getChannelByUri,
@@ -190,12 +194,20 @@ const AlgorithmicFeedScreen: React.FC = () => {
 
   const handleChannelPress = useCallback((channel: ChannelUser) => {
     setSelectedChannel(channel);
-    TrueSheet.present('algorithmic-feed-channel-options');
+    voidTrueSheet(
+      'present',
+      'algorithmic-feed-channel-options',
+      TrueSheet.present('algorithmic-feed-channel-options')
+    );
   }, []);
 
   const handleViewChannel = useCallback(() => {
     if (selectedChannel?.uri) {
-      TrueSheet.dismiss('algorithmic-feed-channel-options');
+      voidTrueSheet(
+        'dismiss',
+        'algorithmic-feed-channel-options',
+        TrueSheet.dismiss('algorithmic-feed-channel-options')
+      );
       setSelectedChannel(null);
       router.dismissTo(buildChannelDetailHref(encodeURIComponent(selectedChannel.uri), hrefOpts));
     }
@@ -220,7 +232,11 @@ const AlgorithmicFeedScreen: React.FC = () => {
           onPress: async () => {
             try {
               await unsubscribeFromChannel(selectedChannel.uri!);
-              TrueSheet.dismiss('algorithmic-feed-channel-options');
+              voidTrueSheet(
+                'dismiss',
+                'algorithmic-feed-channel-options',
+                TrueSheet.dismiss('algorithmic-feed-channel-options')
+              );
               setSelectedChannel(null);
             } catch (error) {
               logger.error('Error unsubscribing from channel', error, {
