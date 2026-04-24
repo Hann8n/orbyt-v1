@@ -59,13 +59,11 @@ import VideoCardOverlayLayers from './video-card/VideoCardOverlayLayers';
 import { seenVideoService } from '../../../services/SeenVideoService';
 import { useUserStore } from '../../../stores/userStore';
 import { useShallow } from 'zustand/react/shallow';
-import { ErrorHandler } from '../../../utils/errors/errorHandler';
 import { logger } from '../../../utils/logger';
 import { useLikeInteraction } from '@/hooks/useLikeInteraction';
 import type { VideoOverlayUIProps } from './VideoOverlayUI';
 import type { ExtendedPostView, ExtendedFeedViewPost } from '../../../services/api/types';
-import { INTERACTIONSEEN as INTERACTIONSEEN_CONST } from '../../../services/api/types';
-// Use proper API types - normalize to always work with ExtendedPostView
+import { INTERACTIONSEEN } from '../../../services/api/types';
 type Post = ExtendedPostView | ExtendedFeedViewPost;
 
 /** Max ms between two taps to count as double-tap (like). Single-tap plays/pauses after this window. */
@@ -143,25 +141,16 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     ref
   ) => {
     const { t } = useTranslation();
-    // Access feedContext and reqId from feedItem (native properties from FeedViewPost)
     const feedContext = feedItem?.feedContext;
     const reqId = feedItem?.reqId;
     const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
-    const feedUri = useMemo(
-      () => (feedOption && feedOption.startsWith('at://') ? feedOption : undefined),
-      [feedOption]
-    );
-    const fallbackFeedUri = useMemo(
-      () =>
-        algorithmicFeedProvider && algorithmicFeedProvider.startsWith('at://')
-          ? algorithmicFeedProvider
-          : undefined,
-      [algorithmicFeedProvider]
-    );
-    const resolvedFeedUri = feedUri ?? fallbackFeedUri;
+    const resolvedFeedUri = useMemo(() => {
+      if (feedOption?.startsWith('at://')) return feedOption;
+      if (algorithmicFeedProvider?.startsWith('at://')) return algorithmicFeedProvider;
+      return undefined;
+    }, [feedOption, algorithmicFeedProvider]);
     const presentCommentSection = useModalStore(state => state.presentCommentSection);
 
-    // Normalize post - extract ExtendedPostView from ExtendedFeedViewPost if needed
     const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
 
     const idx = index ?? 0;
@@ -213,17 +202,11 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       [defaultInteraction, postInteractionDelta]
     );
 
-    // Enhanced video state management with automatic recycling
-    // Scope by post URI + feedOption so playback state doesn't leak across different feeds
-    // Only track userPaused - derive hasError directly from playerStatus to avoid duplication
-    const [videoState, setVideoState] = useRecyclingState(
-      {
-        userPaused: false,
-      },
-      [postView.uri, feedOption]
-    ); // Auto-resets when post.uri or feed context changes
+    const [videoState, setVideoState] = useRecyclingState({ userPaused: false }, [
+      postView.uri,
+      feedOption,
+    ]);
 
-    // Overlay state - using recycling state for automatic reset, but initialize from store
     const [overlayState, setOverlayState] = useRecyclingState(
       {
         isLikePending: false,
@@ -231,9 +214,8 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         ...persistedInteraction,
       },
       [postView.uri, feedOption]
-    ); // Auto-resets when post.uri or feed context changes
+    );
 
-    // Merge persisted counts with any in-flight optimistic updates from overlayState.
     // Depend on specific fields — not the full overlayState object — so an unrelated
     // setOverlayState (e.g. isRepostPending: false) doesn't invalidate this memo.
     const displayInteraction = useMemo(() => {
@@ -282,7 +264,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       [displayInteraction, overlayState.isLikePending, overlayState.isRepostPending]
     );
 
-    // Author meta — inlined from deleted useVideoCardAuthorMeta hook
     const { data: cachedProfile } = useProfile(postView.author?.handle);
     const authorDid = cachedProfile?.did || postView.author?.did;
     const storeIsFollowing = useFollowStore(state =>
@@ -332,7 +313,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const currentUser = useUserStore(state => state.currentUser);
     const queryClient = useQueryClient();
 
-    // Keep a ref in sync with userPaused so useFocusEffect doesn't re-register on every pause toggle.
     const userPausedRef = useRef(videoState.userPaused);
     userPausedRef.current = videoState.userPaused;
 
@@ -377,13 +357,14 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const { height: windowHeight } = useWindowDimensions();
     const cardHeight = height ?? windowHeight;
 
-    // HLS-only source creation
+    // HLS-only source creation. Source is held for active + immediate neighbors
+    // (renderHeavyChrome covers ±1 from activeIndex) so swiping to the next card
+    // finds a preloaded stream. Far-off cards get null to avoid concurrent AVPlayer
+    // manifest requests (NSURLErrorDomain -1008 / -12884).
     const videoSource = useMemo(() => createVideoSource(videoUrl), [videoUrl]);
+    const activeSource = isVisible || renderHeavyChrome ? videoSource : null;
 
-    // Create expo-video player with setup callback
-    // expo-video's useVideoPlayer automatically handles player lifecycle and cleanup
-    // It reuses players efficiently when components are recycled by FlashList
-    const player = useVideoPlayer(videoSource, player => {
+    const player = useVideoPlayer(activeSource, player => {
       player.loop = true;
       player.muted = false;
       player.timeUpdateEventInterval = 0; // Disabled by default; scrubber enables 4fps when active
@@ -396,11 +377,8 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     });
     const playerStatus = playerStatusEvent?.status ?? 'idle';
 
-    // Derive error state directly from playerStatus (no need to duplicate in state)
     const hasError = playerStatus === 'error';
 
-    // Simplified content warning state (warn: opt-in to view; hide: no opt-in).
-    // useRecyclingState resets when post changes, so no extra useEffect needed.
     const [userChoseToView, setUserChoseToView] = useRecyclingState(false, [postView.uri]);
 
     // Keep poster visible until both first frame and ambient backdrop are ready.
@@ -420,6 +398,15 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const handleVideoAmbientBackdropReady = useCallback(() => {
       setVideoAmbientBackdropReady(true);
     }, [setVideoAmbientBackdropReady]);
+
+    // Reset poster readiness when the card leaves the viewport so the poster
+    // shows again while the preloaded stream renders its first frame on return.
+    useEffect(() => {
+      if (!isVisible) {
+        setFirstFrameRendered(false);
+        setVideoAmbientBackdropReady(false);
+      }
+    }, [isVisible, setFirstFrameRendered, setVideoAmbientBackdropReady]);
 
     const { cannotShowMedia, isBlurred, warningDescription, handleViewContent } =
       useVideoCardModerationState(postView, feedItem, userChoseToView, setUserChoseToView);
@@ -446,7 +433,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       heartPositionY.value = 0;
     }, [postView.uri, heartScale, heartOpacity, heartPositionX, heartPositionY]);
 
-    // Isolated video playback logic - only depends on this video's state
     const shouldPlayVideo = computeShouldPlayVideo({
       cannotShowMedia,
       isBlurred,
@@ -492,15 +478,10 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     // when no thumbnail has loaded yet (FlashList/expo-image recycling). Same fix as GridFeedView.
     const recyclingKey = postView?.uri || postView?.cid || `item-${index ?? 0}`;
 
-    // Simplified video playback control functions
     const togglePlayback = useCallback(
       (shouldPlay?: boolean) => {
         if (cannotShowMedia || isBlurred || shouldDisablePlayback) return;
-
-        // Guard against toggling when an error has occurred
-        if (hasError) {
-          return;
-        }
+        if (hasError) return;
 
         setVideoState(prev => {
           const nextPaused = shouldPlay !== undefined ? !shouldPlay : !prev.userPaused;
@@ -600,52 +581,27 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       prevIsVisibleRef.current = isVisible;
     }, [shouldDisablePlayback, isVisible, hasError, videoState.userPaused, setVideoState]);
 
-    // On error: retry once with a fresh HLS URL (re-fetch post then replace source)
-    const errorRetriedForUriRef = useRef<string | null>(null);
-
     // Handle player status changes for callbacks only
     useEffect(() => {
       if (!player) return;
-
-      let cancelled = false;
-      const bailIfStale = () => {
-        if (!cancelled) return false;
-        errorRetriedForUriRef.current = null;
-        return true;
-      };
-
       if (playerStatus === 'readyToPlay') {
         onVideoStatus?.(postView.uri, 'loaded');
       } else if (playerStatus === 'loading') {
         onVideoStatus?.(postView.uri, 'loading');
       } else if (playerStatus === 'error') {
-        if (errorRetriedForUriRef.current !== postView.uri) {
-          errorRetriedForUriRef.current = postView.uri;
-          ErrorHandler.safeAsync(async () => {
-            const post = await AtprotoFeedService.getPost(postView.uri);
-            if (bailIfStale()) return;
-            const vv = post ? getVideoView(post.embed) : null;
-            const newSource = createVideoSource(vv?.playlist ?? null);
-            if (!newSource) {
-              errorRetriedForUriRef.current = null; // allow retry if getPost returns no source
-              return;
-            }
-            if (bailIfStale()) return;
-            try {
-              await player.replaceAsync(newSource);
-            } catch (err) {
-              logVideoCardPlayerError('replaceAsync', err);
-              errorRetriedForUriRef.current = null;
-            }
-          }, 'VideoCard: retry replaceAsync after error');
-        }
         onVideoStatus?.(postView.uri, 'error');
       }
-
-      return () => {
-        cancelled = true;
-      };
     }, [playerStatus, player, postView.uri, onVideoStatus]);
+
+    // Retry whenever the player is in error state and the card is visible.
+    // Visibility cycling (background → foreground, or scroll away → back) re-runs
+    // this effect naturally, so each foreground return gets one retry attempt.
+    useEffect(() => {
+      if (!hasError || !isVisible || !videoSource || !player) return;
+      player.replaceAsync(videoSource).catch(err => {
+        logVideoCardPlayerError('replaceAsync retry', err);
+      });
+    }, [hasError, isVisible, videoSource, player]);
 
     useEffect(() => {
       if (!player) return;
@@ -670,69 +626,37 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       }
     );
 
-    // Simplified overlay interaction handlers
     const handleLike = useCallback(async () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await toggleLikeInteraction();
     }, [toggleLikeInteraction]);
 
-    // Like-only handler for double tap (doesn't unlike)
     const handleLikeOnly = useCallback(async () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await likeOnlyInteraction();
     }, [likeOnlyInteraction]);
 
-    // Double tap to like animation - runs on UI thread with Reanimated
     // Heartbeat pattern: quick beat, slight dip, second beat, then fade out
     const animateHeart = useCallback(
       (x: number, y: number) => {
-        // Cancel any ongoing animations
         heartScale.value = 0;
         heartOpacity.value = 0;
-
-        // Set position
         heartPositionX.value = x;
         heartPositionY.value = y;
 
-        // Start animation sequence - heartbeat pattern
         heartOpacity.value = 1;
         heartScale.value = withSequence(
-          // First heartbeat beat - quick and strong
-          withTiming(1.3, {
-            duration: 100,
-            easing: Easing.out(Easing.ease),
-          }),
-          // Quick dip below 1 for heartbeat feel
-          withTiming(0.95, {
-            duration: 80,
-            easing: Easing.in(Easing.ease),
-          }),
-          // Second heartbeat beat - slightly smaller
-          withTiming(1.15, {
-            duration: 100,
-            easing: Easing.out(Easing.ease),
-          }),
-          // Return to normal size
-          withTiming(1, {
-            duration: 120,
-            easing: Easing.inOut(Easing.ease),
-          })
+          withTiming(1.3, { duration: 100, easing: Easing.out(Easing.ease) }),
+          withTiming(0.95, { duration: 80, easing: Easing.in(Easing.ease) }),
+          withTiming(1.15, { duration: 100, easing: Easing.out(Easing.ease) }),
+          withTiming(1, { duration: 120, easing: Easing.inOut(Easing.ease) })
         );
 
-        // Fade out after the heartbeat sequence completes
         heartOpacity.value = withDelay(
-          400, // Wait for heartbeat to complete (~400ms total)
-          withTiming(
-            0,
-            {
-              duration: 300,
-              easing: Easing.out(Easing.ease),
-            },
-            () => {
-              // Reset values after animation completes
-              heartScale.value = 0;
-            }
-          )
+          400, // wait for ~400ms heartbeat sequence to finish
+          withTiming(0, { duration: 300, easing: Easing.out(Easing.ease) }, () => {
+            heartScale.value = 0;
+          })
         );
       },
       [heartScale, heartOpacity, heartPositionX, heartPositionY]
@@ -743,7 +667,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const handleSingleTap = useCallback(
       (x: number, y: number) => {
         if (videoTapSingleTimerRef.current != null) {
-          // Second tap within window — double-tap like
           clearVideoTapSingleTimer();
           animateHeart(x, y);
           void handleLikeOnly();
@@ -954,7 +877,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     // Track interactionSeen and markAsSeen when video becomes visible
     useEffect(() => {
       if (isVisible) {
-        queueSeenInteractionOnce(INTERACTIONSEEN_CONST);
+        queueSeenInteractionOnce(INTERACTIONSEEN);
         seenVideoService.markAsSeen(postView.uri);
       }
     }, [isVisible, queueSeenInteractionOnce, postView.uri]);
