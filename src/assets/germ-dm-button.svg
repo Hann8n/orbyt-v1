@@ -28,6 +28,6 @@
     font-size="13"
     font-weight="600"
     fill="#ffffff"
-    dominant-baseline="middle"
+    dy="0.35em"
   >Message</text>
 </svg>
