@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedChannelDisplayNameFromSlug } from '../../../utils/channels/orbyt';
 import Animated, {
@@ -98,7 +98,7 @@ export interface VideoOverlayUIProps {
   };
 }
 
-const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
+function VideoOverlayUI({
   post,
   sourceFeed: _sourceFeed,
   overlayOpacitySV,
@@ -124,7 +124,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   onFollowPress,
   onHashtagPress,
   authorProfileOverlay,
-}) => {
+}: VideoOverlayUIProps) {
   const { t } = useTranslation();
   const {
     isAuthorBlocked = false,
@@ -634,7 +634,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       </Animated.View>
     </>
   );
-};
+}
 
 // Styles
 const styles = StyleSheet.create({
@@ -907,4 +907,4 @@ const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUI
   return true;
 };
 
-export default React.memo(VideoOverlayUI, arePropsEqual);
+export default memo(VideoOverlayUI, arePropsEqual);

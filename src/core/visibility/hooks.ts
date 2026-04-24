@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 
@@ -16,45 +16,15 @@ interface FeedVisibilityResult {
   canPlay: boolean;
 }
 
-const getTokenVisibilityScore = (token: ViewToken): number => {
-  const asRecord = token as ViewToken & {
-    percentVisible?: number;
-    visiblePercent?: number;
-    itemVisiblePercent?: number;
-    viewablePercent?: number;
-    coverage?: number;
-  };
-
-  return (
-    asRecord.percentVisible ??
-    asRecord.visiblePercent ??
-    asRecord.itemVisiblePercent ??
-    asRecord.viewablePercent ??
-    asRecord.coverage ??
-    (token.isViewable ? 0 : -1)
-  );
-};
-
-const selectMostVisibleToken = (viewableItems: ViewToken[]): ViewToken | undefined => {
-  let bestToken: (ViewToken & { index: number }) | undefined;
-  let bestScore = -1;
-
+const selectViewableToken = (
+  viewableItems: ViewToken[]
+): (ViewToken & { index: number }) | undefined => {
+  let best: (ViewToken & { index: number }) | undefined;
   for (const token of viewableItems) {
-    if (typeof token.index !== 'number') continue;
-    const candidate = token as ViewToken & { index: number };
-    const score = getTokenVisibilityScore(candidate);
-    if (score < 0) continue;
-    if (
-      !bestToken ||
-      score > bestScore ||
-      (score === bestScore && candidate.index < bestToken.index)
-    ) {
-      bestToken = candidate;
-      bestScore = score;
-    }
+    if (typeof token.index !== 'number' || !token.isViewable) continue;
+    if (!best || token.index < best.index) best = token as ViewToken & { index: number };
   }
-
-  return bestToken;
+  return best;
 };
 
 /**
@@ -65,24 +35,27 @@ export function useFeedVisibility({
   isActive,
   onActiveVisibleIndexChange,
 }: FeedVisibilityOptions): FeedVisibilityResult {
-  const [appState, setAppState] = useState(AppState.currentState);
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', setAppState);
-    return () => subscription.remove();
-  }, []);
-  const isForeground = appState === 'active';
+  const isForeground = useSyncExternalStore(
+    notify => {
+      const sub = AppState.addEventListener('change', () => notify());
+      return () => sub.remove();
+    },
+    () => AppState.currentState === 'active',
+    () => true
+  );
   const canPlay = isActive && isForeground;
-  const canPlayRef = useRef(canPlay);
-  const onActiveVisibleIndexChangeRef = useRef(onActiveVisibleIndexChange);
-  const lastEmittedIndexRef = useRef(-1);
 
+  const canPlayRef = useRef(canPlay);
   useEffect(() => {
     canPlayRef.current = canPlay;
   }, [canPlay]);
 
+  const onActiveVisibleIndexChangeRef = useRef(onActiveVisibleIndexChange);
   useEffect(() => {
     onActiveVisibleIndexChangeRef.current = onActiveVisibleIndexChange;
   }, [onActiveVisibleIndexChange]);
+
+  const lastEmittedIndexRef = useRef(-1);
 
   useEffect(() => {
     if (!canPlay) {
@@ -93,7 +66,7 @@ export function useFeedVisibility({
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       if (!canPlayRef.current) return;
-      const token = selectMostVisibleToken(viewableItems);
+      const token = selectViewableToken(viewableItems);
       const nextIndex = typeof token?.index === 'number' ? token.index : -1;
 
       if (nextIndex < 0) {

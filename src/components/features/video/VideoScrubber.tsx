@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, memo, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Text, StyleSheet, Platform } from 'react-native';
 import { Gesture, GestureDetector, type NativeGesture } from 'react-native-gesture-handler';
 import Animated, {
@@ -26,27 +26,25 @@ interface VideoScrubberProps {
   player?: VideoPlayer;
   seekingAnimationSV: SharedValue<number>;
   scrollGesture?: NativeGesture;
-  children?: React.ReactNode;
+  children?: ReactNode;
   /** Composed opacity from VideoCard (scroll overlap × scrubbing). */
   overlayOpacitySV: SharedValue<number>;
 }
 
-/**
- * iOS scrubber with Skia + gestures. Always mounted when the row shows a scrubber so the
- * track can fade with `overlayOpacitySV` while scrolling. `active` only gates player sync,
- * intervals, and touch handling — not the Skia track presence.
- */
-const VideoScrubberActive = ({
+const SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS = 0.1;
+const SCRUBBER_INTERPOLATION_DURATION_MS = 100;
+const SCRUBBER_BAR_HEIGHT = 3;
+const SCRUBBER_TOUCH_AREA_HEIGHT = 32;
+const SCRUBBER_TOTAL_HEIGHT = SCRUBBER_TOUCH_AREA_HEIGHT + SCRUBBER_BAR_HEIGHT;
+
+function VideoScrubberActive({
   active,
   player,
   seekingAnimationSV,
   scrollGesture,
   children,
   overlayOpacitySV,
-}: VideoScrubberProps) => {
-  const SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS = 0.1;
-  const SCRUBBER_INTERPOLATION_DURATION_MS = 100;
-
+}: VideoScrubberProps) {
   const deviceLayout = useDeviceLayout();
   const screenWidth = deviceLayout.screenWidth;
 
@@ -59,11 +57,6 @@ const VideoScrubberActive = ({
   const seekProgressSV = useSharedValue(0);
   const playerRef = useRef(player);
   const activeRef = useRef(active);
-
-  // Scrubber bar dimensions (from styles)
-  const scrubberBarHeight = 3; // Base bar height from styles.track
-  const scrubberTouchAreaHeight = 32; // Touchable area from styles.trackContainer.paddingTop
-  const scrubberTotalHeight = scrubberTouchAreaHeight + scrubberBarHeight; // Matches styles.trackContainer.height (34)
 
   // Track active state for visibility reset
   activeRef.current = active;
@@ -159,7 +152,7 @@ const VideoScrubberActive = ({
     });
 
     return () => sub.remove();
-  }, [player, active, isSeekingSV, currentTimeSV, SCRUBBER_INTERPOLATION_DURATION_MS]);
+  }, [player, active, isSeekingSV, currentTimeSV]);
 
   // Sync seekingAnimationSV to UI store using same threshold as overlay (0.2)
   useAnimatedReaction(
@@ -296,16 +289,20 @@ const VideoScrubberActive = ({
     disableScrubbingMode,
   ]);
 
-  // Optimize time style - add worklet directive for better performance
   const timeStyle = useAnimatedStyle(() => {
     const seekingValue = seekingAnimationSV.get();
-    // Fade in faster and fade out slower to avoid clash with overlay
-    // Use a threshold so time appears when seeking is active enough
     const threshold = 0.3;
-    const opacity = seekingValue < threshold ? 0 : (seekingValue - threshold) / (1 - threshold); // Scale from threshold to 1
+    const opacity = seekingValue < threshold ? 0 : (seekingValue - threshold) / (1 - threshold);
     return {
-      display: seekingValue === 0 ? 'none' : 'flex',
-      opacity: opacity,
+      position: 'absolute' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      zIndex: 20,
+      left: 0,
+      right: 0,
+      bottom: SCRUBBER_TOTAL_HEIGHT + 5,
+      display: seekingValue === 0 ? ('none' as const) : ('flex' as const),
+      opacity,
     };
   });
 
@@ -315,21 +312,21 @@ const VideoScrubberActive = ({
     if (duration === 0) return 0;
     const currentTime = isSeeking ? seekProgressSV.get() : currentTimeSV.get();
     return (currentTime / duration) * screenWidth;
-  }, [screenWidth, isSeekingSV, seekProgressSV, currentTimeSV, durationSV]);
+  });
 
   const barHeightSV = useDerivedValue(() => {
     const seekingAnim = seekingAnimationSV.get();
     return seekingAnim * 5 + 3;
-  }, [seekingAnimationSV]);
+  });
 
   const barOpacitySV = useDerivedValue(() => {
     const seekingAnim = seekingAnimationSV.get();
     return interpolate(seekingAnim, [0, 1], [0.72, 1]);
-  }, [seekingAnimationSV]);
+  });
 
   const trackHeightSV = useDerivedValue(() => {
     return seekingAnimationSV.get() * 5 + 3;
-  }, [seekingAnimationSV]);
+  });
 
   const trackY = useDerivedValue(() => 34 - trackHeightSV.value);
   const barY = useDerivedValue(() => 34 - barHeightSV.value);
@@ -348,25 +345,18 @@ const VideoScrubberActive = ({
     };
   }, [seekingAnimationSV, isSeekingSV, currentTimeSV, seekProgressSV]);
 
-  const childrenStyle = useAnimatedStyle(() => {
-    return {
-      opacity: 1 - seekingAnimationSV.get(),
-    };
-  });
+  const childrenContainerStyle = useAnimatedStyle(() => ({
+    opacity: overlayOpacitySV.value,
+  }));
 
-  const scrubberOpacityStyle = useAnimatedStyle(() => {
-    return {
-      opacity: overlayOpacitySV.value,
-    };
-  });
-
-  // Track container opacity - ensure it stays visible during scrubbing
-  const trackContainerOpacityStyle = useAnimatedStyle(() => {
+  const trackContainerStyle = useAnimatedStyle(() => {
     const seekingAnim = seekingAnimationSV.get();
     const containerOpacity = overlayOpacitySV.value;
-    // During scrubbing, ensure track/progress bar stays visible (min 0.95 opacity)
-    // Otherwise use container opacity
     return {
+      width: '100%' as const,
+      position: 'relative' as const,
+      paddingTop: 32,
+      height: 34,
       opacity: seekingAnim > 0 ? Math.max(containerOpacity, 0.95) : Math.max(containerOpacity, 0.1),
     };
   });
@@ -375,21 +365,11 @@ const VideoScrubberActive = ({
 
   return (
     <>
-      <Animated.View
-        style={[
-          styles.timeContainer,
-          styles.timeContainerPosition,
-          {
-            bottom: scrubberTotalHeight + 5, // Above scrubber track at bottom of card
-          },
-          timeStyle,
-        ]}
-        pointerEvents="none"
-      >
+      <Animated.View style={timeStyle} pointerEvents="none">
         <Text style={styles.timeText}>
           <Text style={styles.timeTextLarge}>{formatTime(currentSeekTime)}</Text>
           <Text style={styles.timeTextSeparator}>{'  /  '}</Text>
-          <Text style={[styles.timeTextLarge, styles.timeTextMuted]}>{formatTime(duration)}</Text>
+          <Text style={styles.timeTextDuration}>{formatTime(duration)}</Text>
         </Text>
       </Animated.View>
 
@@ -398,10 +378,7 @@ const VideoScrubberActive = ({
           style={styles.scrubberContainer}
           pointerEvents={active ? 'box-none' : 'none'}
         >
-          <Animated.View
-            style={[styles.trackContainer, trackContainerOpacityStyle]}
-            pointerEvents={active ? 'auto' : 'none'}
-          >
+          <Animated.View style={trackContainerStyle} pointerEvents={active ? 'auto' : 'none'}>
             <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
               <Rect
                 x={0}
@@ -421,22 +398,19 @@ const VideoScrubberActive = ({
               />
             </Canvas>
           </Animated.View>
-          <Animated.View style={[childrenStyle, scrubberOpacityStyle]}>{children}</Animated.View>
+          <Animated.View style={childrenContainerStyle}>{children}</Animated.View>
         </Animated.View>
       </GestureDetector>
     </>
   );
-};
-
-VideoScrubberActive.displayName = 'VideoScrubberActive';
+}
 
 function VideoScrubberShell(props: VideoScrubberProps) {
   if (Platform.OS !== 'ios') return null;
   return <VideoScrubberActive {...props} />;
 }
 
-// Memoize: avoid re-renders when unrelated parent props are stable.
-export const VideoScrubber = React.memo(VideoScrubberShell, (prevProps, nextProps) => {
+export const VideoScrubber = memo(VideoScrubberShell, (prevProps, nextProps) => {
   return (
     prevProps.active === nextProps.active &&
     prevProps.player === nextProps.player &&
@@ -448,16 +422,6 @@ export const VideoScrubber = React.memo(VideoScrubberShell, (prevProps, nextProp
 });
 
 const styles = StyleSheet.create({
-  timeContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 20, // Always on top - above overlay (zIndex: 5) and scrubber (zIndex: 10)
-  },
-  timeContainerPosition: {
-    left: 0,
-    right: 0,
-  },
   timeText: {
     textAlign: 'center',
     fontWeight: '600',
@@ -469,13 +433,16 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     fontFamily: FontFamily.semibold,
   },
+  timeTextDuration: {
+    fontSize: Typography.sizes.display,
+    fontVariant: ['tabular-nums'],
+    fontFamily: FontFamily.semibold,
+    opacity: 0.8,
+  },
   timeTextSeparator: {
     fontSize: Typography.sizes.title,
     opacity: 0.8,
     fontFamily: FontFamily.regular,
-  },
-  timeTextMuted: {
-    opacity: 0.8,
   },
   scrubberContainer: {
     position: 'absolute',
@@ -484,12 +451,5 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     zIndex: 10,
-  },
-  trackContainer: {
-    width: '100%',
-    position: 'relative',
-    paddingTop: 32, // Much larger touchable area above the bar for easier grabbing
-    paddingBottom: 0, // No padding below - bar at absolute bottom
-    height: 34, // Total height: 32px padding + 2px bar
   },
 });

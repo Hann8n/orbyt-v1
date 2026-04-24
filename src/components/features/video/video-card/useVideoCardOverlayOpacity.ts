@@ -30,15 +30,11 @@ export function useVideoCardOverlayOpacity({
     // Smoothstep(0..1): t*t*(3-2*t)
     const t = Math.max(0, Math.min(1, (abs - fadeStart) / fadeRange));
     return 1 - t * t * (3 - 2 * t);
-  }, [scrollOffsetYSV, headerH, idx, itemSp]);
+  });
 
-  const seekingFactorSV = useDerivedValue(
-    () => interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp'),
-    [seekingAnimationSV]
+  const seekingFactorSV = useDerivedValue(() =>
+    interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp')
   );
 
-  return useDerivedValue(
-    () => scrollOpacitySV.value * seekingFactorSV.value,
-    [scrollOpacitySV, seekingFactorSV]
-  );
+  return useDerivedValue(() => scrollOpacitySV.value * seekingFactorSV.value);
 }

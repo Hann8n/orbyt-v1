@@ -1,12 +1,12 @@
 import {
   useRef,
-  forwardRef,
   useImperativeHandle,
   useEffect,
   useCallback,
   useMemo,
   useContext,
   useSyncExternalStore,
+  type Ref,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRecyclingState } from '@shopify/flash-list';
@@ -49,7 +49,12 @@ import {
   usePostInteractionStore,
 } from '../../../stores/postInteractionStore';
 import { useFeedScrollLayout, useFeedScrollMotion } from '../../../context/FeedScrollContext';
-import { FeedListPlaybackContext, FEED_LIST_PLAYBACK_OUTSIDE_BITS } from '../../../core/visibility';
+import {
+  FeedListPlaybackContext,
+  FEED_LIST_PLAYBACK_OUTSIDE_BITS,
+  ROW_BITS_PLAYBACK,
+  ROW_BITS_CHROME,
+} from '../../../core/visibility';
 import { useVideoCardOverlayOpacity } from './video-card/useVideoCardOverlayOpacity';
 import { useVideoCardModerationState } from './video-card/hooks/useVideoCardModerationState';
 import { computeShouldPlayVideo } from './video-card/hooks/computeShouldPlayVideo';
@@ -105,7 +110,7 @@ export interface VideoCardRef {
 
 export interface VideoCardProps {
   post: Post;
-  feedItem?: ExtendedFeedViewPost; // Contains feedContext and reqId natively
+  feedItem?: ExtendedFeedViewPost;
   isVisible?: boolean;
   onVideoStatus?: (uri: string, status: string) => void;
   height?: number;
@@ -114,916 +119,892 @@ export interface VideoCardProps {
   renderHeavyChrome?: boolean;
   showOverlay?: boolean;
   feedOption?: string;
-  /** Item index in the list; used with FeedScrollContext to compute percent visible from scroll+layout. */
   index?: number;
-  /** Fired when visible and the user toggles pause. */
   onUserPausedChange?: (userPaused: boolean) => void;
-  /** Navigate to a hashtag feed. */
   onHashtagPress?: (hashtag: string) => void;
+  ref?: Ref<VideoCardRef>;
 }
 
-const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
-  (
+function VideoCard({
+  post,
+  feedItem,
+  isVisible: isVisibleFromProps = true,
+  onVideoStatus,
+  height,
+  shouldDisablePlayback: shouldDisablePlaybackFromProps = false,
+  renderHeavyChrome: renderHeavyChromeFromProps = true,
+  showOverlay = true,
+  feedOption,
+  index,
+  onUserPausedChange,
+  onHashtagPress,
+  ref,
+}: VideoCardProps) {
+  const { t } = useTranslation();
+  const feedContext = feedItem?.feedContext;
+  const reqId = feedItem?.reqId;
+  const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
+  const resolvedFeedUri = useMemo(() => {
+    if (feedOption?.startsWith('at://')) return feedOption;
+    if (algorithmicFeedProvider?.startsWith('at://')) return algorithmicFeedProvider;
+    return undefined;
+  }, [feedOption, algorithmicFeedProvider]);
+  const presentCommentSection = useModalStore(state => state.presentCommentSection);
+
+  const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
+
+  const idx = index ?? 0;
+  const listPlayback = useContext(FeedListPlaybackContext);
+  const listPlaybackAttached = Boolean(listPlayback && typeof index === 'number');
+  const rowBits = useSyncExternalStore(
+    listPlayback?.subscribe ?? feedListPlaybackNoopSubscribe,
+    listPlaybackAttached
+      ? () => listPlayback!.getRowBits(idx)
+      : () => FEED_LIST_PLAYBACK_OUTSIDE_BITS,
+    () => FEED_LIST_PLAYBACK_OUTSIDE_BITS
+  );
+  const isVisible = listPlaybackAttached ? (rowBits & ROW_BITS_PLAYBACK) !== 0 : isVisibleFromProps;
+  const shouldDisablePlayback = listPlaybackAttached ? !isVisible : shouldDisablePlaybackFromProps;
+  const renderHeavyChrome = listPlaybackAttached
+    ? (rowBits & ROW_BITS_CHROME) !== 0
+    : renderHeavyChromeFromProps;
+
+  // Subscribe only to this post's interaction so other cards don't re-render on like/repost
+  const defaultInteraction = useMemo(
+    () => ({
+      isLiked: !!postView.viewer?.like,
+      likeCount: postView.likeCount || 0,
+      commentCount: postView.replyCount || 0,
+      repostCount: postView.repostCount || 0,
+      isReposted: !!postView.viewer?.repost,
+      isBookmarked: false,
+      likeUri: postView.viewer?.like,
+      repostUri: postView.viewer?.repost,
+    }),
+    [
+      postView.viewer?.like,
+      postView.likeCount,
+      postView.replyCount,
+      postView.repostCount,
+      postView.viewer?.repost,
+    ]
+  );
+  const { postInteractionDelta, updatePostInteraction } = usePostInteractionStore(
+    useShallow(state => ({
+      postInteractionDelta: state.interactions.get(postView.uri),
+      updatePostInteraction: state.updatePostInteraction,
+    }))
+  );
+  const persistedInteraction = useMemo(
+    () => mergePostInteractionDelta(defaultInteraction, postInteractionDelta),
+    [defaultInteraction, postInteractionDelta]
+  );
+
+  const [videoState, setVideoState] = useRecyclingState({ userPaused: false }, [
+    postView.uri,
+    feedOption,
+  ]);
+
+  const [overlayState, setOverlayState] = useRecyclingState(
     {
-      post,
-      feedItem,
-      isVisible: isVisibleFromProps = true,
-      onVideoStatus,
-      height,
-      shouldDisablePlayback: shouldDisablePlaybackFromProps = false,
-      renderHeavyChrome: renderHeavyChromeFromProps = true,
-      showOverlay = true,
-      feedOption,
-      index,
-      onUserPausedChange,
-      onHashtagPress,
+      isLikePending: false,
+      isRepostPending: false,
+      ...persistedInteraction,
     },
-    ref
-  ) => {
-    const { t } = useTranslation();
-    const feedContext = feedItem?.feedContext;
-    const reqId = feedItem?.reqId;
-    const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
-    const resolvedFeedUri = useMemo(() => {
-      if (feedOption?.startsWith('at://')) return feedOption;
-      if (algorithmicFeedProvider?.startsWith('at://')) return algorithmicFeedProvider;
-      return undefined;
-    }, [feedOption, algorithmicFeedProvider]);
-    const presentCommentSection = useModalStore(state => state.presentCommentSection);
+    [postView.uri, feedOption]
+  );
 
-    const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
-
-    const idx = index ?? 0;
-    const listPlayback = useContext(FeedListPlaybackContext);
-    const listPlaybackAttached = Boolean(listPlayback && typeof index === 'number');
-    const rowBits = useSyncExternalStore(
-      listPlayback?.subscribe ?? feedListPlaybackNoopSubscribe,
-      listPlaybackAttached
-        ? () => listPlayback!.getRowBits(idx)
-        : () => FEED_LIST_PLAYBACK_OUTSIDE_BITS,
-      () => FEED_LIST_PLAYBACK_OUTSIDE_BITS
-    );
-    const isVisible = listPlaybackAttached ? rowBits % 10 === 1 : isVisibleFromProps;
-    const shouldDisablePlayback = listPlaybackAttached
-      ? !isVisible
-      : shouldDisablePlaybackFromProps;
-    const renderHeavyChrome = listPlaybackAttached
-      ? Math.floor(rowBits / 10) % 10 === 1
-      : renderHeavyChromeFromProps;
-
-    // Subscribe only to this post's interaction so other cards don't re-render on like/repost
-    const defaultInteraction = useMemo(
-      () => ({
-        isLiked: !!postView.viewer?.like,
-        likeCount: postView.likeCount || 0,
-        commentCount: postView.replyCount || 0,
-        repostCount: postView.repostCount || 0,
-        isReposted: !!postView.viewer?.repost,
-        isBookmarked: false,
-        likeUri: postView.viewer?.like,
-        repostUri: postView.viewer?.repost,
-      }),
-      [
-        postView.viewer?.like,
-        postView.likeCount,
-        postView.replyCount,
-        postView.repostCount,
-        postView.viewer?.repost,
-      ]
-    );
-    const { postInteractionDelta, updatePostInteraction } = usePostInteractionStore(
-      useShallow(state => ({
-        postInteractionDelta: state.interactions.get(postView.uri),
-        updatePostInteraction: state.updatePostInteraction,
-      }))
-    );
-    const persistedInteraction = useMemo(
-      () => mergePostInteractionDelta(defaultInteraction, postInteractionDelta),
-      [defaultInteraction, postInteractionDelta]
-    );
-
-    const [videoState, setVideoState] = useRecyclingState({ userPaused: false }, [
-      postView.uri,
-      feedOption,
-    ]);
-
-    const [overlayState, setOverlayState] = useRecyclingState(
-      {
-        isLikePending: false,
-        isRepostPending: false,
-        ...persistedInteraction,
-      },
-      [postView.uri, feedOption]
-    );
-
-    // Depend on specific fields — not the full overlayState object — so an unrelated
-    // setOverlayState (e.g. isRepostPending: false) doesn't invalidate this memo.
-    const displayInteraction = useMemo(() => {
-      let d = persistedInteraction;
-      if (overlayState.isLikePending) {
-        d = {
-          ...d,
-          isLiked: overlayState.isLiked,
-          likeCount: overlayState.likeCount,
-          likeUri: overlayState.likeUri,
-        };
-      }
-      if (overlayState.isRepostPending) {
-        d = {
-          ...d,
-          isReposted: overlayState.isReposted,
-          repostCount: overlayState.repostCount,
-          repostUri: overlayState.repostUri,
-        };
-      }
-      return d;
-    }, [
-      persistedInteraction,
-      overlayState.isLikePending,
-      overlayState.isLiked,
-      overlayState.likeCount,
-      overlayState.likeUri,
-      overlayState.isRepostPending,
-      overlayState.isReposted,
-      overlayState.repostCount,
-      overlayState.repostUri,
-    ]);
-
-    const likeStateForHook = useMemo(
-      () => ({
-        isLiked: displayInteraction.isLiked,
-        likeCount: displayInteraction.likeCount,
-        likeUri: displayInteraction.likeUri,
-        isLikePending: overlayState.isLikePending,
-        isReposted: displayInteraction.isReposted,
-        isBookmarked: displayInteraction.isBookmarked,
-        commentCount: displayInteraction.commentCount,
-        repostCount: displayInteraction.repostCount,
-        isRepostPending: overlayState.isRepostPending,
-      }),
-      [displayInteraction, overlayState.isLikePending, overlayState.isRepostPending]
-    );
-
-    const { data: cachedProfile } = useProfile(postView.author?.handle);
-    const authorDid = cachedProfile?.did || postView.author?.did;
-    const storeIsFollowing = useFollowStore(state =>
-      authorDid ? state.follows.get(authorDid)?.isFollowing : undefined
-    );
-    const isFollowing = !!(cachedProfile?.viewer?.following || storeIsFollowing);
-    const hasProfile = !!cachedProfile;
-    const orbytBgColor = cachedProfile?.orbytColors?.backgroundColor;
-    const orbytTextColor = cachedProfile?.orbytColors?.textColor;
-    const profileColors = useMemo(
-      () =>
-        getProfileColors(
-          orbytBgColor !== undefined
-            ? { orbytColors: { backgroundColor: orbytBgColor, textColor: orbytTextColor ?? '' } }
-            : null
-        ),
-      [orbytBgColor, orbytTextColor]
-    );
-    const authorProfileOverlay = useMemo(
-      () => ({
-        isAuthorBlocked: !!(
-          cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList
-        ),
-        profileColors,
-        authorDid,
-        authorProfileStatus: cachedProfile?.status,
-      }),
-      [
-        cachedProfile?.viewer?.blocking,
-        cachedProfile?.viewer?.blockingByList,
-        profileColors,
-        authorDid,
-        cachedProfile?.status,
-      ]
-    );
-    const postRecord = postView.record as { tags?: string[] };
-    const channelTag = (postRecord?.tags ?? []).find(
-      (t: string) => typeof t === 'string' && t.startsWith('orbyt-channel-')
-    );
-    const channelSlug = channelTag ? channelTag.replace(/^orbyt-channel-/, '') || null : null;
-    const channelUri = channelSlug ? (getChannelBySlug(channelSlug)?.uri ?? null) : null;
-
-    // Handler-only hooks — use stable selectors to avoid subscribing to modal data or mutation state.
-    const followMutation = useFollowMutation();
-    // Select only the action functions (stable Zustand actions, never change reference).
-    const presentShareSheet = useModalStore(state => state.presentShareSheet);
-    const currentUser = useUserStore(state => state.currentUser);
-    const queryClient = useQueryClient();
-
-    const userPausedRef = useRef(videoState.userPaused);
-    userPausedRef.current = videoState.userPaused;
-
-    // Stable ref for overlayState so handleOpenComments doesn't recreate on every pending toggle.
-    const overlayStateRef = useRef(overlayState);
-    overlayStateRef.current = overlayState;
-
-    // Live ref for isVisible so callbacks don't need it as a reactive dep.
-    const isVisibleRef = useRef(isVisible);
-    isVisibleRef.current = isVisible;
-
-    useEffect(() => {
-      if (!isVisible || !onUserPausedChange) return;
-      onUserPausedChange(videoState.userPaused);
-    }, [isVisible, videoState.userPaused, onUserPausedChange]);
-
-    // Tap demux: single timer shared between single/double-tap detection (bridge target for runOnJS)
-    const videoTapSingleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const clearVideoTapSingleTimer = useCallback(() => {
-      if (videoTapSingleTimerRef.current) {
-        clearTimeout(videoTapSingleTimerRef.current);
-        videoTapSingleTimerRef.current = null;
-      }
-    }, []);
-
-    const heartScale = useSharedValue(0);
-    const heartOpacity = useSharedValue(0);
-    const heartPositionX = useSharedValue(0);
-    const heartPositionY = useSharedValue(0);
-
-    const { queueSeenInteractionOnce } = useFeedInteractionQueue({
-      postUri: postView.uri,
-      feedContext,
-      reqId,
-      resolvedFeedUri,
-    });
-
-    const videoView = getVideoView(postView.embed);
-    const videoUrl = videoView?.playlist || null;
-    const posterUrl = videoView?.thumbnail || null;
-
-    const { height: windowHeight } = useWindowDimensions();
-    const cardHeight = height ?? windowHeight;
-
-    // HLS-only source creation. Source is held for active + immediate neighbors
-    // (renderHeavyChrome covers ±1 from activeIndex) so swiping to the next card
-    // finds a preloaded stream. Far-off cards get null to avoid concurrent AVPlayer
-    // manifest requests (NSURLErrorDomain -1008 / -12884).
-    const videoSource = useMemo(() => createVideoSource(videoUrl), [videoUrl]);
-    const activeSource = isVisible || renderHeavyChrome ? videoSource : null;
-
-    const player = useVideoPlayer(activeSource, player => {
-      player.loop = true;
-      player.muted = false;
-      player.timeUpdateEventInterval = 0; // Disabled by default; scrubber enables 4fps when active
-      player.bufferOptions = FEED_BUFFER_OPTIONS;
-      player.seekTolerance = DEFAULT_SEEK_TOLERANCE_SCRUBBER;
-    });
-
-    const playerStatusEvent = useEvent(player, 'statusChange', {
-      status: 'idle',
-    });
-    const playerStatus = playerStatusEvent?.status ?? 'idle';
-
-    const hasError = playerStatus === 'error';
-
-    const [userChoseToView, setUserChoseToView] = useRecyclingState(false, [postView.uri]);
-
-    // Keep poster visible until both first frame and ambient backdrop are ready.
-    const [firstFrameRendered, setFirstFrameRendered] = useRecyclingState(false, [
-      postView.uri,
-      feedOption,
-    ]);
-    const [videoAmbientBackdropReady, setVideoAmbientBackdropReady] = useRecyclingState(false, [
-      postView.uri,
-      feedOption,
-    ]);
-
-    const handleFirstFrameRender = useCallback(() => {
-      setFirstFrameRendered(true);
-    }, [setFirstFrameRendered]);
-
-    const handleVideoAmbientBackdropReady = useCallback(() => {
-      setVideoAmbientBackdropReady(true);
-    }, [setVideoAmbientBackdropReady]);
-
-    // Reset poster readiness when the card leaves the viewport so the poster
-    // shows again while the preloaded stream renders its first frame on return.
-    useEffect(() => {
-      if (!isVisible) {
-        setFirstFrameRendered(false);
-        setVideoAmbientBackdropReady(false);
-      }
-    }, [isVisible, setFirstFrameRendered, setVideoAmbientBackdropReady]);
-
-    const { cannotShowMedia, isBlurred, warningDescription, handleViewContent } =
-      useVideoCardModerationState(postView, feedItem, userChoseToView, setUserChoseToView);
-
-    // Animated style for heart animation - runs on UI thread
-    const heartAnimatedStyle = useAnimatedStyle(() => {
-      return {
-        left: heartPositionX.value - 50,
-        top: heartPositionY.value - 50,
-        opacity: heartOpacity.value,
-        transform: [{ scale: heartScale.value }],
+  // Depend on specific fields — not the full overlayState object — so an unrelated
+  // setOverlayState (e.g. isRepostPending: false) doesn't invalidate this memo.
+  const displayInteraction = useMemo(() => {
+    let d = persistedInteraction;
+    if (overlayState.isLikePending) {
+      d = {
+        ...d,
+        isLiked: overlayState.isLiked,
+        likeCount: overlayState.likeCount,
+        likeUri: overlayState.likeUri,
       };
-    });
+    }
+    if (overlayState.isRepostPending) {
+      d = {
+        ...d,
+        isReposted: overlayState.isReposted,
+        repostCount: overlayState.repostCount,
+        repostUri: overlayState.repostUri,
+      };
+    }
+    return d;
+  }, [
+    persistedInteraction,
+    overlayState.isLikePending,
+    overlayState.isLiked,
+    overlayState.likeCount,
+    overlayState.likeUri,
+    overlayState.isRepostPending,
+    overlayState.isReposted,
+    overlayState.repostCount,
+    overlayState.repostUri,
+  ]);
 
-    useEffect(() => {
-      // FlashList recycle: cancel in-flight heart animation so SVs don't leak to the next post (Reanimated + FlashList guide)
-      cancelAnimation(heartScale);
-      cancelAnimation(heartOpacity);
-      cancelAnimation(heartPositionX);
-      cancelAnimation(heartPositionY);
-      heartScale.value = 0;
-      heartOpacity.value = 0;
-      heartPositionX.value = 0;
-      heartPositionY.value = 0;
-    }, [postView.uri, heartScale, heartOpacity, heartPositionX, heartPositionY]);
+  const likeStateForHook = useMemo(
+    () => ({
+      isLiked: displayInteraction.isLiked,
+      likeCount: displayInteraction.likeCount,
+      likeUri: displayInteraction.likeUri,
+      isLikePending: overlayState.isLikePending,
+      isReposted: displayInteraction.isReposted,
+      isBookmarked: displayInteraction.isBookmarked,
+      commentCount: displayInteraction.commentCount,
+      repostCount: displayInteraction.repostCount,
+      isRepostPending: overlayState.isRepostPending,
+    }),
+    [displayInteraction, overlayState.isLikePending, overlayState.isRepostPending]
+  );
 
-    const shouldPlayVideo = computeShouldPlayVideo({
-      cannotShowMedia,
-      isBlurred,
-      shouldDisablePlayback,
-      hasError,
-      userPaused: videoState.userPaused,
-      isVisible,
-      videoUrl,
-    });
+  const { data: cachedProfile } = useProfile(postView.author?.handle);
+  const authorDid = cachedProfile?.did || postView.author?.did;
+  const storeIsFollowing = useFollowStore(state =>
+    authorDid ? state.follows.get(authorDid)?.isFollowing : undefined
+  );
+  const isFollowing = !!(cachedProfile?.viewer?.following || storeIsFollowing);
+  const hasProfile = !!cachedProfile;
+  const orbytBgColor = cachedProfile?.orbytColors?.backgroundColor;
+  const orbytTextColor = cachedProfile?.orbytColors?.textColor;
+  const profileColors = useMemo(
+    () =>
+      getProfileColors(
+        orbytBgColor !== undefined
+          ? { orbytColors: { backgroundColor: orbytBgColor, textColor: orbytTextColor ?? '' } }
+          : null
+      ),
+    [orbytBgColor, orbytTextColor]
+  );
+  const authorProfileOverlay = useMemo(
+    () => ({
+      isAuthorBlocked: !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList),
+      profileColors,
+      authorDid,
+      authorProfileStatus: cachedProfile?.status,
+    }),
+    [
+      cachedProfile?.viewer?.blocking,
+      cachedProfile?.viewer?.blockingByList,
+      profileColors,
+      authorDid,
+      cachedProfile?.status,
+    ]
+  );
+  const postRecord = postView.record as { tags?: string[] };
+  const channelTag = (postRecord?.tags ?? []).find(
+    (t: string) => typeof t === 'string' && t.startsWith('orbyt-channel-')
+  );
+  const channelSlug = channelTag ? channelTag.replace(/^orbyt-channel-/, '') || null : null;
+  const channelUri = channelSlug ? (getChannelBySlug(channelSlug)?.uri ?? null) : null;
 
-    // Hide scrubber for very short clips — no value in showing it
-    const shouldHideScrubberForShortVideo = !!(
-      player?.duration &&
-      player.duration > 0 &&
-      player.duration < MIN_SCRUBBER_DURATION_SECONDS
-    );
+  // Handler-only hooks — use stable selectors to avoid subscribing to modal data or mutation state.
+  const followMutation = useFollowMutation();
+  // Select only the action functions (stable Zustand actions, never change reference).
+  const presentShareSheet = useModalStore(state => state.presentShareSheet);
+  const currentUser = useUserStore(state => state.currentUser);
+  const queryClient = useQueryClient();
 
-    // Text-expanded dim state is driven fully by Reanimated shared values to avoid re-rendering
-    // VideoCard when the overlay text is expanded/collapsed.
-    const textDimOpacitySV = useSharedValue(0);
+  const userPausedRef = useRef(videoState.userPaused);
+  userPausedRef.current = videoState.userPaused;
 
-    useEffect(() => {
-      // Reset dim state when post changes (FlashList recycle safety)
-      textDimOpacitySV.value = 0;
-    }, [postView.uri, textDimOpacitySV]);
+  // Stable ref for overlayState so handleOpenComments doesn't recreate on every pending toggle.
+  const overlayStateRef = useRef(overlayState);
+  overlayStateRef.current = overlayState;
 
-    const handleOverlayCollapsedChange = useCallback(
-      (isCollapsed: boolean) => {
-        if (!isVisibleRef.current) return;
-        const isExpanded = !isCollapsed;
-        textDimOpacitySV.value = withTiming(isExpanded ? 0.65 : 0, { duration: 120 });
-      },
-      [textDimOpacitySV]
-    );
+  // Live ref for isVisible so callbacks don't need it as a reactive dep.
+  const isVisibleRef = useRef(isVisible);
+  isVisibleRef.current = isVisible;
 
-    const textDimAnimatedStyle = useAnimatedStyle(() => {
-      return { opacity: textDimOpacitySV.value };
-    }, [textDimOpacitySV]);
+  useEffect(() => {
+    if (!isVisible || !onUserPausedChange) return;
+    onUserPausedChange(videoState.userPaused);
+  }, [isVisible, videoState.userPaused, onUserPausedChange]);
 
-    const shouldLoadVideo = !cannotShowMedia && !isBlurred && !!videoSource;
+  // Tap demux: single timer shared between single/double-tap detection (bridge target for runOnJS)
+  const videoTapSingleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearVideoTapSingleTimer = useCallback(() => {
+    if (videoTapSingleTimerRef.current) {
+      clearTimeout(videoTapSingleTimerRef.current);
+      videoTapSingleTimerRef.current = null;
+    }
+  }, []);
 
-    // Use post URI or CID as unique recycling key to prevent image reuse from other videos
-    // when no thumbnail has loaded yet (FlashList/expo-image recycling). Same fix as GridFeedView.
-    const recyclingKey = postView?.uri || postView?.cid || `item-${index ?? 0}`;
+  const heartScale = useSharedValue(0);
+  const heartOpacity = useSharedValue(0);
+  const heartPositionX = useSharedValue(0);
+  const heartPositionY = useSharedValue(0);
 
-    const togglePlayback = useCallback(
-      (shouldPlay?: boolean) => {
-        if (cannotShowMedia || isBlurred || shouldDisablePlayback) return;
-        if (hasError) return;
+  const { queueSeenInteractionOnce } = useFeedInteractionQueue({
+    postUri: postView.uri,
+    feedContext,
+    reqId,
+    resolvedFeedUri,
+  });
 
-        setVideoState(prev => {
-          const nextPaused = shouldPlay !== undefined ? !shouldPlay : !prev.userPaused;
-          if (prev.userPaused === nextPaused) {
-            return prev;
+  const videoView = getVideoView(postView.embed);
+  const videoUrl = videoView?.playlist || null;
+  const posterUrl = videoView?.thumbnail || null;
+
+  const { height: windowHeight } = useWindowDimensions();
+  const cardHeight = height ?? windowHeight;
+
+  // HLS-only source creation. Source is held for active + immediate neighbors
+  // (renderHeavyChrome covers ±1 from activeIndex) so swiping to the next card
+  // finds a preloaded stream. Far-off cards get null to avoid concurrent AVPlayer
+  // manifest requests (NSURLErrorDomain -1008 / -12884).
+  const videoSource = useMemo(() => createVideoSource(videoUrl), [videoUrl]);
+  const activeSource = isVisible || renderHeavyChrome ? videoSource : null;
+
+  const player = useVideoPlayer(activeSource, player => {
+    player.loop = true;
+    player.muted = false;
+    player.timeUpdateEventInterval = 0; // Disabled by default; scrubber enables 4fps when active
+    player.bufferOptions = FEED_BUFFER_OPTIONS;
+    player.seekTolerance = DEFAULT_SEEK_TOLERANCE_SCRUBBER;
+  });
+
+  const playerStatusEvent = useEvent(player, 'statusChange', {
+    status: 'idle',
+  });
+  const playerStatus = playerStatusEvent?.status ?? 'idle';
+
+  const hasError = playerStatus === 'error';
+
+  const [userChoseToView, setUserChoseToView] = useRecyclingState(false, [postView.uri]);
+
+  // Keep poster visible until both first frame and ambient backdrop are ready.
+  const [firstFrameRendered, setFirstFrameRendered] = useRecyclingState(false, [
+    postView.uri,
+    feedOption,
+  ]);
+  const [videoAmbientBackdropReady, setVideoAmbientBackdropReady] = useRecyclingState(false, [
+    postView.uri,
+    feedOption,
+  ]);
+
+  const handleFirstFrameRender = useCallback(() => {
+    setFirstFrameRendered(true);
+  }, [setFirstFrameRendered]);
+
+  const handleVideoAmbientBackdropReady = useCallback(() => {
+    setVideoAmbientBackdropReady(true);
+  }, [setVideoAmbientBackdropReady]);
+
+  // Reset poster readiness when the card leaves the viewport so the poster
+  // shows again while the preloaded stream renders its first frame on return.
+  useEffect(() => {
+    if (!isVisible) {
+      setFirstFrameRendered(false);
+      setVideoAmbientBackdropReady(false);
+    }
+  }, [isVisible, setFirstFrameRendered, setVideoAmbientBackdropReady]);
+
+  const { cannotShowMedia, isBlurred, warningDescription, handleViewContent } =
+    useVideoCardModerationState(postView, feedItem, userChoseToView, setUserChoseToView);
+
+  // Animated style for heart animation - runs on UI thread
+  const heartAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      left: heartPositionX.value - 50,
+      top: heartPositionY.value - 50,
+      opacity: heartOpacity.value,
+      transform: [{ scale: heartScale.value }],
+    };
+  });
+
+  useEffect(() => {
+    // FlashList recycle: cancel in-flight heart animation so SVs don't leak to the next post (Reanimated + FlashList guide)
+    cancelAnimation(heartScale);
+    cancelAnimation(heartOpacity);
+    cancelAnimation(heartPositionX);
+    cancelAnimation(heartPositionY);
+    heartScale.value = 0;
+    heartOpacity.value = 0;
+    heartPositionX.value = 0;
+    heartPositionY.value = 0;
+  }, [postView.uri, heartScale, heartOpacity, heartPositionX, heartPositionY]);
+
+  const shouldPlayVideo = computeShouldPlayVideo({
+    cannotShowMedia,
+    isBlurred,
+    shouldDisablePlayback,
+    hasError,
+    userPaused: videoState.userPaused,
+    isVisible,
+    videoUrl,
+  });
+
+  // Hide scrubber for very short clips — no value in showing it
+  const shouldHideScrubberForShortVideo = !!(
+    player?.duration &&
+    player.duration > 0 &&
+    player.duration < MIN_SCRUBBER_DURATION_SECONDS
+  );
+
+  // Text-expanded dim state is driven fully by Reanimated shared values to avoid re-rendering
+  // VideoCard when the overlay text is expanded/collapsed.
+  const textDimOpacitySV = useSharedValue(0);
+
+  useEffect(() => {
+    // Reset dim state when post changes (FlashList recycle safety)
+    textDimOpacitySV.value = 0;
+  }, [postView.uri, textDimOpacitySV]);
+
+  const handleOverlayCollapsedChange = useCallback(
+    (isCollapsed: boolean) => {
+      if (!isVisibleRef.current) return;
+      const isExpanded = !isCollapsed;
+      textDimOpacitySV.value = withTiming(isExpanded ? 0.65 : 0, { duration: 120 });
+    },
+    [textDimOpacitySV]
+  );
+
+  const textDimAnimatedStyle = useAnimatedStyle(() => {
+    return { opacity: textDimOpacitySV.value };
+  });
+
+  const shouldLoadVideo = !cannotShowMedia && !isBlurred && !!videoSource;
+
+  // Use post URI or CID as unique recycling key to prevent image reuse from other videos
+  // when no thumbnail has loaded yet (FlashList/expo-image recycling). Same fix as GridFeedView.
+  const recyclingKey = postView?.uri || postView?.cid || `item-${index ?? 0}`;
+
+  const togglePlayback = useCallback(
+    (shouldPlay?: boolean) => {
+      if (cannotShowMedia || isBlurred || shouldDisablePlayback) return;
+      if (hasError) return;
+
+      setVideoState(prev => {
+        const nextPaused = shouldPlay !== undefined ? !shouldPlay : !prev.userPaused;
+        if (prev.userPaused === nextPaused) {
+          return prev;
+        }
+
+        return { ...prev, userPaused: nextPaused };
+      });
+    },
+    [cannotShowMedia, isBlurred, shouldDisablePlayback, hasError, setVideoState]
+  );
+
+  const seek = useCallback(
+    (position: number) => {
+      if (!player) return;
+      try {
+        const positionInSeconds = position > 1000 ? position / 1000 : position;
+        player.currentTime = positionInSeconds;
+      } catch (err) {
+        logVideoCardPlayerError('seek', err);
+      }
+    },
+    [player]
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      play: () => togglePlayback(true),
+      pause: () => togglePlayback(false),
+      togglePlay: () => togglePlayback(),
+      getDuration: () => {
+        if (!player) return 0;
+        try {
+          const seconds = player.duration;
+          if (typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0) {
+            return seconds * 1000;
           }
-
-          return { ...prev, userPaused: nextPaused };
-        });
+        } catch (err) {
+          logVideoCardPlayerError('getDuration', err);
+        }
+        return 0;
       },
-      [cannotShowMedia, isBlurred, shouldDisablePlayback, hasError, setVideoState]
-    );
-
-    const seek = useCallback(
-      (position: number) => {
+      seekTo: seek,
+      seek,
+      unload: () => {
         if (!player) return;
         try {
-          const positionInSeconds = position > 1000 ? position / 1000 : position;
-          player.currentTime = positionInSeconds;
-        } catch (err) {
-          logVideoCardPlayerError('seek', err);
-        }
-      },
-      [player]
-    );
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        play: () => togglePlayback(true),
-        pause: () => togglePlayback(false),
-        togglePlay: () => togglePlayback(),
-        getDuration: () => {
-          if (!player) return 0;
-          try {
-            const seconds = player.duration;
-            if (typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0) {
-              return seconds * 1000;
-            }
-          } catch (err) {
-            logVideoCardPlayerError('getDuration', err);
-          }
-          return 0;
-        },
-        seekTo: seek,
-        seek,
-        unload: () => {
-          if (!player) return;
-          try {
-            player.pause();
-            player.currentTime = 0;
-          } catch (err) {
-            logVideoCardPlayerError('unload', err);
-          } finally {
-            if (!userPausedRef.current) {
-              setVideoState(prev => ({ ...prev, userPaused: true }));
-            }
-          }
-        },
-        playPause: (shouldPlay: boolean) => togglePlayback(shouldPlay),
-        // Report intended play state based on our own logic, not the underlying player flag
-        getPlayState: () => shouldPlayVideo,
-        getCurrentTime: () => {
-          if (!player) return 0;
-          try {
-            const seconds = player.currentTime;
-            if (typeof seconds === 'number' && Number.isFinite(seconds)) {
-              return seconds * 1000;
-            }
-          } catch (err) {
-            logVideoCardPlayerError('getCurrentTime', err);
-          }
-          return 0;
-        },
-      }),
-      [player, shouldPlayVideo, togglePlayback, seek, setVideoState]
-    );
-
-    // Auto-resume when (a) overlay blocking is removed, or (b) video becomes visible.
-    const prevShouldDisablePlaybackRef = useRef(shouldDisablePlayback);
-    const prevIsVisibleRef = useRef(isVisible);
-    useEffect(() => {
-      const wasBlocked = prevShouldDisablePlaybackRef.current;
-      const wasVisible = prevIsVisibleRef.current;
-      const isNowUnblocked = !shouldDisablePlayback && wasBlocked;
-      const becameVisible = !wasVisible && isVisible;
-
-      if (videoState.userPaused && !hasError) {
-        if (isNowUnblocked && isVisible) {
-          setVideoState(prev => ({ ...prev, userPaused: false }));
-        } else if (becameVisible && !shouldDisablePlayback) {
-          setVideoState(prev => ({ ...prev, userPaused: false }));
-        }
-      }
-
-      prevShouldDisablePlaybackRef.current = shouldDisablePlayback;
-      prevIsVisibleRef.current = isVisible;
-    }, [shouldDisablePlayback, isVisible, hasError, videoState.userPaused, setVideoState]);
-
-    // Handle player status changes for callbacks only
-    useEffect(() => {
-      if (!player) return;
-      if (playerStatus === 'readyToPlay') {
-        onVideoStatus?.(postView.uri, 'loaded');
-      } else if (playerStatus === 'loading') {
-        onVideoStatus?.(postView.uri, 'loading');
-      } else if (playerStatus === 'error') {
-        onVideoStatus?.(postView.uri, 'error');
-      }
-    }, [playerStatus, player, postView.uri, onVideoStatus]);
-
-    // Retry whenever the player is in error state and the card is visible.
-    // Visibility cycling (background → foreground, or scroll away → back) re-runs
-    // this effect naturally, so each foreground return gets one retry attempt.
-    useEffect(() => {
-      if (!hasError || !isVisible || !videoSource || !player) return;
-      player.replaceAsync(videoSource).catch(err => {
-        logVideoCardPlayerError('replaceAsync retry', err);
-      });
-    }, [hasError, isVisible, videoSource, player]);
-
-    useEffect(() => {
-      if (!player) return;
-      try {
-        if (shouldPlayVideo) {
-          player.play();
-        } else {
           player.pause();
+          player.currentTime = 0;
+        } catch (err) {
+          logVideoCardPlayerError('unload', err);
+        } finally {
+          if (!userPausedRef.current) {
+            setVideoState(prev => ({ ...prev, userPaused: true }));
+          }
         }
-      } catch (err) {
-        logVideoCardPlayerError(shouldPlayVideo ? 'play' : 'pause', err);
-      }
-    }, [shouldPlayVideo, player]);
-
-    const { toggleLike: toggleLikeInteraction, likeOnly: likeOnlyInteraction } = useLikeInteraction(
-      {
-        state: likeStateForHook,
-        setState: setOverlayState,
-        postUri: postView.uri,
-        postCid: postView.cid,
-        updatePostInteraction,
-      }
-    );
-
-    const handleLike = useCallback(async () => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await toggleLikeInteraction();
-    }, [toggleLikeInteraction]);
-
-    const handleLikeOnly = useCallback(async () => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await likeOnlyInteraction();
-    }, [likeOnlyInteraction]);
-
-    // Heartbeat pattern: quick beat, slight dip, second beat, then fade out
-    const animateHeart = useCallback(
-      (x: number, y: number) => {
-        heartScale.value = 0;
-        heartOpacity.value = 0;
-        heartPositionX.value = x;
-        heartPositionY.value = y;
-
-        heartOpacity.value = 1;
-        heartScale.value = withSequence(
-          withTiming(1.3, { duration: 100, easing: Easing.out(Easing.ease) }),
-          withTiming(0.95, { duration: 80, easing: Easing.in(Easing.ease) }),
-          withTiming(1.15, { duration: 100, easing: Easing.out(Easing.ease) }),
-          withTiming(1, { duration: 120, easing: Easing.inOut(Easing.ease) })
-        );
-
-        heartOpacity.value = withDelay(
-          400, // wait for ~400ms heartbeat sequence to finish
-          withTiming(0, { duration: 300, easing: Easing.out(Easing.ease) }, () => {
-            heartScale.value = 0;
-          })
-        );
       },
-      [heartScale, heartOpacity, heartPositionX, heartPositionY]
-    );
-
-    // Tap demux (runOnJS bridge target): second tap within window = double-tap like.
-    // Gesture recognition runs on the UI thread via RNGH; JS only wakes on confirmed events.
-    const handleSingleTap = useCallback(
-      (x: number, y: number) => {
-        if (videoTapSingleTimerRef.current != null) {
-          clearVideoTapSingleTimer();
-          animateHeart(x, y);
-          void handleLikeOnly();
-          return;
+      playPause: (shouldPlay: boolean) => togglePlayback(shouldPlay),
+      // Report intended play state based on our own logic, not the underlying player flag
+      getPlayState: () => shouldPlayVideo,
+      getCurrentTime: () => {
+        if (!player) return 0;
+        try {
+          const seconds = player.currentTime;
+          if (typeof seconds === 'number' && Number.isFinite(seconds)) {
+            return seconds * 1000;
+          }
+        } catch (err) {
+          logVideoCardPlayerError('getCurrentTime', err);
         }
-        videoTapSingleTimerRef.current = setTimeout(() => {
-          videoTapSingleTimerRef.current = null;
-          togglePlayback();
-        }, VIDEO_DOUBLE_TAP_WINDOW_MS);
+        return 0;
       },
-      [clearVideoTapSingleTimer, animateHeart, handleLikeOnly, togglePlayback]
-    );
+    }),
+    [player, shouldPlayVideo, togglePlayback, seek, setVideoState]
+  );
 
-    // Ref holding latest interaction counts so gesture handlers read current values at call-time
-    // without those values being listed as deps (breaking the displayInteraction → videoGesture chain).
-    const displayInteractionRef = useRef(displayInteraction);
-    displayInteractionRef.current = displayInteraction;
+  const wasActiveRef = useRef(false);
+  useEffect(() => {
+    const isActive = isVisible && !shouldDisablePlayback;
+    const becameActive = isActive && !wasActiveRef.current;
+    wasActiveRef.current = isActive;
+    if (becameActive && videoState.userPaused && !hasError) {
+      setVideoState(prev => ({ ...prev, userPaused: false }));
+    }
+  }, [isVisible, shouldDisablePlayback, hasError, videoState.userPaused, setVideoState]);
 
-    // Shared comment-section opener — used by long-press gesture and comment button in overlay.
-    const handleOpenComments = useCallback(() => {
-      const commentPost = {
-        uri: postView.uri,
-        cid: postView.cid,
-        indexedAt: postView.indexedAt,
-        author: postView.author
-          ? {
-              did: postView.author.did,
-              handle: postView.author.handle,
-              displayName: postView.author.displayName,
-            }
-          : undefined,
-      };
-      presentCommentSection({
-        post: commentPost,
-        totalLikes: displayInteractionRef.current.likeCount,
-        totalComments: displayInteractionRef.current.commentCount,
-        isLiked: displayInteractionRef.current.isLiked,
-        postedAt: (postView.record as { createdAt?: string })?.createdAt || postView.indexedAt,
-        onToggleLike: handleLike,
-        isLikePending: overlayStateRef.current.isLikePending,
+  // Handle player status changes for callbacks only
+  useEffect(() => {
+    if (!player) return;
+    if (playerStatus === 'readyToPlay') {
+      onVideoStatus?.(postView.uri, 'loaded');
+    } else if (playerStatus === 'loading') {
+      onVideoStatus?.(postView.uri, 'loading');
+    } else if (playerStatus === 'error') {
+      onVideoStatus?.(postView.uri, 'error');
+    }
+  }, [playerStatus, player, postView.uri, onVideoStatus]);
+
+  // Retry whenever the player is in error state and the card is visible.
+  // Visibility cycling (background → foreground, or scroll away → back) re-runs
+  // this effect naturally, so each foreground return gets one retry attempt.
+  useEffect(() => {
+    if (!hasError || !isVisible || !videoSource || !player) return;
+    player.replaceAsync(videoSource).catch(err => {
+      logVideoCardPlayerError('replaceAsync retry', err);
+    });
+  }, [hasError, isVisible, videoSource, player]);
+
+  useEffect(() => {
+    if (!player) return;
+    try {
+      if (shouldPlayVideo) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    } catch (err) {
+      logVideoCardPlayerError(shouldPlayVideo ? 'play' : 'pause', err);
+    }
+  }, [shouldPlayVideo, player]);
+
+  const { toggleLike: toggleLikeInteraction, likeOnly: likeOnlyInteraction } = useLikeInteraction({
+    state: likeStateForHook,
+    setState: setOverlayState,
+    postUri: postView.uri,
+    postCid: postView.cid,
+    updatePostInteraction,
+  });
+
+  const handleLike = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await toggleLikeInteraction();
+  }, [toggleLikeInteraction]);
+
+  const handleLikeOnly = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await likeOnlyInteraction();
+  }, [likeOnlyInteraction]);
+
+  // Heartbeat pattern: quick beat, slight dip, second beat, then fade out
+  const animateHeart = useCallback(
+    (x: number, y: number) => {
+      heartScale.value = 0;
+      heartOpacity.value = 0;
+      heartPositionX.value = x;
+      heartPositionY.value = y;
+
+      heartOpacity.value = 1;
+      heartScale.value = withSequence(
+        withTiming(1.3, { duration: 100, easing: Easing.out(Easing.ease) }),
+        withTiming(0.95, { duration: 80, easing: Easing.in(Easing.ease) }),
+        withTiming(1.15, { duration: 100, easing: Easing.out(Easing.ease) }),
+        withTiming(1, { duration: 120, easing: Easing.inOut(Easing.ease) })
+      );
+
+      heartOpacity.value = withDelay(
+        400, // wait for ~400ms heartbeat sequence to finish
+        withTiming(0, { duration: 300, easing: Easing.out(Easing.ease) }, () => {
+          heartScale.value = 0;
+        })
+      );
+    },
+    [heartScale, heartOpacity, heartPositionX, heartPositionY]
+  );
+
+  // Tap demux (runOnJS bridge target): second tap within window = double-tap like.
+  // Gesture recognition runs on the UI thread via RNGH; JS only wakes on confirmed events.
+  const handleSingleTap = useCallback(
+    (x: number, y: number) => {
+      if (videoTapSingleTimerRef.current != null) {
+        clearVideoTapSingleTimer();
+        animateHeart(x, y);
+        void handleLikeOnly();
+        return;
+      }
+      videoTapSingleTimerRef.current = setTimeout(() => {
+        videoTapSingleTimerRef.current = null;
+        togglePlayback();
+      }, VIDEO_DOUBLE_TAP_WINDOW_MS);
+    },
+    [clearVideoTapSingleTimer, animateHeart, handleLikeOnly, togglePlayback]
+  );
+
+  // Ref holding latest interaction counts so gesture handlers read current values at call-time
+  // without those values being listed as deps (breaking the displayInteraction → videoGesture chain).
+  const displayInteractionRef = useRef(displayInteraction);
+  displayInteractionRef.current = displayInteraction;
+
+  // Shared comment-section opener — used by long-press gesture and comment button in overlay.
+  const handleOpenComments = useCallback(() => {
+    const commentPost = {
+      uri: postView.uri,
+      cid: postView.cid,
+      indexedAt: postView.indexedAt,
+      author: postView.author
+        ? {
+            did: postView.author.did,
+            handle: postView.author.handle,
+            displayName: postView.author.displayName,
+          }
+        : undefined,
+    };
+    presentCommentSection({
+      post: commentPost,
+      totalLikes: displayInteractionRef.current.likeCount,
+      totalComments: displayInteractionRef.current.commentCount,
+      isLiked: displayInteractionRef.current.isLiked,
+      postedAt: (postView.record as { createdAt?: string })?.createdAt || postView.indexedAt,
+      onToggleLike: handleLike,
+      isLikePending: overlayStateRef.current.isLikePending,
+    });
+  }, [postView, presentCommentSection, handleLike]);
+
+  const handleLongPress = useCallback(() => {
+    clearVideoTapSingleTimer();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    handleOpenComments();
+  }, [clearVideoTapSingleTimer, handleOpenComments]);
+
+  // RNGH gesture: race long-press vs tap. Recognition runs on the UI thread;
+  // runOnJS bridges to JS only when a gesture is confirmed (no overhead during idle scroll).
+  const videoGesture = useMemo(() => {
+    const singleTap = Gesture.Tap()
+      .maxDuration(250)
+      .numberOfTaps(1)
+      .onEnd((event, success) => {
+        'worklet';
+        if (!success) return;
+        const x = event.x ?? 0;
+        const y = event.y ?? cardHeight / 2;
+        runOnJS(handleSingleTap)(x, y);
       });
-    }, [postView, presentCommentSection, handleLike]);
 
-    const handleLongPress = useCallback(() => {
-      clearVideoTapSingleTimer();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      handleOpenComments();
-    }, [clearVideoTapSingleTimer, handleOpenComments]);
+    const longPress = Gesture.LongPress()
+      .minDuration(400)
+      .onEnd((_event, success) => {
+        'worklet';
+        if (!success) return;
+        runOnJS(handleLongPress)();
+      });
 
-    // RNGH gesture: race long-press vs tap. Recognition runs on the UI thread;
-    // runOnJS bridges to JS only when a gesture is confirmed (no overhead during idle scroll).
-    const videoGesture = useMemo(() => {
-      const singleTap = Gesture.Tap()
-        .maxDuration(250)
-        .numberOfTaps(1)
-        .onEnd((event, success) => {
-          'worklet';
-          if (!success) return;
-          const x = event.x ?? 0;
-          const y = event.y ?? cardHeight / 2;
-          runOnJS(handleSingleTap)(x, y);
+    return Gesture.Race(longPress, singleTap);
+  }, [handleSingleTap, handleLongPress, cardHeight]);
+
+  // Cleanup demux timer on unmount and post change
+  useEffect(() => {
+    return () => clearVideoTapSingleTimer();
+  }, [clearVideoTapSingleTimer]);
+  useEffect(() => {
+    clearVideoTapSingleTimer();
+  }, [postView.uri, clearVideoTapSingleTimer]);
+
+  const handleRepost = useCallback(async () => {
+    if (overlayStateRef.current.isRepostPending) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const wasReposted = displayInteractionRef.current.isReposted;
+    const newIsReposted = !wasReposted;
+    const newRepostCount = newIsReposted
+      ? displayInteractionRef.current.repostCount + 1
+      : Math.max(0, displayInteractionRef.current.repostCount - 1);
+
+    setOverlayState(prev => ({
+      ...prev,
+      isRepostPending: true,
+      isReposted: newIsReposted,
+      repostCount: newRepostCount,
+    }));
+
+    try {
+      if (!wasReposted) {
+        const repostUri = await AtprotoFeedService.repostPost(postView.uri, postView.cid);
+        setOverlayState(prev => ({ ...prev, repostUri }));
+        updatePostInteraction(postView.uri, {
+          isReposted: true,
+          repostCount: newRepostCount,
+          repostUri,
         });
-
-      const longPress = Gesture.LongPress()
-        .minDuration(400)
-        .onEnd((_event, success) => {
-          'worklet';
-          if (!success) return;
-          runOnJS(handleLongPress)();
+      } else {
+        if (!displayInteractionRef.current.repostUri) throw new Error('No repost URI found');
+        await AtprotoFeedService.deleteRepost(displayInteractionRef.current.repostUri);
+        setOverlayState(prev => ({ ...prev, repostUri: undefined }));
+        updatePostInteraction(postView.uri, {
+          isReposted: false,
+          repostCount: newRepostCount,
+          repostUri: undefined,
         });
-
-      return Gesture.Race(longPress, singleTap);
-    }, [handleSingleTap, handleLongPress, cardHeight]);
-
-    // Cleanup demux timer on unmount and post change
-    useEffect(() => {
-      return () => clearVideoTapSingleTimer();
-    }, [clearVideoTapSingleTimer]);
-    useEffect(() => {
-      clearVideoTapSingleTimer();
-    }, [postView.uri, clearVideoTapSingleTimer]);
-
-    const handleRepost = useCallback(async () => {
-      if (overlayStateRef.current.isRepostPending) return;
-
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      const wasReposted = displayInteractionRef.current.isReposted;
-      const newIsReposted = !wasReposted;
-      const newRepostCount = newIsReposted
-        ? displayInteractionRef.current.repostCount + 1
-        : Math.max(0, displayInteractionRef.current.repostCount - 1);
-
+      }
+    } catch (_error) {
       setOverlayState(prev => ({
         ...prev,
-        isRepostPending: true,
-        isReposted: newIsReposted,
-        repostCount: newRepostCount,
+        isReposted: displayInteractionRef.current.isReposted,
+        repostCount: displayInteractionRef.current.repostCount,
       }));
+    } finally {
+      setOverlayState(prev => ({ ...prev, isRepostPending: false }));
+    }
+  }, [postView.uri, postView.cid, setOverlayState, updatePostInteraction]);
 
-      try {
-        if (!wasReposted) {
-          const repostUri = await AtprotoFeedService.repostPost(postView.uri, postView.cid);
-          setOverlayState(prev => ({ ...prev, repostUri }));
-          updatePostInteraction(postView.uri, {
-            isReposted: true,
-            repostCount: newRepostCount,
-            repostUri,
-          });
-        } else {
-          if (!displayInteractionRef.current.repostUri) throw new Error('No repost URI found');
-          await AtprotoFeedService.deleteRepost(displayInteractionRef.current.repostUri);
-          setOverlayState(prev => ({ ...prev, repostUri: undefined }));
-          updatePostInteraction(postView.uri, {
-            isReposted: false,
-            repostCount: newRepostCount,
-            repostUri: undefined,
-          });
-        }
-      } catch (_error) {
-        setOverlayState(prev => ({
-          ...prev,
-          isReposted: displayInteractionRef.current.isReposted,
-          repostCount: displayInteractionRef.current.repostCount,
-        }));
-      } finally {
-        setOverlayState(prev => ({ ...prev, isRepostPending: false }));
-      }
-    }, [postView.uri, postView.cid, setOverlayState, updatePostInteraction]);
+  const { navigateToChannel: goToChannel, navigateToProfile } = useProfileChannelNavigation();
 
-    const { navigateToChannel: goToChannel, navigateToProfile } = useProfileChannelNavigation();
+  const followMutationRef = useRef(followMutation);
+  followMutationRef.current = followMutation;
 
-    const followMutationRef = useRef(followMutation);
-    followMutationRef.current = followMutation;
+  const channelUriRef = useRef(channelUri);
+  channelUriRef.current = channelUri;
+  const goToChannelRef = useRef(goToChannel);
+  goToChannelRef.current = goToChannel;
+  const navigateToProfileRef = useRef(navigateToProfile);
+  navigateToProfileRef.current = navigateToProfile;
+  const queryClientRef = useRef(queryClient);
+  queryClientRef.current = queryClient;
 
-    const channelUriRef = useRef(channelUri);
-    channelUriRef.current = channelUri;
-    const goToChannelRef = useRef(goToChannel);
-    goToChannelRef.current = goToChannel;
-    const navigateToProfileRef = useRef(navigateToProfile);
-    navigateToProfileRef.current = navigateToProfile;
-    const queryClientRef = useRef(queryClient);
-    queryClientRef.current = queryClient;
+  const handleChannelPress = useCallback(() => {
+    const currentChannelUri = channelUriRef.current;
+    if (!currentChannelUri) return;
+    goToChannelRef.current(encodeURIComponent(currentChannelUri));
+  }, []);
 
-    const handleChannelPress = useCallback(() => {
-      const currentChannelUri = channelUriRef.current;
-      if (!currentChannelUri) return;
-      goToChannelRef.current(encodeURIComponent(currentChannelUri));
-    }, []);
+  const isCurrentUserProfile = useMemo(
+    () => isCurrentUser(postView.author?.did, postView.author?.handle, currentUser),
+    [postView.author?.did, postView.author?.handle, currentUser]
+  );
 
-    const isCurrentUserProfile = useMemo(
-      () => isCurrentUser(postView.author?.did, postView.author?.handle, currentUser),
-      [postView.author?.did, postView.author?.handle, currentUser]
-    );
-
-    const handleAuthorPress = useCallback(
-      (
-        rawDid?: string | null,
-        authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
-      ) => {
-        const cleanDid = (rawDid || authorData?.did || '').trim();
-        if (!cleanDid) return;
-        prefetchProfile(
-          queryClientRef.current,
-          cleanDid,
-          authorData
-            ? {
-                did: cleanDid,
-                handle: authorData.handle,
-                displayName: authorData.displayName,
-                avatar: authorData.avatar,
-              }
-            : undefined
-        );
-        navigateToProfileRef.current(cleanDid);
-      },
-      []
-    );
-
-    const repostedByRef = useRef(postView.repostedBy);
-    repostedByRef.current = postView.repostedBy;
-    const handleRepostAuthorPress = useCallback(() => {
-      const repostedBy = repostedByRef.current;
-      const identifier = repostedBy?.handle;
-      if (!identifier) return;
-      handleAuthorPress(identifier, repostedBy);
-    }, [handleAuthorPress]);
-
-    const handleSharePress = useCallback(() => {
-      presentShareSheet({
-        postUri: postView.uri,
-        postCid: postView.cid,
-        authorDid: postView.author?.did || '',
-        authorName: postView.author?.displayName,
-        authorHandle: postView.author?.handle,
-        sourceFeed: resolvedFeedUri,
-      });
-    }, [postView, resolvedFeedUri, presentShareSheet]);
-
-    const handleFollowPress = useCallback(() => {
-      if (!postView.author?.handle) return;
-      followMutationRef.current.mutate(
-        { did: postView.author?.did, handle: postView.author.handle, isFollowing: true },
-        {}
+  const handleAuthorPress = useCallback(
+    (
+      rawDid?: string | null,
+      authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
+    ) => {
+      const cleanDid = (rawDid || authorData?.did || '').trim();
+      if (!cleanDid) return;
+      prefetchProfile(
+        queryClientRef.current,
+        cleanDid,
+        authorData
+          ? {
+              did: cleanDid,
+              handle: authorData.handle,
+              displayName: authorData.displayName,
+              avatar: authorData.avatar,
+            }
+          : undefined
       );
-    }, [postView.author?.did, postView.author?.handle]);
+      navigateToProfileRef.current(cleanDid);
+    },
+    []
+  );
 
-    // Track interactionSeen and markAsSeen when video becomes visible
-    useEffect(() => {
-      if (isVisible) {
-        queueSeenInteractionOnce(INTERACTIONSEEN);
-        seenVideoService.markAsSeen(postView.uri);
-      }
-    }, [isVisible, queueSeenInteractionOnce, postView.uri]);
+  const repostedByRef = useRef(postView.repostedBy);
+  repostedByRef.current = postView.repostedBy;
+  const handleRepostAuthorPress = useCallback(() => {
+    const repostedBy = repostedByRef.current;
+    const identifier = repostedBy?.handle;
+    if (!identifier) return;
+    handleAuthorPress(identifier, repostedBy);
+  }, [handleAuthorPress]);
 
-    const seekingAnimationSV = useSharedValue(0);
-    const feedScrollMotion = useFeedScrollMotion();
-    const feedScrollLayout = useFeedScrollLayout();
-    const scrollOffsetYSV = feedScrollMotion?.scrollOffsetYSV;
-    const overlayScrollOffsetYSV = renderHeavyChrome ? scrollOffsetYSV : undefined;
-    const uiOverlayOpacitySV = useVideoCardOverlayOpacity({
-      seekingAnimationSV,
-      scrollOffsetYSV: overlayScrollOffsetYSV,
-      headerH: feedScrollLayout?.headerHeight ?? 0,
-      viewportH: feedScrollLayout?.viewportHeight ?? cardHeight,
-      itemSp: feedScrollLayout?.itemSpacing ?? cardHeight,
-      idx,
-      cardHeight,
+  const handleSharePress = useCallback(() => {
+    presentShareSheet({
+      postUri: postView.uri,
+      postCid: postView.cid,
+      authorDid: postView.author?.did || '',
+      authorName: postView.author?.displayName,
+      authorHandle: postView.author?.handle,
+      sourceFeed: resolvedFeedUri,
     });
+  }, [postView, resolvedFeedUri, presentShareSheet]);
 
-    const gestureVideoStackProps = useMemo(
-      () => ({
-        videoGesture,
-        posterUrl,
-        cannotShowMedia,
-        firstFrameRendered,
-        videoAmbientBackdropReady,
-        recyclingKey,
-        videoSource,
-        isBlurred,
-        player,
-        shouldLoadVideo,
-        loadingLabel: t('video.noHlsStream'),
-        onFirstFrameRender: handleFirstFrameRender,
-        surfaceType: Platform.OS === 'android' ? ('textureView' as const) : undefined,
-        textDimAnimatedStyle,
-        heartAnimatedStyle,
-      }),
-      [
-        videoGesture,
-        posterUrl,
-        cannotShowMedia,
-        firstFrameRendered,
-        videoAmbientBackdropReady,
-        recyclingKey,
-        videoSource,
-        isBlurred,
-        player,
-        shouldLoadVideo,
-        t,
-        handleFirstFrameRender,
-        textDimAnimatedStyle,
-        heartAnimatedStyle,
-      ]
+  const handleFollowPress = useCallback(() => {
+    if (!postView.author?.handle) return;
+    followMutationRef.current.mutate(
+      { did: postView.author?.did, handle: postView.author.handle, isFollowing: true },
+      {}
     );
+  }, [postView.author?.did, postView.author?.handle]);
 
-    const overlayProps = useMemo<VideoOverlayUIProps>(
-      () => ({
-        post: postView,
-        overlayOpacitySV: uiOverlayOpacitySV,
-        sourceFeed: resolvedFeedUri,
-        onOverlayCollapsedChange: handleOverlayCollapsedChange,
-        onLike: handleLike,
-        onRepost: handleRepost,
-        isLiked: displayInteraction.isLiked,
-        isReposted: displayInteraction.isReposted,
-        likeCount: displayInteraction.likeCount,
-        commentCount: displayInteraction.commentCount,
-        repostCount: displayInteraction.repostCount,
-        isLikePending: overlayState.isLikePending,
-        isRepostPending: overlayState.isRepostPending,
-        isFollowing,
-        hasProfile,
-        channelSlug,
-        onChannelPress: handleChannelPress,
-        authorProfileOverlay,
-        onAuthorPress: handleAuthorPress,
-        onRepostAuthorPress: handleRepostAuthorPress,
-        onOpenComments: handleOpenComments,
-        onSharePress: handleSharePress,
-        onFollowPress: handleFollowPress,
-        onHashtagPress,
-        isCurrentUserProfile,
-      }),
-      [
-        postView,
-        uiOverlayOpacitySV,
-        resolvedFeedUri,
-        handleOverlayCollapsedChange,
-        handleLike,
-        handleRepost,
-        displayInteraction.isLiked,
-        displayInteraction.isReposted,
-        displayInteraction.likeCount,
-        displayInteraction.commentCount,
-        displayInteraction.repostCount,
-        overlayState.isLikePending,
-        overlayState.isRepostPending,
-        isFollowing,
-        hasProfile,
-        channelSlug,
-        handleChannelPress,
-        authorProfileOverlay,
-        handleAuthorPress,
-        handleRepostAuthorPress,
-        handleOpenComments,
-        handleSharePress,
-        handleFollowPress,
-        onHashtagPress,
-        isCurrentUserProfile,
-      ]
-    );
+  // Track interactionSeen and markAsSeen when video becomes visible
+  useEffect(() => {
+    if (isVisible) {
+      queueSeenInteractionOnce(INTERACTIONSEEN);
+      seenVideoService.markAsSeen(postView.uri);
+    }
+  }, [isVisible, queueSeenInteractionOnce, postView.uri]);
 
-    return (
-      <View style={StyleSheet.compose(styles.container, getCardHeightStyle(cardHeight))}>
-        <VideoCardMediaLayer
-          videoAmbientBackdropSeedUrl={cannotShowMedia ? null : (posterUrl ?? null)}
-          onVideoAmbientBackdropReady={handleVideoAmbientBackdropReady}
-          // `renderHeavyChrome` is already scoped to the active row ± 1 neighbor via the list playback
-          // neighborChrome bit — exactly the prefetch window we want for the backdrop. Non-list usage
-          // (modal fullscreen, etc.) defaults `renderHeavyChromeFromProps` to true, preserving behavior.
-          shouldRenderAmbientBackdrop={renderHeavyChrome}
-          gestureStack={gestureVideoStackProps}
-        />
+  const seekingAnimationSV = useSharedValue(0);
+  const feedScrollMotion = useFeedScrollMotion();
+  const feedScrollLayout = useFeedScrollLayout();
+  const scrollOffsetYSV = feedScrollMotion?.scrollOffsetYSV;
+  const overlayScrollOffsetYSV = renderHeavyChrome ? scrollOffsetYSV : undefined;
+  const uiOverlayOpacitySV = useVideoCardOverlayOpacity({
+    seekingAnimationSV,
+    scrollOffsetYSV: overlayScrollOffsetYSV,
+    headerH: feedScrollLayout?.headerHeight ?? 0,
+    viewportH: feedScrollLayout?.viewportHeight ?? cardHeight,
+    itemSp: feedScrollLayout?.itemSpacing ?? cardHeight,
+    idx,
+    cardHeight,
+  });
 
-        <VideoCardOverlayLayers
-          renderHeavyChrome={renderHeavyChrome}
-          shouldRenderScrubber={!shouldHideScrubberForShortVideo}
-          scrubberActive={isVisible && !hasError}
-          isActive={isVisible}
-          player={player}
-          seekingAnimationSV={seekingAnimationSV}
-          overlayOpacitySV={uiOverlayOpacitySV}
-          showOverlay={showOverlay}
-          overlayProps={overlayProps}
-          showContentWarning={cannotShowMedia || isBlurred}
-          cannotShowMedia={cannotShowMedia}
-          isBlurred={isBlurred}
-          warningDescription={warningDescription}
-          onViewContent={handleViewContent}
-        />
-      </View>
-    );
-  }
-);
+  const gestureVideoStackProps = useMemo(
+    () => ({
+      videoGesture,
+      posterUrl,
+      cannotShowMedia,
+      firstFrameRendered,
+      videoAmbientBackdropReady,
+      recyclingKey,
+      videoSource,
+      isBlurred,
+      player,
+      shouldLoadVideo,
+      loadingLabel: t('video.noHlsStream'),
+      onFirstFrameRender: handleFirstFrameRender,
+      surfaceType: Platform.OS === 'android' ? ('textureView' as const) : undefined,
+      textDimAnimatedStyle,
+      heartAnimatedStyle,
+    }),
+    [
+      videoGesture,
+      posterUrl,
+      cannotShowMedia,
+      firstFrameRendered,
+      videoAmbientBackdropReady,
+      recyclingKey,
+      videoSource,
+      isBlurred,
+      player,
+      shouldLoadVideo,
+      t,
+      handleFirstFrameRender,
+      textDimAnimatedStyle,
+      heartAnimatedStyle,
+    ]
+  );
 
-// Styles
+  const overlayProps = useMemo<VideoOverlayUIProps>(
+    () => ({
+      post: postView,
+      overlayOpacitySV: uiOverlayOpacitySV,
+      sourceFeed: resolvedFeedUri,
+      onOverlayCollapsedChange: handleOverlayCollapsedChange,
+      onLike: handleLike,
+      onRepost: handleRepost,
+      isLiked: displayInteraction.isLiked,
+      isReposted: displayInteraction.isReposted,
+      likeCount: displayInteraction.likeCount,
+      commentCount: displayInteraction.commentCount,
+      repostCount: displayInteraction.repostCount,
+      isLikePending: overlayState.isLikePending,
+      isRepostPending: overlayState.isRepostPending,
+      isFollowing,
+      hasProfile,
+      channelSlug,
+      onChannelPress: handleChannelPress,
+      authorProfileOverlay,
+      onAuthorPress: handleAuthorPress,
+      onRepostAuthorPress: handleRepostAuthorPress,
+      onOpenComments: handleOpenComments,
+      onSharePress: handleSharePress,
+      onFollowPress: handleFollowPress,
+      onHashtagPress,
+      isCurrentUserProfile,
+    }),
+    [
+      postView,
+      uiOverlayOpacitySV,
+      resolvedFeedUri,
+      handleOverlayCollapsedChange,
+      handleLike,
+      handleRepost,
+      displayInteraction.isLiked,
+      displayInteraction.isReposted,
+      displayInteraction.likeCount,
+      displayInteraction.commentCount,
+      displayInteraction.repostCount,
+      overlayState.isLikePending,
+      overlayState.isRepostPending,
+      isFollowing,
+      hasProfile,
+      channelSlug,
+      handleChannelPress,
+      authorProfileOverlay,
+      handleAuthorPress,
+      handleRepostAuthorPress,
+      handleOpenComments,
+      handleSharePress,
+      handleFollowPress,
+      onHashtagPress,
+      isCurrentUserProfile,
+    ]
+  );
+
+  return (
+    <View style={StyleSheet.compose(styles.container, getCardHeightStyle(cardHeight))}>
+      <VideoCardMediaLayer
+        videoAmbientBackdropSeedUrl={cannotShowMedia ? null : (posterUrl ?? null)}
+        onVideoAmbientBackdropReady={handleVideoAmbientBackdropReady}
+        // `renderHeavyChrome` is already scoped to the active row ± 1 neighbor via the list playback
+        // neighborChrome bit — exactly the prefetch window we want for the backdrop. Non-list usage
+        // (modal fullscreen, etc.) defaults `renderHeavyChromeFromProps` to true, preserving behavior.
+        shouldRenderAmbientBackdrop={renderHeavyChrome}
+        gestureStack={gestureVideoStackProps}
+      />
+
+      <VideoCardOverlayLayers
+        renderHeavyChrome={renderHeavyChrome}
+        shouldRenderScrubber={!shouldHideScrubberForShortVideo}
+        scrubberActive={isVisible && !hasError}
+        isActive={isVisible}
+        player={player}
+        seekingAnimationSV={seekingAnimationSV}
+        overlayOpacitySV={uiOverlayOpacitySV}
+        showOverlay={showOverlay}
+        overlayProps={overlayProps}
+        showContentWarning={cannotShowMedia || isBlurred}
+        cannotShowMedia={cannotShowMedia}
+        isBlurred={isBlurred}
+        warningDescription={warningDescription}
+        onViewContent={handleViewContent}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     width: '100%',
@@ -1032,7 +1013,5 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
   },
 });
-
-VideoCard.displayName = 'VideoCard';
 
 export default VideoCard;
