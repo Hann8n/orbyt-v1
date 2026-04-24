@@ -1,0 +1,42 @@
+executionPrerequisite: Orbyt app is running on feed tab with right action rail
+  visible (chat-fill button visible); comments sheet closed.
+steps:
+  - echo: Baseline feed state before comments entry
+  - tool: screenshot
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+  - echo: Open comments sheet via chat action button
+  - tool: gesture-tap
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      x: 0.93
+      y: 0.68
+  - tool: screenshot
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+  - echo: Open media menu from Add button, then dismiss without selecting
+  - tool: gesture-tap
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      x: 0.905
+      y: 0.94
+  - tool: screenshot
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+  - tool: gesture-tap
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      x: 0.1
+      y: 0.2
+  - echo: Close comments with swipe-down and verify feed restored
+  - tool: gesture-swipe
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      fromX: 0.5
+      fromY: 0.5
+      toX: 0.5
+      toY: 0.98
+      durationMs: 520
+  - tool: screenshot
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79

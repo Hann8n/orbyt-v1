@@ -1,32 +1,55 @@
-executionPrerequisite: App is open on the main feed screen with at least a few video posts visible.
+executionPrerequisite: Orbyt app is open on the feed tab with video cards visible and no blocking modal overlay.
 steps:
   - tool: screenshot
     args:
-      udid: EAECE3AF-C0A7-44EC-B642-FD8C7953BE51
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+  - tool: gesture-tap
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      x: 0.15
+      y: 0.94
+  - tool: gesture-tap
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      x: 0.21
+      y: 0.11
   - tool: gesture-swipe
     args:
-      udid: EAECE3AF-C0A7-44EC-B642-FD8C7953BE51
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
       fromX: 0.5
-      fromY: 0.82
+      fromY: 0.72
       toX: 0.5
-      toY: 0.2
+      toY: 0.18
       durationMs: 650
   - tool: gesture-swipe
     args:
-      udid: EAECE3AF-C0A7-44EC-B642-FD8C7953BE51
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
       fromX: 0.5
-      fromY: 0.82
+      fromY: 0.72
       toX: 0.5
-      toY: 0.2
+      toY: 0.18
       durationMs: 650
   - tool: gesture-swipe
     args:
-      udid: EAECE3AF-C0A7-44EC-B642-FD8C7953BE51
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
       fromX: 0.5
-      fromY: 0.82
+      fromY: 0.72
       toX: 0.5
-      toY: 0.2
+      toY: 0.18
+      durationMs: 650
+  - tool: gesture-tap
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      x: 0.40
+      y: 0.11
+  - tool: gesture-swipe
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      fromX: 0.5
+      fromY: 0.72
+      toX: 0.5
+      toY: 0.18
       durationMs: 650
   - tool: screenshot
     args:
-      udid: EAECE3AF-C0A7-44EC-B642-FD8C7953BE51
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79

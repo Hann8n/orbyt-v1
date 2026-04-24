@@ -1,0 +1,48 @@
+executionPrerequisite: Orbyt app is open on self-profile screen (green
+  background visible with edit profile button).
+steps:
+  - echo: Baseline on profile before overflow interaction
+  - tool: screenshot
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+  - echo: Open overflow menu from top-right three dots
+  - tool: gesture-tap
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      x: 0.6
+      y: 0.1
+  - tool: screenshot
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+  - echo: Open edit profile then back out without saving
+  - tool: gesture-tap
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      x: 0.81
+      y: 0.106
+  - tool: screenshot
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+  - tool: button
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      button: back
+  - echo: Toggle profile layout controls and open first media tile
+  - tool: gesture-tap
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      x: 0.83
+      y: 0.64
+  - tool: gesture-tap
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      x: 0.89
+      y: 0.64
+  - tool: gesture-tap
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      x: 0.16
+      y: 0.75
+  - tool: screenshot
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79

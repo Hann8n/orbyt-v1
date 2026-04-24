@@ -35,7 +35,17 @@
     "altstore:process": "bash scripts/altstore-pal.sh process",
     "altstore:status": "bash scripts/altstore-pal.sh status",
     "altstore:download": "bash scripts/altstore-pal.sh download",
-    "assets:recolor-gradients": "npx tsx scripts/recolor-orbyt-gradient-pngs.ts"
+    "assets:recolor-gradients": "npx tsx scripts/recolor-orbyt-gradient-pngs.ts",
+    "argent": "node scripts/argent-cli.js",
+    "argent:start": "node scripts/argent-cli.js start",
+    "argent:stop": "node scripts/argent-cli.js stop",
+    "argent:restart": "node scripts/argent-cli.js restart",
+    "argent:status": "node scripts/argent-cli.js status",
+    "argent:watch": "node scripts/argent-cli.js watch",
+    "argent:messages": "node scripts/argent-cli.js messages",
+    "argent:runs": "node scripts/argent-cli.js runs",
+    "argent:clean": "node scripts/argent-cli.js clean",
+    "argent:clean:all": "node scripts/argent-cli.js clean --all"
   },
   "dependencies": {
     "@atproto/api": "^0.19.5",

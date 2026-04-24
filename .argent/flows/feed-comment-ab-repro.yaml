@@ -1,0 +1,28 @@
+executionPrerequisite: Orbyt app is open on feed tab with visible video and
+  right action stack (comment bubble visible near lower-right).
+steps:
+  - echo: Baseline feed state before comment interaction
+  - tool: screenshot
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+  - echo: Tap comments bubble on right action stack; comments sheet should open
+  - tool: gesture-tap
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      x: 0.93
+      y: 0.785
+  - tool: screenshot
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+  - echo: Swipe down to close comments and return to feed
+  - tool: gesture-swipe
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
+      fromX: 0.5
+      fromY: 0.5
+      toX: 0.5
+      toY: 0.9
+      durationMs: 450
+  - tool: screenshot
+    args:
+      udid: 3093FA4E-EFC2-4FE9-91F5-91DA8BB80C79
