@@ -4778,6 +4778,13 @@ expo-image@^55.0.9, expo-image@~55.0.9:
   dependencies:
     sf-symbols-typescript "^2.2.0"
 
+expo-insights@~55.0.16:
+  version "55.0.16"
+  resolved "https://registry.yarnpkg.com/expo-insights/-/expo-insights-55.0.16.tgz#58abcfef39317d5b5b44f8dc4afd30c2abc0c7db"
+  integrity sha512-3BPe3lcufconTBywT0Zil83ZOsEXX47AqeaPPLr2gridYtiKOSqDtLDd9EKEK1D+p9u4LL3QFAz8J9crdQyc4Q==
+  dependencies:
+    expo-eas-client "~55.0.5"
+
 expo-json-utils@~55.0.2:
   version "55.0.2"
   resolved "https://registry.yarnpkg.com/expo-json-utils/-/expo-json-utils-55.0.2.tgz#ef79888b881ef5b92d27245d3a758bc5debcbccf"
