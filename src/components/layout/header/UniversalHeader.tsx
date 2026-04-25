@@ -150,6 +150,7 @@ export interface UniversalHeaderProps {
   onBackPress?: () => void;
   backgroundColor?: string;
   textColor?: string;
+  shadowColor?: string;
   backgroundImage?: string;
   isLoading?: boolean;
   skeleton?: React.ReactNode;
@@ -174,404 +175,426 @@ const ActionButton = memo<{
   action: HeaderAction;
   textColor: string;
   backgroundColor: string;
+  shadowColor?: string;
   size?: 'small' | 'medium' | 'large';
   preferLiquidGlass?: boolean;
-}>(({ action, textColor, backgroundColor, size = 'medium', preferLiquidGlass = false }) => {
-  const hasFilledBackground = useMemo(() => {
-    const isIconOnlyFollowingState = action.id === 'follow' && !action.label;
-    const isSaveButton = action.id === 'save';
-    const isActiveSubscription = action.id === 'subscription' && action.active;
-    const isExplicitlyActive = action.active === true;
-    return isIconOnlyFollowingState || isSaveButton || isActiveSubscription || isExplicitlyActive;
-  }, [action.label, action.id, action.active]);
-
-  // 0 = unfollowed appearance, 1 = followed (filled pill / inverted ink)
-  const animationProgress = useSharedValue(hasFilledBackground ? 1 : 0);
-
-  useLayoutEffect(() => {
-    animationProgress.value = withTiming(hasFilledBackground ? 1 : 0, {
-      duration: FOLLOW_PILL_TRANSITION_MS,
-      easing: Easing.inOut(Easing.cubic),
-    });
-  }, [hasFilledBackground, animationProgress]);
-
-  // Animated style for smooth background color transition
-  const animatedButtonStyle = useAnimatedStyle(() => {
-    'worklet';
-    const unfilledBg = blendColors(backgroundColor, textColor, 0.2);
-    const filledBg = textColor;
-    return {
-      backgroundColor: interpolateColor(animationProgress.value, [0, 1], [unfilledBg, filledBg]),
-      opacity: action.disabled ? 0.4 : 1,
-    };
-  }, [textColor, backgroundColor, action.disabled]);
-
-  // Content crossfade (UI thread): linear blend so reversing direction mirrors the same curve in time.
-  const unfilledContentOpacityStyle = useAnimatedStyle(() => {
-    'worklet';
-    return { opacity: 1 - animationProgress.value };
-  });
-
-  const filledContentOpacityStyle = useAnimatedStyle(() => {
-    'worklet';
-    return { opacity: animationProgress.value };
-  });
-
-  const canUseLiquidGlass =
-    preferLiquidGlass &&
-    Platform.OS === 'ios' &&
-    isLiquidGlassAvailable() &&
-    action.variant !== 'danger' &&
-    action.variant !== 'secondary';
-
-  const getButtonStyle = useCallback(() => {
-    const showFilledState = hasFilledBackground;
-
-    const baseStyle = {
-      backgroundColor: canUseLiquidGlass
-        ? Colors.transparent
-        : showFilledState
-          ? textColor
-          : blendColors(backgroundColor, textColor, 0.2),
-      opacity: action.disabled ? 0.4 : 1,
-    };
-
-    switch (action.variant) {
-      case 'danger':
-        return {
-          ...baseStyle,
-          backgroundColor: blendColors(backgroundColor, Colors.coral[500], 0.2),
-        };
-      case 'secondary':
-        return {
-          backgroundColor: 'transparent',
-          opacity: action.disabled ? 0.4 : 1,
-        };
-      default:
-        return baseStyle;
-    }
-  }, [
-    action.variant,
-    action.disabled,
+}>(
+  ({
+    action,
     textColor,
     backgroundColor,
-    hasFilledBackground,
-    canUseLiquidGlass,
-  ]);
+    shadowColor,
+    size = 'medium',
+    preferLiquidGlass = false,
+  }) => {
+    const hasFilledBackground = useMemo(() => {
+      const isIconOnlyFollowingState = action.id === 'follow' && !action.label;
+      const isSaveButton = action.id === 'save';
+      const isActiveSubscription = action.id === 'subscription' && action.active;
+      const isExplicitlyActive = action.active === true;
+      return isIconOnlyFollowingState || isSaveButton || isActiveSubscription || isExplicitlyActive;
+    }, [action.label, action.id, action.active]);
 
-  const getLiquidGlassTintColor = useCallback(() => {
-    const isActive = hasFilledBackground;
-    const activeTint = textColor;
-    const inactiveTint = hexToRGBA(Colors.black, 0.12);
-    return isActive ? activeTint : inactiveTint;
-  }, [hasFilledBackground, textColor]);
+    // 0 = unfollowed appearance, 1 = followed (filled pill / inverted ink)
+    const animationProgress = useSharedValue(hasFilledBackground ? 1 : 0);
 
-  const getContentColor = useCallback(() => {
-    if (canUseLiquidGlass) {
-      const isActive = hasFilledBackground;
-      const activeContent = backgroundColor;
-      const inactiveContent = textColor;
-      return isActive ? activeContent : inactiveContent;
-    }
-    const showFilledState = hasFilledBackground;
-    return showFilledState ? backgroundColor : textColor;
-  }, [textColor, backgroundColor, hasFilledBackground, canUseLiquidGlass]);
+    useLayoutEffect(() => {
+      animationProgress.value = withTiming(hasFilledBackground ? 1 : 0, {
+        duration: FOLLOW_PILL_TRANSITION_MS,
+        easing: Easing.inOut(Easing.cubic),
+      });
+    }, [hasFilledBackground, animationProgress]);
 
-  const getButtonContainerSize = useCallback(() => {
-    const hasLabel = !!action.label;
-    const hasIcon = !!(action.customIcon || action.icon);
-    const isFollowLeadingIcon = action.id === 'follow' && !!action.customIcon && hasLabel;
-
-    if (!hasLabel) {
-      switch (size) {
-        case 'small':
-          return { width: 40, height: 32 };
-        case 'large':
-          return { width: 56, height: 48 };
-        default:
-          return { width: 50, height: 44 };
-      }
-    }
-
-    if (!hasIcon) {
-      switch (size) {
-        case 'small':
-          return { minWidth: 72, height: 32 };
-        case 'large':
-          return { minWidth: 112, height: 48 };
-        default:
-          return { minWidth: 92, height: 44 };
-      }
-    }
-
-    if (isFollowLeadingIcon) {
-      switch (size) {
-        case 'small':
-          return { minWidth: 84, height: 32 };
-        case 'large':
-          return { minWidth: 120, height: 48 };
-        default:
-          return { minWidth: 108, height: 44 };
-      }
-    }
-
-    switch (size) {
-      case 'small':
-        return { minWidth: 88, height: 32 };
-      case 'large':
-        return { minWidth: 124, height: 48 };
-      default:
-        return { minWidth: 104, height: 44 };
-    }
-  }, [size, action]);
-
-  const getButtonPadding = useCallback(() => {
-    const hasLabel = !!action.label;
-    const hasIcon = !!(action.customIcon || action.icon);
-    const isFollowLeadingIcon = action.id === 'follow' && !!action.customIcon && hasLabel;
-
-    if (!hasLabel) return {};
-
-    if (!hasIcon) {
-      switch (size) {
-        case 'small':
-          return { paddingHorizontal: 12, paddingVertical: 6 };
-        case 'large':
-          return { paddingHorizontal: 24, paddingVertical: 12 };
-        default:
-          return { paddingHorizontal: 16, paddingVertical: 8 };
-      }
-    }
-
-    if (isFollowLeadingIcon) {
-      switch (size) {
-        case 'small':
-          return { paddingLeft: 7, paddingRight: 10 };
-        case 'large':
-          return { paddingLeft: 14, paddingRight: 16 };
-        default:
-          return { paddingLeft: 10, paddingRight: 12 };
-      }
-    }
-
-    switch (size) {
-      case 'small':
-        return { paddingHorizontal: 10 };
-      case 'large':
-        return { paddingHorizontal: 20 };
-      default:
-        return { paddingHorizontal: 14 };
-    }
-  }, [size, action]);
-
-  const renderLabeledActionRow = useCallback(
-    (contentColor: string, textStyle: StyleProp<TextStyle>) => {
-      const labelText = (align: 'left' | 'center'): React.ReactElement => (
-        <Text
-          style={[
-            textStyle,
-            align === 'left' ? styles.actionPillLabel : styles.actionPillLabelCentered,
-            { color: contentColor },
-          ]}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {action.label}
-        </Text>
-      );
-
-      if (action.id === 'follow' && action.customIcon) {
-        return (
-          <View style={styles.labeledActionRow} pointerEvents="none">
-            <View style={styles.labeledActionLeadingIconCap}>
-              {cloneHeaderActionIconColor(action.customIcon, contentColor)}
-            </View>
-            {labelText('left')}
-          </View>
-        );
-      }
-
-      if (action.customIcon || action.icon) {
-        return (
-          <View style={styles.labeledActionRow} pointerEvents="none">
-            {labelText('left')}
-            {action.customIcon ? (
-              cloneHeaderActionIconColor(action.customIcon, contentColor)
-            ) : action.icon ? (
-              <Icon
-                name={action.icon}
-                size={16}
-                color={contentColor}
-                strokeWidth={STROKE_WIDTH_THICK}
-              />
-            ) : null}
-          </View>
-        );
-      }
-
-      return (
-        <View style={styles.labeledActionTextOnlyRow} pointerEvents="none">
-          {labelText('center')}
-        </View>
-      );
-    },
-    [action]
-  );
-
-  const renderContent = useCallback(() => {
-    const contentColor = getContentColor();
-
-    if (action.loading) {
-      return <ActivityIndicator size="small" color={contentColor} />;
-    }
-
-    if (action.label) {
-      const textStyle =
-        action.variant === 'secondary' || action.id === 'save'
-          ? styles.actionTextBold
-          : styles.actionText;
-      return renderLabeledActionRow(contentColor, textStyle);
-    }
-
-    return (
-      <View style={styles.iconOnlyContent} pointerEvents="none">
-        {action.customIcon ? (
-          cloneHeaderActionIconColor(action.customIcon, contentColor)
-        ) : action.icon ? (
-          <Icon
-            name={action.icon}
-            size={20}
-            color={contentColor}
-            strokeWidth={STROKE_WIDTH_THICK}
-          />
-        ) : null}
-      </View>
+    const unfilledBg = useMemo(
+      () => blendColors(backgroundColor, textColor, 0.2),
+      [backgroundColor, textColor]
     );
-  }, [action, getContentColor, renderLabeledActionRow]);
 
-  // Only apply animated follow fill in non-glass mode.
-  const isFollowButton = action.id === 'follow';
-  const shouldAnimate =
-    !canUseLiquidGlass &&
-    isFollowButton &&
-    action.variant !== 'danger' &&
-    action.variant !== 'secondary';
+    // Animated style for smooth background color transition
+    const animatedButtonStyle = useAnimatedStyle(() => {
+      'worklet';
+      return {
+        backgroundColor: interpolateColor(animationProgress.value, [0, 1], [unfilledBg, textColor]),
+        opacity: action.disabled ? 0.4 : 1,
+      };
+    }, [textColor, unfilledBg, action.disabled]);
 
-  const followCrossfadeContent = shouldAnimate
-    ? (() => {
+    // Content crossfade (UI thread): linear blend so reversing direction mirrors the same curve in time.
+    const unfilledContentOpacityStyle = useAnimatedStyle(() => {
+      'worklet';
+      return { opacity: 1 - animationProgress.value };
+    });
+
+    const filledContentOpacityStyle = useAnimatedStyle(() => {
+      'worklet';
+      return { opacity: animationProgress.value };
+    });
+
+    const canUseLiquidGlass =
+      preferLiquidGlass &&
+      Platform.OS === 'ios' &&
+      isLiquidGlassAvailable() &&
+      action.variant !== 'danger' &&
+      action.variant !== 'secondary';
+
+    const getButtonStyle = useCallback(() => {
+      const showFilledState = hasFilledBackground;
+
+      const baseStyle = {
+        backgroundColor: canUseLiquidGlass
+          ? Colors.transparent
+          : showFilledState
+            ? textColor
+            : blendColors(backgroundColor, textColor, 0.2),
+        opacity: action.disabled ? 0.4 : 1,
+      };
+
+      switch (action.variant) {
+        case 'danger':
+          return {
+            ...baseStyle,
+            backgroundColor: blendColors(backgroundColor, Colors.coral[500], 0.2),
+          };
+        case 'secondary':
+          return {
+            backgroundColor: 'transparent',
+            opacity: action.disabled ? 0.4 : 1,
+          };
+        default:
+          return baseStyle;
+      }
+    }, [
+      action.variant,
+      action.disabled,
+      textColor,
+      backgroundColor,
+      hasFilledBackground,
+      canUseLiquidGlass,
+    ]);
+
+    const getLiquidGlassTintColor = useCallback(() => {
+      const isActive = hasFilledBackground;
+      const activeTint = textColor;
+      const inactiveTint = hexToRGBA(Colors.black, 0.12);
+      return isActive ? activeTint : inactiveTint;
+    }, [hasFilledBackground, textColor]);
+
+    const getContentColor = useCallback(() => {
+      if (canUseLiquidGlass) {
+        const isActive = hasFilledBackground;
+        const activeContent = backgroundColor;
+        const inactiveContent = textColor;
+        return isActive ? activeContent : inactiveContent;
+      }
+      const showFilledState = hasFilledBackground;
+      return showFilledState ? backgroundColor : textColor;
+    }, [textColor, backgroundColor, hasFilledBackground, canUseLiquidGlass]);
+
+    const getButtonContainerSize = useCallback(() => {
+      const hasLabel = !!action.label;
+      const hasIcon = !!(action.customIcon || action.icon);
+      const isFollowLeadingIcon = action.id === 'follow' && !!action.customIcon && hasLabel;
+
+      if (!hasLabel) {
+        switch (size) {
+          case 'small':
+            return { width: 40, height: 32 };
+          case 'large':
+            return { width: 56, height: 48 };
+          default:
+            return { width: 50, height: 44 };
+        }
+      }
+
+      if (!hasIcon) {
+        switch (size) {
+          case 'small':
+            return { minWidth: 72, height: 32 };
+          case 'large':
+            return { minWidth: 112, height: 48 };
+          default:
+            return { minWidth: 92, height: 44 };
+        }
+      }
+
+      if (isFollowLeadingIcon) {
+        switch (size) {
+          case 'small':
+            return { minWidth: 84, height: 32 };
+          case 'large':
+            return { minWidth: 120, height: 48 };
+          default:
+            return { minWidth: 108, height: 44 };
+        }
+      }
+
+      switch (size) {
+        case 'small':
+          return { minWidth: 88, height: 32 };
+        case 'large':
+          return { minWidth: 124, height: 48 };
+        default:
+          return { minWidth: 104, height: 44 };
+      }
+    }, [size, action]);
+
+    const getButtonPadding = useCallback(() => {
+      const hasLabel = !!action.label;
+      const hasIcon = !!(action.customIcon || action.icon);
+      const isFollowLeadingIcon = action.id === 'follow' && !!action.customIcon && hasLabel;
+
+      if (!hasLabel) return {};
+
+      if (!hasIcon) {
+        switch (size) {
+          case 'small':
+            return { paddingHorizontal: 12, paddingVertical: 6 };
+          case 'large':
+            return { paddingHorizontal: 24, paddingVertical: 12 };
+          default:
+            return { paddingHorizontal: 16, paddingVertical: 8 };
+        }
+      }
+
+      if (isFollowLeadingIcon) {
+        switch (size) {
+          case 'small':
+            return { paddingLeft: 7, paddingRight: 10 };
+          case 'large':
+            return { paddingLeft: 14, paddingRight: 16 };
+          default:
+            return { paddingLeft: 10, paddingRight: 12 };
+        }
+      }
+
+      switch (size) {
+        case 'small':
+          return { paddingHorizontal: 10 };
+        case 'large':
+          return { paddingHorizontal: 20 };
+        default:
+          return { paddingHorizontal: 14 };
+      }
+    }, [size, action]);
+
+    const renderLabeledActionRow = useCallback(
+      (contentColor: string, textStyle: StyleProp<TextStyle>) => {
+        const labelText = (align: 'left' | 'center'): React.ReactElement => (
+          <Text
+            style={[
+              textStyle,
+              align === 'left' ? styles.actionPillLabel : styles.actionPillLabelCentered,
+              { color: contentColor },
+            ]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {action.label}
+          </Text>
+        );
+
+        if (action.id === 'follow' && action.customIcon) {
+          return (
+            <View style={styles.labeledActionRow} pointerEvents="none">
+              <View style={styles.labeledActionLeadingIconCap}>
+                {cloneHeaderActionIconColor(action.customIcon, contentColor)}
+              </View>
+              {labelText('left')}
+            </View>
+          );
+        }
+
+        if (action.customIcon || action.icon) {
+          return (
+            <View style={styles.labeledActionRow} pointerEvents="none">
+              {labelText('left')}
+              {action.customIcon ? (
+                cloneHeaderActionIconColor(action.customIcon, contentColor)
+              ) : action.icon ? (
+                <Icon
+                  name={action.icon}
+                  size={16}
+                  color={contentColor}
+                  strokeWidth={STROKE_WIDTH_THICK}
+                />
+              ) : null}
+            </View>
+          );
+        }
+
+        return (
+          <View style={styles.labeledActionTextOnlyRow} pointerEvents="none">
+            {labelText('center')}
+          </View>
+        );
+      },
+      [action]
+    );
+
+    const renderContent = useCallback(() => {
+      const contentColor = getContentColor();
+
+      if (action.loading) {
+        return <ActivityIndicator size="small" color={contentColor} />;
+      }
+
+      if (action.label) {
         const textStyle =
           action.variant === 'secondary' || action.id === 'save'
             ? styles.actionTextBold
             : styles.actionText;
-        const unfilledColor = textColor;
-        const filledColor = backgroundColor;
-        const content = action.loading ? (
-          <ActivityIndicator size="small" color={unfilledColor} />
-        ) : action.label ? (
-          renderLabeledActionRow(unfilledColor, textStyle)
-        ) : (
-          <View style={styles.iconOnlyContent} pointerEvents="none">
-            {action.customIcon ? (
-              cloneHeaderActionIconColor(action.customIcon, unfilledColor)
-            ) : action.icon ? (
-              <Icon
-                name={action.icon}
-                size={20}
-                color={unfilledColor}
-                strokeWidth={STROKE_WIDTH_THICK}
-              />
-            ) : null}
-          </View>
-        );
-        const contentFilled = action.loading ? (
-          <ActivityIndicator size="small" color={filledColor} />
-        ) : action.label ? (
-          renderLabeledActionRow(filledColor, textStyle)
-        ) : (
-          <View style={styles.iconOnlyContent} pointerEvents="none">
-            {action.customIcon ? (
-              cloneHeaderActionIconColor(action.customIcon, filledColor)
-            ) : action.icon ? (
-              <Icon
-                name={action.icon}
-                size={20}
-                color={filledColor}
-                strokeWidth={STROKE_WIDTH_THICK}
-              />
-            ) : null}
-          </View>
-        );
-        return (
-          <View style={styles.followContentCrossfade} pointerEvents="none">
-            <View style={styles.followContentSizer} pointerEvents="none">
-              {content}
-            </View>
-            <Animated.View style={[styles.followContentLayer, unfilledContentOpacityStyle]}>
-              {content}
-            </Animated.View>
-            <Animated.View style={[styles.followContentLayer, filledContentOpacityStyle]}>
-              {contentFilled}
-            </Animated.View>
-          </View>
-        );
-      })()
-    : null;
+        return renderLabeledActionRow(contentColor, textStyle);
+      }
 
-  if (shouldAnimate) {
-    return (
-      <Animated.View
-        layout={FOLLOW_PILL_LAYOUT_ANIMATION}
-        collapsable={false}
-        style={[styles.actionButtonOuter, getButtonContainerSize()]}
-      >
-        <SquircleView style={[StyleSheet.absoluteFillObject, styles.actionButtonSquircleClip]}>
-          <NativePressable
-            style={[StyleSheet.absoluteFillObject, styles.actionButtonInner]}
-            onPress={action.onPress}
-            onLongPress={action.onLongPress}
-            delayLongPress={action.delayLongPress}
-            disabled={action.disabled || action.loading}
-          >
-            <Animated.View
-              pointerEvents="none"
-              style={[StyleSheet.absoluteFillObject, animatedButtonStyle]}
+      return (
+        <View style={styles.iconOnlyContent} pointerEvents="none">
+          {action.customIcon ? (
+            cloneHeaderActionIconColor(action.customIcon, contentColor)
+          ) : action.icon ? (
+            <Icon
+              name={action.icon}
+              size={20}
+              color={contentColor}
+              strokeWidth={STROKE_WIDTH_THICK}
             />
-            {followCrossfadeContent}
-          </NativePressable>
-        </SquircleView>
-      </Animated.View>
+          ) : null}
+        </View>
+      );
+    }, [action, getContentColor, renderLabeledActionRow]);
+
+    // Only apply animated follow fill in non-glass mode.
+    const isFollowButton = action.id === 'follow';
+    const shouldAnimate =
+      !canUseLiquidGlass &&
+      isFollowButton &&
+      action.variant !== 'danger' &&
+      action.variant !== 'secondary';
+
+    const followCrossfadeContent = shouldAnimate
+      ? (() => {
+          const textStyle =
+            action.variant === 'secondary' || action.id === 'save'
+              ? styles.actionTextBold
+              : styles.actionText;
+          const unfilledColor = textColor;
+          const filledColor = backgroundColor;
+          const content = action.loading ? (
+            <ActivityIndicator size="small" color={unfilledColor} />
+          ) : action.label ? (
+            renderLabeledActionRow(unfilledColor, textStyle)
+          ) : (
+            <View style={styles.iconOnlyContent} pointerEvents="none">
+              {action.customIcon ? (
+                cloneHeaderActionIconColor(action.customIcon, unfilledColor)
+              ) : action.icon ? (
+                <Icon
+                  name={action.icon}
+                  size={20}
+                  color={unfilledColor}
+                  strokeWidth={STROKE_WIDTH_THICK}
+                />
+              ) : null}
+            </View>
+          );
+          const contentFilled = action.loading ? (
+            <ActivityIndicator size="small" color={filledColor} />
+          ) : action.label ? (
+            renderLabeledActionRow(filledColor, textStyle)
+          ) : (
+            <View style={styles.iconOnlyContent} pointerEvents="none">
+              {action.customIcon ? (
+                cloneHeaderActionIconColor(action.customIcon, filledColor)
+              ) : action.icon ? (
+                <Icon
+                  name={action.icon}
+                  size={20}
+                  color={filledColor}
+                  strokeWidth={STROKE_WIDTH_THICK}
+                />
+              ) : null}
+            </View>
+          );
+          return (
+            <View style={styles.followContentCrossfade} pointerEvents="none">
+              <View style={styles.followContentSizer} pointerEvents="none">
+                {content}
+              </View>
+              <Animated.View style={[styles.followContentLayer, unfilledContentOpacityStyle]}>
+                {content}
+              </Animated.View>
+              <Animated.View style={[styles.followContentLayer, filledContentOpacityStyle]}>
+                {contentFilled}
+              </Animated.View>
+            </View>
+          );
+        })()
+      : null;
+
+    const shadowStyle = useMemo(() => {
+      const color = shadowColor || backgroundColor;
+      const shadowColorValue = hexToRGBA(color, 0.2);
+      return {
+        ...styles.actionButtonOuter,
+        boxShadow: `0 2px 3px ${shadowColorValue}`,
+      };
+    }, [backgroundColor, shadowColor]);
+
+    if (shouldAnimate) {
+      return (
+        <Animated.View
+          layout={FOLLOW_PILL_LAYOUT_ANIMATION}
+          collapsable={false}
+          style={[shadowStyle, getButtonContainerSize()]}
+        >
+          <SquircleView style={[StyleSheet.absoluteFillObject, styles.actionButtonSquircleClip]}>
+            <NativePressable
+              style={[StyleSheet.absoluteFillObject, styles.actionButtonInner]}
+              onPress={action.onPress}
+              onLongPress={action.onLongPress}
+              delayLongPress={action.delayLongPress}
+              disabled={action.disabled || action.loading}
+            >
+              <Animated.View
+                pointerEvents="none"
+                style={[StyleSheet.absoluteFillObject, animatedButtonStyle]}
+              />
+              {followCrossfadeContent}
+            </NativePressable>
+          </SquircleView>
+        </Animated.View>
+      );
+    }
+
+    return (
+      <SquircleView
+        style={[
+          shadowStyle,
+          canUseLiquidGlass && styles.actionButtonOuterNoShadow,
+          getButtonContainerSize(),
+        ]}
+      >
+        <NativePressable
+          style={[styles.actionButtonInner, getButtonPadding(), getButtonStyle()]}
+          onPress={action.onPress}
+          onLongPress={action.onLongPress}
+          delayLongPress={action.delayLongPress}
+          disabled={action.disabled || action.loading}
+        >
+          <>
+            {canUseLiquidGlass && (
+              <GlassView
+                style={styles.actionButtonGlassBackground}
+                glassEffectStyle="clear"
+                tintColor={getLiquidGlassTintColor()}
+              />
+            )}
+            {renderContent()}
+          </>
+        </NativePressable>
+      </SquircleView>
     );
   }
-
-  return (
-    <SquircleView
-      style={[
-        styles.actionButtonOuter,
-        canUseLiquidGlass && styles.actionButtonOuterNoShadow,
-        getButtonContainerSize(),
-      ]}
-    >
-      <NativePressable
-        style={[styles.actionButtonInner, getButtonPadding(), getButtonStyle()]}
-        onPress={action.onPress}
-        onLongPress={action.onLongPress}
-        delayLongPress={action.delayLongPress}
-        disabled={action.disabled || action.loading}
-      >
-        <>
-          {canUseLiquidGlass && (
-            <GlassView
-              style={styles.actionButtonGlassBackground}
-              glassEffectStyle="clear"
-              tintColor={getLiquidGlassTintColor()}
-            />
-          )}
-          {renderContent()}
-        </>
-      </NativePressable>
-    </SquircleView>
-  );
-});
+);
 ActionButton.displayName = 'ActionButton';
 
 // Re-exported for use in overlay layouts (e.g., profile screen) to keep visuals 1:1
@@ -714,11 +737,17 @@ const HeaderContentComponent = memo<{
   content: HeaderContent;
   textColor: string;
   backgroundColor: string;
+  shadowColor?: string;
   customDescription?: React.ReactNode;
-}>(({ content, textColor, backgroundColor, customDescription }) => {
+}>(({ content, textColor, backgroundColor, shadowColor, customDescription }) => {
   const router = useRouter();
   const feedModalTab = useFeedModalTabSegment();
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
+
+  const germButtonShadow = useMemo(() => {
+    if (!shadowColor) return {};
+    return { boxShadow: `0 2px 3px ${hexToRGBA(shadowColor, 0.2)}` };
+  }, [shadowColor]);
 
   const navigateToAuthorProfile = useCallback(
     (identifier: string) => {
@@ -863,6 +892,7 @@ const HeaderContentComponent = memo<{
                         styles.germCircleButton,
                         styles.subtitleActionLeadingIcon,
                         { backgroundColor: Colors.brand.germBrandGreen },
+                        germButtonShadow,
                       ]}
                     >
                       <GermDmIcon size={ICON_SIZES.SMALL} />
@@ -890,6 +920,7 @@ const HeaderContentComponent = memo<{
                         style={[
                           styles.germCircleButtonSecondary,
                           { backgroundColor: Colors.brand.germBrandGreen },
+                          germButtonShadow,
                         ]}
                       >
                         <GermDmIcon size={ICON_SIZES.SMALL} />
@@ -968,6 +999,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   onBackPress,
   backgroundColor = Colors.black,
   textColor = Colors.neutral[50],
+  shadowColor,
   backgroundImage,
   children,
   style,
@@ -1208,6 +1240,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
                         action={action}
                         textColor={textColor}
                         backgroundColor={backgroundColor}
+                        shadowColor={shadowColor}
                       />
                     </View>
                   );
@@ -1239,6 +1272,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
           content={content}
           textColor={textColor}
           backgroundColor={backgroundColor}
+          shadowColor={shadowColor}
           customDescription={customDescription}
         />
 

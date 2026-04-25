@@ -1,0 +1,24 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": ["colors"],
+  "ios": {
+    "iosModuleName": "NitroColors"
+  },
+  "android": {
+    "androidNamespace": ["colors"],
+    "androidCxxLibName": "NitroColors"
+  },
+  "autolinking": {
+    "NitroColors": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridNitroColors"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridNitroColors"
+      }
+    }
+  },
+  "ignorePaths": ["**/node_modules"]
+}

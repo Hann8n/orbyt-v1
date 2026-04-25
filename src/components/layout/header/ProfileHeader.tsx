@@ -301,6 +301,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         content={headerContent}
         backgroundColor={dynamicColors.backgroundColor}
         textColor={dynamicColors.textColor}
+        shadowColor={profileColors.chromeBackgroundColor}
         applySafeArea={applySafeArea}
         reserveTopForOverlayButtons={!headerStyle}
         contentScrollProgress={contentScrollProgressSV}

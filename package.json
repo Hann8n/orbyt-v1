@@ -35,7 +35,8 @@
     "altstore:process": "bash scripts/altstore-pal.sh process",
     "altstore:status": "bash scripts/altstore-pal.sh status",
     "altstore:download": "bash scripts/altstore-pal.sh download",
-    "assets:recolor-gradients": "npx tsx scripts/recolor-orbyt-gradient-pngs.ts"
+    "assets:recolor-gradients": "npx tsx scripts/recolor-orbyt-gradient-pngs.ts",
+    "test": "jest"
   },
   "dependencies": {
     "@atproto/api": "^0.19.5",
@@ -106,6 +107,7 @@
     "react-native-keyboard-controller": "1.20.7",
     "react-native-mmkv": "3.3.3",
     "react-native-nano-icons": "^0.1.8",
+    "react-native-nitro-colors": "file:packages/react-native-nitro-colors",
     "react-native-nitro-image": "^0.13.1",
     "react-native-nitro-modules": "^0.35.4",
     "react-native-pager-view": "8.0.0",
@@ -123,6 +125,7 @@
   "devDependencies": {
     "@babel/core": "^7.28.6",
     "@eslint/js": "^9.39.4",
+    "@types/jest": "^30.0.0",
     "@types/node": "^25.2.3",
     "@types/react": "^19.2.14",
     "@typescript-eslint/eslint-plugin": "^8.55.0",
@@ -139,6 +142,8 @@
     "eslint-plugin-react-perf": "^3.3.3",
     "expo-doctor": "^1.18.18",
     "husky": "^9.1.7",
+    "jest": "^30.3.0",
+    "jest-expo": "^55.0.16",
     "knip": "^6.1.0",
     "lint-staged": "^16.2.7",
     "patch-package": "^8.0.0",
@@ -150,6 +155,18 @@
     "typescript": "~5.9.2"
   },
   "private": true,
+  "jest": {
+    "preset": "jest-expo/node",
+    "testMatch": [
+      "**/__tests__/**/*.test.ts?(x)"
+    ],
+    "moduleNameMapper": {
+      "^react-native-nitro-modules$": "<rootDir>/src/__mocks__/react-native-nitro-modules.ts",
+      "^react-native-nitro-colors$": "<rootDir>/src/__mocks__/react-native-nitro-colors.ts",
+      "^react-native-image-colors$": "<rootDir>/src/__mocks__/react-native-image-colors.ts",
+      "^react-native-mmkv$": "<rootDir>/src/__mocks__/react-native-mmkv.ts"
+    }
+  },
   "resolutions": {
     "expo-web-browser": "~55.0.8"
   },
