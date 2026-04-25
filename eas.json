@@ -5,6 +5,7 @@
   },
   "build": {
     "development": {
+      "corepack": true,
       "distribution": "internal",
       "ios": {
         "resourceClass": "m-medium"
@@ -14,12 +15,14 @@
       }
     },
     "preview": {
+      "corepack": true,
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_APP_CONFIG": "app.dev.json"
       }
     },
     "production": {
+      "corepack": true,
       "autoIncrement": true,
       "distribution": "store",
       "env": {
@@ -27,12 +30,14 @@
       }
     },
     "ios-simulator": {
+      "corepack": true,
       "extends": "development",
       "ios": {
         "simulator": true
       }
     },
     "ios-ipa": {
+      "corepack": true,
       "extends": "preview",
       "ios": {
         "distribution": "internal",
@@ -40,6 +45,7 @@
       }
     },
     "beta": {
+      "corepack": true,
       "extends": "production",
       "distribution": "store",
       "android": {
@@ -50,6 +56,7 @@
       }
     },
     "beta-apk": {
+      "corepack": true,
       "extends": "production",
       "distribution": "internal",
       "android": {
