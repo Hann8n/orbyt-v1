@@ -28,7 +28,7 @@
         "foregroundImage": "./src/assets/AppIcons/android/orbyt_icon_adaptive_foreground.png",
         "backgroundColor": "#05070a"
       },
-      "package": "com.orbyt.app",
+      "package": "com.getorbyt.app",
       "versionCode": 2026042102,
       "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
