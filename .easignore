@@ -1,0 +1,44 @@
+# EAS build ignore file
+# Use this instead of .gitignore for EAS build uploads.
+
+# Local/dev caches and generated files
+node_modules/
+.expo/
+.vscode/
+.DS_Store
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
+*.tmp
+*.swp
+*.cache
+coverage/
+
+# Local environment files
+.env
+.env.*
+*.local
+
+# Git metadata
+.git/
+.gitignore
+.gitattributes
+
+# Build artifacts from native projects
+android/.gradle/
+android/app/build/
+android/build/
+android/.cxx/
+
+ios/Pods/
+ios/Build/
+ios/build/
+ios/*.xcworkspace
+
+# Documentation and reporting files not required for the build
+docs/
+reports/
+
+# Patch-package sources and local package source should remain
+# Keep patches/, packages/, ios/, android/ source files, and config files.
