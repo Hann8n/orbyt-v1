@@ -237,7 +237,7 @@ const ActionButton = memo<{
       action.variant !== 'danger' &&
       action.variant !== 'secondary';
 
-    const getButtonStyle = useCallback(() => {
+    const buttonStyle = useMemo(() => {
       const showFilledState = hasFilledBackground;
 
       const baseStyle = {
@@ -272,14 +272,14 @@ const ActionButton = memo<{
       canUseLiquidGlass,
     ]);
 
-    const getLiquidGlassTintColor = useCallback(() => {
+    const liquidGlassTintColor = useMemo(() => {
       const isActive = hasFilledBackground;
       const activeTint = textColor;
       const inactiveTint = hexToRGBA(Colors.black, 0.12);
       return isActive ? activeTint : inactiveTint;
     }, [hasFilledBackground, textColor]);
 
-    const getContentColor = useCallback(() => {
+    const contentColor = useMemo(() => {
       if (canUseLiquidGlass) {
         const isActive = hasFilledBackground;
         const activeContent = backgroundColor;
@@ -290,7 +290,7 @@ const ActionButton = memo<{
       return showFilledState ? backgroundColor : textColor;
     }, [textColor, backgroundColor, hasFilledBackground, canUseLiquidGlass]);
 
-    const getButtonContainerSize = useCallback(() => {
+    const buttonContainerSize = useMemo(() => {
       const hasLabel = !!action.label;
       const hasIcon = !!(action.customIcon || action.icon);
       const isFollowLeadingIcon = action.id === 'follow' && !!action.customIcon && hasLabel;
@@ -338,7 +338,7 @@ const ActionButton = memo<{
       }
     }, [size, action]);
 
-    const getButtonPadding = useCallback(() => {
+    const buttonPadding = useMemo(() => {
       const hasLabel = !!action.label;
       const hasIcon = !!(action.customIcon || action.icon);
       const isFollowLeadingIcon = action.id === 'follow' && !!action.customIcon && hasLabel;
@@ -379,19 +379,18 @@ const ActionButton = memo<{
 
     const renderLabeledActionRow = useCallback(
       (contentColor: string, textStyle: StyleProp<TextStyle>) => {
-        const labelText = (align: 'left' | 'center'): React.ReactElement => (
-          <Text
-            style={[
-              textStyle,
-              align === 'left' ? styles.actionPillLabel : styles.actionPillLabelCentered,
-              { color: contentColor },
-            ]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {action.label}
-          </Text>
-        );
+        const labelText = (align: 'left' | 'center'): React.ReactElement => {
+          const labelStyle = [
+            textStyle,
+            align === 'left' ? styles.actionPillLabel : styles.actionPillLabelCentered,
+            { color: contentColor },
+          ];
+          return (
+            <Text style={labelStyle} numberOfLines={1} ellipsizeMode="tail">
+              {action.label}
+            </Text>
+          );
+        };
 
         if (action.id === 'follow' && action.customIcon) {
           return (
@@ -432,8 +431,6 @@ const ActionButton = memo<{
     );
 
     const renderContent = useCallback(() => {
-      const contentColor = getContentColor();
-
       if (action.loading) {
         return <ActivityIndicator size="small" color={contentColor} />;
       }
@@ -460,7 +457,7 @@ const ActionButton = memo<{
           ) : null}
         </View>
       );
-    }, [action, getContentColor, renderLabeledActionRow]);
+    }, [action, contentColor, renderLabeledActionRow]);
 
     // Only apply animated follow fill in non-glass mode.
     const isFollowButton = action.id === 'follow';
@@ -469,6 +466,16 @@ const ActionButton = memo<{
       isFollowButton &&
       action.variant !== 'danger' &&
       action.variant !== 'secondary';
+
+    const unfilledFollowLayerStyle = useMemo(
+      () => [styles.followContentLayer, unfilledContentOpacityStyle],
+      [unfilledContentOpacityStyle]
+    );
+
+    const filledFollowLayerStyle = useMemo(
+      () => [styles.followContentLayer, filledContentOpacityStyle],
+      [filledContentOpacityStyle]
+    );
 
     const followCrossfadeContent = shouldAnimate
       ? (() => {
@@ -519,12 +526,8 @@ const ActionButton = memo<{
               <View style={styles.followContentSizer} pointerEvents="none">
                 {content}
               </View>
-              <Animated.View style={[styles.followContentLayer, unfilledContentOpacityStyle]}>
-                {content}
-              </Animated.View>
-              <Animated.View style={[styles.followContentLayer, filledContentOpacityStyle]}>
-                {contentFilled}
-              </Animated.View>
+              <Animated.View style={unfilledFollowLayerStyle}>{content}</Animated.View>
+              <Animated.View style={filledFollowLayerStyle}>{contentFilled}</Animated.View>
             </View>
           );
         })()
@@ -539,25 +542,56 @@ const ActionButton = memo<{
       };
     }, [backgroundColor, shadowColor]);
 
+    const animatedButtonLayerStyle = useMemo(
+      () => [StyleSheet.absoluteFillObject, animatedButtonStyle],
+      [animatedButtonStyle]
+    );
+
+    const animatedShadowStyle = useMemo(
+      () => [shadowStyle, buttonContainerSize],
+      [shadowStyle, buttonContainerSize]
+    );
+
+    const actionButtonOuterStyle = useMemo(
+      () => [
+        shadowStyle,
+        canUseLiquidGlass && styles.actionButtonOuterNoShadow,
+        buttonContainerSize,
+      ],
+      [shadowStyle, canUseLiquidGlass, buttonContainerSize]
+    );
+
+    const actionButtonInnerStyle = useMemo(
+      () => [styles.actionButtonInner, buttonPadding, buttonStyle],
+      [buttonPadding, buttonStyle]
+    );
+
+    const actionButtonSquircleClipStyle = useMemo(
+      () => [StyleSheet.absoluteFillObject, styles.actionButtonSquircleClip],
+      []
+    );
+
+    const actionButtonInnerFillStyle = useMemo(
+      () => [StyleSheet.absoluteFillObject, styles.actionButtonInner],
+      []
+    );
+
     if (shouldAnimate) {
       return (
         <Animated.View
           layout={FOLLOW_PILL_LAYOUT_ANIMATION}
           collapsable={false}
-          style={[shadowStyle, getButtonContainerSize()]}
+          style={animatedShadowStyle}
         >
-          <SquircleView style={[StyleSheet.absoluteFillObject, styles.actionButtonSquircleClip]}>
+          <SquircleView style={actionButtonSquircleClipStyle}>
             <NativePressable
-              style={[StyleSheet.absoluteFillObject, styles.actionButtonInner]}
+              style={actionButtonInnerFillStyle}
               onPress={action.onPress}
               onLongPress={action.onLongPress}
               delayLongPress={action.delayLongPress}
               disabled={action.disabled || action.loading}
             >
-              <Animated.View
-                pointerEvents="none"
-                style={[StyleSheet.absoluteFillObject, animatedButtonStyle]}
-              />
+              <Animated.View pointerEvents="none" style={animatedButtonLayerStyle} />
               {followCrossfadeContent}
             </NativePressable>
           </SquircleView>
@@ -566,15 +600,9 @@ const ActionButton = memo<{
     }
 
     return (
-      <SquircleView
-        style={[
-          shadowStyle,
-          canUseLiquidGlass && styles.actionButtonOuterNoShadow,
-          getButtonContainerSize(),
-        ]}
-      >
+      <SquircleView style={actionButtonOuterStyle}>
         <NativePressable
-          style={[styles.actionButtonInner, getButtonPadding(), getButtonStyle()]}
+          style={actionButtonInnerStyle}
           onPress={action.onPress}
           onLongPress={action.onLongPress}
           delayLongPress={action.delayLongPress}
@@ -585,7 +613,7 @@ const ActionButton = memo<{
               <GlassView
                 style={styles.actionButtonGlassBackground}
                 glassEffectStyle="clear"
-                tintColor={getLiquidGlassTintColor()}
+                tintColor={liquidGlassTintColor}
               />
             )}
             {renderContent()}
@@ -599,6 +627,14 @@ ActionButton.displayName = 'ActionButton';
 
 // Re-exported for use in overlay layouts (e.g., profile screen) to keep visuals 1:1
 export const HeaderActionButton = ActionButton;
+
+const ActionStackSlot = memo<{ zIndex: number; children: React.ReactNode }>(
+  ({ zIndex, children }) => {
+    const slotStyle = useMemo(() => [styles.headerActionStackSlot, { zIndex }], [zIndex]);
+    return <View style={slotStyle}>{children}</View>;
+  }
+);
+ActionStackSlot.displayName = 'ActionStackSlot';
 
 // Memoized custom action layout component
 const CustomActionLayoutComponent = memo<{
@@ -626,13 +662,13 @@ const CustomActionLayoutComponent = memo<{
       return (
         <View style={styles.buttonContainer}>
           {layout.buttons.map((action, index) => (
-            <View key={action.id} style={[styles.headerActionStackSlot, { zIndex: n - index }]}>
+            <ActionStackSlot key={action.id} zIndex={n - index}>
               <ActionButton
                 action={action}
                 textColor={textColor}
                 backgroundColor={backgroundColor}
               />
-            </View>
+            </ActionStackSlot>
           ))}
         </View>
       );
@@ -680,11 +716,11 @@ const CustomActionLayoutComponent = memo<{
 CustomActionLayoutComponent.displayName = 'CustomActionLayoutComponent';
 
 // Inline title that places badges exactly at the end of the last line
-const InlineTitleWithBadges: React.FC<{
+const InlineTitleWithBadges = memo<{
   title: string;
   titleStyle: TextStyle;
   badges?: React.ReactNode[];
-}> = ({ title, titleStyle, badges = EMPTY_REACT_NODE_ARRAY }) => {
+}>(({ title, titleStyle, badges = EMPTY_REACT_NODE_ARRAY }) => {
   const [lines, setLines] = React.useState<
     Array<{ x: number; y: number; width: number; height: number }>
   >([]);
@@ -730,7 +766,8 @@ const InlineTitleWithBadges: React.FC<{
       )}
     </View>
   );
-};
+});
+InlineTitleWithBadges.displayName = 'InlineTitleWithBadges';
 
 // Memoized header content component
 const HeaderContentComponent = memo<{
@@ -777,6 +814,20 @@ const HeaderContentComponent = memo<{
     [router, feedModalTab]
   );
 
+  const contentOnAvatarMenuAction = content.onAvatarMenuAction;
+
+  const handleAvatarMenuAction = useCallback(
+    ({ nativeEvent }: { nativeEvent: { event?: string } }) => {
+      const id = nativeEvent?.event;
+      if (id) contentOnAvatarMenuAction?.(id);
+    },
+    [contentOnAvatarMenuAction]
+  );
+
+  const titleBadges = useMemo(() => [content.badge as React.ReactNode], [content.badge]);
+
+  const titleComputedStyle = useMemo(() => ({ ...styles.title, color: textColor }), [textColor]);
+
   // Don't render empty content
   if (!content.title && !content.avatar && !content.customTitle) {
     return null;
@@ -818,10 +869,7 @@ const HeaderContentComponent = memo<{
             shouldOpenOnLongPress={false}
             themeVariant="dark"
             isAnchoredToRight={false}
-            onPressAction={({ nativeEvent }: { nativeEvent: { event?: string } }) => {
-              const id = nativeEvent?.event;
-              if (id) content.onAvatarMenuAction?.(id);
-            }}
+            onPressAction={handleAvatarMenuAction}
           >
             {avatarPressable}
           </MenuView>
@@ -845,8 +893,8 @@ const HeaderContentComponent = memo<{
           ) : (
             <InlineTitleWithBadges
               title={content.title}
-              titleStyle={{ ...styles.title, color: textColor }}
-              badges={[content.badge as React.ReactNode]}
+              titleStyle={titleComputedStyle}
+              badges={titleBadges}
             />
           );
           return content.onTitlePress ? (
@@ -1232,17 +1280,14 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
                 {actions.map((action, index) => {
                   const n = actions.length;
                   return (
-                    <View
-                      key={action.id}
-                      style={[styles.headerActionStackSlot, { zIndex: n - index }]}
-                    >
+                    <ActionStackSlot key={action.id} zIndex={n - index}>
                       <ActionButton
                         action={action}
                         textColor={textColor}
                         backgroundColor={backgroundColor}
                         shadowColor={shadowColor}
                       />
-                    </View>
+                    </ActionStackSlot>
                   );
                 })}
               </View>
