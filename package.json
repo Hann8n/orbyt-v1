@@ -46,7 +46,7 @@
     "@atproto/xrpc": "^0.7.7",
     "@babel/runtime": "^7.28.6",
     "@expo/dom-webview": "~55.0.3",
-    "@expo/log-box": "55.0.10",
+    "@expo/log-box": "55.0.11",
     "@expo/metro-runtime": "~55.0.10",
     "@formatjs/intl-segmenter": "^12.1.0",
     "@lodev09/react-native-true-sheet": "^3.8.1",
