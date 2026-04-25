@@ -20,6 +20,10 @@ web-build/
 /android
 /ios
 
+# Yarn
+.yarn/cache/
+.yarn/install-state.gz
+
 # Metro
 .metro-health-check*
 
