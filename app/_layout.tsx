@@ -29,7 +29,15 @@ import { logger } from '@/utils/logger';
 import { APP_CONSTANTS } from '@/utils/constants';
 import { setupReactQueryLifecycleBridge } from '@/utils/query/lifecycle';
 import { LocaleSync } from '@/i18n/LocaleSync';
+import { useSentryUserSync } from '@/hooks/useSentryUserSync';
 import * as Sentry from '@sentry/react-native';
+
+// Navigation ref for Sentry and manual navigation
+export const navigationRef = React.createRef<any>();
+
+const navigationIntegration = Sentry.reactNavigationIntegration({
+  enableTimeToInitialDisplay: true,
+});
 
 Sentry.init({
   dsn: 'https://f2e61d33071557e11913fd3407ba7421@o4510432459096064.ingest.us.sentry.io/4510432460537856',
@@ -41,10 +49,38 @@ Sentry.init({
   // Enable Logs
   enableLogs: true,
 
-  // Configure Session Replay
+  // Performance Tracing
+  tracesSampleRate: 1.0,
+  enableUserInteractionTracing: true,
+
+  // Profiling
+  profilesSampleRate: 1.0,
+  _experiments: {
+    profilingOptions: {
+      profileSessionSampleRate: 1.0,
+      lifecycle: 'trace',
+      startOnAppStart: true,
+    },
+  },
+
+  // Session Replay
   replaysSessionSampleRate: 0.1,
-  replaysOnErrorSampleRate: 1,
-  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+  replaysOnErrorSampleRate: 1.0,
+
+  // View Hierarchy
+  attachViewHierarchy: true,
+
+  integrations: [
+    navigationIntegration,
+    Sentry.mobileReplayIntegration({
+      maskAllText: true,
+      maskAllImages: true,
+    }),
+    Sentry.feedbackIntegration({
+      colorScheme: 'system',
+      enableTakeScreenshot: true,
+    }),
+  ],
 
   // uncomment the line below to enable Spotlight (https://spotlightjs.com)
   // spotlight: __DEV__,
@@ -254,6 +290,9 @@ function RootNavigator() {
 }
 
 export default Sentry.wrap(function RootLayout() {
+  // Sync Sentry user context with app authentication state
+  useSentryUserSync();
+
   const isAuthenticated = useUserStore(selectIsSessionValid);
   const initializeUserState = useUserStore(state => state.initializeUserState);
   const loadBookmarks = useBookmarkStore(state => state.loadBookmarks);
