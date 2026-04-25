@@ -10,7 +10,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
       "appleTeamId": "D8VXFBV8SJ",
-      "buildNumber": "2026042102",
+      "buildNumber": "2026042500",
       "icon": "./src/assets/AppIcons/iOS/Orbyt.icon",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en",
@@ -19,7 +19,9 @@
         "NSMicrophoneUsageDescription": "We need microphone access to record audio with your videos (e.g. when you tap record on Create).",
         "NSPhotoLibraryUsageDescription": "We need access to your photo library to select videos for posts and photos for your profile (e.g. gallery on Create or when updating your avatar).",
         "NSPhotoLibraryAddUsageDescription": "We need permission to save your videos to the camera roll (e.g. when you tap Save after making a video).",
-        "LSApplicationQueriesSchemes": ["mailto"]
+        "LSApplicationQueriesSchemes": [
+          "mailto"
+        ]
       }
     },
     "scheme": "com.getorbyt",
@@ -29,8 +31,12 @@
         "backgroundColor": "#05070a"
       },
       "package": "com.getorbyt.app",
-      "versionCode": 2026042102,
-      "permissions": ["INTERNET", "CAMERA", "RECORD_AUDIO"]
+      "versionCode": 2026042500,
+      "permissions": [
+        "INTERNET",
+        "CAMERA",
+        "RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./src/assets/favicon.png"
@@ -144,8 +150,26 @@
         "expo-localization",
         {
           "supportedLocales": {
-            "ios": ["en", "de", "es", "es-419", "fr", "ja", "ko", "pt-BR"],
-            "android": ["en", "de", "es", "es-419", "fr", "ja", "ko", "pt-BR"]
+            "ios": [
+              "en",
+              "de",
+              "es",
+              "es-419",
+              "fr",
+              "ja",
+              "ko",
+              "pt-BR"
+            ],
+            "android": [
+              "en",
+              "de",
+              "es",
+              "es-419",
+              "fr",
+              "ja",
+              "ko",
+              "pt-BR"
+            ]
           }
         }
       ],
