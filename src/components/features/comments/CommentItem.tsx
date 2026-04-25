@@ -1,18 +1,9 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Alert,
-  Linking,
-  Share,
-  type ImageStyle,
-  type StyleProp,
-} from 'react-native';
+import { View, Text, StyleSheet, Alert, Linking, Share, ScrollView } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
-import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -90,11 +81,19 @@ function getCommentEmbed(c: Comment) {
   return viewEmbed ?? recordEmbed;
 }
 
-const ASPECT_RATIO_MIN = 0.35;
-const ASPECT_RATIO_MAX = 2.75;
-const ASPECT_RATIO_DEFAULT = 1;
-function clampAspectRatio(ar: number) {
-  return Math.max(ASPECT_RATIO_MIN, Math.min(ASPECT_RATIO_MAX, ar));
+// Gallery constants — match Bluesky's aspect ratio bounds
+const GALLERY_HEIGHT = 180;
+const GALLERY_ITEM_GAP = 8;
+const GALLERY_MIN_AR = 2 / 3;
+const GALLERY_MAX_AR = 3 / 2;
+
+function galleryImageDims(ar?: { width: number; height: number }): {
+  width: number;
+  height: number;
+} {
+  const raw = ar && ar.height > 0 ? ar.width / ar.height : 1;
+  const clamped = Math.max(GALLERY_MIN_AR, Math.min(raw, GALLERY_MAX_AR));
+  return { width: Math.floor(GALLERY_HEIGHT * clamped), height: GALLERY_HEIGHT };
 }
 
 /** Repo DID for CDN blob URLs — author.did, or parsed from at:// URI when author is minimal. */
@@ -141,59 +140,71 @@ function isInlineImageUrl(url: string): boolean {
   }
 }
 
-/** Shared image component for comment embeds — displays without cropping. */
-const CommentMediaImage: React.FC<{
-  uri: string;
-  aspectRatio: number;
-  contentFit?: 'contain' | 'cover';
-  style?: StyleProp<ImageStyle>;
-  accessibilityLabel?: string;
-}> = ({ uri, aspectRatio, contentFit = 'contain', style, accessibilityLabel }) => {
-  const { t } = useTranslation();
-  return (
-    <Image
-      source={{ uri }}
-      style={[styles.commentImage, { aspectRatio }, style]}
-      contentFit={contentFit}
-      accessible
-      accessibilityLabel={accessibilityLabel ?? t('comments.commentImage')}
-    />
-  );
-};
+interface EmbedImage {
+  alt: string;
+  thumb: string;
+  fullsize: string;
+  aspectRatio?: { width: number; height: number };
+}
 
-const CommentImage: React.FC<{
-  uri: string;
-  initialAspectRatio: number;
-  wrapperStyle: object;
-  imageStyle: object;
-  onPress?: () => void;
-  accessibilityLabel?: string;
-}> = ({ uri, initialAspectRatio, wrapperStyle, imageStyle, onPress, accessibilityLabel }) => {
-  const content = (
-    <CommentMediaImage
-      uri={uri}
-      aspectRatio={initialAspectRatio}
-      contentFit="contain"
-      style={imageStyle}
-      accessibilityLabel={accessibilityLabel}
-    />
-  );
-  if (onPress) {
-    return (
-      <SquircleNativePressable
-        style={[wrapperStyle, { aspectRatio: initialAspectRatio }]}
-        onPress={onPress}
-      >
-        {content}
-      </SquircleNativePressable>
-    );
-  }
-  return (
-    <SquircleView style={[wrapperStyle, { aspectRatio: initialAspectRatio }]}>
-      {content}
-    </SquircleView>
-  );
-};
+const CommentImageGallery: React.FC<{
+  images: EmbedImage[];
+  onImagePress?: (uri: string) => void;
+  contentFit?: 'cover' | 'contain';
+}> = ({ images, onImagePress, contentFit = 'cover' }) => (
+  <View style={galleryStyles.outer}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      scrollEventThrottle={16}
+      decelerationRate="fast"
+      bounces={false}
+      contentContainerStyle={galleryStyles.scrollContent}
+      style={galleryStyles.scroll}
+    >
+      {images.map((img, idx) => {
+        const dims = galleryImageDims(img.aspectRatio);
+        return (
+          <NativePressable
+            key={img.thumb || img.fullsize || String(idx)}
+            style={[galleryStyles.item, dims]}
+            onPress={() => onImagePress?.(img.fullsize || img.thumb)}
+            accessibilityRole="imagebutton"
+            accessibilityLabel={img.alt || undefined}
+          >
+            <Image
+              source={{ uri: img.thumb || img.fullsize }}
+              style={dims}
+              contentFit={contentFit}
+              recyclingKey={img.thumb || img.fullsize}
+              loading={idx === 0 ? 'eager' : 'lazy'}
+            />
+          </NativePressable>
+        );
+      })}
+    </ScrollView>
+  </View>
+);
+
+const galleryStyles = StyleSheet.create({
+  outer: {
+    marginTop: 8,
+    marginBottom: 4,
+    height: GALLERY_HEIGHT,
+  },
+  scroll: {
+    height: GALLERY_HEIGHT,
+  },
+  scrollContent: {
+    gap: GALLERY_ITEM_GAP,
+    alignItems: 'center',
+  },
+  item: {
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    overflow: 'hidden',
+    backgroundColor: Colors.neutral[950],
+  },
+});
 
 const CommentItem: React.FC<CommentItemProps> = ({
   comment,
@@ -832,7 +843,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
     ]
   );
 
-  const renderImages = (hasText: boolean) => {
+  const renderImages = (_hasText: boolean) => {
     const embed = getCommentEmbed(comment);
 
     const isExternalEmbed = (
@@ -854,63 +865,20 @@ const CommentItem: React.FC<CommentItemProps> = ({
       );
     };
 
-    let external:
-      | {
-          uri: string;
-          thumb?: string | { ref: { $link: string } };
-          description?: string;
-          title?: string;
-        }
-      | undefined = undefined;
     if (isExternalEmbed(embed)) {
-      external = embed.external;
-    }
+      const external = embed.external;
+      if (!external.uri || !/^https?:\/\//.test(external.uri)) return null;
 
-    const aspectRatio = clampAspectRatio(ASPECT_RATIO_DEFAULT);
-    const wrapperVariant = hasText
-      ? styles.commentImageWrapperWithText
-      : styles.commentImageWrapperNoText;
-    const imageVariant = hasText
-      ? styles.commentImageDirectUrlWithText
-      : styles.commentImageDirectUrlNoText;
-
-    const renderExternalEmbedImage = (
-      imageUri: string,
-      onPress: () => void,
-      key: string,
-      accessibilityLabel: string
-    ) => (
-      <View style={styles.commentImagesContainer}>
-        <CommentImage
-          key={key}
-          uri={imageUri}
-          initialAspectRatio={aspectRatio}
-          wrapperStyle={[
-            styles.commentImageWrapper,
-            styles.commentImageWrapperFullWidth,
-            wrapperVariant,
-          ]}
-          imageStyle={imageVariant}
-          onPress={onPress}
-          accessibilityLabel={accessibilityLabel}
-        />
-      </View>
-    );
-
-    if (external && external.uri && /^https?:\/\//.test(external.uri)) {
-      const embedAccessibilityLabel =
-        external.description || external.title || t('comments.commentImage');
-
-      // Full inline-image chrome only for direct image URLs (not video links with posters).
       if (isInlineImageUrl(external.uri)) {
-        return renderExternalEmbedImage(
-          external.uri,
-          () =>
-            onImagePress
-              ? onImagePress(external.uri)
-              : Linking.openURL(external.uri).catch(() => {}),
-          external.uri,
-          embedAccessibilityLabel
+        const label = external.description || external.title || t('comments.commentImage');
+        return (
+          <CommentImageGallery
+            images={[{ alt: label, thumb: external.uri, fullsize: external.uri }]}
+            onImagePress={uri =>
+              onImagePress ? onImagePress(uri) : Linking.openURL(uri).catch(() => {})
+            }
+            contentFit="contain"
+          />
         );
       }
 
@@ -919,98 +887,21 @@ const CommentItem: React.FC<CommentItemProps> = ({
       );
     }
 
-    let embedImages: {
-      alt: string;
-      thumb: string;
-      fullsize: string;
-      aspectRatio?: { width: number; height: number };
-    }[] = [];
     const embedObj = embed as { $type?: string; images?: unknown[] } | undefined;
     const isImagesEmbed =
       embedObj?.$type === 'app.bsky.embed.images' ||
       embedObj?.$type === 'app.bsky.embed.images#view';
-    if (isImagesEmbed && Array.isArray(embedObj?.images)) {
-      embedImages = (embed as { images: unknown[] }).images.filter(
-        (
-          img: unknown
-        ): img is {
-          thumb?: string;
-          fullsize?: string;
-          alt?: string;
-          aspectRatio?: { width: number; height: number };
-        } => typeof img === 'object' && img !== null && ('thumb' in img || 'fullsize' in img)
-      ) as {
-        alt: string;
-        thumb: string;
-        fullsize: string;
-        aspectRatio?: { width: number; height: number };
-      }[];
-    }
-    if (!embedImages || embedImages.length === 0) {
-      return null;
-    }
 
-    const getImageLayoutStyle = (index: number, totalImages: number) => {
-      if (totalImages === 1) return styles.imageLayoutSingle;
-      if (totalImages === 2) return styles.imageLayoutDouble;
-      if (totalImages === 3)
-        return index === 0 ? styles.imageLayoutTripleFirst : styles.imageLayoutTripleRest;
-      return styles.imageLayoutQuad;
-    };
+    if (!isImagesEmbed || !Array.isArray(embedObj?.images)) return null;
 
-    return (
-      <View style={styles.commentImagesContainer}>
-        {embedImages.slice(0, 4).map(
-          (
-            img: {
-              alt: string;
-              thumb: string;
-              fullsize: string;
-              aspectRatio?: { width: number; height: number };
-            },
-            idx: number
-          ) => {
-            // Calculate aspect ratio from embed data or use default
-            const aspectRatio = img.aspectRatio
-              ? clampAspectRatio(img.aspectRatio.width / img.aspectRatio.height)
-              : 1;
+    const embedImages = (embed as { images: unknown[] }).images.filter(
+      (img: unknown): img is EmbedImage =>
+        typeof img === 'object' && img !== null && ('thumb' in img || 'fullsize' in img)
+    ) as EmbedImage[];
 
-            return (
-              <SquircleNativePressable
-                key={`${img.thumb || img.fullsize || idx}`}
-                style={[
-                  styles.commentImageWrapper,
-                  getImageLayoutStyle(idx, Math.min(embedImages.length, 4)),
-                  { aspectRatio },
-                  idx % 2 === 0
-                    ? styles.commentImageWrapperMarginRight
-                    : styles.commentImageWrapperMarginLeft,
-                ]}
-                onPress={() => {
-                  if (onImagePress && img.fullsize) {
-                    onImagePress(img.fullsize);
-                  }
-                }}
-              >
-                <CommentMediaImage
-                  uri={img.thumb || img.fullsize}
-                  aspectRatio={aspectRatio}
-                  contentFit="contain"
-                  accessibilityLabel={img.alt || t('comments.commentImage')}
-                />
-              </SquircleNativePressable>
-            );
-          }
-        )}
-        {embedImages.length > 4 && (
-          <SquircleView style={styles.moreImagesIndicator}>
-            <Text style={styles.moreImagesText}>
-              {t('comments.moreCount', { count: embedImages.length - 4 })}
-            </Text>
-          </SquircleView>
-        )}
-      </View>
-    );
+    if (embedImages.length === 0) return null;
+
+    return <CommentImageGallery images={embedImages} onImagePress={onImagePress} />;
   };
 
   return (
@@ -1170,88 +1061,6 @@ function areEqualCommentItem(prevProps: CommentItemProps, nextProps: CommentItem
 const MemoizedCommentItem = React.memo(CommentItem, areEqualCommentItem);
 
 const styles = StyleSheet.create({
-  commentImagesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8,
-    marginBottom: 4,
-    width: '100%',
-  },
-  commentImageWrapper: {
-    padding: 2,
-    overflow: 'hidden',
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    position: 'relative',
-    marginBottom: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  commentImageWrapperFullWidth: {
-    width: '100%',
-  },
-  commentImageWrapperWithText: {
-    marginTop: 2,
-    maxHeight: 220,
-  },
-  commentImageWrapperNoText: {
-    marginTop: 0,
-    maxHeight: 320,
-  },
-  commentImageDirectUrlWithText: {
-    width: '100%',
-    maxHeight: 220,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-  },
-  commentImageDirectUrlNoText: {
-    width: '100%',
-    maxHeight: 320,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-  },
-  commentImageWrapperMarginRight: {
-    marginRight: '1%',
-  },
-  commentImageWrapperMarginLeft: {
-    marginLeft: '1%',
-  },
-  imageLayoutSingle: {
-    width: '100%',
-    maxHeight: 300,
-  },
-  imageLayoutDouble: {
-    width: '49%',
-    maxHeight: 200,
-  },
-  imageLayoutTripleFirst: {
-    width: '100%',
-    maxHeight: 180,
-  },
-  imageLayoutTripleRest: {
-    width: '49%',
-    maxHeight: 120,
-  },
-  imageLayoutQuad: {
-    width: '49%',
-    maxHeight: 120,
-  },
-  commentImage: {
-    width: '100%',
-    height: 'auto',
-    borderRadius: BORDER_RADIUS.MEDIUM,
-  },
-  moreImagesIndicator: {
-    position: 'absolute',
-    bottom: 6,
-    right: 6,
-    backgroundColor: Colors.overlay.black70,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-  },
-  moreImagesText: {
-    color: Colors.neutral[50],
-    fontSize: Typography.sizes.caption,
-    fontFamily: Typography.families.bold,
-  },
   commentThreadContainer: {
     marginBottom: 2,
     backgroundColor: Colors.transparent,
