@@ -46,6 +46,7 @@ import ProfileService from '@/services/data/ProfileService';
 import { AtprotoFeedService } from '@/services/api/feed/FeedService';
 import VideoProcessingService from '@/services/video/VideoProcessingService';
 import { logger } from '@/utils/logger';
+import { trackAptabaseEvent } from '@/services/aptabase/AptabaseService';
 import { useVideoPostDraftStore } from '@/stores/videoPostDraftStore';
 import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
 import {
@@ -838,9 +839,18 @@ const VideoPostScreen: React.FC = () => {
       allContentWarnings.push('other:' + otherWarning.trim());
     }
 
+    let channelSlug: string | undefined;
+
     try {
       setIsPosting(true);
       setUploadProgress(0);
+
+      channelSlug = selectedChannel ? extractFeedSlug(selectedChannel.uri) || undefined : undefined;
+
+      trackAptabaseEvent('video_post_started', {
+        channel: channelSlug ?? 'none',
+        hasContentWarnings: allContentWarnings.length > 0 ? 'yes' : 'no',
+      });
 
       const videoPathToUpload = videoPathToUse;
 
@@ -879,10 +889,6 @@ const VideoPostScreen: React.FC = () => {
       const { storage } = await import('@/utils/storage/storage');
       const UPLOAD_KEY = 'video-upload';
       useUIStore.getState().setLoading(UPLOAD_KEY, true);
-
-      const channelSlug = selectedChannel
-        ? extractFeedSlug(selectedChannel.uri) || undefined
-        : undefined;
 
       const { VideoService } = await import('@/services/api/video/VideoService');
 
@@ -926,6 +932,10 @@ const VideoPostScreen: React.FC = () => {
             cid: result?.cid,
           });
 
+          trackAptabaseEvent('video_post_completed', {
+            channel: channelSlug ?? 'none',
+          });
+
           setTimeout(() => {
             useUIStore.getState().setLoading(UPLOAD_KEY, false);
             useUIStore.getState().clearProgress(UPLOAD_KEY);
@@ -934,6 +944,11 @@ const VideoPostScreen: React.FC = () => {
 
           clearDraft();
         } catch (error: unknown) {
+          trackAptabaseEvent('video_post_failed', {
+            errorType: 'background_upload',
+            channel: channelSlug ?? 'none',
+          });
+
           logger.error('Background video post upload failed', error, {
             component: 'VideoPostScreen',
           });
@@ -971,6 +986,10 @@ const VideoPostScreen: React.FC = () => {
       });
 
       const errorMessage = error instanceof Error ? error.message : '';
+      trackAptabaseEvent('video_post_failed', {
+        errorType: 'prepare_upload',
+        channel: channelSlug ?? 'none',
+      });
       // For upload failures, assume issue and offer retry
       if (errorMessage?.includes('Video upload failed') || errorMessage?.includes('timeout')) {
         Alert.alert(t('video.uploadFailed'), t('video.uploadFailedRetryPrompt'), [

@@ -3,7 +3,7 @@ import Aptabase, { trackEvent } from '@aptabase/react-native';
 
 const APTABASE_APP_KEY = 'A-US-7117173342';
 const appVersion =
-  Application.nativeApplicationVersion ?? Application.applicationVersion ?? 'unknown';
+  Application.nativeApplicationVersion ?? Application.nativeBuildVersion ?? 'unknown';
 
 let hasInitialized = false;
 
@@ -27,6 +27,10 @@ export const trackAptabaseEvent = (
   eventName: string,
   properties?: Record<string, string | number>
 ) => {
+  if (!hasInitialized) {
+    return;
+  }
+
   trackEvent(eventName, properties);
 };
 

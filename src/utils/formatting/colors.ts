@@ -115,8 +115,8 @@ export function getProfileColors(
     | null
     | undefined
 ): ProfileColorScheme {
-  let backgroundColor = DEFAULT_PROFILE_COLORS.backgroundColor;
-  let textColor = DEFAULT_PROFILE_COLORS.foregroundColor;
+  let backgroundColor: string = DEFAULT_PROFILE_COLORS.backgroundColor;
+  let textColor: string = DEFAULT_PROFILE_COLORS.foregroundColor;
 
   if (colorData) {
     if ('backgroundColor' in colorData && 'textColor' in colorData) {
@@ -153,7 +153,7 @@ function getBestColor(result: ImageColorsResult): {
   foregroundColor: string;
   accentColor: string;
 } {
-  const r = result as Record<string, string | undefined>;
+  const r = result as unknown as Record<string, string | undefined>;
 
   const vibrantCandidates = [
     r['vibrant'],

@@ -107,7 +107,7 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
   const router = useRouter();
   const [isAtTop, setIsAtTop] = useState(true);
   const [showContent, setShowContent] = useState(true);
-  const dismissTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const dismissTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasDismissedRef = useRef(false);
 
   const isComplete = useMemo(() => status === 'complete', [status]);

@@ -17,6 +17,7 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { SquircleView } from '@/components/ui/Squircle';
 import { useAuth } from '@/stores/userStore';
+import { trackAptabaseEvent } from '@/services/aptabase/AptabaseService';
 import { isUserCancellation } from '@/utils/errors/errorHandler';
 import { ActorService } from '@/services/api/actor/ActorService';
 import type { ProfileViewBasic } from '@/services/api/types';
@@ -132,9 +133,11 @@ export default function LoginSignInModal() {
 
     setError(null);
     setIsSigningIn(true);
+    trackAptabaseEvent('login_attempt', { addAccount: isAddAccount ? 'true' : 'false' });
 
     try {
       await signIn(trimmedHandle);
+      trackAptabaseEvent('login_success');
       if (isAddAccount) {
         router.dismissTo('/(tabs)/home');
       }
@@ -151,6 +154,16 @@ export default function LoginSignInModal() {
           userFriendlyMessage = t('auth.invalidFormat', { handle: trimmedHandle });
         }
 
+        const errorType =
+          errorMessage.includes('network') || errorMessage.includes('timeout')
+            ? 'network'
+            : errorMessage.includes('not found') || errorMessage.includes('404')
+              ? 'not_found'
+              : errorMessage.includes('invalid') || errorMessage.includes('malformed')
+                ? 'invalid_format'
+                : 'general';
+
+        trackAptabaseEvent('login_failure', { errorType });
         setError(userFriendlyMessage);
       }
     } finally {
