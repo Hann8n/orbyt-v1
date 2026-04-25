@@ -12135,11 +12135,11 @@ __metadata:
 
 "react-native-nitro-colors@file:packages/react-native-nitro-colors::locator=orbyt-app%40workspace%3A.":
   version: 1.0.0-orbyt.0
-  resolution: "react-native-nitro-colors@file:packages/react-native-nitro-colors#packages/react-native-nitro-colors::hash=f58d63&locator=orbyt-app%40workspace%3A."
+  resolution: "react-native-nitro-colors@file:packages/react-native-nitro-colors#packages/react-native-nitro-colors::hash=12d684&locator=orbyt-app%40workspace%3A."
   peerDependencies:
     react-native: ">=0.74.0"
     react-native-nitro-modules: ">=0.20.0"
-  checksum: 10c0/45689c8410d27cd74d94898bd72cc44a5f5ccedc82cb37c608b79a32dc48f71f5fc28966a9caefd7a4931bf02d1eb4c1d49163eb61257fef54f77acb874d74f6
+  checksum: 10c0/3973b7427e0834dfb0d45c4e096d118a466aff29fd0ffa539b36173b616c27fc05418b37244cd157941109ba5c1b54ca8d5b56746a84e163ea1607524e293f26
   languageName: node
   linkType: hard
 
