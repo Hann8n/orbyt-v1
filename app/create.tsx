@@ -26,6 +26,7 @@ import {
 } from 'react-native-vision-camera';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { posthog } from '@/config/posthog';
 import Animated, {
   Easing,
   Extrapolation,
@@ -1019,6 +1020,10 @@ const CreateScreen: React.FC = () => {
           setIsLoadingFromGallery(false);
           setIsProcessing(false);
 
+          posthog.capture('video_gallery_selected', {
+            duration_ms: asset.duration ?? null,
+          });
+
           // Show editor with dynamic maxDuration constraint
           // Pass precise value (no rounding) - only display rounds in trimmer UI
           // NOTE: iOS has a bug where it treats maxDuration/minDuration as seconds instead of milliseconds
@@ -1196,6 +1201,10 @@ const CreateScreen: React.FC = () => {
       const firstSegment = videoSegments[0];
 
       if (abortControllerRef.current?.signal.aborted) return;
+
+      posthog.capture('video_recorded', {
+        segment_count: videoSegments.length,
+      });
 
       if (videoSegments.length === 1 && firstSegment) {
         const videoUri = firstSegment.video?.uri;

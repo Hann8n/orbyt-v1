@@ -19,6 +19,7 @@ import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
 import ProfileService from '@/services/data/ProfileService';
 import type { ViewMode } from '@/types';
 import { FontFamily, Typography } from '@/utils/components/typography';
+import { posthog } from '@/config/posthog';
 
 const SettingsScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -49,6 +50,16 @@ const SettingsScreen: React.FC = () => {
         onPress: async () => {
           setIsSubmitting(true);
           try {
+            const eventProperties: Record<string, string> = {};
+            if (currentUser?.did) {
+              eventProperties.did = currentUser.did;
+            }
+            if (currentUser?.handle) {
+              eventProperties.handle = currentUser.handle;
+            }
+
+            posthog.capture('user_signed_out', eventProperties);
+            posthog.reset();
             // Use userStore to handle logout without removing accounts (clearAllAccounts = false)
             await onLogout(false);
           } catch (_error) {

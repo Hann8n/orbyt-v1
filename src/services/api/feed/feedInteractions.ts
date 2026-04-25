@@ -4,6 +4,7 @@
 import { AppBskyFeedDefs } from '@atproto/api';
 import { AtprotoCore } from '../core';
 import { deduplicateRequest } from '../inFlightDedup';
+import { posthog } from '../../../config/posthog';
 import { logger } from '../../../utils/logger';
 import { ALGORITHMIC_FEED_PROVIDERS } from '../../../utils/constants';
 import { setVideoFeedbackInStorage } from './videoFeedbackStorage';
@@ -74,6 +75,7 @@ export async function likePost(uri: string, cid: string): Promise<string> {
     };
     const { api } = await AtprotoCore.getApiClient();
     const response = await api.app.bsky.feed.like.create({ repo: userDid }, record);
+    posthog.capture('video_liked', { post_uri: uri });
     return response.uri;
   });
 }
@@ -97,6 +99,7 @@ export async function deleteLike(likeUri: string): Promise<void> {
   const parts = likeUri.split('/');
   const rkey = parts[parts.length - 1];
   await api.app.bsky.feed.like.delete({ repo: userDid, rkey });
+  posthog.capture('video_unliked', { post_uri: likeUri });
 }
 
 /**
@@ -125,6 +128,7 @@ export async function repostPost(uri: string, cid: string): Promise<string> {
     };
     const { api } = await AtprotoCore.getApiClient();
     const response = await api.app.bsky.feed.repost.create({ repo: userDid }, record);
+    posthog.capture('video_reposted', { post_uri: uri });
     return response.uri;
   });
 }

@@ -1,7 +1,9 @@
 import '@/i18n';
 import React, { useEffect } from 'react';
 import { View, StyleSheet, StatusBar, Platform } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, usePathname, useGlobalSearchParams } from 'expo-router';
+import { PostHogProvider } from 'posthog-react-native';
+import { posthog } from '@/config/posthog';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -77,7 +79,17 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         <LocaleSync />
         <GestureHandlerRootView style={styles.gestureHandler}>
           <KeyboardProvider>
-            <TabBarProvider>{children}</TabBarProvider>
+            <PostHogProvider
+              client={posthog}
+              autocapture={{
+                captureScreens: false,
+                captureTouches: true,
+                propsToCapture: ['testID'],
+                maxElementsCaptured: 20,
+              }}
+            >
+              <TabBarProvider>{children}</TabBarProvider>
+            </PostHogProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
@@ -247,6 +259,19 @@ export default Sentry.wrap(function RootLayout() {
   const loadBookmarks = useBookmarkStore(state => state.loadBookmarks);
   const clearBookmarks = useBookmarkStore(state => state.clearBookmarks);
   const isInitializingAuth = useUserStore(state => state.isInitializingAuth);
+  const pathname = usePathname();
+  const params = useGlobalSearchParams();
+  const previousPathname = React.useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (previousPathname.current !== pathname) {
+      posthog.screen(pathname, {
+        previous_screen: previousPathname.current ?? null,
+        ...params,
+      });
+      previousPathname.current = pathname;
+    }
+  }, [pathname, params]);
 
   // Set Android navigation bar button style (light)
   useEffect(() => {

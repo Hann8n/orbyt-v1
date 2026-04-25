@@ -6,6 +6,7 @@
 import { AtprotoCore } from '../core';
 import { deduplicateRequest } from '../inFlightDedup';
 import type { ProfileViewBasic, ProfileView, FollowersResponse, FollowingResponse } from '../types';
+import { posthog } from '../../../config/posthog';
 
 export class GraphService {
   /**
@@ -40,6 +41,7 @@ export class GraphService {
       };
 
       const response = await api.app.bsky.graph.follow.create({ repo: userDid }, record);
+      posthog.capture('user_followed', { followed_did: did });
       return response.uri;
     });
   }
@@ -99,6 +101,7 @@ export class GraphService {
           rkey: rkey,
         });
 
+        posthog.capture('user_unfollowed', { unfollowed_did: did });
         return true;
       } catch (_error: unknown) {
         return false;
