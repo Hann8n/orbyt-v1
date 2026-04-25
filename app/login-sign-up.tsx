@@ -5,7 +5,6 @@ import AuthModalLayout, { AUTH_KEYBOARD_OVERLAP_SIGN_UP } from '@/components/ui/
 import { Colors } from '@/components/ui/UI';
 import Icon from '@/components/ui/Icon';
 import { useAuth } from '@/stores/userStore';
-import { trackAptabaseEvent } from '@/services/aptabase/AptabaseService';
 import { checkPdsActive } from '@/services/api/pdsHealth';
 import { AUTH_INPUT_CONTENT_PADDING_START, authSheetStyles } from '@/components/ui/AuthSheetStyles';
 import { SHEET_STYLES } from '@/utils/components/truesheet';
@@ -83,13 +82,10 @@ export default function LoginSignUpModal() {
     const identifier = normalizePds(pdsUrl);
     setError(null);
     setIsSigningUp(true);
-    trackAptabaseEvent('sign_up_attempt');
     try {
       await signUp(identifier);
-      trackAptabaseEvent('sign_up_success');
     } catch (err) {
       if (!isUserCancellation(err)) {
-        trackAptabaseEvent('sign_up_failure', { errorType: 'sign_up_failed' });
         setError(t('auth.signUpFailed'));
       }
     } finally {

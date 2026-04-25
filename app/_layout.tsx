@@ -28,7 +28,6 @@ import { APP_CONSTANTS } from '@/utils/constants';
 import { setupReactQueryLifecycleBridge } from '@/utils/query/lifecycle';
 import { LocaleSync } from '@/i18n/LocaleSync';
 import * as Sentry from '@sentry/react-native';
-import { initializeAptabase } from '@/services/aptabase/AptabaseService';
 
 Sentry.init({
   dsn: 'https://f2e61d33071557e11913fd3407ba7421@o4510432459096064.ingest.us.sentry.io/4510432460537856',
@@ -277,10 +276,6 @@ export default Sentry.wrap(function RootLayout() {
 
     initializeApp();
   }, [initializeUserState]);
-
-  useEffect(() => {
-    initializeAptabase();
-  }, []);
 
   // Load bookmarks when user is authenticated
   useEffect(() => {
