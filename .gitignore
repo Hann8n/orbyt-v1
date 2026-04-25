@@ -59,3 +59,7 @@ orbyt-adp-*.zip
 
 # Perf exports (generated Expo/Metro artifacts)
 perf/export/
+
+.env.local
+
+.env.local

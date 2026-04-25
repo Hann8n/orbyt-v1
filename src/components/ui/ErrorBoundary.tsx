@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativePressable } from './NativePressable';
 import { useRouter, useSegments } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
+import * as Sentry from '@sentry/react-native';
 import { logger } from '../../utils/logger';
 import { Colors } from './UI';
 import CancelButton from './CancelButton';
@@ -72,6 +73,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       component: 'ErrorBoundary',
       level: this.props.level || 'component',
       errorInfo: errorInfo.componentStack,
+    });
+
+    // Send caught render errors to Sentry for visibility
+    Sentry.captureException(error, {
+      extra: {
+        componentStack: errorInfo.componentStack,
+        level: this.props.level || 'component',
+      },
     });
 
     // Store error info for potential display

@@ -30,7 +30,7 @@
       },
       "package": "com.getorbyt.app",
       "versionCode": 2026042102,
-      "permissions": ["CAMERA", "RECORD_AUDIO"]
+      "permissions": ["INTERNET", "CAMERA", "RECORD_AUDIO"]
     },
     "web": {
       "favicon": "./src/assets/favicon.png"
@@ -149,7 +149,15 @@
           }
         }
       ],
-      "expo-image"
+      "expo-image",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "orbyt-tech"
+        }
+      ]
     ],
     "extra": {
       "eas": {

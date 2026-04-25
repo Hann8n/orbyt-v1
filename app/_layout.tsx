@@ -27,6 +27,27 @@ import { logger } from '@/utils/logger';
 import { APP_CONSTANTS } from '@/utils/constants';
 import { setupReactQueryLifecycleBridge } from '@/utils/query/lifecycle';
 import { LocaleSync } from '@/i18n/LocaleSync';
+import * as Sentry from '@sentry/react-native';
+import { initializeAptabase } from '@/services/aptabase/AptabaseService';
+
+Sentry.init({
+  dsn: 'https://f2e61d33071557e11913fd3407ba7421@o4510432459096064.ingest.us.sentry.io/4510432460537856',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Enable Logs
+  enableLogs: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 const LazyShareSheet = React.lazy(async () => ({
   default: (await import('@/components/ui/share-sheet')).ShareSheet,
@@ -221,7 +242,7 @@ function RootNavigator() {
   );
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   const isAuthenticated = useUserStore(selectIsSessionValid);
   const initializeUserState = useUserStore(state => state.initializeUserState);
   const loadBookmarks = useBookmarkStore(state => state.loadBookmarks);
@@ -256,6 +277,10 @@ export default function RootLayout() {
 
     initializeApp();
   }, [initializeUserState]);
+
+  useEffect(() => {
+    initializeAptabase();
+  }, []);
 
   // Load bookmarks when user is authenticated
   useEffect(() => {
@@ -338,7 +363,7 @@ export default function RootLayout() {
       </AppProviders>
     </ThemeProvider>
   );
-}
+});
 
 const styles = StyleSheet.create({
   rootView: {

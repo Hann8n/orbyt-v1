@@ -1,4 +1,4 @@
-const { getDefaultConfig } = require('expo/metro-config');
+const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 
 const projectRoot = __dirname;
 
@@ -8,7 +8,7 @@ const projectRoot = __dirname;
  *
  * @type {import('expo/metro-config').MetroConfig}
  */
-const config = getDefaultConfig(projectRoot);
+const config = getSentryExpoConfig(projectRoot);
 
 // Not in metro-config's jest-validate example; Metro only honors transformer.unstable_workerThreads.
 if (config.watcher && 'unstable_workerThreads' in config.watcher) {
