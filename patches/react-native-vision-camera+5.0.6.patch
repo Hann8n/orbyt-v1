@@ -1,0 +1,18 @@
+diff --git a/node_modules/react-native-vision-camera/ios/Extensions/URL+createTempURL.swift b/node_modules/react-native-vision-camera/ios/Extensions/URL+createTempURL.swift
+index 528b267..0401254 100644
+--- a/node_modules/react-native-vision-camera/ios/Extensions/URL+createTempURL.swift
++++ b/node_modules/react-native-vision-camera/ios/Extensions/URL+createTempURL.swift
+@@ -32,9 +32,10 @@ extension URL {
+    * in the temporary directory using a random `UUID` as its name.
+    */
+   static func createTempURL(fileType: AVFileType) throws(TemporaryFileError) -> URL {
+-    // AVFileType is a string-like type (usually MIME, like "video/mp4")
+-    let mimeType = fileType.rawValue
+-    guard let utFileType = UTType(mimeType: mimeType) else {
++    // AVFileType.rawValue is a UTI identifier (e.g. "com.apple.quicktime-movie"),
++    // not a MIME type, so resolve it via UTType(_:) instead of UTType(mimeType:).
++    let identifier = fileType.rawValue
++    guard let utFileType = UTType(identifier) ?? UTType(mimeType: identifier) else {
+       throw TemporaryFileError.invalidAVFileType
+     }
+     return try createTempURL(fileType: utFileType)

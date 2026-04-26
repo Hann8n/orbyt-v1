@@ -1,1064 +1,194 @@
-import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS } from '@/utils/constants';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Alert,
-  Platform,
-  StatusBar,
-  AppState,
-  type EventSubscription,
-  ActivityIndicator,
-} from 'react-native';
-import { Image } from 'expo-image';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Platform, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
+import * as Device from 'expo-device';
+import * as Haptics from 'expo-haptics';
 import {
-  Camera,
-  useVideoOutput,
+  useCameraDevice,
   useCameraPermission,
   useMicrophonePermission,
-  useCameraDevice,
-  type CameraRef,
-  type Recorder,
+  useVideoOutput,
 } from 'react-native-vision-camera';
-import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import { posthog } from '@/config/posthog';
-import Animated, {
-  Easing,
-  Extrapolation,
-  interpolate,
-  runOnJS,
-  useDerivedValue,
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-} from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Icon, { CloseFillIcon, ArrowRightFillIcon } from '@/components/ui/Icon';
-import { NativePressable } from '@/components/ui/NativePressable';
-import { SquircleNativePressable } from '@/components/ui/Squircle';
+
 import BottomToolBar from '@/components/ui/BottomToolBar';
-import * as Device from 'expo-device';
-import { getBottomNavBarHeight } from '@/utils/device/screen';
+import CameraStage from '@/components/features/create/CameraStage';
+import CreateTopBar from '@/components/features/create/CreateTopBar';
+import DurationSelector from '@/components/features/create/DurationSelector';
+import PermissionGate from '@/components/features/create/PermissionGate';
+import RecordButton from '@/components/features/create/RecordButton';
+import RecordingProgressBar from '@/components/features/create/RecordingProgressBar';
+
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import { logger } from '@/utils/logger';
-import { Colors } from '@/theme';
-import { hexToRGBA } from '@/utils/formatting/colors';
-import * as Haptics from 'expo-haptics';
-import VideoTrim, { showEditor, closeEditor, isValidFile, type Spec } from 'react-native-clip-trim';
-import { SegmentManager, type Segment } from '@/utils/video/segmentManager';
-import { extractAssetId } from '@/utils/video/path';
-import VideoProcessingService, {
-  getVideoSegmentSourceUri,
-} from '@/services/video/VideoProcessingService';
-import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
-import { useVideoPlayer, VideoView } from 'expo-video';
-import { FEED_BUFFER_OPTIONS } from '@/utils/video/helpers';
-import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
+import { useGalleryTrimImport } from '@/hooks/useGalleryTrimImport';
+import { useRecordingProgress } from '@/hooks/useRecordingProgress';
+import { useSegmentRecorder } from '@/hooks/useSegmentRecorder';
 import { useVisionCameraScreenActive } from '@/hooks/useVisionCameraScreenActive';
-
-// Duration options in seconds - labels resolved via t() in component
-const DURATION_OPTION_KEYS = [
-  { value: 6, labelKey: 'create.duration6s' as const },
-  { value: 16, labelKey: 'create.duration16s' as const },
-  { value: 60, labelKey: 'create.duration1m' as const },
-  { value: 180, labelKey: 'create.duration3m' as const },
-] as const;
-
-const CAPTURE_BUTTON_INNER_BG = hexToRGBA(Colors.neutral[500], 0.4);
-const CAPTURE_BUTTON_INNER_DISABLED_BG = hexToRGBA(Colors.neutral[500], 0.2);
-
-/** Upper cap for zoom factor; Vision Camera docs suggest clamping very large native maxZoom (~128). */
-const CAMERA_ZOOM_MAX_CLAMP = 16;
-
-/** Vision Camera example: pinch scale range mapped before interpolating to zoom. */
-const SCALE_FULL_ZOOM = 3;
-
-function toFileUri(path: string): string {
-  if (path.startsWith('file://')) {
-    return path;
-  }
-  return `file://${path}`;
-}
-
-function handleCameraError(e: Error) {
-  if (__DEV__) logger.warn('[Camera] error:', { message: e?.message ?? 'Unknown' });
-}
-
-const deletePreviewVideoStyles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 11,
-  },
-});
-
-/** Last-segment playback for delete confirmation; mounted only while delete preview is active. */
-const DeletePreviewSegmentVideo: React.FC<{ uri: string }> = ({ uri }) => {
-  const player = useVideoPlayer({ uri }, p => {
-    p.loop = true;
-    p.muted = true;
-    p.bufferOptions = FEED_BUFFER_OPTIONS;
-  });
-
-  // Do not call player.pause() on unmount: native shared object may already be released
-  // (NativeSharedObjectNotFoundException). useVideoPlayer tears down playback on unmount.
-  useEffect(() => {
-    player?.play();
-  }, [player, uri]);
-
-  if (!player) return null;
-
-  return (
-    <View style={deletePreviewVideoStyles.overlay} pointerEvents="none">
-      <VideoView
-        player={player}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        nativeControls={false}
-        surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
-      />
-    </View>
-  );
-};
-
-interface DeletePreviewState {
-  segmentCount: number;
-  segmentStartTime: number;
-  segmentEndTime: number;
-}
+import { useCreateSegmentsStore } from '@/stores/createSegmentsStore';
+import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
+import { Colors } from '@/theme';
+import { posthog } from '@/config/posthog';
+import { getBottomNavBarHeight } from '@/utils/device/screen';
 
 const CreateScreen: React.FC = () => {
   const { t } = useTranslation();
-  const cameraPermission = useCameraPermission();
-  const microphonePermission = useMicrophonePermission();
-  const [isRecording, setIsRecording] = useState(false);
-  const [isFrontCamera, setIsFrontCamera] = useState(false);
-  const [flash, setFlash] = useState<'off' | 'on'>('off');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
-  const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
-  const [isTrimmerActive, setIsTrimmerActive] = useState(false);
-  const [isOnionSkinningEnabled, setIsOnionSkinningEnabled] = useState(false);
-  const [lastFrameThumbnail, setLastFrameThumbnail] = useState<string | null>(null);
-  const [deletePreview, setDeletePreview] = useState<DeletePreviewState | null>(null);
-  const [segmentUpdateTrigger, setSegmentUpdateTrigger] = useState(0);
-
-  const segmentManagerRef = useRef<SegmentManager | null>(null);
-  const cameraRef = useRef<CameraRef>(null);
-  const recorderRef = useRef<Recorder | null>(null);
-  const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
-  const recordingPromiseResolverRef = useRef<((value: { uri: string } | undefined) => void) | null>(
-    null
-  );
-  const recordingStartAtRef = useRef<number | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const isRecordingRef = useRef(false);
-  const recordingStateRef = useRef<'idle' | 'starting' | 'recording' | 'stopping'>('idle');
-  const recordingCommittedBaseRef = useRef(0);
-  const forcedStopDurationRef = useRef<number | null>(null);
-  const finishRecordingRef = useRef<((options?: { force?: boolean }) => Promise<void>) | null>(
-    null
-  );
-  const recordingAutoStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const discardGenerationRef = useRef(0);
-  const activeRecordingDiscardGenRef = useRef<number | null>(null);
-  const isProcessingRef = useRef(false);
-  isProcessingRef.current = isProcessing;
-  const setPendingVideoPost = usePendingVideoPostStore(s => s.setPayload);
-  // Animated values
-  const totalDurationShared = useSharedValue(0); // Total duration from segments (updated when segments change)
-  const currentSegmentDurationShared = useSharedValue(0);
-  const progressBarDurationShared = useSharedValue(0);
-  const buttonOpacity = useSharedValue(1);
-  const zoomShared = useSharedValue(1);
-  const deviceMinZoomSV = useSharedValue(1);
-  const deviceMaxZoomSV = useSharedValue(CAMERA_ZOOM_MAX_CLAMP);
-  const pinchStartZoom = useSharedValue(1);
-  const captureZoomPanStartY = useSharedValue(0);
-  const captureZoomPanOffsetY = useSharedValue(0);
-
-  useEffect(() => {
-    if (!segmentManagerRef.current) {
-      segmentManagerRef.current = new SegmentManager(selectedDuration);
-    }
-  }, []);
-  // Update max duration when selected duration changes (segment list unchanged; no segmentUpdateTrigger)
-  useEffect(() => {
-    if (segmentManagerRef.current) {
-      segmentManagerRef.current.setMaxDuration(selectedDuration);
-      totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
-      if (!isRecordingRef.current) {
-        progressBarDurationShared.value = segmentManagerRef.current.getTotalDuration();
-      }
-    }
-  }, [progressBarDurationShared, selectedDuration, totalDurationShared]);
-
-  const getSegmentUri = useCallback((segment: Segment): string => {
-    if (!segment.video || typeof segment.video !== 'object') {
-      return '';
-    }
-    return getVideoSegmentSourceUri(segment.video);
-  }, []);
-
-  const onionSkinRequestIdRef = useRef(0);
-
-  const refreshOnionSkinThumbnail = useCallback(() => {
-    const requestId = ++onionSkinRequestIdRef.current;
-    const segments = segmentManagerRef.current?.getSegments() ?? [];
-    if (segments.length === 0) {
-      setLastFrameThumbnail(null);
-      return;
-    }
-    const lastSeg = segments[segments.length - 1];
-    const videoUri = getSegmentUri(lastSeg);
-    if (!videoUri || lastSeg.duration <= 0) {
-      setLastFrameThumbnail(null);
-      return;
-    }
-    const segmentAssetId = extractAssetId(lastSeg.video) ?? undefined;
-
-    VideoProcessingService.extractLastFrame(videoUri, lastSeg.duration, segmentAssetId)
-      .then(thumbUri => {
-        if (requestId === onionSkinRequestIdRef.current) {
-          setLastFrameThumbnail(thumbUri);
-        }
-      })
-      .catch(() => {
-        if (requestId === onionSkinRequestIdRef.current) {
-          setLastFrameThumbnail(null);
-        }
-      });
-  }, [getSegmentUri]);
-
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const {
     screenWidth,
     screenHeight,
-    isTablet: isTabletDevice,
-    isSmallPhone: isSmallDevice,
+    isTablet,
+    isSmallPhone,
     fitsNative16x9,
     cameraHeightFor16x9,
   } = useDeviceLayout();
-  const bottomNavBarHeight = getBottomNavBarHeight(insets, isSmallDevice);
 
+  const cameraPermission = useCameraPermission();
+  const microphonePermission = useMicrophonePermission();
   const backDevice = useCameraDevice('back');
   const frontDevice = useCameraDevice('front');
   const videoOutput = useVideoOutput({ enableAudio: true });
 
-  const cameraDevice = isFrontCamera ? frontDevice : backDevice;
+  const [isFrontCamera, setIsFrontCamera] = useState(false);
+  const [flash, setFlash] = useState<'off' | 'on'>('off');
+  const [isOnionSkinningEnabled, setIsOnionSkinningEnabled] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (!cameraDevice) return;
-    const minZ = cameraDevice.minZoom;
-    const maxZ = Math.min(cameraDevice.maxZoom, CAMERA_ZOOM_MAX_CLAMP);
-    deviceMinZoomSV.value = minZ;
-    deviceMaxZoomSV.value = maxZ;
-    zoomShared.value = minZ;
-  }, [cameraDevice?.id, cameraDevice?.maxZoom, cameraDevice?.minZoom]);
-
-  // Small phones (e.g. iPhone SE) no longer special-cased: they use the same 16:9 crop as other
-  // portrait phones, which may leave a small bottom gap. Full screenHeight only for tablets or
-  // devices that don't fit native 16:9.
-  const cameraHeight = fitsNative16x9 && !isTabletDevice ? cameraHeightFor16x9 : screenHeight;
-  const cameraWidth = screenWidth;
-
-  // Derived values from segment manager
-  const maxDuration = selectedDuration;
-  const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
-  const isDeletePreviewActive = deletePreview !== null;
-
-  const deletePreviewSegmentUri = useMemo(() => {
-    if (!deletePreview) return null;
-    const manager = segmentManagerRef.current;
-    if (!manager) return null;
-    const segments = manager.getSegments();
-    if (segments.length === 0) return null;
-    const uri = getSegmentUri(segments[segments.length - 1]);
-    return uri.length > 0 ? uri : null;
-  }, [deletePreview, getSegmentUri, segmentUpdateTrigger]);
-
-  const cameraPinchGesture = useMemo(
-    () =>
-      Gesture.Pinch()
-        .enabled(!isDeletePreviewActive)
-        .onBegin(() => {
-          'worklet';
-          pinchStartZoom.value = zoomShared.value;
-        })
-        .onUpdate(e => {
-          'worklet';
-          const minZ = deviceMinZoomSV.value;
-          const maxZ = deviceMaxZoomSV.value;
-          const scale = interpolate(
-            e.scale,
-            [1 - 1 / SCALE_FULL_ZOOM, 1, SCALE_FULL_ZOOM],
-            [-1, 0, 1],
-            Extrapolation.CLAMP
-          );
-          zoomShared.value = interpolate(
-            scale,
-            [-1, 0, 1],
-            [minZ, pinchStartZoom.value, maxZ],
-            Extrapolation.CLAMP
-          );
-        }),
-    [isDeletePreviewActive]
+  const segments = useCreateSegmentsStore(s => s.segments);
+  const maxDuration = useCreateSegmentsStore(s => s.maxDuration);
+  const setMaxDuration = useCreateSegmentsStore(s => s.setMaxDuration);
+  const totalDuration = useMemo(
+    () => segments.reduce((sum, seg) => sum + seg.duration, 0),
+    [segments],
   );
-
-  const cancelDeletePreview = useCallback(() => {
-    setDeletePreview(null);
-  }, []);
-
-  const startDeletePreview = useCallback(() => {
-    const manager = segmentManagerRef.current;
-    if (!manager) return;
-    const segments = manager.getSegments();
-    if (segments.length === 0) {
-      setDeletePreview(null);
-      return;
-    }
-    const lastSegment = segments[segments.length - 1];
-    const totalDuration = manager.getTotalDuration();
-    const segmentDuration = Math.max(lastSegment.duration, 0);
-    const segmentStartTime = Math.max(totalDuration - segmentDuration, 0);
-    setDeletePreview({
-      segmentCount: segments.length,
-      segmentStartTime,
-      segmentEndTime: totalDuration,
-    });
-  }, []);
-
-  const isSamePreviewAsLastSegment = useCallback((preview: DeletePreviewState | null): boolean => {
-    if (!preview) return false;
-    const manager = segmentManagerRef.current;
-    if (!manager) return false;
-    const segments = manager.getSegments();
-    return segments.length > 0 && segments.length === preview.segmentCount;
-  }, []);
-
-  const confirmDeletePreview = useCallback(() => {
-    const manager = segmentManagerRef.current;
-    if (!manager || !deletePreview) return;
-    if (isSamePreviewAsLastSegment(deletePreview)) {
-      const removedSegment = manager.removeLastSegment();
-      if (removedSegment) {
-        totalDurationShared.value = manager.getTotalDuration();
-        progressBarDurationShared.value = manager.getTotalDuration();
-        setSegmentUpdateTrigger(prev => prev + 1);
-        refreshOnionSkinThumbnail();
-      }
-    }
-
-    setDeletePreview(null);
-  }, [
-    deletePreview,
-    isSamePreviewAsLastSegment,
-    progressBarDurationShared,
-    refreshOnionSkinThumbnail,
-    totalDurationShared,
-  ]);
+  const availableTime = Math.max(0, maxDuration - totalDuration);
+  const hasSegments = segments.length > 0;
 
   useEffect(() => {
-    if (!deletePreview) return;
-    if (!isSamePreviewAsLastSegment(deletePreview)) {
-      setDeletePreview(null);
-    }
-  }, [deletePreview, isSamePreviewAsLastSegment, segmentUpdateTrigger]);
+    return () => useCreateSegmentsStore.getState().clear();
+  }, []);
 
-  const deletePreviewProgressStyle = useMemo(() => {
-    if (!deletePreview) return null;
-    const safeMax = maxDuration || 1;
-    const startPercent =
-      (Math.min(Math.max(deletePreview.segmentStartTime, 0), safeMax) / safeMax) * 100;
-    const endPercent =
-      (Math.min(Math.max(deletePreview.segmentEndTime, 0), safeMax) / safeMax) * 100;
-    return {
-      left: `${startPercent}%` as const,
-      width: `${Math.max(endPercent - startPercent, 0)}%` as const,
-    };
-  }, [deletePreview, maxDuration]);
+  const setPendingVideoPost = usePendingVideoPostStore(s => s.setPayload);
 
-  // Handle trimmed video from gallery
-  const handleTrimmingComplete = useCallback(
-    ({
-      outputPath,
-      startTime,
-      endTime,
-    }: {
-      outputPath: string;
-      startTime: number;
-      endTime: number;
-    }) => {
-      if (!segmentManagerRef.current) return;
-
-      // Calculate trimmed duration (all times in milliseconds, convert to seconds)
-      // Use precise values (no rounding) for validation - display is rounded separately
-      const trimmedDurationSeconds = (endTime - startTime) / 1000;
-
-      // Validate trimmed duration doesn't exceed available time
-      // Round both to milliseconds (0.001s) for comparison to handle floating point precision
-      // All actual values remain precise - rounding only for this comparison
-      const availableTime = segmentManagerRef.current.getAvailableTime();
-      const trimmedRounded = Math.round(trimmedDurationSeconds * 1000) / 1000;
-      const availableRounded = Math.round(availableTime * 1000) / 1000;
-      if (trimmedRounded > availableRounded) {
-        Alert.alert(
-          t('common.error'),
-          t('video.trimmedExceedsAvailable', {
-            trimmed: trimmedDurationSeconds.toFixed(1),
-            available: availableTime.toFixed(1),
-          })
-        );
-        setIsLoadingFromGallery(false);
-        setIsProcessing(false);
-        return;
-      }
-
-      const manager = segmentManagerRef.current;
-      // Import-only: empty timeline → post with single file (no segment merge).
-      if (manager.getSegmentCount() === 0) {
-        const videoUri = toFileUri(outputPath);
-        setPendingVideoPost({
-          videoPath: videoUri,
-          textOverlays: [],
-        });
-        router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
-        setIsLoadingFromGallery(false);
-        setIsProcessing(false);
-        setIsTrimmerActive(false);
-        return;
-      }
-
-      // Add segment
-      const videoUri = outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
-      const newSegment: Segment = {
-        duration: trimmedDurationSeconds,
-        video: { uri: videoUri },
-        sourceType: 'gallery',
-      };
-
-      if (!segmentManagerRef.current.addSegment(newSegment)) {
-        Alert.alert(t('common.error'), t('video.addingExceedsMaxDuration'));
-        setIsLoadingFromGallery(false);
-        setIsProcessing(false);
-        return;
-      }
-
-      // Update UI
-      totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
-      progressBarDurationShared.value = segmentManagerRef.current.getTotalDuration();
-      setSegmentUpdateTrigger(prev => prev + 1);
-      refreshOnionSkinThumbnail();
-      setIsLoadingFromGallery(false);
-      setIsProcessing(false);
-      setIsTrimmerActive(false);
+  const recorder = useSegmentRecorder({
+    videoOutput,
+    onAutoStopReached: () => {
+      void finishRecording({ force: true });
     },
-    [
-      progressBarDurationShared,
-      refreshOnionSkinThumbnail,
-      router,
-      setPendingVideoPost,
-      totalDurationShared,
-      t,
-    ]
+  });
+  const { progressSec } = useRecordingProgress(recorder);
+
+  const navigateToPost = useCallback(
+    (videoUri: string) => {
+      setPendingVideoPost({ videoPath: videoUri, textOverlays: [] });
+      router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
+    },
+    [router, setPendingVideoPost],
   );
 
-  const resetRecordingRefs = useCallback(() => {
-    if (recordingAutoStopTimeoutRef.current) {
-      clearTimeout(recordingAutoStopTimeoutRef.current);
-      recordingAutoStopTimeoutRef.current = null;
-    }
-    isRecordingRef.current = false;
-    setIsRecording(false);
-    recordingStartAtRef.current = null;
-    recordingPromiseRef.current = null;
-    recorderRef.current = null;
-    recordingStateRef.current = 'idle';
-    forcedStopDurationRef.current = null;
-    activeRecordingDiscardGenRef.current = null;
-  }, []);
-
-  const disposeActiveRecorderAsync = useCallback(async () => {
-    const rec = recorderRef.current;
-    if (!rec) return;
-    recordingStateRef.current = 'stopping';
-    try {
-      await rec.stopRecording();
-    } catch (err) {
-      logger.debug('[Create] stopRecording during dispose', { err });
-    }
-    if (recorderRef.current !== rec) return;
-    recordingPromiseResolverRef.current?.(undefined);
-    recordingPromiseResolverRef.current = null;
-    resetRecordingRefs();
-    currentSegmentDurationShared.value = 0;
-  }, [currentSegmentDurationShared, resetRecordingRefs]);
-
-  const onCameraScreenFocusEnter = useCallback(() => {
-    setIsProcessing(false);
-  }, []);
-
-  const onCameraScreenInactiveAfterDispose = useCallback(() => {
-    setIsProcessing(false);
-    setFlash('off');
-    setDeletePreview(null);
-  }, []);
-
-  const isCameraScreenActive = useVisionCameraScreenActive({
-    disposeBeforeInactive: disposeActiveRecorderAsync,
-    onFocusEnter: onCameraScreenFocusEnter,
-    onInactiveAfterDispose: onCameraScreenInactiveAfterDispose,
+  const gallery = useGalleryTrimImport({
+    onBeforeEditor: () => recorder.cancel(),
+    onSingleSegmentReady: navigateToPost,
   });
 
-  const endTrimmerLoading = useCallback(() => {
-    setIsLoadingFromGallery(false);
-    setIsProcessing(false);
-    setIsTrimmerActive(false);
-  }, []);
+  const isCameraScreenActive = useVisionCameraScreenActive({
+    disposeBeforeInactive: recorder.cancel,
+    onFocusEnter: () => setIsProcessing(false),
+    onInactiveAfterDispose: () => {
+      setIsProcessing(false);
+      setFlash('off');
+      setPendingDeleteIndex(null);
+    },
+  });
 
-  // Set up event listeners for react-native-clip-trim (TurboModule API).
   useEffect(() => {
-    const VideoTrimModule = VideoTrim as Spec;
-    const subs: EventSubscription[] = [
-      VideoTrimModule.onCancelTrimming(endTrimmerLoading),
-      VideoTrimModule.onCancel(endTrimmerLoading),
-      VideoTrimModule.onHide(() => setIsTrimmerActive(false)),
-      VideoTrimModule.onShow(() => {
-        void (async () => {
-          await disposeActiveRecorderAsync();
-          setIsTrimmerActive(true);
-        })();
-      }),
-      VideoTrimModule.onFinishTrimming(handleTrimmingComplete),
-      VideoTrimModule.onError(({ message }) => {
-        Alert.alert(t('common.error'), message || t('video.failedToTrim'));
-        endTrimmerLoading();
-      }),
-    ];
-    return () => subs.forEach(s => s.remove());
-  }, [disposeActiveRecorderAsync, endTrimmerLoading, handleTrimmingComplete, t]);
-
-  // Request camera and microphone permissions on mount.
-  useEffect(() => {
-    const checkPermissions = async () => {
-      if (!cameraPermission.hasPermission) await cameraPermission.requestPermission();
-      if (!microphonePermission.hasPermission) await microphonePermission.requestPermission();
-    };
-    void checkPermissions();
+    if (!cameraPermission.hasPermission) void cameraPermission.requestPermission();
+    if (!microphonePermission.hasPermission) void microphonePermission.requestPermission();
   }, [cameraPermission, microphonePermission]);
 
-  // AbortController for async work (e.g. finishRecording) so we don't setState after unmount
-  useEffect(() => {
-    abortControllerRef.current = new AbortController();
-    return () => {
-      onionSkinRequestIdRef.current += 1;
-      discardGenerationRef.current += 1;
-      abortControllerRef.current?.abort();
-    };
-  }, []);
+  const bottomNavBarHeight = getBottomNavBarHeight(insets, isSmallPhone);
+  const cameraHeight = fitsNative16x9 && !isTablet ? cameraHeightFor16x9 : screenHeight;
+  const cameraLayout = useMemo(
+    () => ({
+      width: screenWidth,
+      height: cameraHeight,
+      marginTop:
+        isTablet || Platform.OS === 'android'
+          ? 0
+          : isSmallPhone || !fitsNative16x9
+            ? 0
+            : insets.top,
+    }),
+    [cameraHeight, fitsNative16x9, insets.top, isSmallPhone, isTablet, screenWidth],
+  );
+  const cameraContainerStyle = useMemo<{ justifyContent: 'flex-start' | 'center' }>(
+    () => ({
+      justifyContent:
+        isTablet || Platform.OS === 'android' ? 'center' : 'flex-start',
+    }),
+    [isTablet],
+  );
+  const progressBarHeight =
+    isSmallPhone || isTablet || !fitsNative16x9
+      ? isSmallPhone || !fitsNative16x9
+        ? 49
+        : insets.top + 48
+      : insets.top;
+  const topBarTop = isSmallPhone || !fitsNative16x9 ? 5 : insets.top + 4;
 
-  // Keep status bar hidden even when app returns from background
-  useEffect(() => {
-    const handleAppStateChange = (nextAppState: string) => {
-      if (nextAppState === 'active') {
-        // Ensure status bar is hidden when app becomes active
-        StatusBar.setHidden(true, 'none');
-      }
-    };
+  const cameraDevice = isFrontCamera ? frontDevice : backDevice;
 
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-
-    return () => {
-      subscription.remove();
-      // Re-enable StatusBar when component unmounts
-      StatusBar.setHidden(false, 'fade');
-    };
-  }, []);
-
-  // Disable flash when switching to front camera
-  useEffect(() => {
-    if (isFrontCamera && flash === 'on') {
-      setFlash('off');
-    }
-  }, [isFrontCamera, flash]);
-
-  // Update shared value when segments change
-  useEffect(() => {
-    totalDurationShared.value = segmentManagerRef.current?.getTotalDuration() ?? 0;
-    if (!isRecordingRef.current) {
-      progressBarDurationShared.value = totalDurationShared.value;
-    }
-  }, [progressBarDurationShared, segmentUpdateTrigger, totalDurationShared]);
-
-  useEffect(() => {
-    if (!isRecording) {
-      currentSegmentDurationShared.value = 0;
-      return;
-    }
-    const interval = setInterval(() => {
-      const liveDuration = recorderRef.current?.recordedDuration ?? 0;
-      const maxLiveDuration = Math.max(selectedDuration - recordingCommittedBaseRef.current, 0);
-      const clampedLiveDuration = Math.min(liveDuration, maxLiveDuration);
-      currentSegmentDurationShared.value = clampedLiveDuration;
-      progressBarDurationShared.value = recordingCommittedBaseRef.current + clampedLiveDuration;
-    }, 50);
-    return () => clearInterval(interval);
-  }, [currentSegmentDurationShared, isRecording, progressBarDurationShared, selectedDuration]);
-
-  const smoothedProgressBarDuration = useDerivedValue(() => {
-    'worklet';
-    return withTiming(progressBarDurationShared.value, {
-      duration: 140,
-      easing: Easing.linear,
+  const flipCamera = useCallback(() => {
+    setIsFrontCamera(prev => {
+      if (!prev) setFlash('off');
+      return !prev;
     });
   }, []);
 
-  const animatedProgressStyle = useAnimatedStyle(() => {
-    'worklet';
-    const stableProgressTotal = smoothedProgressBarDuration.value;
-    const safeMax = maxDuration || 1;
-    const clamped = Math.min(Math.max(stableProgressTotal, 0), safeMax);
-    const progress = (clamped / safeMax) * 100;
-    return {
-      width: `${progress}%`,
-    };
-  }, [maxDuration, smoothedProgressBarDuration]);
+  const toggleFlash = useCallback(() => {
+    if (!isFrontCamera) setFlash(prev => (prev === 'off' ? 'on' : 'off'));
+  }, [isFrontCamera]);
 
-  const animatedButtonOpacityStyle = useAnimatedStyle(
-    () => ({
-      opacity: buttonOpacity.value,
-    }),
-    []
-  );
-
-  // Animate button opacity when recording state or max duration changes
-  useEffect(() => {
-    const isMaxReached = availableTime <= 0;
-    buttonOpacity.value = withTiming(isRecording || isMaxReached ? 0.5 : 1, { duration: 100 });
-  }, [isRecording, availableTime, buttonOpacity]);
-
-  const commitCameraSegment = useCallback(
-    (elapsedDuration: number, uri?: string): boolean => {
-      if (activeRecordingDiscardGenRef.current !== discardGenerationRef.current) {
-        return false;
-      }
-      const manager = segmentManagerRef.current;
-      if (!manager || !uri) return false;
-      const available = manager.getAvailableTime();
-      const clampedDuration = Math.min(elapsedDuration, available);
-      if (clampedDuration <= 0) return false;
-
-      const newSegment: Segment = {
-        duration: clampedDuration,
-        video: { uri },
-        sourceType: 'camera',
-      };
-      if (!manager.addSegment(newSegment)) return false;
-      totalDurationShared.value = manager.getTotalDuration();
-      setSegmentUpdateTrigger(prev => prev + 1);
-      refreshOnionSkinThumbnail();
-      return true;
-    },
-    [refreshOnionSkinThumbnail, totalDurationShared]
-  );
-
-  const commitActiveRecording = useCallback(
-    async (opts?: { withProcessing?: boolean }): Promise<void> => {
-      if (!recorderRef.current || recordingStateRef.current === 'stopping') return;
-
-      const genStart = discardGenerationRef.current;
-      recordingStateRef.current = 'stopping';
-
-      if (opts?.withProcessing) {
-        setIsProcessing(true);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
-
-      const elapsedDuration = Math.max(
-        forcedStopDurationRef.current ?? recorderRef.current.recordedDuration,
-        0
-      );
-
-      try {
-        await recorderRef.current.stopRecording();
-        let segmentUri: string | undefined;
-        if (recordingPromiseRef.current) {
-          const result = await recordingPromiseRef.current.catch(() => undefined);
-          segmentUri = result?.uri;
-        }
-        if (discardGenerationRef.current !== genStart) {
-          resetRecordingRefs();
-          currentSegmentDurationShared.value = 0;
-          return;
-        }
-        const didCommit = commitCameraSegment(elapsedDuration, segmentUri);
-        resetRecordingRefs();
-        if (didCommit) {
-          requestAnimationFrame(() => {
-            currentSegmentDurationShared.value = 0;
-          });
-        } else {
-          currentSegmentDurationShared.value = 0;
-        }
-      } catch (_e) {
-        const manager = segmentManagerRef.current;
-        if (manager) totalDurationShared.value = manager.getTotalDuration();
-        resetRecordingRefs();
-        currentSegmentDurationShared.value = 0;
-      } finally {
-        if (opts?.withProcessing && discardGenerationRef.current === genStart) {
-          setIsProcessing(false);
-        }
-      }
-    },
-    [commitCameraSegment, currentSegmentDurationShared, resetRecordingRefs, totalDurationShared]
-  );
-
-  const stopRecording = useCallback(
-    () => commitActiveRecording({ withProcessing: true }),
-    [commitActiveRecording]
-  );
-
-  const pauseCurrentSegment = useCallback(
-    () => commitActiveRecording(),
-    [commitActiveRecording]
-  );
-
-  const startRecording = useCallback(async () => {
-    const manager = segmentManagerRef.current;
-    const currentTotal = manager?.getTotalDuration() ?? 0;
-    const availableTime = manager?.getAvailableTime() ?? 0;
-
-    // Guard: require some remaining time
-    if (availableTime <= 0) {
+  const startDeletePreview = useCallback(() => {
+    const segs = useCreateSegmentsStore.getState().segments;
+    if (segs.length === 0) {
+      setPendingDeleteIndex(null);
       return;
     }
-
-    if (
-      cameraRef.current &&
-      !isRecordingRef.current &&
-      recordingStateRef.current === 'idle' &&
-      currentTotal < maxDuration
-    ) {
-      if (!microphonePermission.hasPermission) {
-        const result = await microphonePermission.requestPermission();
-        if (!result) {
-          Alert.alert(t('video.microphonePermission'), t('video.microphonePermissionMessage'));
-          return;
-        }
-      }
-
-      recordingStateRef.current = 'starting';
-      isRecordingRef.current = true;
-      setIsRecording(true);
-      recordingCommittedBaseRef.current = segmentManagerRef.current?.getTotalDuration() ?? 0;
-      progressBarDurationShared.value = recordingCommittedBaseRef.current;
-      currentSegmentDurationShared.value = 0;
-      recordingStartAtRef.current = Date.now();
-
-      try {
-        const managerForDuration = segmentManagerRef.current;
-        const availableNow = managerForDuration?.getAvailableTime() ?? 0;
-        if (cameraRef.current) {
-          const localRecorder = await videoOutput.createRecorder({});
-          recorderRef.current = localRecorder;
-          recordingPromiseRef.current = new Promise(resolve => {
-            recordingPromiseResolverRef.current = resolve;
-          });
-          await localRecorder.startRecording(
-            (filePath: string) => {
-              recordingPromiseResolverRef.current?.({ uri: toFileUri(filePath) });
-              recordingPromiseResolverRef.current = null;
-            },
-            () => {
-              recordingPromiseResolverRef.current?.(undefined);
-              recordingPromiseResolverRef.current = null;
-              activeRecordingDiscardGenRef.current = null;
-              isRecordingRef.current = false;
-              setIsRecording(false);
-              currentSegmentDurationShared.value = 0;
-              recordingStartAtRef.current = null;
-              recordingPromiseRef.current = null;
-              recorderRef.current = null;
-              recordingStateRef.current = 'idle';
-            }
-          );
-          recordingStateRef.current = 'recording';
-          activeRecordingDiscardGenRef.current = discardGenerationRef.current;
-        } else {
-          isRecordingRef.current = false;
-          setIsRecording(false);
-          recordingStartAtRef.current = null;
-          recordingStateRef.current = 'idle';
-        }
-        if (recordingAutoStopTimeoutRef.current) {
-          clearTimeout(recordingAutoStopTimeoutRef.current);
-        }
-        recordingAutoStopTimeoutRef.current = setTimeout(() => {
-          // At auto-stop, recorder duration can lag slightly behind the configured max.
-          // Use the exact remaining window as authoritative segment duration.
-          forcedStopDurationRef.current = availableNow;
-          progressBarDurationShared.value = Math.min(
-            recordingCommittedBaseRef.current + availableNow,
-            maxDuration
-          );
-
-          stopRecording()
-            .then(() => finishRecordingRef.current?.({ force: true }))
-            .catch(() => {
-              // Automatic max-duration completion failed.
-            });
-        }, availableNow * 1000);
-      } catch (_e) {
-        activeRecordingDiscardGenRef.current = null;
-        isRecordingRef.current = false;
-        setIsRecording(false);
-        currentSegmentDurationShared.value = 0;
-        recordingStartAtRef.current = null;
-        recordingPromiseRef.current = null;
-        recorderRef.current = null;
-        recordingStateRef.current = 'idle';
-        forcedStopDurationRef.current = null;
-      }
-    }
-  }, [
-    microphonePermission,
-    maxDuration,
-    currentSegmentDurationShared,
-    progressBarDurationShared,
-    stopRecording,
-    t,
-    videoOutput,
-  ]);
-
-  // Handle press start - begin recording (press in to start)
-  const handlePressIn = useCallback(() => {
-    const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
-    const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
-    if (
-      !isRecordingRef.current &&
-      recordingStateRef.current === 'idle' &&
-      !isProcessingRef.current &&
-      currentTotal < maxDuration &&
-      availableTime > 0
-    ) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      startRecording();
-    }
-  }, [startRecording, maxDuration]);
-
-  // Handle press end - stop recording (press out to stop)
-  const handlePressOut = useCallback(() => {
-    if (isRecordingRef.current) {
-      pauseCurrentSegment().catch(() => {
-        // Segment pause failures are non-fatal; user can retry recording.
-      });
-    }
-  }, [pauseCurrentSegment]);
-
-  /**
-   * Shutter-area vertical pan → zoom (same interpolate curve as VisionCamera CaptureButton).
-   * @see https://github.com/mrousavy/react-native-vision-camera/blob/main/example/src/views/CaptureButton.tsx
-   */
-  const captureZoomPanGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .enabled(!isDeletePreviewActive)
-        .minDistance(6)
-        .onStart(e => {
-          'worklet';
-          const startY = e.absoluteY;
-          const yForFullZoom = startY * 0.7;
-          const offsetYForFullZoom = startY - yForFullZoom;
-          captureZoomPanStartY.value = startY;
-          captureZoomPanOffsetY.value = interpolate(
-            zoomShared.value,
-            [deviceMinZoomSV.value, deviceMaxZoomSV.value],
-            [0, offsetYForFullZoom],
-            Extrapolation.CLAMP
-          );
-        })
-        .onUpdate(e => {
-          'worklet';
-          const startY = captureZoomPanStartY.value;
-          const offset = captureZoomPanOffsetY.value;
-          const yForFullZoom = startY * 0.7;
-          const minZ = deviceMinZoomSV.value;
-          const maxZ = deviceMaxZoomSV.value;
-          zoomShared.value = interpolate(
-            e.absoluteY - offset,
-            [yForFullZoom, startY],
-            [maxZ, minZ],
-            Extrapolation.CLAMP
-          );
-        }),
-    [isDeletePreviewActive]
-  );
-
-  /**
-   * Hold-to-record must survive vertical sliding for zoom. `Pressable` + `Gesture.Native()` loses
-   * the press as soon as the simultaneous `Pan` activates (~6px). `LongPress` defaults to ~10pt
-   * max movement before fail — raise it and disable cancel-when-outside so lift ends the segment.
-   */
-  const shutterHoldGesture = useMemo(
-    () =>
-      Gesture.LongPress()
-        .minDuration(0)
-        .maxDistance(10000)
-        .shouldCancelWhenOutside(false)
-        .enabled(!isDeletePreviewActive && !isLoadingFromGallery)
-        .onStart(() => {
-          'worklet';
-          runOnJS(handlePressIn)();
-        })
-        .onFinalize(() => {
-          'worklet';
-          runOnJS(handlePressOut)();
-        }),
-    [handlePressIn, handlePressOut, isDeletePreviewActive, isLoadingFromGallery]
-  );
-
-  const shutterZoomGesture = useMemo(
-    () => Gesture.Simultaneous(captureZoomPanGesture, shutterHoldGesture),
-    [captureZoomPanGesture, shutterHoldGesture]
-  );
-
-  const pickFromGallery = useCallback(async () => {
-    try {
-      setIsLoadingFromGallery(true);
-      setIsProcessing(true);
-
-      // Request media library permissions before opening picker (required for videos on iOS SDK 54+)
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permissionResult.granted) {
-        setIsLoadingFromGallery(false);
-        setIsProcessing(false);
-        Alert.alert(t('video.permissionRequired'), t('video.mediaLibraryPermissionRequired'));
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['videos'],
-        allowsMultipleSelection: false,
-        videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
-        preferredAssetRepresentationMode:
-          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
-        videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        if (asset.type != null && asset.type !== 'video') {
-          Alert.alert(t('video.invalidSelection'), t('video.selectVideoOnly'));
-          setIsLoadingFromGallery(false);
-          setIsProcessing(false);
-          return;
-        }
-        const videoUri = asset.uri;
-
-        try {
-          // Validate file using library's API and get actual video duration
-          const validationResult = await isValidFile(videoUri);
-          if (!validationResult.isValid) {
-            Alert.alert(t('video.invalidVideo'), t('video.invalidVideoFile'));
-            setIsLoadingFromGallery(false);
-            setIsProcessing(false);
-            return;
-          }
-
-          // Check if there's available time
-          const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
-          if (availableTime <= 0) {
-            Alert.alert(t('common.error'), t('video.noTimeRemaining'));
-            setIsLoadingFromGallery(false);
-            setIsProcessing(false);
-            return;
-          }
-
-          setIsLoadingFromGallery(false);
-          setIsProcessing(false);
-
-          posthog.capture('video_gallery_selected', {
-            duration_ms: asset.duration ?? null,
-          });
-
-          // Show editor with dynamic maxDuration constraint
-          // Pass precise value (no rounding) - only display rounds in trimmer UI
-          // NOTE: iOS has a bug where it treats maxDuration/minDuration as seconds instead of milliseconds
-          // Android expects milliseconds, so we need to pass seconds for iOS, milliseconds for Android
-          const maxDurationSeconds = availableTime;
-          const maxDurationMs = availableTime * 1000;
-
-          showEditor(videoUri, {
-            maxDuration: Platform.OS === 'ios' ? maxDurationSeconds : maxDurationMs,
-            saveToPhoto: false,
-            openShareSheetOnFinish: false,
-            removeAfterSavedToPhoto: false,
-            cancelButtonText: t('common.cancel'),
-            saveButtonText: t('common.done'),
-            trimmerColor: Colors.purple[500],
-            enableCancelTrimming: true,
-            closeWhenFinish: true,
-            autoplay: true,
-            fullScreenModalIOS: true,
-          });
-        } catch (_error) {
-          Alert.alert(t('common.error'), t('video.failedToOpenTrimmer'));
-          setIsLoadingFromGallery(false);
-          setIsProcessing(false);
-        }
-      } else {
-        setIsLoadingFromGallery(false);
-        setIsProcessing(false);
-      }
-    } catch (_e) {
-      Alert.alert(t('common.error'), t('video.failedToAccessGallery'));
-      setIsLoadingFromGallery(false);
-      setIsProcessing(false);
-    }
-  }, [t]);
-
-  const flipCamera = useCallback(() => {
-    setIsFrontCamera(prev => !prev);
+    setPendingDeleteIndex(segs.length - 1);
   }, []);
 
-  const onCameraDoubleTapFlip = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    flipCamera();
-  }, [flipCamera]);
+  const cancelDeletePreview = useCallback(() => setPendingDeleteIndex(null), []);
 
-  /** Matches example: TapGestureHandler with numberOfTaps={2} around the preview. */
-  const cameraDoubleTapGesture = useMemo(
-    () =>
-      Gesture.Tap()
-        .numberOfTaps(2)
-        .enabled(!isDeletePreviewActive)
-        .onEnd(() => {
-          'worklet';
-          runOnJS(onCameraDoubleTapFlip)();
-        }),
-    [isDeletePreviewActive, onCameraDoubleTapFlip]
-  );
-  const toggleFlash = useCallback(() => {
-    // Only allow flash on back camera
-    if (!isFrontCamera) {
-      setFlash(prev => (prev === 'off' ? 'on' : 'off'));
-    }
-  }, [isFrontCamera]);
+  const confirmDeletePreview = useCallback(() => {
+    if (pendingDeleteIndex === null) return;
+    useCreateSegmentsStore.getState().removeLastSegment();
+    setPendingDeleteIndex(null);
+  }, [pendingDeleteIndex]);
+
+  useEffect(() => {
+    if (pendingDeleteIndex === null) return;
+    if (pendingDeleteIndex !== segments.length - 1) setPendingDeleteIndex(null);
+  }, [pendingDeleteIndex, segments.length]);
+
+  const deletePreview = useMemo(() => {
+    if (pendingDeleteIndex === null || segments.length === 0) return null;
+    const lastSegment = segments[segments.length - 1];
+    const v = lastSegment.video;
+    const uri = v && typeof v === 'object' && 'uri' in v && typeof v.uri === 'string' ? v.uri : '';
+    if (!uri) return null;
+    const startSec = Math.max(totalDuration - lastSegment.duration, 0);
+    return { uri, startSec, endSec: totalDuration };
+  }, [pendingDeleteIndex, segments, totalDuration]);
 
   const handleToolAction = useCallback(
     (action: string) => {
-      if (action !== 'delete' && isDeletePreviewActive) {
-        cancelDeletePreview();
-      }
+      if (action !== 'delete' && pendingDeleteIndex !== null) cancelDeletePreview();
       switch (action) {
         case 'gallery':
-          pickFromGallery();
+          void gallery.pickFromGallery();
           break;
         case 'flip':
           flipCamera();
@@ -1067,16 +197,11 @@ const CreateScreen: React.FC = () => {
           toggleFlash();
           break;
         case 'delete':
-          if (isDeletePreviewActive) {
-            confirmDeletePreview();
-          } else {
-            startDeletePreview();
-          }
+          if (pendingDeleteIndex !== null) confirmDeletePreview();
+          else startDeletePreview();
           break;
         case 'onion-skin':
           setIsOnionSkinningEnabled(prev => !prev);
-          break;
-        default:
           break;
       }
     },
@@ -1084,375 +209,187 @@ const CreateScreen: React.FC = () => {
       cancelDeletePreview,
       confirmDeletePreview,
       flipCamera,
-      isDeletePreviewActive,
-      pickFromGallery,
+      gallery,
+      pendingDeleteIndex,
       startDeletePreview,
       toggleFlash,
-    ]
+    ],
   );
 
-  const leaveCreateScreen = useCallback(() => {
-    if (isTrimmerActive) {
-      closeEditor();
-    }
-    router.back();
-  }, [router, isTrimmerActive]);
+  const finishRecording = useCallback(
+    async (options?: { force?: boolean }) => {
+      if (pendingDeleteIndex !== null) cancelDeletePreview();
+      if (isProcessing && !options?.force) return;
 
-  const handleBackPress = async () => {
-    if (isDeletePreviewActive) {
+      if (recorder.isRecording) {
+        setIsProcessing(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        await recorder.stop();
+        setIsProcessing(false);
+      }
+
+      const store = useCreateSegmentsStore.getState();
+      if (store.segments.length === 0) return;
+
+      const videoSegments = store.toVideoSegments();
+      posthog.capture('video_recorded', { segment_count: videoSegments.length });
+
+      if (videoSegments.length === 1) {
+        const uri = videoSegments[0].video && 'uri' in videoSegments[0].video
+          ? videoSegments[0].video.uri
+          : null;
+        if (uri) {
+          setPendingVideoPost({ videoPath: uri, textOverlays: [] });
+          router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
+        }
+        return;
+      }
+
+      setPendingVideoPost({ segments: videoSegments, textOverlays: [] });
+      router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
+    },
+    [
+      cancelDeletePreview,
+      isProcessing,
+      pendingDeleteIndex,
+      recorder,
+      router,
+      setPendingVideoPost,
+    ],
+  );
+
+  const handleBackPress = useCallback(async () => {
+    if (pendingDeleteIndex !== null) {
       cancelDeletePreview();
       return;
     }
-    if (isRecordingRef.current) {
-      await stopRecording();
-    }
+    if (recorder.isRecording) await recorder.stop();
 
-    // Show warning if there are recordings
-    const hasSegments = segmentManagerRef.current?.hasSegments() ?? false;
-    const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
+    const store = useCreateSegmentsStore.getState();
+    const leave = () => {
+      if (gallery.isTrimmerActive) gallery.closeTrimmer();
+      router.back();
+    };
 
-    if (hasSegments || currentTotal > 0) {
+    if (store.hasSegments() || store.totalDuration() > 0) {
       Alert.alert(t('video.discardRecordings'), t('video.discardRecordingsMessage'), [
-        {
-          text: t('common.cancel'),
-          style: 'cancel',
-        },
+        { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('common.discard'),
           style: 'destructive',
           onPress: () => {
-            discardGenerationRef.current += 1;
-            segmentManagerRef.current?.clear();
-            totalDurationShared.value = 0;
-            progressBarDurationShared.value = 0;
-            setLastFrameThumbnail(null);
-            setSegmentUpdateTrigger(prev => prev + 1);
-            leaveCreateScreen();
+            useCreateSegmentsStore.getState().clear();
+            leave();
           },
         },
       ]);
     } else {
-      leaveCreateScreen();
+      leave();
     }
-  };
+  }, [cancelDeletePreview, gallery, pendingDeleteIndex, recorder, router, t]);
 
-  const finishRecording = useCallback(
-    async (options?: { force?: boolean }) => {
-      if (isDeletePreviewActive) {
-        cancelDeletePreview();
-      }
-      const manager = segmentManagerRef.current;
-      if (!manager || (isProcessing && !options?.force)) {
-        return;
-      }
+  // Closes the async gap: if pressOut fires before startRecording resolves, stop immediately on start.
+  const isPressHeldRef = useRef(false);
 
-      // Wait for any active recording to finish
-      if (isRecordingRef.current) {
-        await stopRecording();
-      }
+  const handlePressIn = useCallback(() => {
+    if (recorder.isRecording || isProcessing || availableTime <= 0) return;
+    isPressHeldRef.current = true;
+    void recorder.start().then(() => {
+      if (!isPressHeldRef.current) recorder.stopFireAndForget();
+    });
+  }, [availableTime, isProcessing, recorder]);
 
-      if (abortControllerRef.current?.signal.aborted) return;
+  const handlePressOut = useCallback(() => {
+    isPressHeldRef.current = false;
+    if (!recorder.isRecording) return;
+    recorder.stopFireAndForget();
+  }, [recorder]);
 
-      const finalSegments = manager.getSegments();
-
-      if (finalSegments.length === 0) {
-        return;
-      }
-
-      // Convert to VideoSegment format
-      const videoSegments = manager.toVideoSegments();
-      const firstSegment = videoSegments[0];
-
-      if (abortControllerRef.current?.signal.aborted) return;
-
-      posthog.capture('video_recorded', {
-        segment_count: videoSegments.length,
-      });
-
-      if (videoSegments.length === 1 && firstSegment) {
-        const videoUri = firstSegment.video?.uri;
-        if (videoUri) {
-          setPendingVideoPost({
-            videoPath: videoUri,
-            textOverlays: [],
-          });
-          router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
-        }
-      } else {
-        setPendingVideoPost({
-          segments: videoSegments,
-          textOverlays: [],
-        });
-        router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
-      }
-    },
-    [
-      cancelDeletePreview,
-      isDeletePreviewActive,
-      router,
-      isProcessing,
-      setPendingVideoPost,
-      stopRecording,
-    ]
-  );
-
-  useEffect(() => {
-    finishRecordingRef.current = finishRecording;
-  }, [finishRecording]);
-
-  const cameraContainerLayout = useMemo(
-    () => ({
-      justifyContent: isTabletDevice
-        ? ('center' as const)
-        : Platform.OS === 'ios'
-          ? ('flex-start' as const)
-          : ('center' as const),
-    }),
-    [isTabletDevice]
-  );
-  const cameraAndroidLayout = useMemo(
-    () => (Platform.OS === 'android' ? { flex: 0, height: 'auto' as const } : null),
-    []
-  );
-  const cameraLayout = useMemo(
-    () => ({
-      width: cameraWidth,
-      height: cameraHeight,
-      marginTop: isTabletDevice
-        ? 0
-        : Platform.OS === 'ios'
-          ? isSmallDevice || !fitsNative16x9
-            ? 0
-            : insets.top
-          : 0,
-    }),
-    [cameraWidth, cameraHeight, isTabletDevice, isSmallDevice, fitsNative16x9, insets.top]
-  );
-  const { backButtonPosition, doneButtonOffsetStyle } = useMemo(() => {
-    const top = isSmallDevice || !fitsNative16x9 ? 5 : insets.top + 4;
-    return {
-      backButtonPosition: { top, left: 4 },
-      doneButtonOffsetStyle: { top, right: 4 },
-    };
-  }, [isSmallDevice, fitsNative16x9, insets.top]);
-  // Render content based on the state of permissions and device availability
-  const renderContent = () => {
-    if (!cameraPermission) {
-      return <View style={styles.warningContainer} />;
-    }
-
+  const renderBody = () => {
+    if (!cameraPermission) return <View style={styles.emptyBackground} />;
     if (!cameraPermission.hasPermission) {
-      return (
-        <View style={styles.warningContainer}>
-          <Icon
-            name="video_camera_2"
-            size={64}
-            color={Colors.neutral[200]}
-            style={styles.errorIcon}
-          />
-          <Text style={styles.warningText}>{t('video.pleaseEnableCamera')}</Text>
-          <SquircleNativePressable
-            style={styles.button}
-            onPress={cameraPermission.requestPermission}
-          >
-            <Text style={styles.buttonText}>{t('video.grantPermission')}</Text>
-          </SquircleNativePressable>
-        </View>
-      );
+      return <PermissionGate onRequestPermission={cameraPermission.requestPermission} />;
     }
-
-    if (!cameraDevice) {
-      return <View style={styles.warningContainer} />;
-    }
-
-    /** Same layering as Vision Camera example: pinch wraps a view with tap-to-focus, double-tap inside. */
-    const cameraPreviewBody = (
-      <View style={[styles.cameraWrapper, cameraLayout]}>
-        <Camera
-          ref={cameraRef}
-          style={styles.cameraFill}
-          device={cameraDevice}
-          isActive={isCameraScreenActive && !isTrimmerActive && !!cameraDevice}
-          outputs={[videoOutput]}
-          zoom={zoomShared}
-          torchMode={flash === 'on' && !isFrontCamera ? 'on' : 'off'}
-          enableNativeTapToFocusGesture={!isFrontCamera && !isDeletePreviewActive}
-          enableSmoothAutoFocus={cameraDevice?.supportsSmoothAutoFocus}
-          onError={handleCameraError}
-        />
-        {isDeletePreviewActive && deletePreviewSegmentUri ? (
-          <DeletePreviewSegmentVideo uri={deletePreviewSegmentUri} />
-        ) : (
-          isOnionSkinningEnabled &&
-          lastFrameThumbnail && (
-            <Image
-              source={{ uri: lastFrameThumbnail }}
-              style={styles.onionSkinOverlay}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-              pointerEvents="none"
-            />
-          )
-        )}
-      </View>
-    );
-
-    const cameraSurface = isDeletePreviewActive ? (
-      <Pressable
-        onPress={cancelDeletePreview}
-        style={[styles.cameraPressable, cameraAndroidLayout]}
-      >
-        {cameraPreviewBody}
-      </Pressable>
-    ) : (
-      <GestureDetector gesture={cameraDoubleTapGesture}>
-        <View style={[styles.cameraPressable, cameraAndroidLayout]} collapsable={false}>
-          {cameraPreviewBody}
-        </View>
-      </GestureDetector>
-    );
+    if (!cameraDevice) return <View style={styles.emptyBackground} />;
 
     return (
       <>
-        <View style={[styles.cameraContainer, cameraContainerLayout]}>
-          <GestureDetector gesture={cameraPinchGesture}>{cameraSurface}</GestureDetector>
+        <CameraStage
+          device={cameraDevice}
+          videoOutput={videoOutput}
+          isActive={isCameraScreenActive && !gallery.isTrimmerActive}
+          isFrontCamera={isFrontCamera}
+          flashOn={flash === 'on'}
+          onionSkinEnabled={isOnionSkinningEnabled}
+          deletePreviewUri={deletePreview?.uri ?? null}
+          onCancelDeletePreview={cancelDeletePreview}
+          onDoubleTapFlip={flipCamera}
+          layout={cameraLayout}
+          containerStyle={cameraContainerStyle}
+        />
 
-          {/* Progress Bar - overlays on top of camera */}
+        <RecordingProgressBar
+          progressSec={progressSec}
+          maxDuration={maxDuration}
+          height={progressBarHeight}
+          fillColor={maxDuration === 6 ? Colors.teal[500] : Colors.purple[500]}
+          pendingDelete={
+            deletePreview ? { startSec: deletePreview.startSec, endSec: deletePreview.endSec } : null
+          }
+        />
+
+        {pendingDeleteIndex === null && (
           <View
             style={[
-              styles.progressBarOverlay,
-              {
-                height:
-                  isSmallDevice || isTabletDevice || !fitsNative16x9
-                    ? isSmallDevice || !fitsNative16x9
-                      ? 49
-                      : insets.top + 48 // Extends to bottom of header (5px top + 44px button for small, or insets.top + 4px + 44px for others)
-                    : insets.top, // iOS: extend to top of video, Android: just status bar
-              },
+              styles.bottomCluster,
+              { bottom: bottomNavBarHeight + (isSmallPhone ? 40 : 50) },
             ]}
           >
-            <View style={styles.combinedProgressBarContainer}>
-              <Animated.View
-                style={[
-                  styles.progressBarFill,
-                  {
-                    backgroundColor: selectedDuration === 6 ? Colors.teal[500] : Colors.purple[500],
-                  },
-                  animatedProgressStyle,
-                ]}
+            <View style={styles.row}>
+              <View style={styles.spacer} />
+              <RecordButton
+                isRecording={recorder.isRecording}
+                isLoading={gallery.isLoadingFromGallery}
+                disabled={availableTime <= 0 || gallery.isLoadingFromGallery}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
               />
-              {deletePreviewProgressStyle && (
-                <View style={[styles.pendingDeleteSegmentFill, deletePreviewProgressStyle]} />
-              )}
-            </View>
-          </View>
-
-          {/* Controls */}
-          {!isDeletePreviewActive && (
-            <View
-              style={[
-                styles.centerButtonContainer,
-                {
-                  bottom: bottomNavBarHeight + (isSmallDevice ? 40 : 50),
-                },
-              ]}
-            >
-              <View style={styles.recordButtonArea}>
-                <View style={styles.recordButtonAreaSpacer} />
-                <GestureDetector gesture={shutterZoomGesture}>
-                  <Animated.View collapsable={false} style={styles.recordButtonContainer}>
-                    <Animated.View
-                      style={[
-                        styles.recordButton,
-                        animatedButtonOpacityStyle,
-                        availableTime <= 0 && styles.recordButtonDisabled,
-                      ]}
-                    >
-                      {isLoadingFromGallery ? (
-                        <ActivityIndicator size="large" color="white" />
-                      ) : (
-                        <View
-                          style={[
-                            styles.captureButtonInner,
-                            availableTime <= 0 && styles.captureButtonInnerDisabled,
-                          ]}
-                        />
-                      )}
-                    </Animated.View>
-                  </Animated.View>
-                </GestureDetector>
-                <View style={styles.recordButtonAreaSpacer}>
-                  <NativePressable
-                    style={styles.durationSelectorCollapsed}
-                    onPress={() => {
-                      const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
-                      const availableOptions = DURATION_OPTION_KEYS.filter(
-                        opt => opt.value >= currentTotal
-                      );
-                      Haptics.selectionAsync();
-                      Alert.alert(t('video.maxDuration'), t('video.selectMaxLength'), [
-                        ...availableOptions.map(opt => ({
-                          text: t(opt.labelKey),
-                          onPress: () => setSelectedDuration(opt.value),
-                        })),
-                        { text: t('common.cancel'), style: 'cancel' as const },
-                      ]);
-                    }}
-                  >
-                    <Text style={styles.durationSelectorCollapsedText}>
-                      {t(
-                        DURATION_OPTION_KEYS.find(opt => opt.value === selectedDuration)
-                          ?.labelKey ?? 'create.duration16s'
-                      )}
-                    </Text>
-                  </NativePressable>
-                </View>
+              <View style={styles.spacer}>
+                <DurationSelector selectedDuration={maxDuration} onSelect={setMaxDuration} />
               </View>
             </View>
-          )}
-        </View>
+          </View>
+        )}
       </>
     );
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <StatusBar hidden={true} />
-      <NativePressable
-        style={[styles.backButton, backButtonPosition]}
-        onPress={handleBackPress}
-        androidRippleBorderless
-      >
-        <CloseFillIcon size={26} color="white" />
-      </NativePressable>
+      <StatusBar hidden />
 
-      {segmentManagerRef.current?.hasSegments() && (
-        <NativePressable
-          style={[styles.doneButton, doneButtonOffsetStyle]}
-          onPress={() => {
-            finishRecording().catch(() => {
-              // Manual completion failed.
-            });
-          }}
-          disabled={isProcessing}
-          androidRippleBorderless
-        >
-          <ArrowRightFillIcon size={30} color="white" />
-        </NativePressable>
-      )}
-      {renderContent()}
+      <CreateTopBar
+        topInset={topBarTop}
+        showDone={hasSegments}
+        doneDisabled={isProcessing}
+        onBack={() => void handleBackPress()}
+        onDone={() => void finishRecording().catch(() => {})}
+      />
+
+      {renderBody()}
+
       <BottomToolBar
         mode="create"
         onToolPress={handleToolAction}
         flashActive={flash === 'on'}
-        hasSegments={(segmentManagerRef.current?.getTotalDuration() ?? 0) > 0}
-        isDeletePreviewActive={isDeletePreviewActive}
+        hasSegments={totalDuration > 0}
+        isDeletePreviewActive={pendingDeleteIndex !== null}
         isFrontCamera={isFrontCamera}
         disableGalleryUpload={
           Platform.OS === 'android' ||
           (Platform.OS === 'ios' && parseInt(Device.osVersion || '0', 10) < 17) ||
           availableTime <= 0 ||
-          (segmentManagerRef.current?.hasSegments() ?? false)
+          hasSegments
         }
         onionSkinningActive={isOnionSkinningEnabled}
       />
@@ -1465,137 +402,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  warningContainer: {
+  emptyBackground: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
     backgroundColor: Colors.black,
   },
-  warningText: {
-    color: Colors.neutral[200],
-    fontSize: Typography.sizes.title,
-    fontFamily: FontFamily.semibold,
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: Typography.lineHeights.title,
-  },
-  errorIcon: {
-    marginBottom: 20,
-    opacity: 0.9,
-  },
-  button: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.neutral[50],
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    marginTop: 20,
-    minWidth: 120,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  buttonText: {
-    color: Colors.black,
-    fontSize: Typography.sizes.subtitle,
-    fontFamily: FontFamily.semibold,
-  },
-  cameraContainer: {
-    flex: 1,
-    position: 'relative',
-    alignItems: 'center',
-  },
-  cameraPressable: {
-    width: '100%',
-    height: '100%',
-    flex: 1,
-  },
-  cameraWrapper: {
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  cameraFill: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  onionSkinOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.3,
-    zIndex: 10,
-  },
-  progressBarOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 999,
-  },
-  combinedProgressBarContainer: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: Colors.transparent,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: Colors.purple[500],
-    borderRadius: 0,
-    minHeight: 4, // Ensure minimum visible height on tablets
-  },
-  pendingDeleteSegmentFill: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    backgroundColor: Colors.coral[500],
-    minHeight: 4,
-  },
-  backButton: {
-    position: 'absolute',
-    left: 10,
-    zIndex: 1000,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recordButtonArea: {
-    flexDirection: 'row',
-    width: '100%',
-    minHeight: 90,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recordButtonAreaSpacer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  durationSelectorCollapsed: {
-    paddingHorizontal: 14,
-    minWidth: 48,
-    minHeight: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  durationSelectorCollapsedText: {
-    color: Colors.neutral[50],
-    fontSize: fontSizeFor(17),
-    fontFamily: FontFamily.bold,
-  },
-  doneButton: {
-    position: 'absolute',
-    right: 10,
-    zIndex: 1000,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centerButtonContainer: {
+  bottomCluster: {
     position: 'absolute',
     left: 0,
     right: 0,
@@ -1603,31 +414,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
-  recordButtonContainer: {
+  row: {
+    flexDirection: 'row',
+    width: '100%',
+    minHeight: 90,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  recordButton: {
-    width: 90,
-    height: 90,
-    borderRadius: 47.5,
-    borderWidth: 5,
-    borderColor: Colors.neutral[50],
-    backgroundColor: Colors.transparent,
-    justifyContent: 'center',
+  spacer: {
+    flex: 1,
     alignItems: 'center',
-  },
-  recordButtonDisabled: {
-    borderColor: Colors.neutral[200],
-  },
-  captureButtonInner: {
-    width: 74,
-    height: 74,
-    borderRadius: 38,
-    backgroundColor: CAPTURE_BUTTON_INNER_BG,
-  },
-  captureButtonInnerDisabled: {
-    backgroundColor: CAPTURE_BUTTON_INNER_DISABLED_BG,
+    justifyContent: 'center',
   },
 });
 
