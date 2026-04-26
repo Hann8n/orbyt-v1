@@ -10,7 +10,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.getorbyt.app",
       "appleTeamId": "D8VXFBV8SJ",
-      "buildNumber": "2026042600",
+      "buildNumber": "2026042602",
       "icon": "./src/assets/AppIcons/iOS/Orbyt.icon",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en",
@@ -31,7 +31,7 @@
         "backgroundColor": "#05070a"
       },
       "package": "com.getorbyt.app",
-      "versionCode": 2026042600,
+      "versionCode": 2026042602,
       "permissions": [
         "INTERNET",
         "CAMERA",
@@ -77,14 +77,16 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "17.0"
+            "deploymentTarget": "17.0",
+            "newArchEnabled": true
           },
           "android": {
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
             "minSdkVersion": 24,
             "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "newArchEnabled": true
           }
         }
       ],
