@@ -15,7 +15,7 @@ if (!isPostHogConfigured && __DEV__) {
 export const posthog = new PostHog(apiKey || 'placeholder_key', {
   host,
   disabled: !isPostHogConfigured,
-  captureNativeAppLifecycleEvents: true,
+  captureAppLifecycleEvents: true,
   flushAt: 20,
   flushInterval: 10000,
   maxBatchSize: 100,

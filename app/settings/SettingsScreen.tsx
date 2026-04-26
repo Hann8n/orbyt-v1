@@ -16,7 +16,6 @@ import { SHEET_VERTICAL_LIST_ROW_OUTER } from '@/utils/components/truesheet';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
-import ProfileService from '@/services/data/ProfileService';
 import type { ViewMode } from '@/types';
 import { FontFamily, Typography } from '@/utils/components/typography';
 import { posthog } from '@/config/posthog';
@@ -147,9 +146,6 @@ const SettingsScreen: React.FC = () => {
         style: 'default',
         onPress: async () => {
           try {
-            // Clear all caches
-            await Promise.all([ProfileService.clearCache()]);
-
             // Clear React Query cache
             queryClient.clear();
 

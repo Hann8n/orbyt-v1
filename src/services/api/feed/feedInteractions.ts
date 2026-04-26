@@ -1,7 +1,6 @@
 /**
  * app.bsky.feed.like, repost, app.bsky.feed.sendInteractions.
  */
-import { AppBskyFeedDefs } from '@atproto/api';
 import { AtprotoCore } from '../core';
 import { deduplicateRequest } from '../inFlightDedup';
 import { posthog } from '../../../config/posthog';

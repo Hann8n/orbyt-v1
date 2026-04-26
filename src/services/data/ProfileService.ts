@@ -16,7 +16,6 @@ import type {
   StatusView,
   ProfileView,
   ExtendedFeedViewPost,
-  ProfileViewBasic,
 } from '../api/types';
 import { useFollowStore } from '../../stores/followStore';
 
