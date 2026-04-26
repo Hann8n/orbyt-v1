@@ -1,28 +1,78 @@
 import ImageColors, { ImageColorsResult } from 'react-native-image-colors';
-import { NitroModules } from 'react-native-nitro-modules';
-import type { NitroColors } from 'react-native-nitro-colors';
 import { Colors } from '../../theme';
 
-const native = NitroModules.createHybridObject<NitroColors>('NitroColors');
+function parseHex(hex: string): [number, number, number] {
+  const c = hex.replace('#', '');
+  return [
+    parseInt(c.substring(0, 2), 16) / 255,
+    parseInt(c.substring(2, 4), 16) / 255,
+    parseInt(c.substring(4, 6), 16) / 255,
+  ];
+}
 
-export const hexToRGBA = (hex: string, alpha: number): string => native.hexToRGBA(hex, alpha);
+function toHex(r: number, g: number, b: number): string {
+  const clamp = (v: number) => Math.round(Math.min(255, Math.max(0, v * 255)));
+  return `#${clamp(r).toString(16).padStart(2, '0')}${clamp(g).toString(16).padStart(2, '0')}${clamp(b).toString(16).padStart(2, '0')}`;
+}
 
-export const blendColors = (color1: string, color2: string, ratio: number = 0.5): string =>
-  native.blendColors(color1, color2, ratio);
+export const hexToRGBA = (hex: string, alpha: number): string => {
+  const [r, g, b] = parseHex(hex);
+  return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${alpha})`;
+};
 
-export const isColorDark = (hex: string): boolean => native.isColorDark(hex);
+export const blendColors = (color1: string, color2: string, ratio: number = 0.5): string => {
+  const [r1, g1, b1] = parseHex(color1);
+  const [r2, g2, b2] = parseHex(color2);
+  const t = Math.min(1, Math.max(0, ratio));
+  return toHex(r1 * (1 - t) + r2 * t, g1 * (1 - t) + g2 * t, b1 * (1 - t) + b2 * t);
+};
+
+export const isColorDark = (hex: string): boolean => {
+  const [r, g, b] = parseHex(hex);
+  return ((r * 299 + g * 587 + b * 114) * 255) / 1000 < 128;
+};
 
 /** Darken a color by `amount` (0–1). Single linear pass; clamps to black. */
-export const darkenColor = (hex: string, amount: number = 0.4): string =>
-  native.darkenColor(hex, amount);
+export const darkenColor = (hex: string, amount: number = 0.4): string => {
+  const [r, g, b] = parseHex(hex);
+  const t = Math.min(1, Math.max(0, amount));
+  return toHex(r * (1 - t), g * (1 - t), b * (1 - t));
+};
 
-export const getRelativeLuminance = (hex: string): number => native.getRelativeLuminance(hex);
+export const getRelativeLuminance = (hex: string): number => {
+  const [r, g, b] = parseHex(hex);
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+};
 
-export const getContrastRatio = (color1: string, color2: string): number =>
-  native.getContrastRatio(color1, color2);
+export const getContrastRatio = (color1: string, color2: string): number => {
+  const l1 = getRelativeLuminance(color1);
+  const l2 = getRelativeLuminance(color2);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+};
 
-export const enhanceColorSaturation = (hex: string, saturationBoost: number = 1.3): string =>
-  native.enhanceColorSaturation(hex, saturationBoost);
+export const enhanceColorSaturation = (hex: string, saturationBoost: number = 1.3): string => {
+  const [r, g, b] = parseHex(hex);
+  const cmax = Math.max(r, g, b), cmin = Math.min(r, g, b);
+  const delta = cmax - cmin, l = (cmax + cmin) / 2;
+  if (delta === 0) return hex;
+  let h = 0;
+  if (cmax === r) h = ((g - b) / delta) % 6;
+  else if (cmax === g) h = (b - r) / delta + 2;
+  else h = (r - g) / delta + 4;
+  h = (((h / 6) % 1) + 1) % 1;
+  const s = Math.min(1, (l > 0.5 ? delta / (2 - cmax - cmin) : delta / (cmax + cmin)) * saturationBoost);
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const hue2rgb = (p2: number, q2: number, t: number) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p2 + (q2 - p2) * 6 * t;
+    if (t < 1 / 2) return q2;
+    if (t < 2 / 3) return p2 + (q2 - p2) * (2 / 3 - t) * 6;
+    return p2;
+  };
+  return toHex(hue2rgb(p, q, h + 1 / 3), hue2rgb(p, q, h), hue2rgb(p, q, h - 1 / 3));
+};
 
 // ---------------------------------------------------------------------------
 // Color scheme helpers

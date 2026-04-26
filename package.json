@@ -109,7 +109,6 @@
     "react-native-keyboard-controller": "1.20.7",
     "react-native-mmkv": "3.3.3",
     "react-native-nano-icons": "^0.1.8",
-    "react-native-nitro-colors": "file:packages/react-native-nitro-colors",
     "react-native-nitro-image": "^0.13.1",
     "react-native-nitro-modules": "^0.35.4",
     "react-native-pager-view": "8.0.0",
@@ -163,8 +162,6 @@
       "**/__tests__/**/*.test.ts?(x)"
     ],
     "moduleNameMapper": {
-      "^react-native-nitro-modules$": "<rootDir>/src/__mocks__/react-native-nitro-modules.ts",
-      "^react-native-nitro-colors$": "<rootDir>/src/__mocks__/react-native-nitro-colors.ts",
       "^react-native-image-colors$": "<rootDir>/src/__mocks__/react-native-image-colors.ts",
       "^react-native-mmkv$": "<rootDir>/src/__mocks__/react-native-mmkv.ts"
     }
