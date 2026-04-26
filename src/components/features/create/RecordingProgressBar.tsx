@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 
@@ -9,7 +9,7 @@ interface Props {
   maxDuration: number;
   height: number;
   fillColor?: string;
-  pendingDelete?: { startSec: number; endSec: number } | null;
+  pendingDeleteStartSec?: number | null;
 }
 
 const RecordingProgressBar: React.FC<Props> = ({
@@ -17,30 +17,30 @@ const RecordingProgressBar: React.FC<Props> = ({
   maxDuration,
   height,
   fillColor = Colors.purple[500],
-  pendingDelete,
+  pendingDeleteStartSec,
 }) => {
   const safeMax = Math.max(maxDuration, 1);
 
-  const animatedFillStyle = useAnimatedStyle(() => {
-    const clamped = Math.min(Math.max(progressSec.value, 0), safeMax);
-    return { width: `${(clamped / safeMax) * 100}%` };
+  const fillStyle = useAnimatedStyle(() => {
+    const pct = (Math.min(Math.max(progressSec.value, 0), safeMax) / safeMax) * 100;
+    return { width: `${pct}%` };
   }, [safeMax]);
 
-  const pendingStyle = useMemo(() => {
-    if (!pendingDelete) return null;
-    const startPct = (Math.min(Math.max(pendingDelete.startSec, 0), safeMax) / safeMax) * 100;
-    const endPct = (Math.min(Math.max(pendingDelete.endSec, 0), safeMax) / safeMax) * 100;
+  const deleteStyle = useAnimatedStyle(() => {
+    if (pendingDeleteStartSec == null) return { width: 0 };
+    const startPct = (Math.min(Math.max(pendingDeleteStartSec, 0), safeMax) / safeMax) * 100;
+    const endPct = (Math.min(Math.max(progressSec.value, 0), safeMax) / safeMax) * 100;
     return {
-      left: `${startPct}%` as const,
-      width: `${Math.max(endPct - startPct, 0)}%` as const,
+      left: `${startPct}%`,
+      width: `${Math.max(endPct - startPct, 0)}%`,
     };
-  }, [pendingDelete, safeMax]);
+  }, [safeMax, pendingDeleteStartSec]);
 
   return (
     <View style={[styles.container, { height }]}>
       <View style={styles.track}>
-        <Animated.View style={[styles.fill, { backgroundColor: fillColor }, animatedFillStyle]} />
-        {pendingStyle && <View style={[styles.pendingDelete, pendingStyle]} />}
+        <Animated.View style={[styles.fill, { backgroundColor: fillColor }, fillStyle]} />
+        <Animated.View style={[styles.deleteOverlay, deleteStyle]} />
       </View>
     </View>
   );
@@ -57,19 +57,16 @@ const styles = StyleSheet.create({
   track: {
     width: '100%',
     height: '100%',
-    backgroundColor: Colors.transparent,
     overflow: 'hidden',
   },
   fill: {
     height: '100%',
-    minHeight: 4,
   },
-  pendingDelete: {
+  deleteOverlay: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     backgroundColor: Colors.coral[500],
-    minHeight: 4,
   },
 });
 

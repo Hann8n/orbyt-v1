@@ -54,15 +54,12 @@ const CreateScreen: React.FC = () => {
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const [isOnionSkinningEnabled, setIsOnionSkinningEnabled] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
+  const [isDeletePreviewActive, setIsDeletePreviewActive] = useState(false);
 
   const segments = useCreateSegmentsStore(s => s.segments);
   const maxDuration = useCreateSegmentsStore(s => s.maxDuration);
   const setMaxDuration = useCreateSegmentsStore(s => s.setMaxDuration);
-  const totalDuration = useMemo(
-    () => segments.reduce((sum, seg) => sum + seg.duration, 0),
-    [segments],
-  );
+  const totalDuration = useCreateSegmentsStore(s => s.totalDuration());
   const availableTime = Math.max(0, maxDuration - totalDuration);
   const hasSegments = segments.length > 0;
 
@@ -99,7 +96,7 @@ const CreateScreen: React.FC = () => {
     onInactiveAfterDispose: () => {
       setIsProcessing(false);
       setFlash('off');
-      setPendingDeleteIndex(null);
+      setIsDeletePreviewActive(false);
     },
   });
 
@@ -151,41 +148,33 @@ const CreateScreen: React.FC = () => {
     if (!isFrontCamera) setFlash(prev => (prev === 'off' ? 'on' : 'off'));
   }, [isFrontCamera]);
 
-  const startDeletePreview = useCallback(() => {
-    const segs = useCreateSegmentsStore.getState().segments;
-    if (segs.length === 0) {
-      setPendingDeleteIndex(null);
-      return;
-    }
-    setPendingDeleteIndex(segs.length - 1);
-  }, []);
+  const cancelDeletePreview = useCallback(() => setIsDeletePreviewActive(false), []);
 
-  const cancelDeletePreview = useCallback(() => setPendingDeleteIndex(null), []);
+  const startDeletePreview = useCallback(() => {
+    if (segments.length === 0) return;
+    setIsDeletePreviewActive(true);
+  }, [segments.length]);
 
   const confirmDeletePreview = useCallback(() => {
-    if (pendingDeleteIndex === null) return;
     useCreateSegmentsStore.getState().removeLastSegment();
-    setPendingDeleteIndex(null);
-  }, [pendingDeleteIndex]);
+    setIsDeletePreviewActive(false);
+  }, []);
 
   useEffect(() => {
-    if (pendingDeleteIndex === null) return;
-    if (pendingDeleteIndex !== segments.length - 1) setPendingDeleteIndex(null);
-  }, [pendingDeleteIndex, segments.length]);
+    if (isDeletePreviewActive && segments.length === 0) setIsDeletePreviewActive(false);
+  }, [isDeletePreviewActive, segments.length]);
 
   const deletePreview = useMemo(() => {
-    if (pendingDeleteIndex === null || segments.length === 0) return null;
-    const lastSegment = segments[segments.length - 1];
-    const v = lastSegment.video;
-    const uri = v && typeof v === 'object' && 'uri' in v && typeof v.uri === 'string' ? v.uri : '';
+    if (!isDeletePreviewActive || segments.length === 0) return null;
+    const last = segments[segments.length - 1];
+    const uri = 'uri' in last.video ? last.video.uri : null;
     if (!uri) return null;
-    const startSec = Math.max(totalDuration - lastSegment.duration, 0);
-    return { uri, startSec, endSec: totalDuration };
-  }, [pendingDeleteIndex, segments, totalDuration]);
+    return { uri, startSec: Math.max(totalDuration - last.duration, 0) };
+  }, [isDeletePreviewActive, segments, totalDuration]);
 
   const handleToolAction = useCallback(
     (action: string) => {
-      if (action !== 'delete' && pendingDeleteIndex !== null) cancelDeletePreview();
+      if (action !== 'delete' && isDeletePreviewActive) cancelDeletePreview();
       switch (action) {
         case 'gallery':
           void gallery.pickFromGallery();
@@ -197,7 +186,7 @@ const CreateScreen: React.FC = () => {
           toggleFlash();
           break;
         case 'delete':
-          if (pendingDeleteIndex !== null) confirmDeletePreview();
+          if (isDeletePreviewActive) confirmDeletePreview();
           else startDeletePreview();
           break;
         case 'onion-skin':
@@ -210,7 +199,7 @@ const CreateScreen: React.FC = () => {
       confirmDeletePreview,
       flipCamera,
       gallery,
-      pendingDeleteIndex,
+      isDeletePreviewActive,
       startDeletePreview,
       toggleFlash,
     ],
@@ -218,7 +207,7 @@ const CreateScreen: React.FC = () => {
 
   const finishRecording = useCallback(
     async (options?: { force?: boolean }) => {
-      if (pendingDeleteIndex !== null) cancelDeletePreview();
+      if (isDeletePreviewActive) cancelDeletePreview();
       if (isProcessing && !options?.force) return;
 
       if (recorder.isRecording) {
@@ -250,8 +239,8 @@ const CreateScreen: React.FC = () => {
     },
     [
       cancelDeletePreview,
+      isDeletePreviewActive,
       isProcessing,
-      pendingDeleteIndex,
       recorder,
       router,
       setPendingVideoPost,
@@ -259,7 +248,7 @@ const CreateScreen: React.FC = () => {
   );
 
   const handleBackPress = useCallback(async () => {
-    if (pendingDeleteIndex !== null) {
+    if (isDeletePreviewActive) {
       cancelDeletePreview();
       return;
     }
@@ -286,7 +275,7 @@ const CreateScreen: React.FC = () => {
     } else {
       leave();
     }
-  }, [cancelDeletePreview, gallery, pendingDeleteIndex, recorder, router, t]);
+  }, [cancelDeletePreview, gallery, isDeletePreviewActive, recorder, router, t]);
 
   // Closes the async gap: if pressOut fires before startRecording resolves, stop immediately on start.
   const isPressHeldRef = useRef(false);
@@ -305,65 +294,6 @@ const CreateScreen: React.FC = () => {
     recorder.stopFireAndForget();
   }, [recorder]);
 
-  const renderBody = () => {
-    if (!cameraPermission) return <View style={styles.emptyBackground} />;
-    if (!cameraPermission.hasPermission) {
-      return <PermissionGate onRequestPermission={cameraPermission.requestPermission} />;
-    }
-    if (!cameraDevice) return <View style={styles.emptyBackground} />;
-
-    return (
-      <>
-        <CameraStage
-          device={cameraDevice}
-          videoOutput={videoOutput}
-          isActive={isCameraScreenActive && !gallery.isTrimmerActive}
-          isFrontCamera={isFrontCamera}
-          flashOn={flash === 'on'}
-          onionSkinEnabled={isOnionSkinningEnabled}
-          deletePreviewUri={deletePreview?.uri ?? null}
-          onCancelDeletePreview={cancelDeletePreview}
-          onDoubleTapFlip={flipCamera}
-          layout={cameraLayout}
-          containerStyle={cameraContainerStyle}
-        />
-
-        <RecordingProgressBar
-          progressSec={progressSec}
-          maxDuration={maxDuration}
-          height={progressBarHeight}
-          fillColor={maxDuration === 6 ? Colors.teal[500] : Colors.purple[500]}
-          pendingDelete={
-            deletePreview ? { startSec: deletePreview.startSec, endSec: deletePreview.endSec } : null
-          }
-        />
-
-        {pendingDeleteIndex === null && (
-          <View
-            style={[
-              styles.bottomCluster,
-              { bottom: bottomNavBarHeight + (isSmallPhone ? 40 : 50) },
-            ]}
-          >
-            <View style={styles.row}>
-              <View style={styles.spacer} />
-              <RecordButton
-                isRecording={recorder.isRecording}
-                isLoading={gallery.isLoadingFromGallery}
-                disabled={availableTime <= 0 || gallery.isLoadingFromGallery}
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
-              />
-              <View style={styles.spacer}>
-                <DurationSelector selectedDuration={maxDuration} onSelect={setMaxDuration} />
-              </View>
-            </View>
-          </View>
-        )}
-      </>
-    );
-  };
-
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar hidden />
@@ -376,14 +306,69 @@ const CreateScreen: React.FC = () => {
         onDone={() => void finishRecording().catch(() => {})}
       />
 
-      {renderBody()}
+      {!cameraPermission?.hasPermission ? (
+        cameraPermission ? (
+          <PermissionGate onRequestPermission={cameraPermission.requestPermission} />
+        ) : (
+          <View style={styles.emptyBackground} />
+        )
+      ) : !cameraDevice ? (
+        <View style={styles.emptyBackground} />
+      ) : (
+        <>
+          <CameraStage
+            device={cameraDevice}
+            videoOutput={videoOutput}
+            isActive={isCameraScreenActive && !gallery.isTrimmerActive}
+            isFrontCamera={isFrontCamera}
+            flashOn={flash === 'on'}
+            onionSkinEnabled={isOnionSkinningEnabled}
+            deletePreviewUri={deletePreview?.uri ?? null}
+            onCancelDeletePreview={cancelDeletePreview}
+            onDoubleTapFlip={flipCamera}
+            layout={cameraLayout}
+            containerStyle={cameraContainerStyle}
+          />
+
+          <RecordingProgressBar
+            progressSec={progressSec}
+            maxDuration={maxDuration}
+            height={progressBarHeight}
+            fillColor={maxDuration === 6 ? Colors.teal[500] : Colors.purple[500]}
+            pendingDeleteStartSec={deletePreview?.startSec ?? null}
+          />
+
+          {!isDeletePreviewActive && (
+            <View
+              style={[
+                styles.bottomCluster,
+                { bottom: bottomNavBarHeight + (isSmallPhone ? 40 : 50) },
+              ]}
+            >
+              <View style={styles.row}>
+                <View style={styles.spacer} />
+                <RecordButton
+                  isRecording={recorder.isRecording}
+                  isLoading={gallery.isLoadingFromGallery}
+                  disabled={availableTime <= 0 || gallery.isLoadingFromGallery}
+                  onPressIn={handlePressIn}
+                  onPressOut={handlePressOut}
+                />
+                <View style={styles.spacer}>
+                  <DurationSelector selectedDuration={maxDuration} onSelect={setMaxDuration} />
+                </View>
+              </View>
+            </View>
+          )}
+        </>
+      )}
 
       <BottomToolBar
         mode="create"
         onToolPress={handleToolAction}
         flashActive={flash === 'on'}
         hasSegments={totalDuration > 0}
-        isDeletePreviewActive={pendingDeleteIndex !== null}
+        isDeletePreviewActive={isDeletePreviewActive}
         isFrontCamera={isFrontCamera}
         disableGalleryUpload={
           Platform.OS === 'android' ||
