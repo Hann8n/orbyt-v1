@@ -363,9 +363,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       <AppTrueSheet
         ref={submenuSheetRef}
         name="profile-menu-submenu"
-        onDidDismiss={() => {
-          /* no-op */
-        }}
       >
         <View
           style={[

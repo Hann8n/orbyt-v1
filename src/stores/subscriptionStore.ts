@@ -94,9 +94,6 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     newSubscriptions.set(did, preferences);
     set({ subscriptions: newSubscriptions });
 
-    const ProfileService = (await import('../services/data/ProfileService')).default;
-    await ProfileService.updateSubscriptionStatus(did, true);
-
     try {
       await NotificationService.putActivitySubscription(did, preferences);
       return true;
@@ -111,7 +108,6 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
         revertedSubscriptions.set(did, originalPrefs);
       } else {
         revertedSubscriptions.delete(did);
-        await ProfileService.updateSubscriptionStatus(did, false);
       }
       set({ subscriptions: revertedSubscriptions });
       return false;
@@ -126,9 +122,6 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     newSubscriptions.delete(did);
     set({ subscriptions: newSubscriptions });
 
-    const ProfileService = (await import('../services/data/ProfileService')).default;
-    await ProfileService.updateSubscriptionStatus(did, false);
-
     try {
       await NotificationService.deleteActivitySubscription(did);
       return false;
@@ -142,7 +135,6 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
         const revertedSubscriptions = new Map(get().subscriptions);
         revertedSubscriptions.set(did, originalPrefs);
         set({ subscriptions: revertedSubscriptions });
-        await ProfileService.updateSubscriptionStatus(did, true);
       }
       return true;
     }
