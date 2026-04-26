@@ -59,7 +59,7 @@ const CreateScreen: React.FC = () => {
   const segments = useCreateSegmentsStore(s => s.segments);
   const maxDuration = useCreateSegmentsStore(s => s.maxDuration);
   const setMaxDuration = useCreateSegmentsStore(s => s.setMaxDuration);
-  const totalDuration = useCreateSegmentsStore(s => s.totalDuration());
+  const totalDuration = useCreateSegmentsStore(s => s.segments.reduce((sum, seg) => sum + seg.duration, 0));
   const availableTime = Math.max(0, maxDuration - totalDuration);
   const hasSegments = segments.length > 0;
 
@@ -75,7 +75,7 @@ const CreateScreen: React.FC = () => {
       void finishRecording({ force: true });
     },
   });
-  const { progressSec } = useRecordingProgress(recorder);
+  const { activeProgressSec } = useRecordingProgress(recorder);
 
   const navigateToPost = useCallback(
     (videoUri: string) => {
@@ -164,13 +164,11 @@ const CreateScreen: React.FC = () => {
     if (isDeletePreviewActive && segments.length === 0) setIsDeletePreviewActive(false);
   }, [isDeletePreviewActive, segments.length]);
 
-  const deletePreview = useMemo(() => {
+  const deletePreviewUri = useMemo(() => {
     if (!isDeletePreviewActive || segments.length === 0) return null;
     const last = segments[segments.length - 1];
-    const uri = 'uri' in last.video ? last.video.uri : null;
-    if (!uri) return null;
-    return { uri, startSec: Math.max(totalDuration - last.duration, 0) };
-  }, [isDeletePreviewActive, segments, totalDuration]);
+    return 'uri' in last.video ? last.video.uri : null;
+  }, [isDeletePreviewActive, segments]);
 
   const handleToolAction = useCallback(
     (action: string) => {
@@ -323,7 +321,7 @@ const CreateScreen: React.FC = () => {
             isFrontCamera={isFrontCamera}
             flashOn={flash === 'on'}
             onionSkinEnabled={isOnionSkinningEnabled}
-            deletePreviewUri={deletePreview?.uri ?? null}
+            deletePreviewUri={deletePreviewUri}
             onCancelDeletePreview={cancelDeletePreview}
             onDoubleTapFlip={flipCamera}
             layout={cameraLayout}
@@ -331,11 +329,13 @@ const CreateScreen: React.FC = () => {
           />
 
           <RecordingProgressBar
-            progressSec={progressSec}
+            totalDuration={totalDuration}
+            lastSegDuration={segments[segments.length - 1]?.duration ?? null}
+            activeProgressSec={activeProgressSec}
             maxDuration={maxDuration}
             height={progressBarHeight}
             fillColor={maxDuration === 6 ? Colors.teal[500] : Colors.purple[500]}
-            pendingDeleteStartSec={deletePreview?.startSec ?? null}
+            isDeletePreviewActive={isDeletePreviewActive}
           />
 
           {!isDeletePreviewActive && (
