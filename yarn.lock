@@ -11164,7 +11164,6 @@ __metadata:
     react-native-keyboard-controller: "npm:1.20.7"
     react-native-mmkv: "npm:3.3.3"
     react-native-nano-icons: "npm:^0.1.8"
-    react-native-nitro-colors: "file:packages/react-native-nitro-colors"
     react-native-nitro-image: "npm:^0.13.1"
     react-native-nitro-modules: "npm:^0.35.4"
     react-native-pager-view: "npm:8.0.0"
@@ -12114,16 +12113,6 @@ __metadata:
   bin:
     react-native-nano-icons: lib/commonjs/scripts/cli.js
   checksum: 10c0/ce124fa6ba7a59ca30e150e3a525903bb440ca77030cdcea659d94196e4351dccb0abc41ad7e8e2e14b731ef7b3dfb57b095fa58ee91c7f669aa04830c6618ef
-  languageName: node
-  linkType: hard
-
-"react-native-nitro-colors@file:packages/react-native-nitro-colors::locator=orbyt-app%40workspace%3A.":
-  version: 1.0.0-orbyt.0
-  resolution: "react-native-nitro-colors@file:packages/react-native-nitro-colors#packages/react-native-nitro-colors::hash=12d684&locator=orbyt-app%40workspace%3A."
-  peerDependencies:
-    react-native: ">=0.74.0"
-    react-native-nitro-modules: ">=0.20.0"
-  checksum: 10c0/3973b7427e0834dfb0d45c4e096d118a466aff29fd0ffa539b36173b616c27fc05418b37244cd157941109ba5c1b54ca8d5b56746a84e163ea1607524e293f26
   languageName: node
   linkType: hard
 
