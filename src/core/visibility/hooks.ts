@@ -45,11 +45,6 @@ export function useFeedVisibility({
   );
   const canPlay = isActive && isForeground;
 
-  const canPlayRef = useRef(canPlay);
-  useEffect(() => {
-    canPlayRef.current = canPlay;
-  }, [canPlay]);
-
   const onActiveVisibleIndexChangeRef = useRef(onActiveVisibleIndexChange);
   useEffect(() => {
     onActiveVisibleIndexChangeRef.current = onActiveVisibleIndexChange;
@@ -57,15 +52,8 @@ export function useFeedVisibility({
 
   const lastEmittedIndexRef = useRef(-1);
 
-  useEffect(() => {
-    if (!canPlay) {
-      lastEmittedIndexRef.current = -1;
-    }
-  }, [canPlay]);
-
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (!canPlayRef.current) return;
       const token = selectViewableToken(viewableItems);
       const nextIndex = typeof token?.index === 'number' ? token.index : -1;
 
@@ -74,7 +62,7 @@ export function useFeedVisibility({
         return;
       }
 
-      if (nextIndex >= 0 && nextIndex !== lastEmittedIndexRef.current) {
+      if (nextIndex !== lastEmittedIndexRef.current) {
         lastEmittedIndexRef.current = nextIndex;
         onActiveVisibleIndexChangeRef.current?.(nextIndex);
       }

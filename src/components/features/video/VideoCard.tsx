@@ -164,7 +164,7 @@ function VideoCard({
     () => FEED_LIST_PLAYBACK_OUTSIDE_BITS
   );
   const isVisible = listPlaybackAttached ? (rowBits & ROW_BITS_PLAYBACK) !== 0 : isVisibleFromProps;
-  const shouldDisablePlayback = listPlaybackAttached ? !isVisible : shouldDisablePlaybackFromProps;
+  const shouldDisablePlayback = listPlaybackAttached ? false : shouldDisablePlaybackFromProps;
   const renderHeavyChrome = listPlaybackAttached
     ? (rowBits & ROW_BITS_CHROME) !== 0
     : renderHeavyChromeFromProps;
@@ -558,13 +558,12 @@ function VideoCard({
 
   const wasActiveRef = useRef(false);
   useEffect(() => {
-    const isActive = isVisible && !shouldDisablePlayback;
-    const becameActive = isActive && !wasActiveRef.current;
-    wasActiveRef.current = isActive;
+    const becameActive = isVisible && !wasActiveRef.current;
+    wasActiveRef.current = isVisible;
     if (becameActive && videoState.userPaused && !hasError) {
       setVideoState(prev => ({ ...prev, userPaused: false }));
     }
-  }, [isVisible, shouldDisablePlayback, hasError, videoState.userPaused, setVideoState]);
+  }, [isVisible, hasError, videoState.userPaused, setVideoState]);
 
   // Handle player status changes for callbacks only
   useEffect(() => {
