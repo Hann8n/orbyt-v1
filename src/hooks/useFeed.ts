@@ -6,14 +6,15 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useShallow } from 'zustand/react/shallow';
 import { useUserStore } from '../stores/userStore';
 import { useModerationSettings } from './useModerationSettings';
 import { QUERY_CONSTANTS } from '../utils/constants';
 import { queryKeys } from '../utils/query/queryKeys';
-import type { FeedResponse } from '../services/api/types';
+import type { FeedResponse, ExtendedFeedViewPost } from '../services/api/types';
+import ProfileService from '../services/data/ProfileService';
 
 // Optimized feed configuration for smooth performance
 export const FEED_CONFIG = {
@@ -165,7 +166,22 @@ export function useFeed(
     select: data => (data?.pages ?? []).flatMap(p => (p as FeedResponse)?.feed ?? []) as FeedItem[],
   });
 
-  // Removed custom prefetching - FlashList's onEndReached with React Query's fetchNextPage handles this natively
+  const queryClientForPrefetch = useQueryClient();
+  // Track which pages have already been prefetched to avoid redundant batch calls
+  const prefetchedPageCount = useRef(0);
+
+  useEffect(() => {
+    const pages = query.data;
+    if (!pages?.length) return;
+    // Only process newly arrived pages
+    const rawPages = query.data as unknown as { length: number } | undefined;
+    if (rawPages && prefetchedPageCount.current >= pages.length) return;
+    prefetchedPageCount.current = pages.length;
+    void ProfileService.warmProfileCacheFromFeed(
+      pages as ExtendedFeedViewPost[],
+      queryClientForPrefetch
+    );
+  }, [query.data, queryClientForPrefetch]);
 
   // Determine if this is a profile feed
   const isProfileFeed =

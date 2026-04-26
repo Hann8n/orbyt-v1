@@ -20,7 +20,7 @@ import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { AtUri } from '@atproto/api';
-import { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
+import { prefetchProfile, useProfileByDid } from '../../../services/data/ProfileService';
 import { useAvatarProfileRing } from '../../../services/colors';
 import { MenuView } from '@react-native-menu/menu';
 import type { MenuAction } from '@react-native-menu/menu';
@@ -346,7 +346,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   );
 
   // Get profile data to check if author is blocked
-  const { data: authorProfile } = useProfile(comment?.author?.handle);
+  const { data: authorProfile } = useProfileByDid(authorDid);
   const ringProps = useAvatarProfileRing(comment?.author?.did ?? null);
   const isAuthorBlocked = !!(
     authorProfile?.viewer?.blocking || authorProfile?.viewer?.blockingByList

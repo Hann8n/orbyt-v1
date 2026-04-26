@@ -17,7 +17,7 @@ import Icon, {
 import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
 
-import { useProfile, useFollowMutation, prefetchProfile } from '../../services/data/ProfileService';
+import { useProfile, useProfileByDid, useFollowMutation, prefetchProfile } from '../../services/data/ProfileService';
 import { useAvatarProfileRing } from '../../services/colors';
 import { formatHandle } from '../../utils/formatting/handles';
 import { useQueryClient } from '@tanstack/react-query';
@@ -162,7 +162,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const actualAvatar = avatar || undefined;
 
   // Get following & block status from ProfileService using the hook
-  const { data: cachedProfile } = useProfile(skipServerProfileData ? null : handle);
+  const { data: profileByDid } = useProfileByDid(!skipServerProfileData && did ? did : null);
+  const { data: profileByHandle } = useProfile(!skipServerProfileData && !did ? handle : null);
+  const cachedProfile = profileByDid ?? profileByHandle;
 
   const trimmedPropName = displayName?.trim();
   const trimmedCachedName = cachedProfile?.displayName?.trim();

@@ -29,7 +29,7 @@ import { androidTextFix } from '../../../utils/styling/platformText';
 import { COMPOSER_STYLES } from '../../../utils/components/truesheet/sheetStyles';
 import { UserSearchModal } from '../../ui/usersearch';
 import { useUserStore } from '../../../stores/userStore';
-import { useProfile } from '../../../services/data/ProfileService';
+import { useProfileByDid } from '../../../services/data/ProfileService';
 import { useAvatarProfileRing } from '../../../services/colors';
 import { Typography } from '../../../utils/components/typography';
 
@@ -175,9 +175,8 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   // Get current user profile for live status
-  const currentUserHandle = useUserStore(state => state.currentUser?.handle ?? null);
   const currentUserDid = useUserStore(state => state.currentUser?.did ?? null);
-  const { data: currentUserProfile } = useProfile(currentUserHandle);
+  const { data: currentUserProfile } = useProfileByDid(currentUserDid);
   const ringProps = useAvatarProfileRing(currentUserDid);
 
   // Keep footer placement simple: rely on TrueSheet native keyboard handling and a

@@ -34,7 +34,7 @@ import {
   QUERY_CONSTANTS,
   SCROLL_INDICATOR_CONSTANTS,
 } from '../../../utils/constants';
-import { useProfile } from '../../../services/data/ProfileService';
+import { useProfileByDid } from '../../../services/data/ProfileService';
 import { useUserSearchTrigger } from '../usersearch';
 import CommentInputFooter from '../../features/comments/CommentInputFooter';
 import { ActorService } from '../../../services/api/actor/ActorService';
@@ -106,8 +106,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   const footerFallbackHeight = 96;
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
 
-  const currentUserHandle = useUserStore(s => s.currentUser?.handle ?? null);
-  const { data: currentUserProfile } = useProfile(currentUserHandle);
+  const { data: currentUserProfile } = useProfileByDid(currentUserDid);
   const { inputProps: messageMentionInputProps, userSearchModalProps: messageUserSearchProps } =
     useUserSearchTrigger({
       value: sendMessageText,

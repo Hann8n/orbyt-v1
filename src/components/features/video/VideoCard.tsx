@@ -39,7 +39,7 @@ import { useModalStore } from '../../../stores/modalStore';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { useFollowMutation } from '../../../services/data/ProfileService';
 import { useQueryClient } from '@tanstack/react-query';
-import { useProfile, prefetchProfile } from '../../../services/data/ProfileService';
+import { useProfileByDid, prefetchProfile } from '../../../services/data/ProfileService';
 import { isCurrentUser } from '../../../stores/profileInteractionStore';
 import { useFollowStore } from '../../../stores/followStore';
 import { getProfileColors } from '../../../utils/formatting/colors';
@@ -262,7 +262,7 @@ function VideoCard({
     [displayInteraction, overlayState.isLikePending, overlayState.isRepostPending]
   );
 
-  const { data: cachedProfile } = useProfile(postView.author?.handle);
+  const { data: cachedProfile } = useProfileByDid(postView.author?.did);
   const authorDid = cachedProfile?.did || postView.author?.did;
   const storeIsFollowing = useFollowStore(state =>
     authorDid ? state.follows.get(authorDid)?.isFollowing : undefined

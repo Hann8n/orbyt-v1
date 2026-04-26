@@ -9,7 +9,7 @@ import {
   getErrorMessage,
   isUserCancellation,
 } from '../../../utils/errors/errorHandler';
-import { useProfile } from '../../../services/data/ProfileService';
+import { useProfileByDid } from '../../../services/data/ProfileService';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import AuthorItem from '../../ui/AuthorItem';
@@ -51,7 +51,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const { isAuthenticating, isSwitchingAccount, signIn } = useAuth();
 
   const inferredActive = accounts.find(acc => acc.did === activeAccountDid);
-  useProfile(inferredActive?.handle || null);
+  useProfileByDid(inferredActive?.did || null);
 
   const loadAccounts = useCallback(async () => {
     const savedAccountsData = savedAccounts;

@@ -36,7 +36,7 @@ import { useIsFocused } from '@react-navigation/core';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 
-import ProfileService, { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
+import ProfileService, { prefetchProfile, useProfileByDid } from '../../../services/data/ProfileService';
 import { Colors } from '../../../theme';
 import { Avatar } from '../../../components/ui/UI';
 import { VerificationBadge, BotBadge } from '../badging';
@@ -462,7 +462,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
     const currentUser = useUserStore(s => s.currentUser);
     const { reason, author, indexedAt, uri } = item;
     const { presentCommentSection } = useGlobalCommentSection();
-    const { data: authorProfile } = useProfile(author?.handle);
+    const { data: authorProfile } = useProfileByDid(author?.did);
     const ringProps = useAvatarProfileRing(author?.did ?? null);
     const isPostAction = POST_ACTION_TYPES.includes(reason as PostActionReason);
     const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : undefined;

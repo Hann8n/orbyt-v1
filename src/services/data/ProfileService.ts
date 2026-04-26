@@ -9,7 +9,7 @@ import {
   QueryKey,
   UseQueryResult,
 } from '@tanstack/react-query';
-import { useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useEffect } from 'react';
 import { queryKeys } from '../../utils/query/queryKeys';
 import type {
   ProfileViewWithOrbyt,
@@ -18,6 +18,7 @@ import type {
   ExtendedFeedViewPost,
 } from '../api/types';
 import { useFollowStore } from '../../stores/followStore';
+import { queryClient as globalQueryClient } from '../../utils/query/queryClient';
 
 /** Truthy sentinel for optimistic follow only; unfollow ignores it and uses store or getProfile. */
 const OPTIMISTIC_FOLLOW_URI_PLACEHOLDER = 'at://placeholder';
@@ -47,7 +48,7 @@ export function isLiveStatus(status?: StatusView): boolean {
  * Returns null if status has no expiration
  * Useful for scheduling cache invalidation/refresh
  */
-export function getStatusExpirationTime(status?: StatusView): number | null {
+function getStatusExpirationTime(status?: StatusView): number | null {
   if (!status?.expiresAt) return null;
 
   try {
@@ -58,31 +59,11 @@ export function getStatusExpirationTime(status?: StatusView): number | null {
 }
 
 /**
- * Check if a profile has stale status
- * Uses API's isActive field - if false, status is expired
- */
-export function hasStaleStatus(profile: ProfileViewWithOrbyt | null | undefined): boolean {
-  if (!profile?.status) return false;
-
-  // Trust API's isActive - if false, status is expired
-  if (profile.status.isActive === false) return true;
-
-  // If expiresAt exists and isActive not set, check if expires soon (within 5 min)
-  const expirationTime = getStatusExpirationTime(profile.status);
-  if (expirationTime && profile.status.isActive === undefined) {
-    const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000;
-    return expirationTime <= fiveMinutesFromNow;
-  }
-
-  return false;
-}
-
-/**
  * Calculate optimal staleTime for a profile based on status expiration
  * If profile has a live status that expires, use shorter staleTime
  * Otherwise use default PROFILE_CACHE_EXPIRY
  */
-export function getProfileStaleTime(profile: ProfileViewWithOrbyt | null | undefined): number {
+function getProfileStaleTime(profile: ProfileViewWithOrbyt | null | undefined): number {
   if (!profile?.status) return PROFILE_CACHE_EXPIRY;
 
   const expirationTime = getStatusExpirationTime(profile.status);
@@ -101,8 +82,7 @@ const profileKeys = queryKeys.profiles;
 // Note: getProfileColors has been moved to src/utils/formatting/colors.ts
 // Import it from there instead of using this file
 
-// Make cache expiry public but readonly
-export const PROFILE_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+const PROFILE_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 class ProfileService {
   private static currentUserDid: string | null = null;
@@ -210,27 +190,16 @@ class ProfileService {
   }
 
   /**
-   * Batch fetch profiles by DIDs
-   * Useful when you have DIDs but not handles
-   * React Query handles caching
-   *
-   * @param dids - Array of DIDs to fetch
-   * @returns Array of profiles with orbyt records
+   * Batch fetch profiles by DIDs.
+   * Delegates to getProfilesInBatch which uses the batch Bluesky endpoint + batch color API.
+   * The underlying API accepts DIDs as actors, so no handle resolution is needed.
    */
   static async batchGetProfilesByDid(dids: string[]): Promise<ProfileViewWithOrbyt[]> {
-    if (!dids || dids.length === 0) {
-      return [];
-    }
-
-    const uniqueDids = Array.from(new Set(dids.filter(d => !!d && typeof d === 'string')));
-
+    if (!dids || dids.length === 0) return [];
+    const uniqueDids = Array.from(new Set(dids.filter((d): d is string => !!d)));
     try {
-      const profiles = await Promise.all(
-        uniqueDids.map(did => ActorService.getProfileByDid(did).catch(() => null))
-      );
-
-      return profiles.filter((p): p is ProfileViewWithOrbyt => p !== null);
-    } catch (_error) {
+      return await ActorService.getProfilesInBatch(uniqueDids);
+    } catch {
       return [];
     }
   }
@@ -267,69 +236,60 @@ class ProfileService {
 
 
   /**
-   * Batch prefetch profiles from feed data
-   * This is the most efficient way to prefetch profiles - extracts all unique handles
-   * from feed items and prefetches them in one operation
-   * @param feedItems - Array of feed items containing author and repostedBy data
+   * Batch-fetch profiles and colors for a page of feed items, then store results
+   * in the React Query cache by DID. Prevents N+1 individual fetches when VideoCard
+   * renders per-item useProfileByDid calls.
+   *
+   * Uses app.bsky.actor.getProfiles (batch ≤25) + POST /v1/colors (single call for all DIDs).
    */
-  static async batchPrefetchFromFeed(feedItems: ExtendedFeedViewPost[]): Promise<void> {
-    if (!feedItems || feedItems.length === 0) return;
+  static async warmProfileCacheFromFeed(
+    feedItems: ExtendedFeedViewPost[],
+    qc: QueryClient = globalQueryClient
+  ): Promise<void> {
+    if (!feedItems.length) return;
 
-    try {
-      // Extract all unique handles from feed items
-      const uniqueHandles = new Set<string>();
+    // Collect unique handles/DIDs not already in the React Query cache
+    const handleToDid = new Map<string, string>();
+    const uncachedHandles: string[] = [];
 
-      feedItems.forEach(item => {
-        // Handle feed items with post structure
-        if (item.post?.author?.handle) {
-          uniqueHandles.add(item.post.author.handle.toLowerCase());
-        }
-
-        if (item.post?.repostedBy?.handle) {
-          uniqueHandles.add(item.post.repostedBy.handle.toLowerCase());
-        }
-
-        // Handle reason structure (reposts, pins)
-        if (
-          item.reason &&
-          '$type' in item.reason &&
-          item.reason.$type === 'app.bsky.feed.defs#reasonRepost'
-        ) {
-          const repostReason = item.reason as { by?: { handle?: string } };
-          if (repostReason.by?.handle) {
-            uniqueHandles.add(repostReason.by.handle.toLowerCase());
+    for (const item of feedItems) {
+      const handle = item.post?.author?.handle?.toLowerCase();
+      const did = item.post?.author?.did;
+      if (!handle || !did) continue;
+      if (qc.getQueryData(queryKeys.profiles.detail(did))) continue;
+      if (!handleToDid.has(handle)) {
+        handleToDid.set(handle, did);
+        uncachedHandles.push(handle);
+      }
+      // Also prefetch repost authors (reason.by carries both handle and did)
+      if (
+        item.reason &&
+        '$type' in item.reason &&
+        item.reason.$type === 'app.bsky.feed.defs#reasonRepost'
+      ) {
+        const by = (item.reason as { by?: { handle?: string; did?: string } }).by;
+        const repostHandle = by?.handle?.toLowerCase();
+        const repostDid = by?.did;
+        if (repostHandle && repostDid && !handleToDid.has(repostHandle)) {
+          if (!qc.getQueryData(queryKeys.profiles.detail(repostDid))) {
+            handleToDid.set(repostHandle, repostDid);
+            uncachedHandles.push(repostHandle);
           }
         }
-      });
-
-      // Convert to array and filter out empty handles
-      const handlesToPrefetch = Array.from(uniqueHandles).filter(
-        handle => handle && handle.trim() !== ''
-      );
-
-      if (handlesToPrefetch.length === 0) {
-        return;
       }
+    }
 
-      // Process handles in smaller batches to avoid overwhelming the API
-      // React Query handles caching, so we just prefetch all handles
-      const batchSize = 5;
-      for (let i = 0; i < handlesToPrefetch.length; i += batchSize) {
-        const batch = handlesToPrefetch.slice(i, i + batchSize);
+    if (!uncachedHandles.length) return;
 
-        await Promise.allSettled(
-          batch.map(async handle => {
-            try {
-              // Prefetch the profile - React Query will cache it
-              await this.getProfile(handle);
-            } catch (_error: unknown) {
-              // ignore
-            }
-          })
-        );
+    try {
+      const profiles = await ActorService.getProfilesInBatch(uncachedHandles);
+      for (const profile of profiles) {
+        if (profile.did) {
+          qc.setQueryData(queryKeys.profiles.detail(profile.did), profile);
+        }
       }
-    } catch (_error) {
-      // Silently handle errors during batch prefetch
+    } catch {
+      // Prefetch is best-effort; individual card fetches act as fallback
     }
   }
 
@@ -384,42 +344,6 @@ export function useProfileByDid(
     refetchInterval: options.refetchInterval,
     refetchIntervalInBackground: options.refetchIntervalInBackground ?? false,
     placeholderData: options.placeholderData,
-  });
-}
-
-/**
- * Hook to batch fetch multiple profiles efficiently
- * Deduplicates handles and uses batch API endpoint
- *
- * @param handles - Array of handles to fetch (can contain nulls)
- * @returns React Query result with array of profiles
- */
-export function useBatchProfiles(
-  handles: (string | null | undefined)[]
-): UseQueryResult<ProfileViewWithOrbyt[], Error> {
-  const validHandles = useMemo(() => {
-    return Array.from(
-      new Set(handles.filter((h): h is string => !!h).map(h => h.toLowerCase()))
-    ).sort();
-  }, [handles]);
-
-  const queryKey = useMemo(
-    () => [...profileKeys.all, 'batch', ...validHandles] as const,
-    [validHandles]
-  );
-
-  return useQuery<ProfileViewWithOrbyt[], Error>({
-    queryKey,
-    queryFn: async () => {
-      if (validHandles.length === 0) return [];
-      return ProfileService.batchGetProfiles(validHandles);
-    },
-    enabled: validHandles.length > 0,
-    staleTime: PROFILE_CACHE_EXPIRY,
-    gcTime: PROFILE_CACHE_EXPIRY * 2,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
   });
 }
 
@@ -919,20 +843,6 @@ export function useProfileUpdateMutation() {
   });
 }
 
-/**
- * Hook to invalidate profile cache
- */
-export function useProfileInvalidation() {
-  const queryClient = useQueryClient();
-
-  return useCallback(
-    async (did: string) => {
-      // Invalidate React Query cache
-      queryClient.invalidateQueries({ queryKey: profileKeys.detail(did) });
-    },
-    [queryClient]
-  );
-}
 
 /**
  * Hook to monitor and invalidate profiles with expired status

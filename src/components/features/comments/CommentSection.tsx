@@ -31,7 +31,7 @@ import { AppTrueSheet, useMeasuredFooterHeight } from '../../../utils/components
 
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { queryKeys } from '../../../utils/query/queryKeys';
-import { useProfile } from '../../../services/data/ProfileService';
+import { useProfileByDid } from '../../../services/data/ProfileService';
 import { useUserStore } from '../../../stores/userStore';
 import {
   mergePostInteractionDelta,
@@ -435,8 +435,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   );
 
   const { currentUser } = useUserStore();
-  const currentUserHandle = currentUser?.handle || null;
-  const { data: currentUserProfile } = useProfile(currentUserHandle);
+  const { data: currentUserProfile } = useProfileByDid(currentUser?.did ?? null);
 
   const { inputProps: mentionInputProps, userSearchModalProps } = useUserSearchTrigger({
     value: newCommentText,
