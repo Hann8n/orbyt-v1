@@ -1,7 +1,7 @@
 import '@/i18n';
 import React, { useEffect } from 'react';
 import { View, StyleSheet, StatusBar, Platform } from 'react-native';
-import { Stack, usePathname, useGlobalSearchParams } from 'expo-router';
+import { Stack, usePathname, useGlobalSearchParams, useNavigationContainerRef } from 'expo-router';
 import { PostHogProvider } from 'posthog-react-native';
 import { posthog } from '@/config/posthog';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
@@ -32,9 +32,6 @@ import { LocaleSync } from '@/i18n/LocaleSync';
 import { useSentryUserSync } from '@/hooks/useSentryUserSync';
 import * as Sentry from '@sentry/react-native';
 
-// Navigation ref for Sentry and manual navigation
-export const navigationRef = React.createRef<any>();
-
 const navigationIntegration = Sentry.reactNavigationIntegration({
   enableTimeToInitialDisplay: true,
 });
@@ -53,10 +50,10 @@ Sentry.init({
   tracesSampleRate: 1.0,
   enableUserInteractionTracing: true,
 
-  // Profiling
+  // Profiling (iOS: profilesSampleRate above; Android: androidProfilingOptions)
   profilesSampleRate: 1.0,
   _experiments: {
-    profilingOptions: {
+    androidProfilingOptions: {
       profileSessionSampleRate: 1.0,
       lifecycle: 'trace',
       startOnAppStart: true,
@@ -292,6 +289,12 @@ function RootNavigator() {
 export default Sentry.wrap(function RootLayout() {
   // Sync Sentry user context with app authentication state
   useSentryUserSync();
+
+  // Wire up Sentry navigation integration so route changes produce spans/breadcrumbs
+  const navRef = useNavigationContainerRef();
+  useEffect(() => {
+    navigationIntegration.registerNavigationContainer(navRef);
+  }, [navRef]);
 
   const isAuthenticated = useUserStore(selectIsSessionValid);
   const initializeUserState = useUserStore(state => state.initializeUserState);
