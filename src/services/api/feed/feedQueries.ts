@@ -3,7 +3,6 @@
  */
 import { moderatePost } from '@atproto/api';
 import { ModerationService } from '../../moderation/ModerationService';
-import { removeVideoFeedbackFromStorage } from './videoFeedbackStorage';
 import { AtprotoCore } from '../core';
 import type {
   FeedResponse,
@@ -539,13 +538,6 @@ export async function getPosts(
   }
 
   return result;
-}
-
-/**
- * Remove stored video feedback for a post
- */
-export function removeVideoFeedback(postUri: string): void {
-  removeVideoFeedbackFromStorage(postUri);
 }
 
 /**

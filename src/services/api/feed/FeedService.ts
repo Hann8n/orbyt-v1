@@ -16,7 +16,6 @@ export class AtprotoFeedService {
   static getLikes = feedQueries.getLikes;
   static getPost = feedQueries.getPost;
   static getPosts = feedQueries.getPosts;
-  static removeVideoFeedback = feedQueries.removeVideoFeedback;
   static getPostEngagement = feedQueries.getPostEngagement;
   static getFeedGenerator = feedQueries.getFeedGenerator;
   static getFeedGeneratorSubscriberCount = feedQueries.getFeedGeneratorSubscriberCount;
@@ -35,7 +34,6 @@ export class AtprotoFeedService {
   static repostPost = feedInteractions.repostPost;
   static deleteRepost = feedInteractions.deleteRepost;
   static sendFeedInteractions = feedInteractions.sendFeedInteractions;
-  static sendVideoFeedback = feedInteractions.sendVideoFeedback;
 
   static postComment = feedWrites.postComment;
   static createVideoPost = feedWrites.createVideoPost;

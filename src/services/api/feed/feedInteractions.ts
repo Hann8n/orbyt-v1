@@ -1,13 +1,11 @@
 /**
- * app.bsky.feed.like, repost, app.bsky.feed.sendInteractions, video feedback.
+ * app.bsky.feed.like, repost, app.bsky.feed.sendInteractions.
  */
 import { AppBskyFeedDefs } from '@atproto/api';
 import { AtprotoCore } from '../core';
 import { deduplicateRequest } from '../inFlightDedup';
 import { posthog } from '../../../config/posthog';
 import { logger } from '../../../utils/logger';
-import { ALGORITHMIC_FEED_PROVIDERS } from '../../../utils/constants';
-import { setVideoFeedbackInStorage } from './videoFeedbackStorage';
 import type { Interaction } from '../types';
 import {
   getFeedInteractionsSupported,
@@ -277,68 +275,3 @@ export async function sendFeedInteractions(
   }
 }
 
-/**
- * Send video feedback to feed generators
- * @deprecated Use sendFeedInteractions with Interaction[] directly instead
- * @param postUri - URI of the post
- * @param type - Feedback type (interested or not_interested)
- * @param sourceFeed - Optional source feed URI
- * @param feedContext - Optional feed context
- */
-export async function sendVideoFeedback(
-  postUri: string,
-  type: 'interested' | 'not_interested',
-  sourceFeed?: string,
-  feedContext?: string,
-  algorithmicFeedProvider?: string | null
-): Promise<void> {
-  if (AtprotoCore.isOutgoingApiBlocked()) {
-    if (AtprotoCore.shouldFailOfflineWriteMock()) {
-      throw new Error('Offline write mock failure: sendVideoFeedback');
-    }
-    return;
-  }
-
-  await AtprotoCore.ensureSession();
-
-  const userDid = AtprotoCore.getCurrentUserDid();
-  if (!userDid) {
-    throw new Error('No authenticated user found');
-  }
-
-  let targetFeed: string | null = null;
-
-  const algorithmicFeedUris: string[] = Object.values(ALGORITHMIC_FEED_PROVIDERS).map(p => p.uri);
-
-  if (sourceFeed && algorithmicFeedUris.includes(sourceFeed)) {
-    targetFeed = sourceFeed;
-  } else {
-    targetFeed = algorithmicFeedProvider ?? null;
-  }
-
-  setVideoFeedbackInStorage({
-    postUri,
-    type,
-    timestamp: new Date().toISOString(),
-    userDid,
-    targetFeed,
-  });
-
-  if (!targetFeed) {
-    return;
-  }
-
-  const event = type === 'interested' ? AppBskyFeedDefs.REQUESTMORE : AppBskyFeedDefs.REQUESTLESS;
-
-  const interaction: Interaction = {
-    $type: 'app.bsky.feed.defs#interaction',
-    item: postUri,
-    event: event,
-  };
-
-  if (feedContext) {
-    interaction.feedContext = feedContext;
-  }
-
-  await sendFeedInteractions([interaction], targetFeed);
-}
