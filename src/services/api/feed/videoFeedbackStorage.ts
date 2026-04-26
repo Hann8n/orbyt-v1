@@ -11,12 +11,6 @@ export type StoredVideoFeedback = {
   targetFeed: string | null;
 };
 
-export type VideoFeedbackPublic = {
-  type: 'interested' | 'not_interested';
-  timestamp: string;
-  userDid: string;
-};
-
 function feedbackKey(postUri: string): string {
   return `video_feedback_${postUri}`;
 }
@@ -33,21 +27,12 @@ function isValidStoredFeedback(raw: unknown): raw is StoredVideoFeedback {
   );
 }
 
-export function getVideoFeedbackFromStorage(postUri: string): VideoFeedbackPublic | null {
-  const key = feedbackKey(postUri);
-  const feedbackStr = storage.getString(key) ?? null;
-  if (!feedbackStr) return null;
+export function getVideoFeedbackFromStorage(postUri: string): StoredVideoFeedback | null {
+  const raw = storage.getString(feedbackKey(postUri));
+  if (!raw) return null;
   try {
-    const parsed: unknown = JSON.parse(feedbackStr);
-    if (!isValidStoredFeedback(parsed)) {
-      storage.delete(key);
-      return null;
-    }
-    return {
-      type: parsed.type,
-      timestamp: parsed.timestamp,
-      userDid: parsed.userDid,
-    };
+    const parsed = JSON.parse(raw);
+    return isValidStoredFeedback(parsed) ? parsed : null;
   } catch {
     return null;
   }

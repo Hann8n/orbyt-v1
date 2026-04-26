@@ -22,10 +22,6 @@ import {
   isNotFoundPost as sdkIsNotFoundPost,
   isBlockedPost as sdkIsBlockedPost,
   INTERACTIONSEEN,
-  INTERACTIONLIKE,
-  INTERACTIONREPOST,
-  INTERACTIONREPLY,
-  INTERACTIONSHARE,
 } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
 
 // ============================================================================
@@ -171,7 +167,7 @@ export type {
 export type { AtprotoRecord };
 
 // Re-export interaction event constants
-export { INTERACTIONSEEN, INTERACTIONLIKE, INTERACTIONREPOST, INTERACTIONREPLY, INTERACTIONSHARE };
+export { INTERACTIONSEEN };
 
 export type ExtendedPostView = PostView & {
   repostedBy?: {

@@ -1,15 +1,15 @@
 module.exports = {
   name: 'orbyt',
-  slug: 'byte-app',
+  slug: 'orbyt-video',
   version: '1.1.5',
   orientation: 'portrait',
   icon: './src/assets/icon.png',
   userInterfaceStyle: 'dark',
   ios: {
-    supportsTablet: true,
+    supportsTablet: false,
     bundleIdentifier: 'com.getorbyt.app',
     appleTeamId: 'D8VXFBV8SJ',
-    buildNumber: '2026042102',
+    buildNumber: '2026042600',
     icon: './src/assets/AppIcons/iOS/Orbyt.icon',
     infoPlist: {
       CFBundleDevelopmentRegion: 'en',
@@ -32,7 +32,7 @@ module.exports = {
       backgroundColor: '#05070a',
     },
     package: 'com.getorbyt.app',
-    versionCode: 2026042102,
+    versionCode: 2026042600,
     permissions: ['INTERNET', 'CAMERA', 'RECORD_AUDIO'],
   },
   web: {

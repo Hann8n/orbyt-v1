@@ -27,5 +27,3 @@ export const posthog = new PostHog(apiKey || 'placeholder_key', {
   fetchRetryCount: 3,
   fetchRetryDelay: 3000,
 });
-
-export const isPostHogEnabled = isPostHogConfigured;
