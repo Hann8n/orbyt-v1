@@ -109,7 +109,7 @@
     "react-native-keyboard-controller": "1.20.7",
     "react-native-mmkv": "3.3.3",
     "react-native-nano-icons": "^0.1.8",
-    "react-native-nitro-colors": "file:packages/react-native-nitro-colors",
+    "react-native-nitro-colors": "git+https://github.com/Hann8n/orbyt.git#main",
     "react-native-nitro-image": "^0.13.1",
     "react-native-nitro-modules": "^0.35.4",
     "react-native-pager-view": "8.0.0",
