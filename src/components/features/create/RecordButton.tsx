@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { scheduleOnRN } from 'react-native-worklets';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -48,13 +49,15 @@ const RecordButton: React.FC<Props> = ({ isRecording, isLoading, disabled, onPre
       Gesture.Pan()
         .minDistance(0)
         .onBegin(() => {
+          'worklet';
           if (isDisabled.value) return;
           scale.value = withTiming(0.93, { duration: 60 });
-          fireDown();
+          scheduleOnRN(fireDown);
         })
         .onFinalize(() => {
+          'worklet';
           scale.value = withTiming(1, { duration: 120 });
-          fireUp();
+          scheduleOnRN(fireUp);
         }),
     [fireDown, fireUp, isDisabled, scale],
   );
