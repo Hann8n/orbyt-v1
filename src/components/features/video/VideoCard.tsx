@@ -990,7 +990,7 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: Colors.neutral[950],
+    backgroundColor: Colors.neutral[925],
   },
 });
 

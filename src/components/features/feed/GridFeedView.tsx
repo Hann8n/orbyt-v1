@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
   },
   gridItem: {
     overflow: 'hidden',
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.transparent,
   },
   appleZoomSourceInner: {
     flex: 1,
@@ -520,6 +520,7 @@ const styles = StyleSheet.create({
   thumbnail: {
     width: '100%',
     height: '100%',
+    backgroundColor: Colors.neutral[950],
   },
 });
 
