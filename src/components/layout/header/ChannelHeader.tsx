@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
@@ -6,12 +6,11 @@ import {
   StyleSheet,
   Text,
   StatusBar,
-  Platform,
   useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { BlurView } from 'expo-blur';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import { useChannelColors } from '../../../services/data/ChannelService';
@@ -20,7 +19,6 @@ import { NativePressable } from '../../ui/NativePressable';
 import type { ViewMode } from '../../../types';
 import {
   hexToRGBA,
-  blendColors,
   getStatusBarStyle,
   isColorDark,
 } from '../../../utils/formatting/colors';
@@ -96,86 +94,56 @@ const SubscribeButton: React.FC<{
   const { width: screenWidth } = useWindowDimensions();
   const isWideScreen = screenWidth > 768;
 
-  // Direct subscription check - simplest possible (no memo to satisfy React Compiler lint)
-  const isSubscribed =
+  const storeSubscribed =
     !!channel?.uri &&
-    subscribedChannels.some(subscribedChannel => subscribedChannel.uri === channel.uri);
+    subscribedChannels.some(ch => ch.uri === channel.uri);
+  const [optimistic, setOptimistic] = useState<boolean | null>(null);
+  const isSubscribed = optimistic ?? storeSubscribed;
 
-  const handleSubscribe = useCallback(async () => {
-    try {
-      if (!channel?.uri) return;
-
-      try {
-        if (isSubscribed) {
-          await unsubscribeFromChannel(channel.uri!);
-        } else {
-          await subscribeToChannel({
-            uri: channel.uri!,
-            displayName: channel.name,
-            description: channel.description,
-            avatar: channel.avatar,
-            memberCount: channel.likeCount,
-          });
-        }
-      } catch (_subscribeOrUnsubscribeError) {
-        // Swallow errors for optimistic UX; upstream handlers/logging can capture if needed
-      }
-    } catch (_error) {
-      // Ignore outer subscribe errors for optimistic UX; underlying store/logging can handle
+  const handleSubscribe = useCallback(() => {
+    if (!channel?.uri) return;
+    const next = !isSubscribed;
+    setOptimistic(next);
+    if (next) {
+      subscribeToChannel({
+        uri: channel.uri,
+        displayName: channel.name,
+        description: channel.description,
+        avatar: channel.avatar,
+        memberCount: channel.likeCount,
+      }).catch(() => setOptimistic(null));
+    } else {
+      unsubscribeFromChannel(channel.uri).catch(() => setOptimistic(null));
     }
   }, [channel, isSubscribed, subscribeToChannel, unsubscribeFromChannel]);
 
-  const hasFilledBackground = isSubscribed;
-  const canUseLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
   const activeFillColor = useMemo(() => channelColor || textColor, [channelColor, textColor]);
   const activeContentColor = useMemo(
     () => (isColorDark(activeFillColor) ? Colors.neutral[50] : Colors.black),
     [activeFillColor]
   );
+  const buttonBackgroundColor = isSubscribed ? activeFillColor : Colors.transparent;
+  const contentColor = isSubscribed ? activeContentColor : textColor;
 
-  const getButtonStyle = useCallback(() => {
-    const showFilledState = hasFilledBackground;
-    return {
-      backgroundColor: canUseLiquidGlass
-        ? Colors.transparent
-        : showFilledState
-          ? activeFillColor
-          : blendColors(_backgroundColor, textColor, 0.2),
-      borderColor: Colors.transparent,
-      borderWidth: 0,
-    };
-  }, [hasFilledBackground, _backgroundColor, textColor, canUseLiquidGlass, activeFillColor]);
-
-  const getLiquidGlassTintColor = useCallback(() => {
-    const activeTint = activeFillColor;
-    const inactiveTint = hexToRGBA(Colors.black, 0.12);
-    return hasFilledBackground ? activeTint : inactiveTint;
-  }, [hasFilledBackground, activeFillColor]);
-
-  const getContentColor = useCallback(() => {
-    const showFilledState = hasFilledBackground;
-    return showFilledState ? activeContentColor : textColor;
-  }, [hasFilledBackground, activeContentColor, textColor]);
-
-  if (channel.isOwner) return null; // Don't show subscribe button for owners
+  if (channel.isOwner) return null;
 
   const subscribePill = (
-    <View style={[styles.subscribeButton, styles.subscribeButtonInner, getButtonStyle()]}>
-      {canUseLiquidGlass && (
-        <GlassView
-          style={styles.subscribeButtonGlassBackground}
-          glassEffectStyle="clear"
-          tintColor={getLiquidGlassTintColor()}
+    <View style={[styles.subscribeButton, styles.subscribeButtonInner, { backgroundColor: buttonBackgroundColor }]}>
+      {!isSubscribed && (
+        <BlurView
+          style={styles.subscribeButtonBlur}
+          intensity={40}
+          tint="light"
         />
       )}
       <View pointerEvents="none" style={styles.subscribeButtonContent}>
-        <Text style={[styles.subscribeButtonText, { color: getContentColor() }]}>
+        <Text style={[styles.subscribeButtonText, { color: contentColor }]}>
           {isSubscribed ? t('settings.subscribed') : t('settings.subscribe')}
         </Text>
         {isSubscribed ? (
-          <CheckIcon size={16} color={getContentColor()} strokeWidth={STROKE_WIDTH_THICK} />
+          <CheckIcon size={16} color={contentColor} strokeWidth={STROKE_WIDTH_THICK} />
         ) : (
-          <PlusIcon size={16} color={getContentColor()} strokeWidth={STROKE_WIDTH_THICK} />
+          <PlusIcon size={16} color={contentColor} strokeWidth={STROKE_WIDTH_THICK} />
         )}
       </View>
     </View>
@@ -188,13 +156,9 @@ const SubscribeButton: React.FC<{
 
   return (
     <View style={[styles.subscribeContainer, containerStyle]}>
-      {isSubscribed ? (
-        <View style={subscribeTouchStyle}>{subscribePill}</View>
-      ) : (
-        <NativePressable style={subscribeTouchStyle} onPress={handleSubscribe}>
-          {subscribePill}
-        </NativePressable>
-      )}
+      <NativePressable style={subscribeTouchStyle} onPress={handleSubscribe}>
+        {subscribePill}
+      </NativePressable>
 
       {showViewToggle && onViewModeChange && (
         <View style={styles.viewToggleContainer}>
@@ -428,15 +392,16 @@ const styles = StyleSheet.create({
   subscribeButtonInner: {
     flex: 1,
   },
+  subscribeButtonBlur: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.FULL,
+    overflow: 'hidden',
+  },
   subscribeButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-  },
-  subscribeButtonGlassBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.FULL,
   },
   subscribeButtonText: {
     fontFamily: FontFamily.bold,
