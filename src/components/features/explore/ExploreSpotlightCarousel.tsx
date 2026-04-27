@@ -3,16 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { View, Text, FlatList, Platform, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Link, useRouter, type Href } from 'expo-router';
-// See GridFeedView for rationale — direct import avoids HMR re-export breakage.
-import { useIsFocused } from '@react-navigation/core';
-
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView } from '@/components/ui/Squircle';
 import { Icon } from '@/components/ui/UI';
 import { Colors } from '@/theme';
 import type { ExtendedFeedViewPost } from '@/services/api/types';
 import { getVideoView } from '@/utils/video/helpers';
-import VideoAmbientBackdrop from '@/components/ui/VideoAmbientBackdrop';
 import { feedService } from '@/services/FeedService';
 import {
   buildFeedModalHref,
@@ -37,16 +33,10 @@ type SpotlightVideoCellProps = {
   video: ExtendedFeedViewPost;
   zoomLink?: ZoomLink;
   onFallbackPress: () => void;
-  /**
-   * Passed from parent so cells don't subscribe individually. When false, skip the Skia-backed
-   * backdrop — explore tab is retained but off-screen under Expo Router native tabs.
-   * See docs/react-native-optimization-agent-handoff.md (P0).
-   */
-  isTabFocused: boolean;
 };
 
 const SpotlightVideoCell = React.memo(
-  ({ video, zoomLink, onFallbackPress, isTabFocused }: SpotlightVideoCellProps) => {
+  ({ video, zoomLink, onFallbackPress }: SpotlightVideoCellProps) => {
     const { t } = useTranslation();
     const v = video;
     const videoData = v.post || video;
@@ -56,7 +46,6 @@ const SpotlightVideoCell = React.memo(
 
     const cellInner = (
       <SquircleView style={styles.spotlightVideoThumbnailContainer}>
-        {isTabFocused && <VideoAmbientBackdrop seedUrl={thumbnailUrl} />}
         {thumbnailUrl ? (
           <Image
             source={{ uri: thumbnailUrl }}
@@ -116,7 +105,6 @@ type Props = {
 
 export const ExploreSpotlightCarousel = React.memo(({ videos }: Props) => {
   const router = useRouter();
-  const isTabFocused = useIsFocused();
 
   const formattedFeed = useMemo(() => formatSpotlightFeed(videos), [videos]);
 
@@ -192,11 +180,10 @@ export const ExploreSpotlightCarousel = React.memo(({ videos }: Props) => {
           video={video}
           zoomLink={zoomLink}
           onFallbackPress={() => openSpotlightAtIndex(index)}
-          isTabFocused={isTabFocused}
         />
       );
     },
-    [spotlightZoomConfig, openSpotlightAtIndex, isTabFocused]
+    [spotlightZoomConfig, openSpotlightAtIndex]
   );
 
   return (

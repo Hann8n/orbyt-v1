@@ -21,7 +21,6 @@ import {
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Link, type Href } from 'expo-router';
 import { Image } from 'expo-image';
-import { useIsFocused } from '@react-navigation/core';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -43,7 +42,6 @@ import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import * as Device from 'expo-device';
 import { getViewportDimensions } from '../../../utils/device/screen';
 import EmptyFeed from './EmptyFeed';
-import VideoAmbientBackdrop from '../../ui/VideoAmbientBackdrop';
 import {
   FEED_VIEW_CONSTANTS,
   IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING,
@@ -73,8 +71,7 @@ const VideoGridItem: React.FC<{
   onPress?: (index: number) => void;
   style?: ViewStyle;
   zoomLink?: { href: Href; onBeforeNavigate: () => void };
-  isTabFocused: boolean;
-}> = ({ item, index, onPress, style, zoomLink, isTabFocused }) => {
+}> = ({ item, index, onPress, style, zoomLink }) => {
   const videoView = getVideoView(item.post.embed);
   const thumbnailUrl = videoView?.thumbnail || null;
   const shouldBlur = !!(item.contentListUI?.blur || item.contentMediaUI?.blur);
@@ -91,7 +88,6 @@ const VideoGridItem: React.FC<{
 
   const cellContent = (
     <>
-      {isTabFocused && <VideoAmbientBackdrop seedUrl={validThumbnailUrl} />}
       {validThumbnailUrl && !shouldBlur && (
         <Image
           source={{ uri: validThumbnailUrl }}
@@ -150,7 +146,6 @@ interface GridFeedViewProps {
   snapTopInset: number;
   useNativeTabBottomSafeArea?: boolean;
   pullToRefresh?: ListFeedPullToRefresh;
-  isSurfaceVisible?: boolean;
 }
 
 const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
@@ -174,7 +169,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       snapTopInset,
       useNativeTabBottomSafeArea = false,
       pullToRefresh,
-      isSurfaceVisible = true,
     },
     ref
   ) => {
@@ -300,9 +294,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       itemSpacing,
     ]);
 
-    const isTabFocused = useIsFocused();
-    const shouldRenderBackdrops = isTabFocused && isSurfaceVisible;
-
     const feedItemCount = feed.length;
     const renderGridItem = useCallback(
       ({ item, index }: { item: ExtendedFeedViewPost; index: number }) => {
@@ -330,7 +321,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             index={index}
             onPress={onGridItemPress}
             zoomLink={zoomLink}
-            isTabFocused={shouldRenderBackdrops}
             style={{
               width: itemWidth,
               height: itemHeight,
@@ -347,7 +337,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         numColumns,
         itemWidth,
         itemHeight,
-        shouldRenderBackdrops,
       ]
     );
 

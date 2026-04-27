@@ -18,7 +18,6 @@ export interface VideoCardMediaGestureLayerProps {
   posterUrl: string | null;
   cannotShowMedia: boolean;
   firstFrameRendered: boolean;
-  videoAmbientBackdropReady: boolean;
   recyclingKey: string;
   videoSource: VideoSource | null;
   isBlurred: boolean;
@@ -36,7 +35,6 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
   posterUrl,
   cannotShowMedia,
   firstFrameRendered,
-  videoAmbientBackdropReady,
   recyclingKey,
   videoSource,
   isBlurred,
@@ -54,7 +52,7 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
         <View style={styles.videoContainer}>
           {!!posterUrl &&
             !cannotShowMedia &&
-            (!firstFrameRendered || !videoAmbientBackdropReady) && (
+            !firstFrameRendered && (
               <Image
                 source={{ uri: posterUrl }}
                 contentFit="contain"

@@ -31,8 +31,6 @@ import { AtprotoCore } from '../../../services/api/core';
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { NotificationService } from '../../../services/api/notification/NotificationService';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
-// See GridFeedView for rationale — direct import avoids HMR re-export breakage.
-import { useIsFocused } from '@react-navigation/core';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 
@@ -46,7 +44,6 @@ import { formatHandle } from '../../../utils/formatting/handles';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
-import VideoAmbientBackdrop from '../../ui/VideoAmbientBackdrop';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useAvatarProfileRing } from '../../../services/colors';
 import { itemSizeConfig } from '@/components/ui/ItemStyles';
@@ -447,16 +444,10 @@ type NotificationItemProps = {
   queryClient: ReturnType<typeof useQueryClient>;
   postDataMap: PostDataMap;
   moderationOpts: ModerationOpts | null;
-  /**
-   * Passed from parent `NotificationsTab` so each row doesn't subscribe individually. When false,
-   * the Skia-backed `VideoAmbientBackdrop` is skipped (the activity tab is retained but off-screen
-   * under Expo Router native tabs). See docs/react-native-optimization-agent-handoff.md (P0).
-   */
-  isTabFocused: boolean;
 };
 
 const NotificationItem = React.memo<NotificationItemProps>(
-  ({ item, navigation, queryClient, postDataMap, moderationOpts, isTabFocused }) => {
+  ({ item, navigation, queryClient, postDataMap, moderationOpts }) => {
     const { t } = useTranslation();
     const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
     const currentUser = useUserStore(s => s.currentUser);
@@ -689,7 +680,6 @@ const NotificationItem = React.memo<NotificationItemProps>(
       <>
         {thumbnail ? (
           <>
-            {isTabFocused && <VideoAmbientBackdrop seedUrl={thumbnail} />}
             {!shouldBlurThumbnail && (
               <Image
                 source={{ uri: thumbnail }}
@@ -969,11 +959,6 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
     refetch().finally(() => setIsUserRefreshing(false));
   }, [refetch]);
 
-  // Skip Skia-backed VideoAmbientBackdrop inside each notification row when the activity tab is
-  // retained-but-inactive (Expo Router NativeTabs keep visited tabs mounted). Reduces cross-tab
-  // commit cascade during e.g. home-feed scroll. See docs/react-native-optimization-agent-handoff.md (P0).
-  const isTabFocused = useIsFocused();
-
   const renderNotificationContent = useCallback(
     ({ item }: { item: EnrichedNotification }) => {
       return (
@@ -983,11 +968,10 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
           queryClient={queryClient}
           postDataMap={postDataMap}
           moderationOpts={moderationOpts}
-          isTabFocused={isTabFocused}
         />
       );
     },
-    [navigation, queryClient, postDataMap, moderationOpts, isTabFocused]
+    [navigation, queryClient, postDataMap, moderationOpts]
   );
 
   const keyExtractor = useCallback((item: EnrichedNotification) => {

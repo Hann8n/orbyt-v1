@@ -31,7 +31,6 @@ import { SquircleView } from '@/components/ui/Squircle';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Image } from 'expo-image';
 
-import VideoAmbientBackdrop from '@/components/ui/VideoAmbientBackdrop';
 import { FlashList } from '@shopify/flash-list';
 import { Link, useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
@@ -1127,7 +1126,6 @@ function ChatEmbeddedPost({
       <>
         {thumbnailUrl ? (
           <View style={[styles.embedVideoThumbnailWrap, thumbnailStyle]}>
-            <VideoAmbientBackdrop seedUrl={thumbnailUrl} />
             <Image
               source={{ uri: thumbnailUrl }}
               style={[styles.embedVideoThumbnail, thumbnailStyle]}

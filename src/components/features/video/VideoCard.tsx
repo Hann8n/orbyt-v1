@@ -11,11 +11,12 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useRecyclingState } from '@shopify/flash-list';
 import { useEvent } from 'expo';
-import { useVideoPlayer } from 'expo-video';
+import { useVideoPlayer, type VideoPlayer } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { View, useWindowDimensions, StyleSheet, Platform } from 'react-native';
+import { Colors } from '../../../theme';
 import { Gesture } from 'react-native-gesture-handler';
 import {
   useSharedValue,
@@ -34,7 +35,6 @@ import {
   FEED_BUFFER_OPTIONS,
   DEFAULT_SEEK_TOLERANCE_SCRUBBER,
 } from '../../../utils/video/helpers';
-import { Colors } from '../../../theme';
 import { useModalStore } from '../../../stores/modalStore';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { useFollowMutation } from '../../../services/data/ProfileService';
@@ -360,13 +360,13 @@ function VideoCard({
   const videoSource = useMemo(() => createVideoSource(videoUrl), [videoUrl]);
   const activeSource = isVisible || renderHeavyChrome ? videoSource : null;
 
-  const player = useVideoPlayer(activeSource, player => {
+  const configureVideoPlayer = useCallback((player: VideoPlayer) => {
     player.loop = true;
-    player.muted = false;
-    player.timeUpdateEventInterval = 0; // Disabled by default; scrubber enables 4fps when active
     player.bufferOptions = FEED_BUFFER_OPTIONS;
     player.seekTolerance = DEFAULT_SEEK_TOLERANCE_SCRUBBER;
-  });
+  }, []);
+
+  const player = useVideoPlayer(activeSource, configureVideoPlayer);
 
   const playerStatusEvent = useEvent(player, 'statusChange', {
     status: 'idle',
@@ -377,12 +377,8 @@ function VideoCard({
 
   const [userChoseToView, setUserChoseToView] = useRecyclingState(false, [postView.uri]);
 
-  // Keep poster visible until both first frame and ambient backdrop are ready.
+  // Keep poster visible until the first video frame is ready.
   const [firstFrameRendered, setFirstFrameRendered] = useRecyclingState(false, [
-    postView.uri,
-    feedOption,
-  ]);
-  const [videoAmbientBackdropReady, setVideoAmbientBackdropReady] = useRecyclingState(false, [
     postView.uri,
     feedOption,
   ]);
@@ -391,18 +387,13 @@ function VideoCard({
     setFirstFrameRendered(true);
   }, [setFirstFrameRendered]);
 
-  const handleVideoAmbientBackdropReady = useCallback(() => {
-    setVideoAmbientBackdropReady(true);
-  }, [setVideoAmbientBackdropReady]);
-
   // Reset poster readiness when the card leaves the viewport so the poster
   // shows again while the preloaded stream renders its first frame on return.
   useEffect(() => {
     if (!isVisible) {
       setFirstFrameRendered(false);
-      setVideoAmbientBackdropReady(false);
     }
-  }, [isVisible, setFirstFrameRendered, setVideoAmbientBackdropReady]);
+  }, [isVisible, setFirstFrameRendered]);
 
   const { cannotShowMedia, isBlurred, warningDescription, handleViewContent } =
     useVideoCardModerationState(postView, feedItem, userChoseToView, setUserChoseToView);
@@ -885,7 +876,6 @@ function VideoCard({
       posterUrl,
       cannotShowMedia,
       firstFrameRendered,
-      videoAmbientBackdropReady,
       recyclingKey,
       videoSource,
       isBlurred,
@@ -902,7 +892,6 @@ function VideoCard({
       posterUrl,
       cannotShowMedia,
       firstFrameRendered,
-      videoAmbientBackdropReady,
       recyclingKey,
       videoSource,
       isBlurred,
@@ -974,15 +963,7 @@ function VideoCard({
 
   return (
     <View style={StyleSheet.compose(styles.container, getCardHeightStyle(cardHeight))}>
-      <VideoCardMediaLayer
-        videoAmbientBackdropSeedUrl={cannotShowMedia ? null : (posterUrl ?? null)}
-        onVideoAmbientBackdropReady={handleVideoAmbientBackdropReady}
-        // `renderHeavyChrome` is already scoped to the active row ± 1 neighbor via the list playback
-        // neighborChrome bit — exactly the prefetch window we want for the backdrop. Non-list usage
-        // (modal fullscreen, etc.) defaults `renderHeavyChromeFromProps` to true, preserving behavior.
-        shouldRenderAmbientBackdrop={renderHeavyChrome}
-        gestureStack={gestureVideoStackProps}
-      />
+      <VideoCardMediaLayer gestureStack={gestureVideoStackProps} />
 
       <VideoCardOverlayLayers
         renderHeavyChrome={renderHeavyChrome}
@@ -1009,7 +990,7 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[950],
   },
 });
 
