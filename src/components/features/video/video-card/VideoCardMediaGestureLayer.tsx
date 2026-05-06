@@ -1,5 +1,12 @@
 import { type ComponentProps } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { Image } from 'expo-image';
@@ -26,8 +33,8 @@ export interface VideoCardMediaGestureLayerProps {
   loadingLabel: string;
   onFirstFrameRender: () => void;
   surfaceType: 'textureView' | undefined;
-  textDimAnimatedStyle: Record<string, unknown>;
-  heartAnimatedStyle: Record<string, unknown>;
+  textDimAnimatedStyle: StyleProp<ViewStyle>;
+  heartAnimatedStyle: StyleProp<ViewStyle>;
 }
 
 const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
@@ -50,17 +57,15 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
     <GestureDetector gesture={videoGesture}>
       <View style={styles.videoContainerPressable} collapsable={false}>
         <View style={styles.videoContainer}>
-          {!!posterUrl &&
-            !cannotShowMedia &&
-            !firstFrameRendered && (
-              <Image
-                source={{ uri: posterUrl }}
-                contentFit="contain"
-                style={styles.poster}
-                recyclingKey={recyclingKey}
-                accessible={false}
-              />
-            )}
+          {!!posterUrl && !cannotShowMedia && !firstFrameRendered && (
+            <Image
+              source={{ uri: posterUrl }}
+              contentFit="contain"
+              style={styles.poster}
+              recyclingKey={recyclingKey}
+              accessible={false}
+            />
+          )}
 
           {!!videoSource && !cannotShowMedia && !isBlurred && player && (
             <ExpoVideoView
