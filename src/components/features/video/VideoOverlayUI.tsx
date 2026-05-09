@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: 6,
     padding: 14,
     zIndex: 2,
     flexDirection: 'row',
