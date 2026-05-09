@@ -13,7 +13,8 @@ import type {
   StatusView,
 } from '../../../services/api/types';
 
-const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
+const TOP_GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
+const BOTTOM_GRADIENT_SHIM = require('../../../assets/video-gradient.png');
 
 type Post = ExtendedPostView;
 
@@ -139,14 +140,14 @@ function VideoOverlayUI({
   return (
     <Animated.View style={overlayContainerStyle} pointerEvents="box-none">
       <Image
-        source={GRADIENT_SHIM}
+        source={TOP_GRADIENT_SHIM}
         style={styles.gradientShimTop}
         contentFit="cover"
         pointerEvents="none"
         accessible={false}
       />
       <Image
-        source={GRADIENT_SHIM}
+        source={BOTTOM_GRADIENT_SHIM}
         style={styles.gradientShim}
         contentFit="cover"
         pointerEvents="none"
@@ -213,9 +214,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 280,
-    transform: [{ scaleY: -1 }],
-    opacity: 0.92,
+    height: 320,
+    transform: [{ scaleX: -1 }],
+    opacity: 1,
   },
   overlayContainer: {
     position: 'absolute',
