@@ -179,16 +179,14 @@ function VideoOverlayAuthorComponent({
                 <VerificationBadge
                   handle={author.handle}
                   verification={verification ?? undefined}
-                  size={20}
-                  customMargin={2}
+                  textSize={Typography.sizes.subtitle}
                   textColor={Colors.neutral[50]}
                 />
                 <BotBadge
                   handle={author.handle}
                   did={author.did}
                   labels={author.labels}
-                  size={20}
-                  customMargin={2}
+                  textSize={Typography.sizes.subtitle}
                   textColor={Colors.neutral[50]}
                 />
               </View>
