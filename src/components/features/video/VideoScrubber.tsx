@@ -2,8 +2,10 @@ import { useCallback, useEffect, memo, useMemo, useRef, useState, type ReactNode
 import { Text, StyleSheet, Platform } from 'react-native';
 import { Gesture, GestureDetector, type NativeGesture } from 'react-native-gesture-handler';
 import Animated, {
+  cancelAnimation,
   clamp,
   Easing,
+  Extrapolation,
   interpolate,
   type SharedValue,
   useAnimatedReaction,
@@ -30,7 +32,12 @@ interface VideoScrubberProps {
 }
 
 const SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS = 0.1;
-const SCRUBBER_INTERPOLATION_DURATION_MS = 100;
+// Drift thresholds for the continuous-animation resync logic:
+// - Below MIN_DRIFT: animation is stopped at exactly currentTime → restart it.
+// - Above MAX_DRIFT: external jump/seek occurred → resync to correct position.
+// Values between the two mean the long animation is running correctly — leave it alone.
+const SCRUBBER_DRIFT_MIN = 0.02;
+const SCRUBBER_DRIFT_MAX = 0.2;
 const SCRUBBER_BAR_HEIGHT = 3;
 const SCRUBBER_TOUCH_AREA_HEIGHT = 32;
 const SCRUBBER_TOTAL_HEIGHT = SCRUBBER_TOUCH_AREA_HEIGHT + SCRUBBER_BAR_HEIGHT;
@@ -56,6 +63,7 @@ function VideoScrubberActive({
   const [currentSeekTime, setCurrentSeekTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const isSeekingSV = useSharedValue(false);
+  const isPlayingSV = useSharedValue(false);
   const seekProgressSV = useSharedValue(0);
   const playerRef = useRef(player);
   const activeRef = useRef(active);
@@ -70,6 +78,8 @@ function VideoScrubberActive({
       scheduleOnUI(() => {
         'worklet';
         isSeekingSV.set(false);
+        isPlayingSV.set(false);
+        cancelAnimation(currentTimeSV);
         currentTimeSV.set(0);
         seekProgressSV.set(0);
         seekingAnimationSV.set(0);
@@ -78,17 +88,19 @@ function VideoScrubberActive({
       // Read-only sync - never affects playback
       try {
         const currentTime = player.currentTime;
-        if (currentTime > 0) {
-          scheduleOnUI(() => {
-            'worklet';
+        const isPlaying = player.playing;
+        scheduleOnUI(() => {
+          'worklet';
+          isPlayingSV.set(isPlaying);
+          if (currentTime > 0) {
             currentTimeSV.set(currentTime);
-          });
-        }
+          }
+        });
       } catch (_error) {
         // Silently ignore - scrubber never blocks
       }
     }
-  }, [active, player, isSeekingSV, currentTimeSV, seekProgressSV, seekingAnimationSV]);
+  }, [active, player, isSeekingSV, isPlayingSV, currentTimeSV, seekProgressSV, seekingAnimationSV]);
 
   // Reset local UI state when player changes - never affects player
   useEffect(() => {
@@ -131,8 +143,31 @@ function VideoScrubberActive({
     player.timeUpdateEventInterval = active ? SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS : 0;
   }, [player, active]);
 
-  // Sync playback position via native timeUpdate events (fired at 4fps when scrubber active).
-  // Animate between ticks with withTiming so the bar moves smoothly at display frame rate.
+  // Track playing state so the continuous animation can be paused/resumed correctly.
+  useEffect(() => {
+    if (!player || !active) return;
+
+    const syncPlaying = (isPlaying: boolean) => {
+      scheduleOnUI(() => {
+        'worklet';
+        isPlayingSV.set(isPlaying);
+        if (!isPlaying) {
+          cancelAnimation(currentTimeSV);
+        }
+      });
+    };
+
+    try { syncPlaying(player.playing); } catch (_) {}
+    const sub = player.addListener('playingChange', ({ isPlaying }) => syncPlaying(isPlaying));
+    return () => sub.remove();
+  }, [player, active, isPlayingSV, currentTimeSV]);
+
+  // Drive the progress bar with a single long withTiming animation to the end of the video.
+  // This runs at display frame rate (60/120fps) with no tick-based jitter.
+  // We only resync when drift falls outside the expected window:
+  //   drift < DRIFT_MIN → animation stopped at the current position (e.g. just seeked) → restart it.
+  //   drift > DRIFT_MAX → external jump/buffering stall → snap & restart.
+  //   otherwise        → animation is running correctly → leave it alone.
   useEffect(() => {
     if (!player || !active) return;
 
@@ -140,17 +175,25 @@ function VideoScrubberActive({
       if (!isSeekingSV.get()) {
         scheduleOnUI(() => {
           'worklet';
-          currentTimeSV.set(
-            withTiming(currentTime, {
-              duration: SCRUBBER_INTERPOLATION_DURATION_MS,
-              easing: Easing.linear,
-            })
-          );
+          if (!isPlayingSV.get()) return;
+          const dur = durationSV.get();
+          if (dur === 0) return;
+
+          const animatedPos = currentTimeSV.get();
+          const drift = Math.abs(animatedPos - currentTime);
+
+          if (drift < SCRUBBER_DRIFT_MIN || drift > SCRUBBER_DRIFT_MAX) {
+            const remainingMs = Math.max(100, (dur - currentTime) * 1000);
+            currentTimeSV.set(currentTime);
+            currentTimeSV.set(
+              withTiming(dur, { duration: remainingMs, easing: Easing.linear })
+            );
+          }
         });
       }
     });
     return () => sub.remove();
-  }, [player, active, isSeekingSV, currentTimeSV]);
+  }, [player, active, isSeekingSV, isPlayingSV, currentTimeSV, durationSV]);
 
   // Sync seekingAnimationSV to UI store using same threshold as overlay (0.2)
   useAnimatedReaction(
@@ -234,6 +277,7 @@ function VideoScrubberActive({
       .onStart(() => {
         'worklet';
         scheduleOnRN(enableScrubbingMode);
+        cancelAnimation(currentTimeSV);
         seekProgressSV.set(currentTimeSV.get());
         isSeekingSV.set(true);
         seekingAnimationSV.set(withTiming(1, { duration: 500 }));
@@ -313,9 +357,12 @@ function VideoScrubberActive({
     const seekingAnim = seekingAnimationSV.get();
     const dur = durationSV.get();
     const currentTime = isSeeking ? seekProgressSV.get() : currentTimeSV.get();
-    const ratio = dur === 0 ? 0 : clamp(currentTime / dur, 0, 1);
+    const width =
+      dur === 0
+        ? 0
+        : interpolate(currentTime, [0, dur], [0, screenWidth], Extrapolation.CLAMP);
     return {
-      width: ratio * screenWidth,
+      width,
       height: seekingAnim * SCRUBBER_BAR_HEIGHT_RANGE_PX + SCRUBBER_BAR_HEIGHT,
       opacity: interpolate(seekingAnim, [0, 1], [SCRUBBER_BAR_BASE_OPACITY, 1]),
     };
@@ -327,13 +374,15 @@ function VideoScrubberActive({
       scheduleOnUI(() => {
         'worklet';
         isSeekingSV.set(false);
+        isPlayingSV.set(false);
+        cancelAnimation(currentTimeSV);
         currentTimeSV.set(0);
         seekProgressSV.set(0);
         seekingAnimationSV.set(0);
       });
       useUIStore.getState().setVisibility('videoScrubbing', false);
     };
-  }, [seekingAnimationSV, isSeekingSV, currentTimeSV, seekProgressSV]);
+  }, [seekingAnimationSV, isSeekingSV, isPlayingSV, currentTimeSV, seekProgressSV]);
 
   const childrenContainerStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacitySV.value,

@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: Colors.neutral[925],
+    backgroundColor: Colors.neutral[950],
   },
 });
 
