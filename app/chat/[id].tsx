@@ -1940,15 +1940,7 @@ export default function ChatScreen() {
         },
       ]);
     }
-  }, [
-    profile,
-    otherDid,
-    isBlocked,
-    isBlockedByList,
-    blockMutation,
-    router,
-    t,
-  ]);
+  }, [profile, otherDid, isBlocked, isBlockedByList, blockMutation, router, t]);
 
   const handleSend = useCallback(() => {
     const text = inputText.trim();

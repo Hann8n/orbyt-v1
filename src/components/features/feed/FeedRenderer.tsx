@@ -234,7 +234,6 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
         feed,
         feedOption,
         userDid,
-        backgroundColor,
         secondaryColor,
         resolvedBackgroundColor,
         hasNextPage,

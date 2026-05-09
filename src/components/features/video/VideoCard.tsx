@@ -317,7 +317,7 @@ function VideoCard({
       onToggleLike: handleLike,
       isLikePending: overlayPendingRef.current.isLikePending,
     });
-  }, [postView, presentCommentSection, handleLike, displayInteractionRef]);
+  }, [postView, presentCommentSection, handleLike, displayInteractionRef, overlayPendingRef]);
 
   // ── Gestures (tap / double-tap / long-press) — shared values stay inside the hook. ─────
   const { gesture, heartAnimatedStyle } = useVideoCardGesture({

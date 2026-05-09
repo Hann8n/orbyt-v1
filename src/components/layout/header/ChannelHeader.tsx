@@ -17,11 +17,7 @@ import { useChannelColors } from '../../../services/data/ChannelService';
 import { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon, STROKE_WIDTH_THICK } from '../../ui/Icon';
 import { NativePressable } from '../../ui/NativePressable';
 import type { ViewMode } from '../../../types';
-import {
-  hexToRGBA,
-  getStatusBarStyle,
-  isColorDark,
-} from '../../../utils/formatting/colors';
+import { hexToRGBA, getStatusBarStyle, isColorDark } from '../../../utils/formatting/colors';
 import { Colors } from '../../../theme';
 import { FontFamily, fontSizeFor } from '../../../utils/components/typography';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
@@ -94,9 +90,7 @@ const SubscribeButton: React.FC<{
   const { width: screenWidth } = useWindowDimensions();
   const isWideScreen = screenWidth > 768;
 
-  const storeSubscribed =
-    !!channel?.uri &&
-    subscribedChannels.some(ch => ch.uri === channel.uri);
+  const storeSubscribed = !!channel?.uri && subscribedChannels.some(ch => ch.uri === channel.uri);
   const [optimistic, setOptimistic] = useState<boolean | null>(null);
   const isSubscribed = optimistic ?? storeSubscribed;
 
@@ -128,14 +122,14 @@ const SubscribeButton: React.FC<{
   if (channel.isOwner) return null;
 
   const subscribePill = (
-    <View style={[styles.subscribeButton, styles.subscribeButtonInner, { backgroundColor: buttonBackgroundColor }]}>
-      {!isSubscribed && (
-        <BlurView
-          style={styles.subscribeButtonBlur}
-          intensity={40}
-          tint="light"
-        />
-      )}
+    <View
+      style={[
+        styles.subscribeButton,
+        styles.subscribeButtonInner,
+        { backgroundColor: buttonBackgroundColor },
+      ]}
+    >
+      {!isSubscribed && <BlurView style={styles.subscribeButtonBlur} intensity={40} tint="light" />}
       <View pointerEvents="none" style={styles.subscribeButtonContent}>
         <Text style={[styles.subscribeButtonText, { color: contentColor }]}>
           {isSubscribed ? t('settings.subscribed') : t('settings.subscribe')}

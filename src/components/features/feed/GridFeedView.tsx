@@ -330,14 +330,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
           />
         );
       },
-      [
-        onGridItemPress,
-        gridFeedModalZoomConfig,
-        feedItemCount,
-        numColumns,
-        itemWidth,
-        itemHeight,
-      ]
+      [onGridItemPress, gridFeedModalZoomConfig, feedItemCount, numColumns, itemWidth, itemHeight]
     );
 
     const feedScrollMotion = useMemo<FeedScrollMotionValue | null>(() => {
@@ -366,18 +359,24 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     }, [useScrollTracking, headerHeight, viewportDimensions.height, itemSpacing]);
 
     const ListEl = ListComponent || (useScrollTracking ? AnimatedFlashList : FlashList);
-    const listProps = useMemo(() => ({
-      ...(ListComponent ? {} : { ref: flashListRef }),
-      decelerationRate: Platform.OS === 'ios'
-        ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
-        : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID,
-      ...(useScrollTracking ? {
-        onScroll: scrollHandler,
-        scrollEventThrottle: APP_CONSTANTS.SCROLL_THROTTLE,
-        disableIntervalMomentum: true,
-        snapToOffsets: gridSnapToOffsets,
-      } : {}),
-    }), [ListComponent, useScrollTracking, scrollHandler, gridSnapToOffsets]);
+    const listProps = useMemo(
+      () => ({
+        ...(ListComponent ? {} : { ref: flashListRef }),
+        decelerationRate:
+          Platform.OS === 'ios'
+            ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+            : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID,
+        ...(useScrollTracking
+          ? {
+              onScroll: scrollHandler,
+              scrollEventThrottle: APP_CONSTANTS.SCROLL_THROTTLE,
+              disableIntervalMomentum: true,
+              snapToOffsets: gridSnapToOffsets,
+            }
+          : {}),
+      }),
+      [ListComponent, useScrollTracking, scrollHandler, gridSnapToOffsets]
+    );
 
     const separatorStyle = {
       height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,

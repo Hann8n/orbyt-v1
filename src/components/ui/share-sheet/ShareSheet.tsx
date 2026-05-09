@@ -145,7 +145,9 @@ const ShareSheet: React.FC = () => {
   };
 
   // Helper function to report content
-  const reportContent = async (reasonType: 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other') => {
+  const reportContent = async (
+    reasonType: 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other'
+  ) => {
     if (!postUri) return;
 
     // Optimistic update - mark as reported immediately and dismiss

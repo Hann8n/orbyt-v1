@@ -1,11 +1,7 @@
 import React, { useMemo } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import {
-  Camera,
-  type CameraDevice,
-  type CameraVideoOutput,
-} from 'react-native-vision-camera';
+import { Camera, type CameraDevice, type CameraVideoOutput } from 'react-native-vision-camera';
 import * as Haptics from 'expo-haptics';
 
 import { logger } from '@/utils/logger';
@@ -52,7 +48,7 @@ const CameraStage: React.FC<Props> = ({
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           onDoubleTapFlip();
         }),
-    [isDeletePreviewActive, onDoubleTapFlip],
+    [isDeletePreviewActive, onDoubleTapFlip]
   );
 
   const cameraBody = (

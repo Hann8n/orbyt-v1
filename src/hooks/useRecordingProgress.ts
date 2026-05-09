@@ -18,7 +18,9 @@ export function useRecordingProgress(recorder: SegmentRecorder): Result {
   const activeProgressSec = useSharedValue(0);
   const { isRecording, baseDurationRef } = recorder;
   const maxDuration = useCreateSegmentsStore(s => s.maxDuration);
-  const totalDuration = useCreateSegmentsStore(s => s.segments.reduce((sum, seg) => sum + seg.duration, 0));
+  const totalDuration = useCreateSegmentsStore(s =>
+    s.segments.reduce((sum, seg) => sum + seg.duration, 0)
+  );
   const wasRecordingRef = useRef(false);
 
   useEffect(() => {

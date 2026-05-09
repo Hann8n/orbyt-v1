@@ -7,35 +7,41 @@ Your Orbyt app now has comprehensive Sentry integration with all advanced featur
 ## Configuration Summary
 
 ### 📊 Performance & Monitoring
+
 - ✅ **Performance Tracing**: 100% of transactions captured
 - ✅ **User Interaction Tracing**: Automatic touch/gesture tracking
 - ✅ **CPU & Memory Profiling**: All transactions profiled
 - ✅ **Frame Rate Monitoring**: Slow/frozen frame detection
 
 ### 🎬 Session Replay
+
 - ✅ **Session Recording**: 10% of normal sessions
 - ✅ **Error Replay**: 100% when errors occur
 - ✅ **Screenshot Masking**: Text and images redacted for privacy
 
 ### 💬 User Feedback & Context
+
 - ✅ **Feedback Integration**: Built-in form with screenshot capability
 - ✅ **View Hierarchy**: Native component tree captured on errors
 - ✅ **Automatic User Sync**: DID, handle tracked per session
 - ✅ **Breadcrumb Tracking**: User action trails for context
 
 ### 🧭 Routing Instrumentation
+
 - ✅ **Screen Transitions**: Auto-traced via React Navigation integration
 - ✅ **Time to Initial Display**: App startup performance tracked
 
 ## Files Modified/Created
 
 ### Core Changes
+
 - **`app/_layout.tsx`**
   - Enhanced Sentry.init() with all features
   - Integrated useSentryUserSync hook for automatic user context
   - Configured navigationIntegration for routing
 
 ### New Utilities
+
 - **`src/utils/sentry/feedbackHelper.ts`**
   - `showSentryFeedback()` — Trigger user feedback form
   - `captureUserAction()` — Log user actions as breadcrumbs
@@ -44,12 +50,14 @@ Your Orbyt app now has comprehensive Sentry integration with all advanced featur
   - `getLastEventId()` — Retrieve last event reference
 
 ### New Hooks
+
 - **`src/hooks/useSentryUserSync.ts`**
   - Automatically syncs user auth state to Sentry
   - Called in root layout, no manual integration needed
   - Syncs on login/logout/account switch
 
 ### Documentation
+
 - **`docs/SENTRY_INTEGRATION.md`**
   - Complete setup guide with examples
   - Integration instructions for UI components
@@ -58,15 +66,17 @@ Your Orbyt app now has comprehensive Sentry integration with all advanced featur
 ## Quick Start
 
 ### 1. Show Feedback Form
+
 Add a button in your settings or help screen:
 
 ```tsx
 import { showSentryFeedback } from '@/utils/sentry/feedbackHelper';
 
-<Button onPress={showSentryFeedback} title="Report a Problem" />
+<Button onPress={showSentryFeedback} title="Report a Problem" />;
 ```
 
 ### 2. Track User Actions
+
 Log important events for error context:
 
 ```tsx
@@ -80,7 +90,9 @@ const handleCreatePost = async (content: string) => {
 ```
 
 ### 3. Monitor Dashboard
+
 View data in Sentry:
+
 - **Errors** — Recent crashes and issues
 - **Performance** — Transaction timeline and slow screens
 - **Replays** — Session playback for errors
@@ -90,6 +102,7 @@ View data in Sentry:
 ## Sampling Rates
 
 Currently set for **full capture** (development/testing):
+
 ```
 tracesSampleRate: 1.0          (100% of transactions)
 profilesSampleRate: 1.0         (100% of transactions)
@@ -98,6 +111,7 @@ replaysOnErrorSampleRate: 1.0   (100% on errors)
 ```
 
 **For Production**, reduce to save quota:
+
 ```
 tracesSampleRate: 0.3
 profilesSampleRate: 0.1
@@ -109,39 +123,43 @@ Update in `app/_layout.tsx` Sentry.init() section.
 
 ## Key Features
 
-| Feature | Status | How It Works |
-|---------|--------|-------------|
-| Error Reporting | ✅ | Captures all crashes automatically |
-| Performance Monitoring | ✅ | Tracks screen loads, API calls, JS performance |
-| Session Replay | ✅ | Records user interactions (10% of sessions, 100% on error) |
-| User Context | ✅ | Auto-syncs auth state (DID, handle) |
-| Profiling | ✅ | CPU and memory data per transaction |
-| User Feedback | ✅ | Call `showSentryFeedback()` from UI |
-| Network Tracing | ✅ | Automatic fetch/XHR tracking |
-| View Hierarchy | ✅ | Native component tree on errors |
-| Breadcrumbs | ✅ | User action trail for context |
+| Feature                | Status | How It Works                                               |
+| ---------------------- | ------ | ---------------------------------------------------------- |
+| Error Reporting        | ✅     | Captures all crashes automatically                         |
+| Performance Monitoring | ✅     | Tracks screen loads, API calls, JS performance             |
+| Session Replay         | ✅     | Records user interactions (10% of sessions, 100% on error) |
+| User Context           | ✅     | Auto-syncs auth state (DID, handle)                        |
+| Profiling              | ✅     | CPU and memory data per transaction                        |
+| User Feedback          | ✅     | Call `showSentryFeedback()` from UI                        |
+| Network Tracing        | ✅     | Automatic fetch/XHR tracking                               |
+| View Hierarchy         | ✅     | Native component tree on errors                            |
+| Breadcrumbs            | ✅     | User action trail for context                              |
 
 ## Privacy & Compliance
 
 **What's Captured:**
+
 - ✅ Error stack traces and device info
 - ✅ User DID, handle (authentication context)
 - ✅ Screen hierarchy (for UI debugging)
 - ✅ Network request metadata (URLs, status codes)
 
 **What's NOT Captured:**
+
 - ❌ User input text (masked)
 - ❌ Image contents (masked)
 - ❌ Passwords or tokens
 - ❌ Sensitive network bodies
 
 **Masking:** Enabled by default
+
 - `maskAllText: true` — Redacts text in replays
 - `maskAllImages: true` — Redacts image contents
 
 ## Verification
 
 Run TypeScript check:
+
 ```bash
 npx tsc --noEmit --skipLibCheck
 ```

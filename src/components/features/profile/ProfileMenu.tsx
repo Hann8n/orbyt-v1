@@ -341,7 +341,21 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
       return options;
     }
-  }, [isOwnProfile, t, handleShare, handleSwitchAccount, handleLogout, canMessage, did, onMessagePress, onDismiss, isMuted, handleMuteToggle, handleOpenOnBluesky, handleReportOrBlock]);
+  }, [
+    isOwnProfile,
+    t,
+    handleShare,
+    handleSwitchAccount,
+    handleLogout,
+    canMessage,
+    did,
+    onMessagePress,
+    onDismiss,
+    isMuted,
+    handleMuteToggle,
+    handleOpenOnBluesky,
+    handleReportOrBlock,
+  ]);
 
   return (
     <VerticalListSheet name="profile-menu-sheet" onDismiss={onDismiss}>
@@ -359,10 +373,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       </View>
 
       {/* Submenu sheet for Report or Block - defined within parent sheet */}
-      <AppTrueSheet
-        ref={submenuSheetRef}
-        name="profile-menu-submenu"
-      >
+      <AppTrueSheet ref={submenuSheetRef} name="profile-menu-submenu">
         <View
           style={[
             styles.submenuContent,

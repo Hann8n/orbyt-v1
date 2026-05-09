@@ -42,14 +42,12 @@ export const LinearGradient: React.FC<LinearGradientProps> = ({
   const { ref, size } = useCanvasSize();
   const flattenedStyle = StyleSheet.flatten(style || {});
 
-  // Check if style uses absoluteFill
   const isAbsoluteFill =
-    (flattenedStyle as any) === StyleSheet.absoluteFill ||
-    (flattenedStyle.position === 'absolute' &&
-      flattenedStyle.left === 0 &&
-      flattenedStyle.right === 0 &&
-      flattenedStyle.top === 0 &&
-      flattenedStyle.bottom === 0);
+    flattenedStyle.position === 'absolute' &&
+    flattenedStyle.left === 0 &&
+    flattenedStyle.right === 0 &&
+    flattenedStyle.top === 0 &&
+    flattenedStyle.bottom === 0;
 
   // Get dimensions from style or use canvas size
   const styleWidth = flattenedStyle.width as number | undefined;

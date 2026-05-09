@@ -11,8 +11,7 @@ import { logger } from '@/utils/logger';
 import { posthog } from '@/config/posthog';
 import { useCreateSegmentsStore } from '@/stores/createSegmentsStore';
 
-const toFileUri = (path: string): string =>
-  path.startsWith('file://') ? path : `file://${path}`;
+const toFileUri = (path: string): string => (path.startsWith('file://') ? path : `file://${path}`);
 
 interface ActiveRecording {
   recorder: Recorder;
@@ -107,7 +106,9 @@ export function useSegmentRecorder({
     if (epoch !== epochRef.current) {
       try {
         await recorder.cancelRecording();
-      } catch {}
+      } catch {
+        // recorder may have already been cancelled
+      }
       return;
     }
 
@@ -135,7 +136,10 @@ export function useSegmentRecorder({
         logger.error('[Camera] recording error', { message: error.message });
         posthog.capture('camera_error', { message: error.message });
       } else if (filePath && !stale) {
-        const clamped = Math.min(active.capturedDuration, useCreateSegmentsStore.getState().availableTime());
+        const clamped = Math.min(
+          active.capturedDuration,
+          useCreateSegmentsStore.getState().availableTime()
+        );
         if (clamped > 0) {
           const ok = useCreateSegmentsStore.getState().addSegment({
             duration: clamped,
@@ -153,7 +157,7 @@ export function useSegmentRecorder({
     try {
       await recorder.startRecording(
         path => finish(path),
-        err => finish(null, err),
+        err => finish(null, err)
       );
     } catch (error) {
       logger.error('[Camera] startRecording failed', { error });
@@ -173,18 +177,14 @@ export function useSegmentRecorder({
         a.capturedDuration = a.budgetSec;
         try {
           await a.recorder.stopRecording();
-        } catch {}
+        } catch {
+          // recorder may have already stopped
+        }
         await a.done;
         if (epochRef.current === epoch) onAutoStopReachedRef.current?.();
       })();
     }, budgetSec * 1000);
-  }, [
-    clearAutoStop,
-    finalizeIdleState,
-    microphonePermission,
-    t,
-    videoOutput,
-  ]);
+  }, [clearAutoStop, finalizeIdleState, microphonePermission, t, videoOutput]);
 
   const stop = useCallback(async () => {
     const active = activeRef.current;
@@ -193,7 +193,9 @@ export function useSegmentRecorder({
     active.capturedDuration = active.recorder.recordedDuration;
     try {
       await active.recorder.stopRecording();
-    } catch {}
+    } catch {
+      // recorder may have already stopped
+    }
     await active.done;
   }, [clearAutoStop]);
 
@@ -215,7 +217,9 @@ export function useSegmentRecorder({
     } catch {
       try {
         await active.recorder.stopRecording();
-      } catch {}
+      } catch {
+        // ignore: both cancel and stop failed
+      }
     }
     finalizeIdleState();
   }, [clearAutoStop, finalizeIdleState]);
@@ -224,7 +228,7 @@ export function useSegmentRecorder({
     () => () => {
       epochRef.current += 1;
     },
-    [],
+    []
   );
 
   return {

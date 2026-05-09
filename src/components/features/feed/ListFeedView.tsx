@@ -738,7 +738,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         feedOption,
         secondaryColor,
         profileColors,
-        isHeaderFeed,
         emptyComponentHeight,
         onRetry,
       ]
@@ -908,7 +907,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         snapTopInset,
         useNativeTabBottomSafeArea,
         pullToRefresh,
-        resolvedViewMode,
       ]
     );
 

@@ -160,7 +160,7 @@ function VideoScrubberActive({
       });
     };
 
-    try { syncPlaying(player.playing); } catch (_) {}
+    syncPlaying(player.playing ?? false);
     const sub = player.addListener('playingChange', ({ isPlaying }) => syncPlaying(isPlaying));
     return () => sub.remove();
   }, [player, active, isPlayingSV, currentTimeSV]);
@@ -188,9 +188,7 @@ function VideoScrubberActive({
           if (drift < SCRUBBER_DRIFT_MIN || drift > SCRUBBER_DRIFT_MAX) {
             const remainingMs = Math.max(100, (dur - currentTime) * 1000);
             currentTimeSV.set(currentTime);
-            currentTimeSV.set(
-              withTiming(dur, { duration: remainingMs, easing: Easing.linear })
-            );
+            currentTimeSV.set(withTiming(dur, { duration: remainingMs, easing: Easing.linear }));
           }
         });
       }
@@ -362,9 +360,7 @@ function VideoScrubberActive({
     const dur = durationSV.get();
     const currentTime = isSeeking ? seekProgressSV.get() : currentTimeSV.get();
     const width =
-      dur === 0
-        ? 0
-        : interpolate(currentTime, [0, dur], [0, screenWidth], Extrapolation.CLAMP);
+      dur === 0 ? 0 : interpolate(currentTime, [0, dur], [0, screenWidth], Extrapolation.CLAMP);
     return {
       width,
       height: seekingAnim * SCRUBBER_BAR_HEIGHT_RANGE_PX + SCRUBBER_BAR_HEIGHT,

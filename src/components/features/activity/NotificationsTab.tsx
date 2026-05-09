@@ -34,7 +34,10 @@ import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 
-import ProfileService, { prefetchProfile, useProfileByDid } from '../../../services/data/ProfileService';
+import ProfileService, {
+  prefetchProfile,
+  useProfileByDid,
+} from '../../../services/data/ProfileService';
 import { Colors } from '../../../theme';
 import { Avatar } from '../../../components/ui/UI';
 import { VerificationBadge, BotBadge } from '../badging';

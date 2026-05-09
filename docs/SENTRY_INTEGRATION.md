@@ -5,22 +5,26 @@ This document outlines the comprehensive Sentry setup for Orbyt mobile app with 
 ## ✅ What's Configured
 
 ### Performance & Monitoring
+
 - **Performance Tracing** (`tracesSampleRate: 1.0`) — Captures all transactions
 - **User Interaction Tracing** — Automatically tracks touch events and gestures
 - **Profiling** (`profilesSampleRate: 1.0`) — Records CPU and function-level performance data
 - **UI Hang Detection** — Identifies hangs and slow frames via native iOS profiling
 
 ### Session Replay
+
 - **Session Replay** (10% of sessions) — Records user interactions for context
 - **Error Replay** (100%) — Always captures replay when errors occur
 - **Screenshot Masking** — Redacts text and images for privacy
 
 ### User Feedback
+
 - **Feedback Integration** — Built-in feedback form with screenshot capability
 - **View Hierarchy Capture** — Captures native component tree at error time
 - **User Context Sync** — Automatically tracks user info (DID, handle, email)
 
 ### Routing Instrumentation
+
 - **React Navigation Integration** — Auto-traces screen transitions
 - **Time to Initial Display** — Measures app startup and screen load times
 
@@ -47,13 +51,10 @@ export const ReportButton = () => (
 import { showSentryFeedback } from '@/utils/sentry/feedbackHelper';
 
 // Inside your settings list, add:
-<NativePressable 
-  onPress={showSentryFeedback}
-  style={styles.row}
->
+<NativePressable onPress={showSentryFeedback} style={styles.row}>
   <Text style={styles.text}>Report a Problem</Text>
   <Icon name="arrow" />
-</NativePressable>
+</NativePressable>;
 ```
 
 ### 2. Track User Actions (Breadcrumbs)
@@ -80,6 +81,7 @@ const handleNavigateToProfile = (userId: string) => {
 ### 3. User Context (Automatic)
 
 User context is **automatically synced** via `useSentryUserSync` hook:
+
 - When user logs in → Sentry tracks their DID, handle, email
 - When user logs out → Context is cleared
 - When account switches → Context updates automatically
@@ -87,6 +89,7 @@ User context is **automatically synced** via `useSentryUserSync` hook:
 ### 4. Performance Monitoring
 
 Sentry automatically captures:
+
 - Screen transitions and load times
 - Native vs JS frame times
 - Slow/frozen frames
@@ -114,6 +117,7 @@ try {
 ### 5. Profiling Data
 
 Sentry captures:
+
 - CPU hotspots and function durations
 - Memory allocations
 - Thread analysis
@@ -180,31 +184,34 @@ Sentry.captureMessage('Something important happened', 'warning', {
 ## 🔐 Privacy & Data
 
 **Masked by Default:**
+
 - ✅ User text input (enabled via `maskAllText: true`)
 - ✅ Image contents (enabled via `maskAllImages: true`)
 - ✅ Network request bodies (by design)
 
 **Captured in Events:**
+
 - User DID, handle, email (authenticated context)
 - Device info (iOS version, app version)
 - Screen hierarchy (for UI debugging)
 - Breadcrumbs (user action trail)
 
 **Not Captured:**
+
 - ❌ Passwords or tokens
 - ❌ Credit card info
 - ❌ Raw image/text (masked)
 
 ## 📈 What's Being Tracked
 
-| Feature | Tracking | Sample Rate |
-|---------|----------|-------------|
-| Errors | All crashes | 100% |
-| Transactions | Screen loads, API calls | 100% |
-| Profiling | CPU/memory per transaction | 100% |
-| Session Replay | User sessions | 10% (normal), 100% (on error) |
-| Performance Metrics | Frame rate, stalls | 100% |
-| User Feedback | Via form button | On demand |
+| Feature             | Tracking                   | Sample Rate                   |
+| ------------------- | -------------------------- | ----------------------------- |
+| Errors              | All crashes                | 100%                          |
+| Transactions        | Screen loads, API calls    | 100%                          |
+| Profiling           | CPU/memory per transaction | 100%                          |
+| Session Replay      | User sessions              | 10% (normal), 100% (on error) |
+| Performance Metrics | Frame rate, stalls         | 100%                          |
+| User Feedback       | Via form button            | On demand                     |
 
 ## 🚀 Next Steps
 
@@ -216,16 +223,19 @@ Sentry.captureMessage('Something important happened', 'warning', {
 ## Troubleshooting
 
 **No events appearing in Sentry?**
+
 - Check DSN is correct in `app/_layout.tsx`
 - Verify app can reach `o4510432459096064.ingest.us.sentry.io`
 - Check network tab for `https://...ingest.us.sentry.io/4510432460537856`
 
 **Events not being sampled?**
+
 - Check `tracesSampleRate` is > 0
 - Check `profilesSampleRate` is > 0
 - Refresh app to start new session
 
 **Replay videos not recording?**
+
 - Ensure `replaysSessionSampleRate` or `replaysOnErrorSampleRate` > 0
 - Check `maskAllText` and `maskAllImages` privacy settings
 - Replays only capture 50 seconds of activity

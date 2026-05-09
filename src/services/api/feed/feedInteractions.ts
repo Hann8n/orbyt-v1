@@ -273,4 +273,3 @@ export async function sendFeedInteractions(
     throw error;
   }
 }
-

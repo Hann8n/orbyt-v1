@@ -35,14 +35,8 @@ const CreateScreen: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const {
-    screenWidth,
-    screenHeight,
-    isTablet,
-    isSmallPhone,
-    fitsNative16x9,
-    cameraHeightFor16x9,
-  } = useDeviceLayout();
+  const { screenWidth, screenHeight, isTablet, isSmallPhone, fitsNative16x9, cameraHeightFor16x9 } =
+    useDeviceLayout();
 
   const cameraPermission = useCameraPermission();
   const microphonePermission = useMicrophonePermission();
@@ -59,7 +53,9 @@ const CreateScreen: React.FC = () => {
   const segments = useCreateSegmentsStore(s => s.segments);
   const maxDuration = useCreateSegmentsStore(s => s.maxDuration);
   const setMaxDuration = useCreateSegmentsStore(s => s.setMaxDuration);
-  const totalDuration = useCreateSegmentsStore(s => s.segments.reduce((sum, seg) => sum + seg.duration, 0));
+  const totalDuration = useCreateSegmentsStore(s =>
+    s.segments.reduce((sum, seg) => sum + seg.duration, 0)
+  );
   const availableTime = Math.max(0, maxDuration - totalDuration);
   const hasSegments = segments.length > 0;
 
@@ -82,7 +78,7 @@ const CreateScreen: React.FC = () => {
       setPendingVideoPost({ videoPath: videoUri, textOverlays: [] });
       router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
     },
-    [router, setPendingVideoPost],
+    [router, setPendingVideoPost]
   );
 
   const gallery = useGalleryTrimImport({
@@ -118,14 +114,13 @@ const CreateScreen: React.FC = () => {
             ? 0
             : insets.top,
     }),
-    [cameraHeight, fitsNative16x9, insets.top, isSmallPhone, isTablet, screenWidth],
+    [cameraHeight, fitsNative16x9, insets.top, isSmallPhone, isTablet, screenWidth]
   );
   const cameraContainerStyle = useMemo<{ justifyContent: 'flex-start' | 'center' }>(
     () => ({
-      justifyContent:
-        isTablet || Platform.OS === 'android' ? 'center' : 'flex-start',
+      justifyContent: isTablet || Platform.OS === 'android' ? 'center' : 'flex-start',
     }),
-    [isTablet],
+    [isTablet]
   );
   const progressBarHeight =
     isSmallPhone || isTablet || !fitsNative16x9
@@ -200,7 +195,7 @@ const CreateScreen: React.FC = () => {
       isDeletePreviewActive,
       startDeletePreview,
       toggleFlash,
-    ],
+    ]
   );
 
   const finishRecording = useCallback(
@@ -222,9 +217,10 @@ const CreateScreen: React.FC = () => {
       posthog.capture('video_recorded', { segment_count: videoSegments.length });
 
       if (videoSegments.length === 1) {
-        const uri = videoSegments[0].video && 'uri' in videoSegments[0].video
-          ? videoSegments[0].video.uri
-          : null;
+        const uri =
+          videoSegments[0].video && 'uri' in videoSegments[0].video
+            ? videoSegments[0].video.uri
+            : null;
         if (uri) {
           setPendingVideoPost({ videoPath: uri, textOverlays: [] });
           router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
@@ -242,7 +238,7 @@ const CreateScreen: React.FC = () => {
       recorder,
       router,
       setPendingVideoPost,
-    ],
+    ]
   );
 
   const handleBackPress = useCallback(async () => {
