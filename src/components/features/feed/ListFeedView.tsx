@@ -78,7 +78,6 @@ import {
 } from '../../../core/visibility';
 import { useTranslation } from 'react-i18next';
 import { TypographyText } from '@/utils/components/typography';
-import { logger } from '../../../utils/logger';
 
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as ComponentType<
   FlashListProps<FeedListItem> & { ref?: Ref<FlashListRef<FeedListItem>> }
@@ -308,12 +307,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const seedActiveIndex =
       typeof initialScrollIndex === 'number' ? initialScrollIndex : feed.length > 0 ? 0 : -1;
     const activeVisibleIndexRef = useRef(seedActiveIndex);
-    // Lazy-init the playback store once per list mount. useState's initializer is the
-    // lint-clean equivalent of `useRef(create()).current` — same value identity, no
-    // ref-access-during-render warning.
-    const [listPlaybackStore] = useState(() =>
+    const listPlaybackStore = useRef(
       createFeedListPlaybackStore({ activeIndex: seedActiveIndex })
-    );
+    ).current;
 
     const headerBlockingBaseSuppressedSV = useSharedValue(1);
 
@@ -473,56 +469,50 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     }, [showEndOfFeed, endOfFeedEnabledSV, endOfFeedOverscrollOpacitySV]);
 
     const onHashtagPressRef = useRef(onHashtagPress);
-    useEffect(() => {
-      onHashtagPressRef.current = onHashtagPress;
-    }, [onHashtagPress]);
+    onHashtagPressRef.current = onHashtagPress;
 
-    // Note: previously these values were carried via `extraData` so that renderItem
-    // could stay closure-stable. FlashList v2 invalidates render cache on extraData
-    // change, which is heavier than just re-creating renderItem when these inputs
-    // actually change (rotation, feed switch, zoom transition). Closing over the
-    // values directly skips the extraData round-trip.
-    // FlashList v2 onLoad — fires once items are drawn and reports elapsedTimeInMs.
-    // Dev-only: feeds the existing logger so the timing shows up in the same place
-    // as other startup spans without paying the call cost in release builds.
-    const onListLoad = useCallback(({ elapsedTimeInMs }: { elapsedTimeInMs: number }) => {
-      if (!__DEV__) return;
-      logger.debug(`FlashList rendered in ${elapsedTimeInMs.toFixed(0)}ms`, {
-        component: 'ListFeedView',
-        elapsedTimeInMs,
-      });
-    }, []);
+    const listRenderExtraData = useMemo(
+      () => ({
+        cardHeight,
+        feedOption,
+        zoomTargetPostUri: zoomTargetPostUri ?? null,
+      }),
+      [cardHeight, feedOption, zoomTargetPostUri]
+    );
 
     const renderItem = useCallback(
-      ({ item, index, target }: ListRenderItemInfo<FeedListItem>) => {
-        if (target === RenderTargetOptions.Measurement) {
+      ({ item, index, target, extraData }: ListRenderItemInfo<FeedListItem>) => {
+        const xd = extraData as typeof listRenderExtraData | undefined;
+        const h = xd?.cardHeight ?? 0;
+        if (target === RenderTargetOptions.Measurement || !xd) {
           return (
             <View
               style={StyleSheet.compose(
                 styles.measurementPlaceholder,
-                getMeasurementHeightStyle(cardHeight)
+                getMeasurementHeightStyle(h)
               )}
             />
           );
         }
 
         const isAppleZoomTarget =
-          Boolean(zoomTargetPostUri) &&
-          item.post?.uri === zoomTargetPostUri &&
+          Boolean(xd.zoomTargetPostUri) &&
+          item.post?.uri === xd.zoomTargetPostUri &&
           Platform.OS === 'ios';
         return (
           <VideoItem
             feedItem={item}
             post={item.post}
-            height={cardHeight}
-            feedOption={feedOption}
+            height={xd.cardHeight}
+            feedOption={xd.feedOption}
             index={index}
             isAppleZoomTarget={isAppleZoomTarget}
             onHashtagPress={onHashtagPressRef.current}
           />
         );
       },
-      [cardHeight, feedOption, zoomTargetPostUri]
+
+      []
     );
 
     const handleOrientationChange = useCallback(
@@ -799,11 +789,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               style={styles.flashList}
               data={listData}
               renderItem={renderItem}
-              // drawDistance is in pixels. One full card-height ahead/behind the
-              // viewport overlaps with the playback store's preload window
-              // (active±N) so neighbours are mounted before the user reaches them.
-              drawDistance={cardHeight}
-              onLoad={onListLoad}
+              extraData={listRenderExtraData}
+              drawDistance={FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE}
               keyExtractor={listKeyExtractor}
               getItemType={getListItemType}
               refreshControl={refreshControlElement}
@@ -851,8 +838,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         endOfFeedHintColor,
         listData,
         renderItem,
-        cardHeight,
-        onListLoad,
+        listRenderExtraData,
         refreshControlElement,
         initialScrollIndex,
         listHeaderElement,
