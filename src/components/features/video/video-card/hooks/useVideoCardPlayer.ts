@@ -51,7 +51,8 @@ export interface UseVideoCardPlayerResult {
   handleFirstFrameRender: () => void;
   /** Live ref for handlers that need to read the latest user-paused flag without re-running. */
   userPausedRef: React.MutableRefObject<boolean>;
-  /** Live ref for the player's reported play state. */
+  /** Setter for `userPaused`. Use from imperative paths (e.g. the imperative `unload()` ref handle)
+   *  to flip the flag without re-creating `togglePlayback`. */
   setUserPaused: (next: boolean) => void;
 }
 
@@ -63,8 +64,9 @@ export interface UseVideoCardPlayerResult {
  *
  * `activeSource` is held only while `holdSource` is true (set by the list-level playback
  * store's `ROW_BITS_PRELOAD` — currently active row + 1 behind + 2 ahead). Far rows get
- * `null` so AVPlayer doesn't open concurrent HLS manifests on Android (NSURLErrorDomain
- * -1008/-12884).
+ * `null` so the native player layer (AVPlayer on iOS, ExoPlayer on Android) doesn't open
+ * concurrent HLS manifests; on iOS specifically this surfaces as NSURLErrorDomain
+ * -1008 / -12884 once the threshold is exceeded.
  */
 export function useVideoCardPlayer({
   videoUrl,
@@ -202,7 +204,13 @@ export function useVideoCardPlayer({
   const shouldLoadVideo = !cannotShowMedia && !isBlurred && !!videoSource;
 
   return {
-    videoSource,
+    // Expose `activeSource`, not the static memo'd source. Consumers (the gesture layer)
+    // gate <ExpoVideoView player={player}> on this; a non-null value means the player has
+    // a real source loaded. Returning the static source here would mount <ExpoVideoView>
+    // for cards outside the preload window, where `useVideoPlayer(null)` has released the
+    // underlying native shared object — accessing player props (`preservesPitch`, etc) in
+    // React Fabric's dev-mode prop differ then throws NativeSharedObjectNotFoundException.
+    videoSource: activeSource,
     player,
     playerStatus,
     hasError,

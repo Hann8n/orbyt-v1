@@ -170,11 +170,18 @@ export function useVideoCardInteraction({
     if (pendingRef.current.isRepostPending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    const wasReposted = displayRef.current.isReposted;
-    const newIsReposted = !wasReposted;
+    // Snapshot the pre-mutation state up-front. By the time the request rejects,
+    // displayRef.current already reflects the optimistic delta, so the rollback
+    // would otherwise restore the post-optimistic values (no-op rollback).
+    const previous = {
+      isReposted: displayRef.current.isReposted,
+      repostCount: displayRef.current.repostCount,
+      repostUri: displayRef.current.repostUri,
+    };
+    const newIsReposted = !previous.isReposted;
     const newRepostCount = newIsReposted
-      ? displayRef.current.repostCount + 1
-      : Math.max(0, displayRef.current.repostCount - 1);
+      ? previous.repostCount + 1
+      : Math.max(0, previous.repostCount - 1);
 
     setOverlayState(prev => ({
       ...prev,
@@ -184,7 +191,7 @@ export function useVideoCardInteraction({
     }));
 
     try {
-      if (!wasReposted) {
+      if (!previous.isReposted) {
         const repostUri = await AtprotoFeedService.repostPost(postView.uri, postView.cid);
         setOverlayState(prev => ({ ...prev, repostUri }));
         updatePostInteraction(postView.uri, {
@@ -193,8 +200,8 @@ export function useVideoCardInteraction({
           repostUri,
         });
       } else {
-        if (!displayRef.current.repostUri) throw new Error('No repost URI found');
-        await AtprotoFeedService.deleteRepost(displayRef.current.repostUri);
+        if (!previous.repostUri) throw new Error('No repost URI found');
+        await AtprotoFeedService.deleteRepost(previous.repostUri);
         setOverlayState(prev => ({ ...prev, repostUri: undefined }));
         updatePostInteraction(postView.uri, {
           isReposted: false,
@@ -205,8 +212,9 @@ export function useVideoCardInteraction({
     } catch (_error) {
       setOverlayState(prev => ({
         ...prev,
-        isReposted: displayRef.current.isReposted,
-        repostCount: displayRef.current.repostCount,
+        isReposted: previous.isReposted,
+        repostCount: previous.repostCount,
+        repostUri: previous.repostUri,
       }));
     } finally {
       setOverlayState(prev => ({ ...prev, isRepostPending: false }));
