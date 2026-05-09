@@ -43,8 +43,11 @@ const SCRUBBER_TOUCH_AREA_HEIGHT = 32;
 const SCRUBBER_TOTAL_HEIGHT = SCRUBBER_TOUCH_AREA_HEIGHT + SCRUBBER_BAR_HEIGHT;
 const SCRUBBER_TRACK_CONTAINER_HEIGHT = 34;
 const SCRUBBER_BAR_HEIGHT_RANGE_PX = 5;
-const SCRUBBER_BAR_BASE_OPACITY = 0.72;
-const SCRUBBER_TRACK_OPACITY = 0.45;
+const SCRUBBER_BAR_BASE_OPACITY = 0.5;
+// When video is actively playing (not user-seeking), make the leading progress line brighter.
+const SCRUBBER_BAR_PLAYING_OPACITY = 0.9;
+// Reduce the inactive/background track opacity so it's less visually prominent.
+const SCRUBBER_TRACK_OPACITY = 0.2;
 
 function VideoScrubberActive({
   active,
@@ -355,6 +358,7 @@ function VideoScrubberActive({
   const progressBarStyle = useAnimatedStyle(() => {
     const isSeeking = isSeekingSV.get();
     const seekingAnim = seekingAnimationSV.get();
+    const isPlaying = isPlayingSV.get();
     const dur = durationSV.get();
     const currentTime = isSeeking ? seekProgressSV.get() : currentTimeSV.get();
     const width =
@@ -364,7 +368,11 @@ function VideoScrubberActive({
     return {
       width,
       height: seekingAnim * SCRUBBER_BAR_HEIGHT_RANGE_PX + SCRUBBER_BAR_HEIGHT,
-      opacity: interpolate(seekingAnim, [0, 1], [SCRUBBER_BAR_BASE_OPACITY, 1]),
+      opacity: interpolate(
+        seekingAnim,
+        [0, 1],
+        [isPlaying && !isSeeking ? SCRUBBER_BAR_PLAYING_OPACITY : SCRUBBER_BAR_BASE_OPACITY, 1]
+      ),
     };
   });
 
@@ -504,13 +512,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: Colors.neutral[50],
+    backgroundColor: Colors.brand.white,
     opacity: SCRUBBER_TRACK_OPACITY,
   },
   progressBar: {
     position: 'absolute',
     left: 0,
     bottom: 0,
-    backgroundColor: Colors.neutral[50],
+    backgroundColor: Colors.brand.white,
   },
 });
