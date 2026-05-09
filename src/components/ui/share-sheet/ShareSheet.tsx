@@ -82,7 +82,7 @@ const ShareSheet: React.FC = () => {
     setIsSheetPresented(false);
     dismissShareSheet(true);
     setShowConversationPicker(false);
-  }, [dismissShareSheet]);
+  }, [dismissShareSheet, setIsSheetPresented, setShowConversationPicker]);
 
   // Programmatic dismiss function for buttons
   const dismissSheet = useCallback(() => {
@@ -91,7 +91,7 @@ const ShareSheet: React.FC = () => {
   }, []);
 
   // Bookmark handler - instant optimistic update
-  const handleBookmark = useCallback(() => {
+  const handleBookmark = () => {
     if (!postUri) return;
 
     const newIsBookmarked = !isBookmarked;
@@ -142,45 +142,36 @@ const ShareSheet: React.FC = () => {
         }
       }
     })();
-  }, [postUri, postCid, isBookmarked, addBookmark, removeBookmark]);
+  };
 
   // Helper function to report content
-  const reportContent = useCallback(
-    async (reasonType: 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other') => {
-      if (!postUri) return;
+  const reportContent = async (reasonType: 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other') => {
+    if (!postUri) return;
 
-      // Optimistic update - mark as reported immediately and dismiss
-      const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
-      const store = useReportedPostsStore.getState();
-      store.reportPost(postUri);
-      dismissSheet();
+    // Optimistic update - mark as reported immediately and dismiss
+    const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
+    const store = useReportedPostsStore.getState();
+    store.reportPost(postUri);
+    dismissSheet();
 
-      // Show success message immediately
-      Alert.alert(t('common.thankYou'), t('alerts.contentReported'));
+    // Show success message immediately
+    Alert.alert(t('common.thankYou'), t('alerts.contentReported'));
 
-      // Perform report in background
-      try {
-        const success = await ModerationService.reportContent(postUri, reasonType);
-        if (!success) {
-          // Revert optimistic update on error - remove from reported set
-          const newSet = new Set(store.reportedPostUris);
-          newSet.delete(postUri);
-          store.reportedPostUris = newSet;
-          Alert.alert(t('common.error'), t('alerts.failedToReport'));
-        }
-      } catch (_error) {
-        // Revert optimistic update on error - remove from reported set
-        const newSet = new Set(store.reportedPostUris);
-        newSet.delete(postUri);
-        store.reportedPostUris = newSet;
+    // Perform report in background
+    try {
+      const success = await ModerationService.reportContent(postUri, reasonType);
+      if (!success) {
+        store.unreportPost(postUri);
         Alert.alert(t('common.error'), t('alerts.failedToReport'));
       }
-    },
-    [postUri, dismissSheet, t]
-  );
+    } catch (_error) {
+      store.unreportPost(postUri);
+      Alert.alert(t('common.error'), t('alerts.failedToReport'));
+    }
+  };
 
   // Report or delete post handler
-  const handleReportOrDelete = useCallback(() => {
+  const handleReportOrDelete = () => {
     // For current user, show delete option
     if (isCurrentUser) {
       Alert.alert(t('alerts.deletePost'), t('alerts.deletePostConfirm'), [
@@ -258,10 +249,10 @@ const ShareSheet: React.FC = () => {
         },
       ]);
     }
-  }, [dismissSheet, isCurrentUser, postUri, queryClient, reportContent, t]);
+  };
 
   // Share link handler
-  const handleShare = useCallback(async () => {
+  const handleShare = async () => {
     if (!postUri) return;
     try {
       // Extract rkey from AT URI: at://did:plc:abc123/app.bsky.feed.post/rkey
@@ -284,7 +275,7 @@ const ShareSheet: React.FC = () => {
     } catch (_error: unknown) {
       // ignore
     }
-  }, [postUri, authorHandle, authorDid, t]);
+  };
 
   const handleSend = useCallback(() => {
     setShowConversationPicker(true);

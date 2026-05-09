@@ -48,18 +48,20 @@ const RecordButton: React.FC<Props> = ({ isRecording, isLoading, disabled, onPre
     () =>
       Gesture.Pan()
         .minDistance(0)
+        // eslint-disable-next-line react-hooks/refs
         .onBegin(() => {
           'worklet';
           if (isDisabled.value) return;
           scale.value = withTiming(0.93, { duration: 60 });
           scheduleOnRN(fireDown);
         })
+        // eslint-disable-next-line react-hooks/refs
         .onFinalize(() => {
           'worklet';
           scale.value = withTiming(1, { duration: 120 });
           scheduleOnRN(fireUp);
         }),
-    [fireDown, fireUp, isDisabled, scale],
+    [fireDown, fireUp],
   );
 
   const animatedStyle = useAnimatedStyle(() => ({

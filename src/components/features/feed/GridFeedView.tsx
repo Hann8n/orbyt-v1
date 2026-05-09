@@ -366,20 +366,18 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     }, [useScrollTracking, headerHeight, viewportDimensions.height, itemSpacing]);
 
     const ListEl = ListComponent || (useScrollTracking ? AnimatedFlashList : FlashList);
-    const listProps = useMemo(() => {
-      const base: Record<string, unknown> = ListComponent ? {} : { ref: flashListRef };
-      base.decelerationRate =
-        Platform.OS === 'ios'
-          ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
-          : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID;
-      if (useScrollTracking) {
-        base.onScroll = scrollHandler;
-        base.scrollEventThrottle = APP_CONSTANTS.SCROLL_THROTTLE;
-        base.disableIntervalMomentum = true;
-        base.snapToOffsets = gridSnapToOffsets;
-      }
-      return base;
-    }, [ListComponent, useScrollTracking, scrollHandler, gridSnapToOffsets]);
+    const listProps = useMemo(() => ({
+      ...(ListComponent ? {} : { ref: flashListRef }),
+      decelerationRate: Platform.OS === 'ios'
+        ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+        : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID,
+      ...(useScrollTracking ? {
+        onScroll: scrollHandler,
+        scrollEventThrottle: APP_CONSTANTS.SCROLL_THROTTLE,
+        disableIntervalMomentum: true,
+        snapToOffsets: gridSnapToOffsets,
+      } : {}),
+    }), [ListComponent, useScrollTracking, scrollHandler, gridSnapToOffsets]);
 
     const separatorStyle = {
       height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,

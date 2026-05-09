@@ -1015,7 +1015,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         bumpReplyCountInFeedCacheData(old, post.uri, -1)
       );
     },
-    [post?.uri, queryClient, updatePostInteraction]
+    [post, queryClient, updatePostInteraction]
   );
 
   const handleTabPress = useCallback((tabId: string) => {

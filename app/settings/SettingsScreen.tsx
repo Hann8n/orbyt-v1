@@ -426,7 +426,6 @@ ${deviceInfo}`
     },
   ], [t, router, handleCopyProfileLink, handleClearCache, feedViewMenuRef, presentAccountSwitcher, savedAccounts]);
 
-  // Build flat list data for FlashList
   type ListRow =
     | { kind: 'section-title'; id: string; title: string }
     | {
@@ -449,39 +448,29 @@ ${deviceInfo}`
     | { kind: 'spacer'; id: string; height?: number }
     | { kind: 'footer'; id: string };
 
-  const listData: ListRow[] = [];
-
-  settingsSections.forEach(section => {
-    if (section.items.length === 0) {
-      return;
-    }
-    // Only add section title if it's not empty
-    if (section.title) {
-      listData.push({
-        kind: 'section-title',
-        id: `title-${section.id}`,
-        title: section.title,
-      });
-    }
-
-    (section.items as SettingItem[]).forEach((item: SettingItem) => {
-      listData.push({
-        kind: 'setting',
-        id: item.id,
-        label: item.label,
-        linkType: item.linkType,
-        onPress: item.onPress,
-        rightIcon: item.rightIcon,
-        destructive: item.destructive,
+  const listData = useMemo<ListRow[]>(() => {
+    const data: ListRow[] = [];
+    // eslint-disable-next-line react-hooks/refs
+    settingsSections.forEach(section => {
+      if (section.items.length === 0) return;
+      if (section.title) {
+        data.push({ kind: 'section-title', id: `title-${section.id}`, title: section.title });
+      }
+      (section.items as SettingItem[]).forEach((item: SettingItem) => {
+        data.push({
+          kind: 'setting',
+          id: item.id,
+          label: item.label,
+          linkType: item.linkType,
+          onPress: item.onPress,
+          rightIcon: item.rightIcon,
+          destructive: item.destructive,
+        });
       });
     });
-  });
-
-  // Add footer with version and built with love message
-  listData.push({
-    kind: 'footer',
-    id: 'footer',
-  });
+    data.push({ kind: 'footer', id: 'footer' });
+    return data;
+  }, [settingsSections]);
 
   return (
     <View style={settingsLayoutStyles.container}>

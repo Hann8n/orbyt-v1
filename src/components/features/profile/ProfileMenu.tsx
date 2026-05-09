@@ -120,7 +120,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         },
       ]);
     }
-  }, [profile?.did, profile?.handle, isBlocked, isBlockedByList, onDismiss, blockMutation, t]);
+  }, [profile, isBlocked, isBlockedByList, onDismiss, blockMutation, t]);
 
   // Mute/unmute handler
   const handleMuteToggle = useCallback(() => {
@@ -153,7 +153,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         },
       ]);
     }
-  }, [profile?.did, profile?.handle, isMuted, onDismiss, muteMutation, t]);
+  }, [profile, isMuted, onDismiss, muteMutation, t]);
 
   // Helper function to report account
   const reportAccount = useCallback(
@@ -175,7 +175,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         setIsSubmitting(false);
       }
     },
-    [profile?.did, onDismiss, t]
+    [profile, onDismiss, t]
   );
 
   // Report handler
@@ -335,6 +335,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           onPress: handleOpenOnBluesky,
           rightIcon: <Icon name="arrow_right_up" size={24} color={Colors.neutral[200]} />,
         },
+        // eslint-disable-next-line react-hooks/refs
         { id: 'reportOrBlock', label: t('profile.reportOrBlock'), onPress: handleReportOrBlock }
       );
 

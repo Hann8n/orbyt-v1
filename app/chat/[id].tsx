@@ -1941,8 +1941,7 @@ export default function ChatScreen() {
       ]);
     }
   }, [
-    profile?.did,
-    profile?.handle,
+    profile,
     otherDid,
     isBlocked,
     isBlockedByList,
