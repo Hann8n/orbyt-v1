@@ -26,9 +26,9 @@ export interface UseVideoCardInteractionResult {
   isLikePending: boolean;
   isRepostPending: boolean;
   /** Live ref of `display`; safe to read from gesture/runOnJS callbacks. */
-  displayRef: React.MutableRefObject<VideoCardInteractionDisplay>;
+  displayRef: React.RefObject<VideoCardInteractionDisplay>;
   /** Live ref of `{ isLikePending, isRepostPending }`. */
-  pendingRef: React.MutableRefObject<{ isLikePending: boolean; isRepostPending: boolean }>;
+  pendingRef: React.RefObject<{ isLikePending: boolean; isRepostPending: boolean }>;
   /** Toggle like (with double-tap haptic). Updates store + optimistic state. */
   handleLike: () => Promise<void>;
   /** Like-only (used by double-tap heart) — never unlikes. */

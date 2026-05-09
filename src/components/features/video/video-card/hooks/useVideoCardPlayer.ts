@@ -49,7 +49,7 @@ export interface UseVideoCardPlayerResult {
   firstFrameRendered: boolean;
   handleFirstFrameRender: () => void;
   /** Live ref for handlers that need to read the latest user-paused flag without re-running. */
-  userPausedRef: React.MutableRefObject<boolean>;
+  userPausedRef: React.RefObject<boolean>;
   /** Live ref for the player's reported play state. */
   setUserPaused: (next: boolean) => void;
 }

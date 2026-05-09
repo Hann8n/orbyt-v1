@@ -379,7 +379,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         base.snapToOffsets = gridSnapToOffsets;
       }
       return base;
-    }, [ListComponent, flashListRef, useScrollTracking, scrollHandler, gridSnapToOffsets]);
+    }, [ListComponent, useScrollTracking, scrollHandler, gridSnapToOffsets]);
 
     const separatorStyle = {
       height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
