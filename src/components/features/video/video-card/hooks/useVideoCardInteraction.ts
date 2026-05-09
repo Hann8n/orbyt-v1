@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useRecyclingState } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import { useShallow } from 'zustand/react/shallow';
@@ -125,13 +125,9 @@ export function useVideoCardInteraction({
     isLikePending: overlayState.isLikePending,
     isRepostPending: overlayState.isRepostPending,
   });
-  useEffect(() => {
-    displayRef.current = display;
-  }, [display]);
-  useEffect(() => {
-    pendingRef.current.isLikePending = overlayState.isLikePending;
-    pendingRef.current.isRepostPending = overlayState.isRepostPending;
-  }, [overlayState.isLikePending, overlayState.isRepostPending]);
+  displayRef.current = display;
+  pendingRef.current.isLikePending = overlayState.isLikePending;
+  pendingRef.current.isRepostPending = overlayState.isRepostPending;
 
   const likeStateForHook = useMemo(
     () => ({

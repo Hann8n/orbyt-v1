@@ -72,7 +72,6 @@ export interface VideoCardRef {
   pause: () => void;
   togglePlay: () => void;
   getDuration: () => number;
-  seekTo: (position: number) => void;
   seek: (position: number) => void;
   unload: () => void;
   playPause: (shouldPlay: boolean) => void;
@@ -165,17 +164,6 @@ function VideoCard({
   const recyclingKey = postView?.uri || postView?.cid || `item-${idx}`;
 
   // ── Player. ────────────────────────────────────────────────────────────────────────────
-  const playerCtx = useVideoCardPlayer({
-    videoUrl,
-    postUri: postView.uri,
-    feedOption,
-    isVisible,
-    holdSource,
-    shouldDisablePlayback,
-    cannotShowMedia,
-    isBlurred,
-    onVideoStatus,
-  });
   const {
     videoSource,
     player,
@@ -189,7 +177,17 @@ function VideoCard({
     handleFirstFrameRender,
     userPausedRef,
     setUserPaused,
-  } = playerCtx;
+  } = useVideoCardPlayer({
+    videoUrl,
+    postUri: postView.uri,
+    feedOption,
+    isVisible,
+    holdSource,
+    shouldDisablePlayback,
+    cannotShowMedia,
+    isBlurred,
+    onVideoStatus,
+  });
 
   useEffect(() => {
     if (!isVisible || !onUserPausedChange) return;
@@ -202,6 +200,7 @@ function VideoCard({
     isLikePending,
     isRepostPending,
     displayRef: displayInteractionRef,
+    pendingRef: overlayPendingRef,
     handleLike,
     handleLikeOnly,
     handleRepost,
@@ -220,21 +219,16 @@ function VideoCard({
   const followMutationRef = useRef(followMutation);
   const channelUriRef = useRef(author.channelUri);
   const queryClientRef = useRef(queryClient);
-  const overlayPendingRef = useRef({ isLikePending, isRepostPending });
 
   const { navigateToChannel: goToChannel, navigateToProfile } = useProfileChannelNavigation();
   const goToChannelRef = useRef(goToChannel);
   const navigateToProfileRef = useRef(navigateToProfile);
 
-  useEffect(() => {
-    followMutationRef.current = followMutation;
-    channelUriRef.current = author.channelUri;
-    queryClientRef.current = queryClient;
-    overlayPendingRef.current.isLikePending = isLikePending;
-    overlayPendingRef.current.isRepostPending = isRepostPending;
-    goToChannelRef.current = goToChannel;
-    navigateToProfileRef.current = navigateToProfile;
-  });
+  followMutationRef.current = followMutation;
+  channelUriRef.current = author.channelUri;
+  queryClientRef.current = queryClient;
+  goToChannelRef.current = goToChannel;
+  navigateToProfileRef.current = navigateToProfile;
 
   const handleChannelPress = useCallback(() => {
     const currentChannelUri = channelUriRef.current;
@@ -267,9 +261,7 @@ function VideoCard({
   );
 
   const repostedByRef = useRef(postView.repostedBy);
-  useEffect(() => {
-    repostedByRef.current = postView.repostedBy;
-  }, [postView.repostedBy]);
+  repostedByRef.current = postView.repostedBy;
   const handleRepostAuthorPress = useCallback(() => {
     const repostedBy = repostedByRef.current;
     const identifier = repostedBy?.handle;
@@ -349,7 +341,6 @@ function VideoCard({
         }
         return 0;
       },
-      seekTo: seek,
       seek,
       unload: () => {
         if (!player) return;

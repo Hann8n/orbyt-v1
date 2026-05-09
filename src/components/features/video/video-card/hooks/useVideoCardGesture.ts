@@ -155,12 +155,9 @@ export function useVideoCardGesture({
     return Gesture.Race(longPress, tap);
   }, [handleTap, handleLongPress, cardHeight]);
 
-  // Cleanup demux timer on unmount and on post change.
-  useEffect(() => {
-    return () => clearSingleTapTimer();
-  }, [clearSingleTapTimer]);
   useEffect(() => {
     clearSingleTapTimer();
+    return () => clearSingleTapTimer();
   }, [postUri, clearSingleTapTimer]);
 
   return { gesture, heartAnimatedStyle };

@@ -40,7 +40,6 @@ export interface UseVideoCardPlayerArgs {
 export interface UseVideoCardPlayerResult {
   videoSource: VideoSource | null;
   player: VideoPlayer | null;
-  playerStatus: string;
   hasError: boolean;
   shouldPlayVideo: boolean;
   shouldLoadVideo: boolean;
@@ -98,9 +97,7 @@ export function useVideoCardPlayer({
   ]);
 
   const userPausedRef = useRef(videoState.userPaused);
-  useEffect(() => {
-    userPausedRef.current = videoState.userPaused;
-  }, [videoState.userPaused]);
+  userPausedRef.current = videoState.userPaused;
 
   const setUserPaused = useCallback(
     (next: boolean) => {
@@ -204,7 +201,6 @@ export function useVideoCardPlayer({
   return {
     videoSource,
     player,
-    playerStatus,
     hasError,
     shouldPlayVideo,
     shouldLoadVideo,
