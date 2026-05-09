@@ -105,7 +105,7 @@ function VideoOverlayUI({
     return {
       contentPadding: padding,
       actionIconSize: iconSize,
-      authorAvatarSize: Math.round(Math.max(46, Math.min(64, width * 0.12))),
+      authorAvatarSize: Math.round(Math.max(40, Math.min(52, width * 0.1))),
       moreMenuIconSize: Math.max(Math.round(iconSize * 0.68), 18),
     };
   }, [width]);
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'column',
     justifyContent: 'flex-end',
-    gap: 6,
+    gap: 10,
     marginBottom: 0,
   },
 });
