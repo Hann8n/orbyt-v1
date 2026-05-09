@@ -434,6 +434,8 @@ function VideoCard({
   );
 
   // ── Prop bags for the layered children. ────────────────────────────────────────────────
+  // Active row's poster decodes ahead of preload neighbours' posters.
+  const posterPriority: 'low' | 'normal' | 'high' = isVisible ? 'high' : 'normal';
   const gestureVideoStackProps = useMemo(
     () => ({
       videoGesture: gesture,
@@ -450,6 +452,7 @@ function VideoCard({
       surfaceType: Platform.OS === 'android' ? ('textureView' as const) : undefined,
       textDimAnimatedStyle,
       heartAnimatedStyle,
+      posterPriority,
     }),
     [
       gesture,
@@ -465,6 +468,7 @@ function VideoCard({
       handleFirstFrameRender,
       textDimAnimatedStyle,
       heartAnimatedStyle,
+      posterPriority,
     ]
   );
 

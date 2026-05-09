@@ -35,6 +35,12 @@ export interface VideoCardMediaGestureLayerProps {
   surfaceType: 'textureView' | undefined;
   textDimAnimatedStyle: StyleProp<ViewStyle>;
   heartAnimatedStyle: StyleProp<ViewStyle>;
+  /**
+   * Decode-priority hint for the poster `<Image>`. Active-row posters get
+   * 'high' so they decode before any neighbours that are merely in the
+   * preload window; everything else stays at 'normal'.
+   */
+  posterPriority: 'low' | 'normal' | 'high';
 }
 
 const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
@@ -52,6 +58,7 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
   surfaceType,
   textDimAnimatedStyle,
   heartAnimatedStyle,
+  posterPriority,
 }: VideoCardMediaGestureLayerProps) {
   return (
     <GestureDetector gesture={videoGesture}>
@@ -63,6 +70,9 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
               contentFit="contain"
               style={styles.poster}
               recyclingKey={recyclingKey}
+              cachePolicy="memory-disk"
+              priority={posterPriority}
+              allowDownscaling
               accessible={false}
             />
           )}
