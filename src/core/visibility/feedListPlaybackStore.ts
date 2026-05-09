@@ -19,12 +19,10 @@ export const ROW_BITS_CHROME = 2 as const;
 /**
  * Bit 2: this row should hold an HLS source loaded into its `useVideoPlayer`.
  *
- * Asymmetric window so the next swipe target has a player that's already past
- * manifest fetch when the user advances. Tuned conservatively to keep the
- * concurrent native player count below the threshold that triggers manifest
- * thrash — on iOS this surfaces as NSURLErrorDomain (-1008 / -12884) on
- * AVPlayer; the Android ExoPlayer path has its own analogous failure modes
- * when too many sources are decoded in parallel.
+ * Asymmetric window so the next swipe target has a player that's already
+ * past manifest fetch when the user advances. Tuned conservatively to keep
+ * the concurrent AVPlayer count below the threshold that triggers
+ * NSURLErrorDomain manifest thrash on Android (-1008 / -12884).
  *
  *   active - 1  ──┐
  *   active        ├── 4 rows hold a source
