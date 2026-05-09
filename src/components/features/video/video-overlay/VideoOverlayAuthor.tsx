@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { NativePressable } from '@/components/ui/NativePressable';
+import { BlurView } from '@/components/ui/BlurView';
 import { sharedItemStyles } from '@/components/ui/ItemStyles';
 import { Avatar } from '../../../ui/UI';
-import { NanoIcon } from '../../../ui/NanoIcon';
 import { VerificationBadge, BotBadge } from '../../badging';
 import { Colors } from '../../../../theme';
 import { FontFamily, Typography } from '@/utils/components/typography';
@@ -72,6 +72,10 @@ function VideoOverlayAuthorComponent({
   const author = useMemo(() => post.author ?? {}, [post.author]);
   const profilePicUrl =
     author.avatar && author.avatar.startsWith('http') ? author.avatar : undefined;
+  const repostAvatarUrl =
+    post.repostedBy?.avatar && post.repostedBy.avatar.startsWith('http')
+      ? post.repostedBy.avatar
+      : undefined;
   const ringColor = profileColors?.textColor;
 
   const formattedAuthorHandle = formatHandle(author.handle);
@@ -127,20 +131,21 @@ function VideoOverlayAuthorComponent({
   return (
     <>
       {post.repostedBy ? (
-        <View style={styles.repostIndicatorBox}>
+        <BlurView intensity={30} tint="dark" style={styles.repostIndicatorBox}>
           <NativePressable
             style={styles.repostIndicatorContainer}
             onPress={onRepostAuthorPress}
             hitSlop={HIT_SLOP_12}
           >
-            <View style={styles.repostIconWrapper}>
-              <NanoIcon name="refresh-fill" size={24} color={Colors.neutral[200]} />
+            <View style={styles.repostAvatarWrapper}>
+              <Avatar uri={repostAvatarUrl} type="profile" size={22} />
             </View>
-            <Text style={repostIndicatorTextStyle}>
-              {t('feed.repostedBy', { handle: formattedRepostHandle })}
+            <Text style={repostIndicatorTextStyle} numberOfLines={1}>
+              <Text style={styles.repostHandleText}>{formattedRepostHandle}</Text>
+              <Text style={styles.repostSuffixText}>{' reposted'}</Text>
             </Text>
           </NativePressable>
-        </View>
+        </BlurView>
       ) : null}
 
       <View style={styles.authorInfoContainer}>
@@ -289,31 +294,49 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   repostIndicatorBox: {
-    backgroundColor: Colors.transparent,
-    borderRadius: BORDER_RADIUS.SMALL,
-    marginBottom: 0,
+    borderRadius: BORDER_RADIUS.FULL,
+    marginBottom: 2,
     alignSelf: 'flex-start',
+    overflow: 'hidden',
+    boxShadow: '0 6px 18px rgba(0, 0, 0, 0.16)',
   },
   repostIndicatorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingLeft: 0,
-    paddingRight: 4,
+    gap: 4,
+    paddingVertical: 3,
+    paddingLeft: 3,
+    paddingRight: 10,
+  },
+  repostAvatarWrapper: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   repostIndicatorText: {
-    color: Colors.neutral[200],
+    color: Colors.neutral[50],
     fontSize: Typography.sizes.bodySmall,
     fontFamily: FontFamily.semibold,
-    marginLeft: 6,
     includeFontPadding: false,
     lineHeight: Typography.lineHeights.bodySmall,
+    letterSpacing: 0.1,
+    flexShrink: 1,
   },
-  repostIconWrapper: {
-    opacity: 0.8,
+  repostHandleText: {
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.semibold,
+    color: Colors.neutral[50],
+  },
+  repostSuffixText: {
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.medium,
+    color: Colors.neutral[50],
+    opacity: 0.9,
   },
   repostTextOpacity: {
-    opacity: 0.8,
+    opacity: 1,
   },
 });
 
