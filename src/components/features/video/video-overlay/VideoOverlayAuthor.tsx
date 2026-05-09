@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semibold,
   },
   sourceText: {
-    fontSize: Typography.sizes.subtitle,
+    fontSize: Typography.sizes.body,
     fontFamily: FontFamily.bold,
   },
   sourceTextOpacity: {
