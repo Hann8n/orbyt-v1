@@ -7,7 +7,11 @@ import { VideoOverlayActions } from './video-overlay/VideoOverlayActions';
 import { VideoOverlayAuthor } from './video-overlay/VideoOverlayAuthor';
 import { VideoOverlayCaption } from './video-overlay/VideoOverlayCaption';
 import type { ProfileColorScheme } from '../../../utils/formatting/colors';
-import type { ExtendedPostView, StatusView } from '../../../services/api/types';
+import type {
+  ExtendedPostView,
+  ProfileViewWithOrbyt,
+  StatusView,
+} from '../../../services/api/types';
 
 const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
 
@@ -49,6 +53,9 @@ export interface VideoOverlayUIProps {
     profileColors: ProfileColorScheme | null | undefined;
     authorDid: string | null | undefined;
     authorProfileStatus: StatusView | null | undefined;
+    /** Verification slice from the by-DID profile cache. Threaded inline so
+     *  VerificationBadge can skip its own per-card `useProfile(handle)` query. */
+    verification: ProfileViewWithOrbyt['verification'];
   };
 }
 
@@ -127,6 +134,7 @@ function VideoOverlayUI({
   const isAuthorBlocked = authorProfileOverlay?.isAuthorBlocked ?? false;
   const profileColors = authorProfileOverlay?.profileColors;
   const authorProfileStatus = authorProfileOverlay?.authorProfileStatus;
+  const authorVerification = authorProfileOverlay?.verification;
 
   return (
     <Animated.View style={overlayContainerStyle} pointerEvents="box-none">
@@ -156,6 +164,7 @@ function VideoOverlayUI({
             isAuthorBlocked={isAuthorBlocked}
             authorProfileStatus={authorProfileStatus}
             profileColors={profileColors}
+            verification={authorVerification}
             onAuthorPress={onAuthorPress}
             onRepostAuthorPress={onRepostAuthorPress}
             onChannelPress={onChannelPress}
@@ -277,6 +286,7 @@ const arePropsEqual = (prev: VideoOverlayUIProps, next: VideoOverlayUIProps): bo
   if ((prevOverlay?.authorDid ?? null) !== (nextOverlay?.authorDid ?? null)) return false;
   if (prevOverlay?.authorProfileStatus !== nextOverlay?.authorProfileStatus) return false;
   if (prevOverlay?.profileColors !== nextOverlay?.profileColors) return false;
+  if (prevOverlay?.verification !== nextOverlay?.verification) return false;
 
   return true;
 };

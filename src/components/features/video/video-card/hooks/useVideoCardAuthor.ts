@@ -5,16 +5,28 @@ import { useFollowStore } from '../../../../../stores/followStore';
 import { isCurrentUser } from '../../../../../stores/profileInteractionStore';
 import { getProfileColors, type ProfileColorScheme } from '../../../../../utils/formatting/colors';
 import { getChannelBySlug } from '../../../../../utils/channels/orbyt';
-import type { ExtendedPostView, StatusView } from '../../../../../services/api/types';
+import type {
+  ExtendedPostView,
+  ProfileViewWithOrbyt,
+  StatusView,
+} from '../../../../../services/api/types';
 import type { UserState } from '../../../../../stores/userStore';
 
 type CurrentUser = UserState['currentUser'];
+
+/**
+ * Verification slice surfaced inline so VerificationBadge can short-circuit its
+ * own per-card `useProfile(handle)` query. Sourced from the by-DID profile
+ * cache that `warmProfileCacheFromFeed` populates per feed page.
+ */
+export type VideoCardVerification = ProfileViewWithOrbyt['verification'];
 
 export interface VideoCardAuthorOverlay {
   isAuthorBlocked: boolean;
   profileColors: ProfileColorScheme | null | undefined;
   authorDid: string | null | undefined;
   authorProfileStatus: StatusView | null | undefined;
+  verification: VideoCardVerification;
 }
 
 export interface UseVideoCardAuthorArgs {
@@ -70,6 +82,7 @@ export function useVideoCardAuthor({
       profileColors,
       authorDid,
       authorProfileStatus: cachedProfile?.status,
+      verification: cachedProfile?.verification,
     }),
     [
       cachedProfile?.viewer?.blocking,
@@ -77,6 +90,7 @@ export function useVideoCardAuthor({
       profileColors,
       authorDid,
       cachedProfile?.status,
+      cachedProfile?.verification,
     ]
   );
 
