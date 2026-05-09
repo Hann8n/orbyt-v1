@@ -1,4 +1,4 @@
-import React, { useState, useRef, type ComponentRef } from 'react';
+import React, { useState, useRef, useMemo, type ComponentRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Alert, Platform, ScrollView, Linking } from 'react-native';
 import { MenuView } from '@react-native-menu/menu';
@@ -234,7 +234,7 @@ ${deviceInfo}`
     items: SettingItem[];
   };
 
-  const settingsSections: SettingsSection[] = [
+  const settingsSections: SettingsSection[] = useMemo(() => [
     {
       id: 'profile',
       title: '', // No title for profile section
@@ -424,7 +424,7 @@ ${deviceInfo}`
         },
       ],
     },
-  ];
+  ], [t, router, handleCopyProfileLink, handleClearCache, feedViewMenuRef, presentAccountSwitcher, savedAccounts]);
 
   // Build flat list data for FlashList
   type ListRow =

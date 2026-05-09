@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import { AtprotoFeedService } from '@/services/api/feed/FeedService';
 
 type PostInteractionUpdate = {
@@ -32,9 +32,12 @@ export function useLikeInteraction<T extends BaseLikeState>({
   onLikeSuccess,
 }: UseLikeInteractionParams<T>) {
   const stateRef = useRef(state);
-  stateRef.current = state;
   const onLikeSuccessRef = useRef(onLikeSuccess);
-  onLikeSuccessRef.current = onLikeSuccess;
+
+  useLayoutEffect(() => {
+    stateRef.current = state;
+    onLikeSuccessRef.current = onLikeSuccess;
+  }, [state, onLikeSuccess]);
 
   const toggleLike = useCallback(async () => {
     const s = stateRef.current;

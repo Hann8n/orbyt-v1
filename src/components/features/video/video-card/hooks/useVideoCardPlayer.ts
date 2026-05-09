@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useEvent } from 'expo';
 import { useVideoPlayer, type VideoPlayer, type VideoSource } from 'expo-video';
 import { useRecyclingState } from '@shopify/flash-list';
@@ -97,7 +97,10 @@ export function useVideoCardPlayer({
   ]);
 
   const userPausedRef = useRef(videoState.userPaused);
-  userPausedRef.current = videoState.userPaused;
+
+  useLayoutEffect(() => {
+    userPausedRef.current = videoState.userPaused;
+  }, [videoState.userPaused]);
 
   const setUserPaused = useCallback(
     (next: boolean) => {

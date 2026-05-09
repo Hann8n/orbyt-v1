@@ -307,9 +307,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const seedActiveIndex =
       typeof initialScrollIndex === 'number' ? initialScrollIndex : feed.length > 0 ? 0 : -1;
     const activeVisibleIndexRef = useRef(seedActiveIndex);
-    const listPlaybackStore = useRef(
+    // useState lazy initializer creates the store once on mount — useMemo([seedActiveIndex])
+    // would recreate it when feed.length changes from 0→N, losing accumulated state.
+    const [listPlaybackStore] = useState(() =>
       createFeedListPlaybackStore({ activeIndex: seedActiveIndex })
-    ).current;
+    );
 
     const headerBlockingBaseSuppressedSV = useSharedValue(1);
 
@@ -468,16 +470,14 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       }
     }, [showEndOfFeed, endOfFeedEnabledSV, endOfFeedOverscrollOpacitySV]);
 
-    const onHashtagPressRef = useRef(onHashtagPress);
-    onHashtagPressRef.current = onHashtagPress;
-
     const listRenderExtraData = useMemo(
       () => ({
         cardHeight,
         feedOption,
         zoomTargetPostUri: zoomTargetPostUri ?? null,
+        onHashtagPress,
       }),
-      [cardHeight, feedOption, zoomTargetPostUri]
+      [cardHeight, feedOption, zoomTargetPostUri, onHashtagPress]
     );
 
     const renderItem = useCallback(
@@ -507,7 +507,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             feedOption={xd.feedOption}
             index={index}
             isAppleZoomTarget={isAppleZoomTarget}
-            onHashtagPress={onHashtagPressRef.current}
+            onHashtagPress={xd.onHashtagPress}
           />
         );
       },

@@ -2,6 +2,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -224,11 +225,13 @@ function VideoCard({
   const goToChannelRef = useRef(goToChannel);
   const navigateToProfileRef = useRef(navigateToProfile);
 
-  followMutationRef.current = followMutation;
-  channelUriRef.current = author.channelUri;
-  queryClientRef.current = queryClient;
-  goToChannelRef.current = goToChannel;
-  navigateToProfileRef.current = navigateToProfile;
+  useLayoutEffect(() => {
+    followMutationRef.current = followMutation;
+    channelUriRef.current = author.channelUri;
+    queryClientRef.current = queryClient;
+    goToChannelRef.current = goToChannel;
+    navigateToProfileRef.current = navigateToProfile;
+  }, [followMutation, author.channelUri, queryClient, goToChannel, navigateToProfile]);
 
   const handleChannelPress = useCallback(() => {
     const currentChannelUri = channelUriRef.current;
@@ -261,7 +264,10 @@ function VideoCard({
   );
 
   const repostedByRef = useRef(postView.repostedBy);
-  repostedByRef.current = postView.repostedBy;
+
+  useLayoutEffect(() => {
+    repostedByRef.current = postView.repostedBy;
+  }, [postView.repostedBy]);
   const handleRepostAuthorPress = useCallback(() => {
     const repostedBy = repostedByRef.current;
     const identifier = repostedBy?.handle;

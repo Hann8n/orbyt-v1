@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { View, StyleSheet, Share, Platform, Alert, Linking } from 'react-native';
@@ -301,7 +301,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   }, [onDismiss, queryClient, onLogout, signOut, t]);
 
   // Determine menu options based on profile type
-  const getMenuOptions = () => {
+  const menuOptions = useMemo(() => {
     if (isOwnProfile) {
       return [
         { id: 'share', label: t('profile.share'), onPress: handleShare },
@@ -340,9 +340,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
       return options;
     }
-  };
-
-  const menuOptions = getMenuOptions();
+  }, [isOwnProfile, t, handleShare, handleSwitchAccount, handleLogout, canMessage, did, onMessagePress, onDismiss, isMuted, handleMuteToggle, handleOpenOnBluesky, handleReportOrBlock]);
 
   return (
     <VerticalListSheet name="profile-menu-sheet" onDismiss={onDismiss}>

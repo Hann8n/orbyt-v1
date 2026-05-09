@@ -366,7 +366,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     }, [useScrollTracking, headerHeight, viewportDimensions.height, itemSpacing]);
 
     const ListEl = ListComponent || (useScrollTracking ? AnimatedFlashList : FlashList);
-    const listProps = (() => {
+    const listProps = useMemo(() => {
       const base: Record<string, unknown> = ListComponent ? {} : { ref: flashListRef };
       base.decelerationRate =
         Platform.OS === 'ios'
@@ -379,7 +379,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         base.snapToOffsets = gridSnapToOffsets;
       }
       return base;
-    })();
+    }, [ListComponent, flashListRef, useScrollTracking, scrollHandler, gridSnapToOffsets]);
 
     const separatorStyle = {
       height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
