@@ -24,7 +24,13 @@ export interface UseVideoCardPlayerArgs {
   postUri: string;
   feedOption?: string;
   isVisible: boolean;
-  renderHeavyChrome: boolean;
+  /**
+   * When true, hold an HLS source on this row's `useVideoPlayer` so the
+   * player buffers ahead of swipe. Computed by the list-level playback store
+   * (`ROW_BITS_PRELOAD`) — keeps source juggling out of this hook so the
+   * preload window can be tuned in one place.
+   */
+  holdSource: boolean;
   shouldDisablePlayback: boolean;
   cannotShowMedia: boolean;
   isBlurred: boolean;
@@ -55,23 +61,24 @@ export interface UseVideoCardPlayerResult {
  * gate. Carved out of VideoCard.tsx so the parent can stay small and so the player code can
  * be tested / iterated on independently.
  *
- * `activeSource` is held only while the row is visible or in the immediate preload window
- * (`renderHeavyChrome` covers ±1 from the active row); far rows pass `null` so AVPlayer
- * doesn't open concurrent HLS manifests on Android (NSURLErrorDomain -1008/-12884).
+ * `activeSource` is held only while `holdSource` is true (set by the list-level playback
+ * store's `ROW_BITS_PRELOAD` — currently active row + 1 behind + 2 ahead). Far rows get
+ * `null` so AVPlayer doesn't open concurrent HLS manifests on Android (NSURLErrorDomain
+ * -1008/-12884).
  */
 export function useVideoCardPlayer({
   videoUrl,
   postUri,
   feedOption,
   isVisible,
-  renderHeavyChrome,
+  holdSource,
   shouldDisablePlayback,
   cannotShowMedia,
   isBlurred,
   onVideoStatus,
 }: UseVideoCardPlayerArgs): UseVideoCardPlayerResult {
   const videoSource = useMemo(() => createVideoSource(videoUrl), [videoUrl]);
-  const activeSource = isVisible || renderHeavyChrome ? videoSource : null;
+  const activeSource = holdSource ? videoSource : null;
 
   const configureVideoPlayer = useCallback((player: VideoPlayer) => {
     player.loop = true;

@@ -18,6 +18,7 @@ import {
   FEED_LIST_PLAYBACK_OUTSIDE_BITS,
   ROW_BITS_CHROME,
   ROW_BITS_PLAYBACK,
+  ROW_BITS_PRELOAD,
 } from '../../../core/visibility';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { seenVideoService } from '../../../services/SeenVideoService';
@@ -140,6 +141,10 @@ function VideoCard({
   const renderHeavyChrome = listPlaybackAttached
     ? (rowBits & ROW_BITS_CHROME) !== 0
     : renderHeavyChromeFromProps;
+  // Source-hold window is decided list-side by ROW_BITS_PRELOAD (1 behind + 2 ahead).
+  // Outside a list (e.g. fullscreen video) FEED_LIST_PLAYBACK_OUTSIDE_BITS already has
+  // the bit set, so this collapses to "always hold a source".
+  const holdSource = (rowBits & ROW_BITS_PRELOAD) !== 0;
 
   // ── Layout. ────────────────────────────────────────────────────────────────────────────
   const { height: windowHeight } = useWindowDimensions();
@@ -165,7 +170,7 @@ function VideoCard({
     postUri: postView.uri,
     feedOption,
     isVisible,
-    renderHeavyChrome,
+    holdSource,
     shouldDisablePlayback,
     cannotShowMedia,
     isBlurred,
