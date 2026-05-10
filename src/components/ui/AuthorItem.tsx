@@ -179,7 +179,6 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const actualIsFollowing = cachedProfile?.viewer?.following ? true : isFollowing;
   const isBlocked = !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList);
 
-  // Automatically hide follow button for current user
   const isCurrentUserProfile = isCurrentUser(did, handle, currentUser);
   const shouldShowFollowButton = showFollowButton && !isCurrentUserProfile && !actualIsFollowing;
 

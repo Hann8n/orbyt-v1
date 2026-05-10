@@ -604,7 +604,6 @@ const ExploreScreen: React.FC = () => {
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => setIsSearchFocused(false)}
                   onSubmitEditing={() => {}}
                   autoCapitalize="none"
                   autoCorrect={false}

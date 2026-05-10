@@ -189,6 +189,7 @@ const ProfilesFeedRenderer = React.memo(
         showsVerticalScrollIndicator={
           profiles.length >= SCROLL_INDICATOR_CONSTANTS.SEARCH_RESULTS_MIN_ITEMS
         }
+        keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         onEndReached={handleLoadMore}
         onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
@@ -270,6 +271,7 @@ const ChannelsFeedRenderer = React.memo(
         showsVerticalScrollIndicator={
           channels.length >= SCROLL_INDICATOR_CONSTANTS.SEARCH_RESULTS_MIN_ITEMS
         }
+        keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         ListEmptyComponent={renderEmptyChannels}
       />
@@ -403,6 +405,7 @@ const VisitHistoryList = React.memo(
         showsVerticalScrollIndicator={
           visitHistory.length >= SCROLL_INDICATOR_CONSTANTS.SEARCH_RESULTS_MIN_ITEMS
         }
+        keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         ListEmptyComponent={renderVisitHistoryEmpty}
       />
