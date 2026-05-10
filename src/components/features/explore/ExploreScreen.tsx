@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import { View, StyleSheet, TextInput, StatusBar, Platform } from 'react-native';
@@ -8,13 +8,7 @@ import { Image } from 'expo-image';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
-import Reanimated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  interpolate,
-  Extrapolation,
-} from 'react-native-reanimated';
+import Reanimated, { useSharedValue, FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { navigateToEncodedChannelUri } from '@/utils/navigation/navigateEncodedChannel';
 import ProfileService, { useFollowMutation } from '@/services/data/ProfileService';
@@ -89,8 +83,6 @@ const ExploreScreen: React.FC = () => {
   const { debouncedQuery, clearPendingDebounce, setDebouncedQuery } =
     useExploreSearchDebounce(searchQuery);
 
-  const searchProgress = useSharedValue(0);
-  const contentOpacity = useSharedValue(1);
   const indicatorScrollProgress = useSharedValue(0);
   const handleSearchPageIndexChange = useCallback(
     (index: number) => {
@@ -127,7 +119,7 @@ const ExploreScreen: React.FC = () => {
     [followMutation]
   );
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (currentUser?.did) {
       ProfileService.setCurrentUserDid(currentUser.did);
     }
@@ -135,7 +127,7 @@ const ExploreScreen: React.FC = () => {
 
   const { data: fetchedHeaders = [], isPending: isHeadersPending } = useHeaders();
 
-  useEffect(() => {
+  React.useEffect(() => {
     setHasHeaderBannerError(false);
   }, [fetchedHeaders]);
 
@@ -225,7 +217,7 @@ const ExploreScreen: React.FC = () => {
     return ['profiles', 'channels'];
   }, [debouncedQuery.length]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (pages.length > 0 && !pages.includes(activeTab)) {
       setActiveTab(pages[0]);
     }
@@ -247,84 +239,6 @@ const ExploreScreen: React.FC = () => {
   const isSearching = isSearchFocused || debouncedQuery.length > 0;
   const useLiquidGlassSearchBar =
     Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
-
-  const searchBarAnimatedStyle = useAnimatedStyle(() => {
-    const shadowOpacity = interpolate(
-      searchProgress.value,
-      [0, 1],
-      [0.15, 0.25],
-      Extrapolation.CLAMP
-    );
-    return {
-      shadowOpacity,
-      elevation: interpolate(searchProgress.value, [0, 1], [5, 8], Extrapolation.CLAMP),
-    };
-  });
-
-  const searchResultsAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = searchProgress.value;
-    const translateY = interpolate(searchProgress.value, [0, 1], [-20, 0], Extrapolation.CLAMP);
-    return {
-      opacity,
-      transform: [{ translateY }],
-      pointerEvents: opacity > 0.5 ? 'auto' : 'none',
-    };
-  });
-
-  const searchTabsAnimatedStyle = useAnimatedStyle(() => {
-    return { opacity: searchProgress.value };
-  });
-
-  const searchContentAnimatedStyle = useAnimatedStyle(() => {
-    return { opacity: searchProgress.value };
-  });
-
-  const exploreContentAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: contentOpacity.value,
-      pointerEvents: contentOpacity.value > 0.5 ? 'auto' : 'none',
-    };
-  });
-
-  const topGradientAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(searchProgress.value, [0, 1], [1, 0], Extrapolation.CLAMP),
-  }));
-
-  useEffect(() => {
-    if (isSearching) {
-      // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue write
-      searchProgress.value = withTiming(1, {
-        duration: 200,
-      });
-      // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue write
-      contentOpacity.value = withTiming(0, {
-        duration: 200,
-      });
-    } else {
-      searchProgress.value = withTiming(0, {
-        duration: 200,
-      });
-      contentOpacity.value = withTiming(1, {
-        duration: 200,
-      });
-    }
-  }, [isSearching, searchProgress, contentOpacity]);
-
-  useExploreTabRefs({
-    flashListRef,
-    searchInputRef,
-    resetExploreSearch,
-    setIsSearchFocused,
-    isSearching,
-  });
-
-  const viewabilityConfig = useMemo(
-    () => ({
-      viewAreaCoveragePercentThreshold: 50,
-      minimumViewTime: 300,
-    }),
-    []
-  );
 
   const { data: activeChannels = [], isPending: isOrbytChannelsMetadataPending } =
     useOrbytChannels();
@@ -357,65 +271,6 @@ const ExploreScreen: React.FC = () => {
     () => (isHeaderVisible ? computedHeaderHeight : topChromeSpacerHeight),
     [computedHeaderHeight, isHeaderVisible, topChromeSpacerHeight]
   );
-
-  const loadingSuggestedItems = useMemo(() => {
-    return [{ type: 'loading' as const, variant: 'full' as const, key: 'loading-indicator' }];
-  }, []);
-
-  const suggestionsList: ListItem[] = useMemo(() => {
-    if (!hasSettledInitialSuggestions || isInitialSuggestionsLoading) {
-      return loadingSuggestedItems;
-    }
-    if (
-      spotlightFeedError &&
-      orbytChannelsError &&
-      !spotlightFeed?.length &&
-      !orbytChannelsData?.length
-    ) {
-      return [];
-    }
-
-    const data: ListItem[] = [];
-
-    if (spotlightFeed?.length) {
-      data.push({
-        type: 'section-header' as const,
-        title: t('feed.spotlight'),
-        key: 'spotlight-header',
-      });
-      data.push({
-        type: 'spotlight-videos' as const,
-        videos: spotlightFeed,
-        key: 'spotlight-videos',
-      });
-    }
-
-    if (orbytChannelsData?.length) {
-      data.push({
-        type: 'section-header' as const,
-        title: t('feed.channels'),
-        key: 'orbyt-channels-header',
-      });
-      data.push({
-        type: 'orbyt-channels-section' as const,
-        channels: orbytChannelsData,
-        key: 'orbyt-channels',
-      });
-    }
-
-    return data;
-  }, [
-    isInitialSuggestionsLoading,
-    hasSettledInitialSuggestions,
-    loadingSuggestedItems,
-    spotlightFeedError,
-    orbytChannelsError,
-    spotlightFeed,
-    orbytChannelsData,
-    t,
-  ]);
-
-  const listData = suggestionsList;
 
   const renderSearchTabContent = useCallback(
     (tabId: ExploreSearchTabId) => (
@@ -527,6 +382,79 @@ const ExploreScreen: React.FC = () => {
     [t, activeHeaderHeight, bottomPadding, queryClient, goToProfile, handleFollow, screenHeight]
   );
 
+  useExploreTabRefs({
+    flashListRef,
+    searchInputRef,
+    resetExploreSearch,
+    setIsSearchFocused,
+    isSearching,
+  });
+
+  const viewabilityConfig = useMemo(
+    () => ({
+      viewAreaCoveragePercentThreshold: 50,
+      minimumViewTime: 300,
+    }),
+    []
+  );
+
+  const loadingSuggestedItems = useMemo(() => {
+    return [{ type: 'loading' as const, variant: 'full' as const, key: 'loading-indicator' }];
+  }, []);
+
+  const suggestionsList: ListItem[] = useMemo(() => {
+    if (!hasSettledInitialSuggestions || isInitialSuggestionsLoading) {
+      return loadingSuggestedItems;
+    }
+    if (
+      spotlightFeedError &&
+      orbytChannelsError &&
+      !spotlightFeed?.length &&
+      !orbytChannelsData?.length
+    ) {
+      return [];
+    }
+
+    const data: ListItem[] = [];
+
+    if (spotlightFeed?.length) {
+      data.push({
+        type: 'section-header' as const,
+        title: t('feed.spotlight'),
+        key: 'spotlight-header',
+      });
+      data.push({
+        type: 'spotlight-videos' as const,
+        videos: spotlightFeed,
+        key: 'spotlight-videos',
+      });
+    }
+
+    if (orbytChannelsData?.length) {
+      data.push({
+        type: 'section-header' as const,
+        title: t('feed.channels'),
+        key: 'orbyt-channels-header',
+      });
+      data.push({
+        type: 'orbyt-channels-section' as const,
+        channels: orbytChannelsData,
+        key: 'orbyt-channels',
+      });
+    }
+
+    return data;
+  }, [
+    isInitialSuggestionsLoading,
+    hasSettledInitialSuggestions,
+    loadingSuggestedItems,
+    spotlightFeedError,
+    orbytChannelsError,
+    spotlightFeed,
+    orbytChannelsData,
+    t,
+  ]);
+
   const listHeaderComponent = useMemo(() => {
     if (isHeaderVisible) {
       return (
@@ -550,142 +478,16 @@ const ExploreScreen: React.FC = () => {
     <View style={[styles.container, Platform.OS === 'android' && styles.androidPaddingTop]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.transparent} translucent={true} />
 
-      <SafeAreaView
-        edges={['top']}
-        style={[
-          styles.searchSafeArea,
-          {
-            minHeight: EXPLORE_SEARCH_LAYOUT.BAR_OFFSET_TOP + EXPLORE_SEARCH_LAYOUT.BAR_HEIGHT,
-          },
-        ]}
-        pointerEvents="box-none"
-      >
-        <Reanimated.View
-          pointerEvents="none"
-          style={[styles.topGradient, styles.topGradientExploreHeight, topGradientAnimatedStyle]}
-        >
-          <Image source={GRADIENT_SHIM} style={StyleSheet.absoluteFill} contentFit="fill" />
-        </Reanimated.View>
-
-        <NativePressable
-          onPress={() => searchInputRef.current?.focus()}
-          style={styles.searchBarPressable}
-        >
-          <Reanimated.View style={searchBarAnimatedStyle}>
-            <SquircleView
-              style={[
-                styles.searchContainer,
-                useLiquidGlassSearchBar
-                  ? styles.searchContainerLiquidGlass
-                  : styles.searchContainerTintedWhite,
-                {
-                  top: EXPLORE_SEARCH_LAYOUT.BAR_OFFSET_TOP,
-                  height: EXPLORE_SEARCH_LAYOUT.BAR_HEIGHT,
-                },
-              ]}
-            >
-              {useLiquidGlassSearchBar && (
-                <GlassView
-                  style={styles.searchContainerGlassBackground}
-                  glassEffectStyle="clear"
-                  tintColor={Colors.neutral[50]}
-                />
-              )}
-              <View style={styles.searchBarContent} pointerEvents="box-none">
-                <View style={styles.searchIconContainer}>
-                  <SearchIcon size={24} color={Colors.black} style={styles.searchIconMirror} />
-                </View>
-                <TextInput
-                  ref={searchInputRef}
-                  nativeID="explore-search-input"
-                  style={styles.searchInput}
-                  placeholder={t('feed.searchPlaceholder')}
-                  placeholderTextColor={Colors.neutral[500]}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onSubmitEditing={() => {}}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="off"
-                  textContentType="none"
-                  importantForAutofill="no"
-                  keyboardAppearance="dark"
-                  returnKeyType="search"
-                  caretHidden={false}
-                />
-                {isSearching && (
-                  <NativePressable
-                    onPress={resetExploreSearch}
-                    style={styles.clearButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Icon name="close-circle" size={22.5} color={Colors.neutral[900]} />
-                  </NativePressable>
-                )}
-              </View>
-            </SquircleView>
-          </Reanimated.View>
-        </NativePressable>
-      </SafeAreaView>
-
-      <Reanimated.View
-        style={[StyleSheet.absoluteFill, searchResultsAnimatedStyle]}
-        pointerEvents={isSearching ? 'auto' : 'none'}
-      >
-        {isSearching && (
-          <SafeAreaView edges={['top']} style={styles.searchResultsSafeArea}>
-            <View
-              style={[styles.exploreSearchResultsTopInset, { height: exploreSearchChromeHeight }]}
-              pointerEvents="none"
-            />
-            <Reanimated.View style={[styles.searchTabsContainer, searchTabsAnimatedStyle]}>
-              <View style={styles.indicatorContainer}>
-                {pages.map((tabId, tabIndex) => (
-                  <ExploreSearchTabIndicator
-                    key={tabId}
-                    tabId={tabId}
-                    tabIndex={tabIndex}
-                    onPress={() => handleIndicatorTap(tabId)}
-                    indicatorScrollProgress={indicatorScrollProgress}
-                    t={t}
-                  />
-                ))}
-              </View>
-            </Reanimated.View>
-
-            <Reanimated.View style={[styles.searchContentWrapper, searchContentAnimatedStyle]}>
-              <SearchSwipePager
-                ref={searchPagerRef}
-                activeTab={activeTab}
-                onActiveTabChange={setActiveTab}
-                onPageIndexChange={handleSearchPageIndexChange}
-                pages={pages}
-                renderTabContent={renderSearchTabContent}
-              />
-            </Reanimated.View>
-          </SafeAreaView>
-        )}
-      </Reanimated.View>
-
-      <Reanimated.View
-        style={[StyleSheet.absoluteFill, exploreContentAnimatedStyle]}
-        pointerEvents={!isSearching ? 'auto' : 'none'}
-      >
+      <View style={StyleSheet.absoluteFill}>
         <FlashList<ListItem>
           ref={flashListRef}
           ListHeaderComponent={listHeaderComponent}
-          data={listData}
+          data={suggestionsList}
           keyExtractor={exploreListKeyExtractor}
           renderItem={renderExploreItem}
-          contentContainerStyle={[
-            styles.listContainer,
-            {
-              paddingBottom: bottomPadding,
-            },
-          ]}
+          contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding }]}
           showsVerticalScrollIndicator={
-            listData.length >= SCROLL_INDICATOR_CONSTANTS.EXPLORE_SUGGESTIONS_MIN_ITEMS
+            suggestionsList.length >= SCROLL_INDICATOR_CONSTANTS.EXPLORE_SUGGESTIONS_MIN_ITEMS
           }
           bounces={true}
           scrollEventThrottle={16}
@@ -694,7 +496,124 @@ const ExploreScreen: React.FC = () => {
           viewabilityConfig={viewabilityConfig}
           ListEmptyComponent={renderExploreListEmpty}
         />
-      </Reanimated.View>
+      </View>
+
+      {/* Search overlay — conditionally mounted with enter/exit animations */}
+      {isSearching && (
+        <Reanimated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
+          style={StyleSheet.absoluteFill}
+        >
+          <SafeAreaView edges={['top']} style={styles.searchResultsSafeArea}>
+            <View
+              style={[styles.exploreSearchResultsTopInset, { height: exploreSearchChromeHeight }]}
+              pointerEvents="none"
+            />
+            <View style={styles.indicatorContainer}>
+              {pages.map((tabId, tabIndex) => (
+                <ExploreSearchTabIndicator
+                  key={tabId}
+                  tabId={tabId}
+                  tabIndex={tabIndex}
+                  onPress={() => handleIndicatorTap(tabId)}
+                  indicatorScrollProgress={indicatorScrollProgress}
+                  t={t}
+                />
+              ))}
+            </View>
+            <View style={styles.searchContentWrapper}>
+              <SearchSwipePager
+                ref={searchPagerRef}
+                activeTab={activeTab}
+                onActiveTabChange={setActiveTab}
+                onPageIndexChange={handleSearchPageIndexChange}
+                pages={pages}
+                renderTabContent={renderSearchTabContent}
+              />
+            </View>
+          </SafeAreaView>
+        </Reanimated.View>
+      )}
+
+      {/* Search bar — always on top */}
+      <SafeAreaView
+        edges={['top']}
+        style={[
+          styles.searchSafeArea,
+          { minHeight: EXPLORE_SEARCH_LAYOUT.BAR_OFFSET_TOP + EXPLORE_SEARCH_LAYOUT.BAR_HEIGHT },
+        ]}
+        pointerEvents="box-none"
+      >
+        {!isSearching && (
+          <Reanimated.View
+            pointerEvents="none"
+            exiting={FadeOut.duration(100)}
+            style={[styles.topGradient, styles.topGradientExploreHeight]}
+          >
+            <Image source={GRADIENT_SHIM} style={StyleSheet.absoluteFill} contentFit="fill" />
+          </Reanimated.View>
+        )}
+
+        <NativePressable
+          onPress={() => searchInputRef.current?.focus()}
+          style={styles.searchBarPressable}
+        >
+          <SquircleView
+            style={[
+              styles.searchContainer,
+              useLiquidGlassSearchBar
+                ? styles.searchContainerLiquidGlass
+                : styles.searchContainerTintedWhite,
+              {
+                top: EXPLORE_SEARCH_LAYOUT.BAR_OFFSET_TOP,
+                height: EXPLORE_SEARCH_LAYOUT.BAR_HEIGHT,
+              },
+            ]}
+          >
+            {useLiquidGlassSearchBar && (
+              <GlassView
+                style={styles.searchContainerGlassBackground}
+                glassEffectStyle="clear"
+                tintColor={Colors.neutral[50]}
+              />
+            )}
+            <View style={styles.searchBarContent} pointerEvents="box-none">
+              <View style={styles.searchIconContainer}>
+                <SearchIcon size={24} color={Colors.black} style={styles.searchIconMirror} />
+              </View>
+              <TextInput
+                ref={searchInputRef}
+                nativeID="explore-search-input"
+                style={styles.searchInput}
+                placeholder={t('feed.searchPlaceholder')}
+                placeholderTextColor={Colors.neutral[500]}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onFocus={() => setIsSearchFocused(true)}
+                onSubmitEditing={() => {}}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="off"
+                textContentType="none"
+                importantForAutofill="no"
+                keyboardAppearance="dark"
+                returnKeyType="search"
+                caretHidden={false}
+              />
+              {isSearching && (
+                <NativePressable
+                  onPress={resetExploreSearch}
+                  style={styles.clearButton}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Icon name="close-circle" size={22.5} color={Colors.neutral[900]} />
+                </NativePressable>
+              )}
+            </View>
+          </SquircleView>
+        </NativePressable>
+      </SafeAreaView>
     </View>
   );
 };
