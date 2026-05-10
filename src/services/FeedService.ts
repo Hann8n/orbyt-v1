@@ -9,6 +9,7 @@ import { logger } from '../utils/logger';
 import { QUERY_CONSTANTS } from '../utils/constants';
 import type {
   ExtendedFeedViewPost,
+  ExtendedPostView,
   FeedResponse,
   ProfileViewBasic,
   GeneratorView,
@@ -346,7 +347,7 @@ class FeedService {
       } else if (feedOptionForAPI === 'bookmarks' && userDid) {
         const bookmarksResponse = await BookmarkService.getBookmarks(cursor || undefined, limit);
         // Transform bookmarks to feed items
-        const feed = bookmarksResponse.bookmarks.map((bookmark: any) => ({
+        const feed = bookmarksResponse.bookmarks.map((bookmark: ExtendedPostView) => ({
           post: bookmark,
           uniqueKey: bookmark.uri,
         }));

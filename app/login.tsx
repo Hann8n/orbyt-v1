@@ -134,14 +134,14 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
     () => ({
       paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom + 16 : 16,
     }),
-    [insets?.bottom]
+    [insets]
   );
   const containerInsetStyle = useMemo(
     () => ({
       paddingTop: typeof insets?.top === 'number' ? insets.top : 0,
       paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
     }),
-    [insets?.top, insets?.bottom]
+    [insets]
   );
 
   const handleSavedAccountLogin = async (account: SavedAccount) => {

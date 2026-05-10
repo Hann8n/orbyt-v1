@@ -12,22 +12,23 @@ import '@formatjs/intl-segmenter/polyfill.js';
 // The 'buffer' package is included in package.json already.
 // This ensures libraries using Buffer won't crash in React Native.
 import { Buffer } from 'buffer';
-declare const global: any;
-if (typeof global.Buffer === 'undefined') {
-  global.Buffer = Buffer;
+if (!('Buffer' in globalThis)) {
+  Object.assign(globalThis, { Buffer });
 }
 
 // DOMException is required by abortcontroller-polyfill
-if (typeof global.DOMException === 'undefined') {
-  global.DOMException = class DOMException extends Error {
-    name: string;
-    code: number;
-    constructor(message: string, name: string = 'Error') {
-      super(message);
-      this.name = name;
-      this.code = 0;
-    }
-  };
+if (!('DOMException' in globalThis)) {
+  Object.assign(globalThis, {
+    DOMException: class DOMException extends Error {
+      name: string;
+      code: number;
+      constructor(message: string, name = 'Error') {
+        super(message);
+        this.name = name;
+        this.code = 0;
+      }
+    },
+  });
 }
 
 import 'abortcontroller-polyfill/dist/polyfill-patch-fetch';

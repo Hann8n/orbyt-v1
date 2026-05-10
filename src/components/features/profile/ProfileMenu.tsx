@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { View, StyleSheet, Share, Platform, Alert, Linking } from 'react-native';
@@ -120,7 +120,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         },
       ]);
     }
-  }, [profile?.did, profile?.handle, isBlocked, isBlockedByList, onDismiss, blockMutation, t]);
+  }, [profile, isBlocked, isBlockedByList, onDismiss, blockMutation, t]);
 
   // Mute/unmute handler
   const handleMuteToggle = useCallback(() => {
@@ -153,7 +153,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         },
       ]);
     }
-  }, [profile?.did, profile?.handle, isMuted, onDismiss, muteMutation, t]);
+  }, [profile, isMuted, onDismiss, muteMutation, t]);
 
   // Helper function to report account
   const reportAccount = useCallback(
@@ -175,7 +175,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         setIsSubmitting(false);
       }
     },
-    [profile?.did, onDismiss, t]
+    [profile, onDismiss, t]
   );
 
   // Report handler
@@ -301,7 +301,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   }, [onDismiss, queryClient, onLogout, signOut, t]);
 
   // Determine menu options based on profile type
-  const getMenuOptions = () => {
+  const menuOptions = useMemo(() => {
     if (isOwnProfile) {
       return [
         { id: 'share', label: t('profile.share'), onPress: handleShare },
@@ -335,14 +335,27 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           onPress: handleOpenOnBluesky,
           rightIcon: <Icon name="arrow_right_up" size={24} color={Colors.neutral[200]} />,
         },
+        // eslint-disable-next-line react-hooks/refs
         { id: 'reportOrBlock', label: t('profile.reportOrBlock'), onPress: handleReportOrBlock }
       );
 
       return options;
     }
-  };
-
-  const menuOptions = getMenuOptions();
+  }, [
+    isOwnProfile,
+    t,
+    handleShare,
+    handleSwitchAccount,
+    handleLogout,
+    canMessage,
+    did,
+    onMessagePress,
+    onDismiss,
+    isMuted,
+    handleMuteToggle,
+    handleOpenOnBluesky,
+    handleReportOrBlock,
+  ]);
 
   return (
     <VerticalListSheet name="profile-menu-sheet" onDismiss={onDismiss}>
@@ -360,10 +373,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       </View>
 
       {/* Submenu sheet for Report or Block - defined within parent sheet */}
-      <AppTrueSheet
-        ref={submenuSheetRef}
-        name="profile-menu-submenu"
-      >
+      <AppTrueSheet ref={submenuSheetRef} name="profile-menu-submenu">
         <View
           style={[
             styles.submenuContent,

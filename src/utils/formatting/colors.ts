@@ -53,16 +53,22 @@ export const getContrastRatio = (color1: string, color2: string): number => {
 
 export const enhanceColorSaturation = (hex: string, saturationBoost: number = 1.3): string => {
   const [r, g, b] = parseHex(hex);
-  const cmax = Math.max(r, g, b), cmin = Math.min(r, g, b);
-  const delta = cmax - cmin, l = (cmax + cmin) / 2;
+  const cmax = Math.max(r, g, b),
+    cmin = Math.min(r, g, b);
+  const delta = cmax - cmin,
+    l = (cmax + cmin) / 2;
   if (delta === 0) return hex;
   let h = 0;
   if (cmax === r) h = ((g - b) / delta) % 6;
   else if (cmax === g) h = (b - r) / delta + 2;
   else h = (r - g) / delta + 4;
   h = (((h / 6) % 1) + 1) % 1;
-  const s = Math.min(1, (l > 0.5 ? delta / (2 - cmax - cmin) : delta / (cmax + cmin)) * saturationBoost);
-  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const s = Math.min(
+    1,
+    (l > 0.5 ? delta / (2 - cmax - cmin) : delta / (cmax + cmin)) * saturationBoost
+  );
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s,
+    p = 2 * l - q;
   const hue2rgb = (p2: number, q2: number, t: number) => {
     if (t < 0) t += 1;
     if (t > 1) t -= 1;

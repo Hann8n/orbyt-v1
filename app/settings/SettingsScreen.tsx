@@ -1,4 +1,4 @@
-import React, { useState, useRef, type ComponentRef } from 'react';
+import React, { useState, useRef, useMemo, useCallback, type ComponentRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Alert, Platform, ScrollView, Linking } from 'react-native';
 import { MenuView } from '@react-native-menu/menu';
@@ -35,7 +35,7 @@ const SettingsScreen: React.FC = () => {
   const setProfileFeedViewMode = useUserStore(state => state.setProfileFeedViewMode);
   const feedViewMenuRef = useRef<ComponentRef<typeof MenuView>>(null);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     if (isSubmitting) return;
 
     Alert.alert(t('alerts.logOut'), t('alerts.logOutConfirm'), [
@@ -59,7 +59,6 @@ const SettingsScreen: React.FC = () => {
 
             posthog.capture('user_signed_out', eventProperties);
             posthog.reset();
-            // Use userStore to handle logout without removing accounts (clearAllAccounts = false)
             await onLogout(false);
           } catch (_error) {
             Alert.alert(t('common.error'), t('errors.logoutFailed'));
@@ -69,9 +68,9 @@ const SettingsScreen: React.FC = () => {
         },
       },
     ]);
-  };
+  }, [isSubmitting, t, currentUser, onLogout]);
 
-  const handleRemoveAccount = async () => {
+  const handleRemoveAccount = useCallback(async () => {
     if (isSubmitting) return;
 
     const hasMultipleAccounts = savedAccounts.length > 1;
@@ -96,7 +95,6 @@ const SettingsScreen: React.FC = () => {
         onPress: async () => {
           setIsSubmitting(true);
           try {
-            // Use userStore to handle account removal (clearAllAccounts = true)
             await onLogout(true);
           } catch (_error) {
             Alert.alert(t('common.error'), t('errors.accountSwitchFailed'));
@@ -106,16 +104,15 @@ const SettingsScreen: React.FC = () => {
         },
       },
     ]);
-  };
+  }, [isSubmitting, savedAccounts, t, onLogout]);
 
-  const handleCopyProfileLink = async () => {
+  const handleCopyProfileLink = useCallback(async () => {
     if (!currentUser?.handle && !currentUser?.did) {
       Alert.alert(t('common.error'), t('errors.unexpected'));
       return;
     }
 
     try {
-      // Use DID if handle ends with .invalid, otherwise use handle
       const handle = currentUser?.handle;
       const identifier = handle && !handle.endsWith('.invalid') ? handle : currentUser?.did;
       if (!identifier) {
@@ -126,16 +123,15 @@ const SettingsScreen: React.FC = () => {
       const profileUrl = `https://getorbyt.com/@${identifier}`;
       await Clipboard.setStringAsync(profileUrl);
       setIsProfileLinkCopied(true);
-      // Reset the copied state after 4 seconds
       setTimeout(() => {
         setIsProfileLinkCopied(false);
       }, 4000);
-    } catch (_error) {
-      // Ignore clipboard errors
+    } catch {
+      // ignore clipboard errors
     }
-  };
+  }, [currentUser, t]);
 
-  const handleClearCache = async () => {
+  const handleClearCache = useCallback(async () => {
     Alert.alert(t('settings.clearCacheConfirm'), t('settings.clearCacheMessage'), [
       {
         text: t('common.cancel'),
@@ -146,50 +142,49 @@ const SettingsScreen: React.FC = () => {
         style: 'default',
         onPress: async () => {
           try {
-            // Clear React Query cache
             queryClient.clear();
-
             Alert.alert(t('common.success'), t('settings.cacheCleared'));
-          } catch (_error) {
-            // Ignore cache clear failures
+          } catch {
+            // ignore cache clear failures
           }
         },
       },
     ]);
-  };
+  }, [t, queryClient]);
 
-  const handleOpenLink = (url: string) => {
+  const handleOpenLink = useCallback((url: string) => {
     Linking.openURL(url).catch(() => {});
-  };
+  }, []);
 
-  const handleOpenEmail = async (email: string) => {
-    try {
-      const deviceInfo = await getDeviceInfo();
-      const subject = encodeURIComponent(t('settings.emailSubjectSupport'));
-      const body = encodeURIComponent(
-        `
+  const handleOpenEmail = useCallback(
+    async (email: string) => {
+      try {
+        const deviceInfo = await getDeviceInfo();
+        const subject = encodeURIComponent(t('settings.emailSubjectSupport'));
+        const body = encodeURIComponent(
+          `
 
 ----------------------------------------
 Device Information (do not edit below this line):
 ${deviceInfo}`
-      );
-      const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
+        );
+        const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
 
-      const canOpen = await Linking.canOpenURL(`mailto:${email}`);
-      if (canOpen) {
-        await Linking.openURL(mailtoUrl);
-      } else {
-        // Fallback: Copy email body to clipboard
-        await Clipboard.setStringAsync(`${email}\n\n${deviceInfo}`);
-        Alert.alert(t('settings.emailCopied'), t('settings.emailCopiedMessage'), [
-          { text: t('common.ok') },
-        ]);
+        const canOpen = await Linking.canOpenURL(`mailto:${email}`);
+        if (canOpen) {
+          await Linking.openURL(mailtoUrl);
+        } else {
+          await Clipboard.setStringAsync(`${email}\n\n${deviceInfo}`);
+          Alert.alert(t('settings.emailCopied'), t('settings.emailCopiedMessage'), [
+            { text: t('common.ok') },
+          ]);
+        }
+      } catch {
+        Linking.openURL(`mailto:${email}`).catch(() => {});
       }
-    } catch (_error) {
-      // Fallback: Just open basic mailto
-      Linking.openURL(`mailto:${email}`).catch(() => {});
-    }
-  };
+    },
+    [t]
+  );
 
   const formattedVersion = getFormattedVersion();
 
@@ -234,199 +229,214 @@ ${deviceInfo}`
     items: SettingItem[];
   };
 
-  const settingsSections: SettingsSection[] = [
-    {
-      id: 'profile',
-      title: '', // No title for profile section
-      items: [
-        {
-          id: 'followers',
-          label: t('settings.yourFollowers'),
-          icon: 'users',
-          onPress: () => router.navigate('/settings/followers'),
-          linkType: 'internal',
-        },
-        {
-          id: 'following',
-          label: t('settings.peopleYouFollow'),
-          icon: 'user-plus',
-          onPress: () => router.navigate('/settings/following'),
-          linkType: 'internal',
-        },
-      ],
-    },
-    {
-      id: 'sharing',
-      title: t('settings.sharing'),
-      items: [
-        {
-          id: 'copy-profile-link',
-          label: t('settings.copyProfileLink'),
-          onPress: handleCopyProfileLink,
-          linkType: 'none',
-        },
-      ],
-    },
-    {
-      id: 'privacy',
-      title: t('settings.privacy'),
-      items: [
-        {
-          id: 'blocked-users',
-          label: t('settings.blockedAccounts'),
-          onPress: () => router.navigate('/settings/blocked'),
-          linkType: 'internal',
-        },
-        {
-          id: 'muted-users',
-          label: t('settings.mutedAccounts'),
-          onPress: () => router.navigate('/settings/muted'),
-          linkType: 'internal',
-        },
-      ],
-    },
-    {
-      id: 'app-settings',
-      title: t('settings.appSettings'),
-      items: [
-        {
-          id: 'algorithmic-feed',
-          label: t('settings.yourMix'),
-          icon: 'sparkles',
-          onPress: () => router.navigate('/settings/algorithmic-feed'),
-          linkType: 'internal',
-        },
-        {
-          id: 'profile-feed-view',
-          label: t('settings.defaultFeedLayout'),
-          icon: 'grid',
-          onPress: () => feedViewMenuRef.current?.show(),
-          linkType: 'none',
-        },
-        {
-          id: 'app-icon',
-          label: t('settings.appIcon'),
-          icon: 'device-tv',
-          onPress: () => router.navigate('/settings/app-icon'),
-          linkType: 'internal',
-        },
-        {
-          id: 'content-filters',
-          label: t('settings.contentFilters'),
-          icon: 'external-link',
-          onPress: () => handleOpenLink('https://bsky.app/moderation'),
-          linkType: 'external',
-        },
-        // {
-        //   id: 'data-usage',
-        //   label: 'Data Usage',
-        //   icon: 'radio-signal',
-        //   onPress: () => handlePlaceholderAction('Data Usage'),
-        //   showChevron: true
-        // }
-      ],
-    },
-    {
-      id: 'labs',
-      title: t('settings.labs'),
-      items: [],
-    },
-    {
-      id: 'troubleshooting',
-      title: t('settings.troubleshooting'),
-      items: [
-        {
-          id: 'clear-cache',
-          label: t('settings.clearCache'),
-          onPress: handleClearCache,
-          linkType: 'none',
-        },
-        {
-          id: 'support',
-          label: t('settings.support'),
-          onPress: () => handleOpenEmail('support@getorbyt.com'),
-          linkType: 'none',
-        },
-      ],
-    },
-    {
-      id: 'community',
-      title: t('settings.community'),
-      items: [
-        {
-          id: 'ideas',
-          label: t('settings.ideasAndRequests'),
-          icon: 'message-circle',
-          onPress: () => router.navigate('/settings/community'),
-          linkType: 'internal',
-        },
-      ],
-    },
-    {
-      id: 'about',
-      title: t('settings.about'),
-      items: [
-        {
-          id: 'website',
-          label: t('settings.website'),
-          onPress: () => handleOpenLink('https://getorbyt.com'),
-          linkType: 'external',
-        },
-        {
-          id: 'forum',
-          label: t('settings.forum'),
-          onPress: () => handleOpenLink('https://community.getorbyt.com'),
-          linkType: 'external',
-        },
-        {
-          id: 'privacy',
-          label: t('settings.privacyPolicy'),
-          onPress: () => handleOpenLink('https://getorbyt.com/privacy'),
-          linkType: 'external',
-        },
-        {
-          id: 'terms',
-          label: t('settings.termsOfService'),
-          onPress: () => handleOpenLink('https://getorbyt.com/terms'),
-          linkType: 'external',
-        },
-      ],
-    },
-    {
-      id: 'accounts',
-      title: t('settings.accounts'),
-      items: [
-        {
-          id: 'switch-account',
-          label: savedAccounts.length > 1 ? t('settings.switchAccount') : t('settings.addAccount'),
-          icon: 'user',
-          onPress: () => {
-            router.dismiss();
-            // Ensure modal close animation completes before presenting account switcher
-            // Account switcher will show "Add Account" options by default if only one account
-            setTimeout(() => presentAccountSwitcher(), 350);
+  const settingsSections: SettingsSection[] = useMemo(
+    () => [
+      {
+        id: 'profile',
+        title: '', // No title for profile section
+        items: [
+          {
+            id: 'followers',
+            label: t('settings.yourFollowers'),
+            icon: 'users',
+            onPress: () => router.navigate('/settings/followers'),
+            linkType: 'internal',
           },
-          linkType: 'none',
-        },
-        {
-          id: 'logout',
-          label: t('settings.logOut'),
-          onPress: handleLogout,
-          linkType: 'none',
-        },
-        {
-          id: 'remove-account',
-          label:
-            savedAccounts.length > 1 ? t('settings.removeAccounts') : t('settings.removeAccount'),
-          onPress: handleRemoveAccount,
-          linkType: 'none',
-          destructive: true,
-        },
-      ],
-    },
-  ];
+          {
+            id: 'following',
+            label: t('settings.peopleYouFollow'),
+            icon: 'user-plus',
+            onPress: () => router.navigate('/settings/following'),
+            linkType: 'internal',
+          },
+        ],
+      },
+      {
+        id: 'sharing',
+        title: t('settings.sharing'),
+        items: [
+          {
+            id: 'copy-profile-link',
+            label: t('settings.copyProfileLink'),
+            onPress: handleCopyProfileLink,
+            linkType: 'none',
+          },
+        ],
+      },
+      {
+        id: 'privacy',
+        title: t('settings.privacy'),
+        items: [
+          {
+            id: 'blocked-users',
+            label: t('settings.blockedAccounts'),
+            onPress: () => router.navigate('/settings/blocked'),
+            linkType: 'internal',
+          },
+          {
+            id: 'muted-users',
+            label: t('settings.mutedAccounts'),
+            onPress: () => router.navigate('/settings/muted'),
+            linkType: 'internal',
+          },
+        ],
+      },
+      {
+        id: 'app-settings',
+        title: t('settings.appSettings'),
+        items: [
+          {
+            id: 'algorithmic-feed',
+            label: t('settings.yourMix'),
+            icon: 'sparkles',
+            onPress: () => router.navigate('/settings/algorithmic-feed'),
+            linkType: 'internal',
+          },
+          {
+            id: 'profile-feed-view',
+            label: t('settings.defaultFeedLayout'),
+            icon: 'grid',
+            onPress: () => feedViewMenuRef.current?.show(),
+            linkType: 'none',
+          },
+          {
+            id: 'app-icon',
+            label: t('settings.appIcon'),
+            icon: 'device-tv',
+            onPress: () => router.navigate('/settings/app-icon'),
+            linkType: 'internal',
+          },
+          {
+            id: 'content-filters',
+            label: t('settings.contentFilters'),
+            icon: 'external-link',
+            onPress: () => handleOpenLink('https://bsky.app/moderation'),
+            linkType: 'external',
+          },
+          // {
+          //   id: 'data-usage',
+          //   label: 'Data Usage',
+          //   icon: 'radio-signal',
+          //   onPress: () => handlePlaceholderAction('Data Usage'),
+          //   showChevron: true
+          // }
+        ],
+      },
+      {
+        id: 'labs',
+        title: t('settings.labs'),
+        items: [],
+      },
+      {
+        id: 'troubleshooting',
+        title: t('settings.troubleshooting'),
+        items: [
+          {
+            id: 'clear-cache',
+            label: t('settings.clearCache'),
+            onPress: handleClearCache,
+            linkType: 'none',
+          },
+          {
+            id: 'support',
+            label: t('settings.support'),
+            onPress: () => handleOpenEmail('support@getorbyt.com'),
+            linkType: 'none',
+          },
+        ],
+      },
+      {
+        id: 'community',
+        title: t('settings.community'),
+        items: [
+          {
+            id: 'ideas',
+            label: t('settings.ideasAndRequests'),
+            icon: 'message-circle',
+            onPress: () => router.navigate('/settings/community'),
+            linkType: 'internal',
+          },
+        ],
+      },
+      {
+        id: 'about',
+        title: t('settings.about'),
+        items: [
+          {
+            id: 'website',
+            label: t('settings.website'),
+            onPress: () => handleOpenLink('https://getorbyt.com'),
+            linkType: 'external',
+          },
+          {
+            id: 'forum',
+            label: t('settings.forum'),
+            onPress: () => handleOpenLink('https://community.getorbyt.com'),
+            linkType: 'external',
+          },
+          {
+            id: 'privacy',
+            label: t('settings.privacyPolicy'),
+            onPress: () => handleOpenLink('https://getorbyt.com/privacy'),
+            linkType: 'external',
+          },
+          {
+            id: 'terms',
+            label: t('settings.termsOfService'),
+            onPress: () => handleOpenLink('https://getorbyt.com/terms'),
+            linkType: 'external',
+          },
+        ],
+      },
+      {
+        id: 'accounts',
+        title: t('settings.accounts'),
+        items: [
+          {
+            id: 'switch-account',
+            label:
+              savedAccounts.length > 1 ? t('settings.switchAccount') : t('settings.addAccount'),
+            icon: 'user',
+            onPress: () => {
+              router.dismiss();
+              // Ensure modal close animation completes before presenting account switcher
+              // Account switcher will show "Add Account" options by default if only one account
+              setTimeout(() => presentAccountSwitcher(), 350);
+            },
+            linkType: 'none',
+          },
+          {
+            id: 'logout',
+            label: t('settings.logOut'),
+            onPress: handleLogout,
+            linkType: 'none',
+          },
+          {
+            id: 'remove-account',
+            label:
+              savedAccounts.length > 1 ? t('settings.removeAccounts') : t('settings.removeAccount'),
+            onPress: handleRemoveAccount,
+            linkType: 'none',
+            destructive: true,
+          },
+        ],
+      },
+    ],
+    [
+      t,
+      router,
+      handleLogout,
+      handleOpenEmail,
+      handleOpenLink,
+      handleRemoveAccount,
+      handleCopyProfileLink,
+      handleClearCache,
+      feedViewMenuRef,
+      presentAccountSwitcher,
+      savedAccounts,
+    ]
+  );
 
-  // Build flat list data for FlashList
   type ListRow =
     | { kind: 'section-title'; id: string; title: string }
     | {
@@ -449,39 +459,29 @@ ${deviceInfo}`
     | { kind: 'spacer'; id: string; height?: number }
     | { kind: 'footer'; id: string };
 
-  const listData: ListRow[] = [];
-
-  settingsSections.forEach(section => {
-    if (section.items.length === 0) {
-      return;
-    }
-    // Only add section title if it's not empty
-    if (section.title) {
-      listData.push({
-        kind: 'section-title',
-        id: `title-${section.id}`,
-        title: section.title,
-      });
-    }
-
-    (section.items as SettingItem[]).forEach((item: SettingItem) => {
-      listData.push({
-        kind: 'setting',
-        id: item.id,
-        label: item.label,
-        linkType: item.linkType,
-        onPress: item.onPress,
-        rightIcon: item.rightIcon,
-        destructive: item.destructive,
+  const listData = useMemo<ListRow[]>(() => {
+    const data: ListRow[] = [];
+    // eslint-disable-next-line react-hooks/refs
+    settingsSections.forEach(section => {
+      if (section.items.length === 0) return;
+      if (section.title) {
+        data.push({ kind: 'section-title', id: `title-${section.id}`, title: section.title });
+      }
+      (section.items as SettingItem[]).forEach((item: SettingItem) => {
+        data.push({
+          kind: 'setting',
+          id: item.id,
+          label: item.label,
+          linkType: item.linkType,
+          onPress: item.onPress,
+          rightIcon: item.rightIcon,
+          destructive: item.destructive,
+        });
       });
     });
-  });
-
-  // Add footer with version and built with love message
-  listData.push({
-    kind: 'footer',
-    id: 'footer',
-  });
+    data.push({ kind: 'footer', id: 'footer' });
+    return data;
+  }, [settingsSections]);
 
   return (
     <View style={settingsLayoutStyles.container}>

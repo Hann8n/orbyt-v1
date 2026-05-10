@@ -234,7 +234,6 @@ class ProfileService {
     return profile;
   }
 
-
   /**
    * Batch-fetch profiles and colors for a page of feed items, then store results
    * in the React Query cache by DID. Prevents N+1 individual fetches when VideoCard
@@ -842,7 +841,6 @@ export function useProfileUpdateMutation() {
     },
   });
 }
-
 
 /**
  * Hook to monitor and invalidate profiles with expired status

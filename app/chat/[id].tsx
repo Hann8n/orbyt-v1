@@ -1345,9 +1345,12 @@ export default function ChatScreen() {
     visible: messageActionsSheetVisible,
   } = useMessageActionsSheet();
   const closePickerRef = useRef(reactionPicker.closePicker);
-  closePickerRef.current = reactionPicker.closePicker;
   const closeMessageActionsRef = useRef(closeMessageActionsSheet);
-  closeMessageActionsRef.current = closeMessageActionsSheet;
+
+  useLayoutEffect(() => {
+    closePickerRef.current = reactionPicker.closePicker;
+    closeMessageActionsRef.current = closeMessageActionsSheet;
+  }, [reactionPicker.closePicker, closeMessageActionsSheet]);
 
   const isInConvo = !!convo;
   const hasLeftConvo = convoFetched && convo === null && !openByDid;
@@ -1667,12 +1670,14 @@ export default function ChatScreen() {
     return items;
   }, [messagesData]);
 
-  if (convoId != null && convoId !== previousConvoIdRef.current) {
-    previousConvoIdRef.current = convoId;
-    // Animate only when we're actually loading (no cache); if we have data already, skip
-    shouldAnimateEnteringRef.current =
-      messagesLoading || (messagesData?.messages?.length ?? 0) === 0;
-  }
+  useLayoutEffect(() => {
+    if (convoId != null && convoId !== previousConvoIdRef.current) {
+      previousConvoIdRef.current = convoId;
+      // Animate only when we're actually loading (no cache); if we have data already, skip
+      shouldAnimateEnteringRef.current =
+        messagesLoading || (messagesData?.messages?.length ?? 0) === 0;
+    }
+  }, [convoId, messagesLoading, messagesData?.messages?.length]);
 
   useLayoutEffect(() => {
     if (listData.length === 0) return;
@@ -1935,16 +1940,7 @@ export default function ChatScreen() {
         },
       ]);
     }
-  }, [
-    profile?.did,
-    profile?.handle,
-    otherDid,
-    isBlocked,
-    isBlockedByList,
-    blockMutation,
-    router,
-    t,
-  ]);
+  }, [profile, otherDid, isBlocked, isBlockedByList, blockMutation, router, t]);
 
   const handleSend = useCallback(() => {
     const text = inputText.trim();

@@ -2,11 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 import { Colors } from '@/theme';
@@ -20,7 +16,13 @@ interface Props {
   onPressOut: () => void;
 }
 
-const RecordButton: React.FC<Props> = ({ isRecording, isLoading, disabled, onPressIn, onPressOut }) => {
+const RecordButton: React.FC<Props> = ({
+  isRecording,
+  isLoading,
+  disabled,
+  onPressIn,
+  onPressOut,
+}) => {
   const scale = useSharedValue(1);
   const isDisabled = useSharedValue(disabled);
 
@@ -48,18 +50,20 @@ const RecordButton: React.FC<Props> = ({ isRecording, isLoading, disabled, onPre
     () =>
       Gesture.Pan()
         .minDistance(0)
+        // eslint-disable-next-line react-hooks/refs
         .onBegin(() => {
           'worklet';
           if (isDisabled.value) return;
           scale.value = withTiming(0.93, { duration: 60 });
           scheduleOnRN(fireDown);
         })
+        // eslint-disable-next-line react-hooks/refs
         .onFinalize(() => {
           'worklet';
           scale.value = withTiming(1, { duration: 120 });
           scheduleOnRN(fireUp);
         }),
-    [fireDown, fireUp, isDisabled, scale],
+    [fireDown, fireUp, isDisabled, scale]
   );
 
   const animatedStyle = useAnimatedStyle(() => ({

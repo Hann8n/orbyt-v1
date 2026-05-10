@@ -4,6 +4,7 @@
  */
 import { create } from 'zustand';
 import { NotificationService } from '../services/api/notification/NotificationService';
+import type { ProfileView } from '../services/api/types';
 import { logger } from '../utils/logger';
 
 interface SubscriptionPreferences {
@@ -48,7 +49,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       const { subscriptions } = await NotificationService.listActivitySubscriptions();
 
       const subscriptionMap = new Map<string, SubscriptionPreferences>();
-      subscriptions.forEach((sub: any) => {
+      subscriptions.forEach((sub: ProfileView) => {
         if (sub.did && sub.viewer?.activitySubscription) {
           const prefs = sub.viewer.activitySubscription;
           const post = typeof prefs.post === 'boolean' ? prefs.post : false;

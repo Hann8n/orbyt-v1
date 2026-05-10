@@ -37,8 +37,21 @@ const RecordingProgressBar: React.FC<Props> = ({
       <View style={styles.track}>
         {isDeletePreviewActive && lastSegDuration != null ? (
           <>
-            <View style={[styles.segment, { backgroundColor: fillColor, width: `${(prevDuration / safeMax) * 100}%` }]} />
-            <View style={[styles.segment, { backgroundColor: Colors.coral[500], width: `${(lastSegDuration / safeMax) * 100}%` }]} />
+            <View
+              style={[
+                styles.segment,
+                { backgroundColor: fillColor, width: `${(prevDuration / safeMax) * 100}%` },
+              ]}
+            />
+            <View
+              style={[
+                styles.segment,
+                {
+                  backgroundColor: Colors.coral[500],
+                  width: `${(lastSegDuration / safeMax) * 100}%`,
+                },
+              ]}
+            />
           </>
         ) : (
           <Animated.View style={[styles.segment, { backgroundColor: fillColor }, activeStyle]} />

@@ -2,19 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform, type EventSubscription } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
-import VideoTrim, {
-  closeEditor,
-  isValidFile,
-  showEditor,
-  type Spec,
-} from 'react-native-clip-trim';
+import VideoTrim, { closeEditor, isValidFile, showEditor, type Spec } from 'react-native-clip-trim';
 
 import { Colors } from '@/theme';
 import { posthog } from '@/config/posthog';
 import { useCreateSegmentsStore } from '@/stores/createSegmentsStore';
 
-const toFileUri = (path: string): string =>
-  path.startsWith('file://') ? path : `file://${path}`;
+const toFileUri = (path: string): string => (path.startsWith('file://') ? path : `file://${path}`);
 
 interface Options {
   /** Called before showing the editor — chance to dispose camera resources. */
@@ -144,7 +138,7 @@ export function useGalleryTrimImport({
             t('video.trimmedExceedsAvailable', {
               trimmed: trimmedSec.toFixed(1),
               available: available.toFixed(1),
-            }),
+            })
           );
           endLoading();
           return;

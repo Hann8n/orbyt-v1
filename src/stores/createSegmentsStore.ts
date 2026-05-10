@@ -27,8 +27,7 @@ interface CreateSegmentsState {
   toVideoSegments: () => VideoSegmentOut[];
 }
 
-const sumDuration = (segments: Segment[]) =>
-  segments.reduce((sum, s) => sum + s.duration, 0);
+const sumDuration = (segments: Segment[]) => segments.reduce((sum, s) => sum + s.duration, 0);
 
 export const useCreateSegmentsStore = create<CreateSegmentsState>((set, get) => ({
   segments: [],

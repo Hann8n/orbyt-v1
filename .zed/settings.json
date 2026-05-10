@@ -3,9 +3,7 @@
     "argent": {
       "source": "custom",
       "command": "argent",
-      "args": [
-        "mcp"
-      ],
+      "args": ["mcp"],
       "env": {
         "ARGENT_MCP_LOG": "/Users/jack/.argent/mcp-calls.log"
       }
