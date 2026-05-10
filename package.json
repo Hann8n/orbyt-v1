@@ -46,8 +46,8 @@
     "@atproto/oauth-client-expo": "^0.0.10",
     "@atproto/xrpc": "^0.7.7",
     "@babel/runtime": "^7.28.6",
-    "@expo/dom-webview": "~55.0.3",
-    "@expo/log-box": "55.0.11",
+    "@expo/dom-webview": "~55.0.6",
+    "@expo/log-box": "55.0.12",
     "@expo/metro-runtime": "~55.0.11",
     "@formatjs/intl-segmenter": "^12.1.0",
     "@lodev09/react-native-true-sheet": "^3.8.1",
@@ -167,7 +167,7 @@
     }
   },
   "resolutions": {
-    "expo-web-browser": "~55.0.8"
+    "expo-web-browser": "~55.0.15"
   },
   "expo": {
     "doctor": {

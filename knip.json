@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "project": ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}"],
   "ignore": ["src/**/index.ts"],
-  "ignoreDependencies": ["buffer", "@react-navigation/core"],
+  "ignoreDependencies": ["buffer"],
   "ignoreBinaries": ["eas", "tsx"],
   "ignoreExportsUsedInFile": {
     "interface": true,

@@ -8,7 +8,7 @@ import { FontFamily, fontSizeFor } from '@/utils/components/typography';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { useCreateSegmentsStore } from '@/stores/createSegmentsStore';
 
-export const DURATION_OPTIONS = [
+const DURATION_OPTIONS = [
   { value: 6, labelKey: 'create.duration6s' as const },
   { value: 16, labelKey: 'create.duration16s' as const },
   { value: 60, labelKey: 'create.duration1m' as const },

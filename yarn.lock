@@ -1842,18 +1842,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/dom-webview@npm:^55.0.5, @expo/dom-webview@npm:~55.0.3":
-  version: 55.0.5
-  resolution: "@expo/dom-webview@npm:55.0.5"
-  peerDependencies:
-    expo: "*"
-    react: "*"
-    react-native: "*"
-  checksum: 10c0/d5904a55bbc1a5489e64e754e4161d230b674cc1a3c3e73a604b52c7f9be0c9d6bcd26caf79106118f9d50576b97ff0121545017a5b6547d0046207075feee84
-  languageName: node
-  linkType: hard
-
-"@expo/dom-webview@npm:^55.0.6":
+"@expo/dom-webview@npm:^55.0.6, @expo/dom-webview@npm:~55.0.6":
   version: 55.0.6
   resolution: "@expo/dom-webview@npm:55.0.6"
   peerDependencies:
@@ -1959,22 +1948,6 @@ __metadata:
     "@expo/config": "npm:~55.0.16"
     chalk: "npm:^4.1.2"
   checksum: 10c0/19965f22c36a11f3a234321dd46c4df4b16abd6101e4f07452ea74e98b03536137daa388fab699afb69db79495f2ee7a6e357d710850130a6071dcf0b29973b4
-  languageName: node
-  linkType: hard
-
-"@expo/log-box@npm:55.0.11":
-  version: 55.0.11
-  resolution: "@expo/log-box@npm:55.0.11"
-  dependencies:
-    "@expo/dom-webview": "npm:^55.0.5"
-    anser: "npm:^1.4.9"
-    stacktrace-parser: "npm:^0.1.10"
-  peerDependencies:
-    "@expo/dom-webview": ^55.0.5
-    expo: "*"
-    react: "*"
-    react-native: "*"
-  checksum: 10c0/8a4b53b87def9b4dad0f00821d20f749138431047129c11d5d49217d193745eb080efd51442e97809c2c1f5785ee9282cfc57c09e991a3d02bb1c210b479663f
   languageName: node
   linkType: hard
 
@@ -7716,13 +7689,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-web-browser@npm:~55.0.8":
-  version: 55.0.14
-  resolution: "expo-web-browser@npm:55.0.14"
+"expo-web-browser@npm:~55.0.15":
+  version: 55.0.15
+  resolution: "expo-web-browser@npm:55.0.15"
   peerDependencies:
     expo: "*"
     react-native: "*"
-  checksum: 10c0/326aa0513c5b70dea69d58132891a224c41e02c20ee0db9de82096d61a7aa7ee471a70103da4be631ce769c06ca9021b5fc42138553081b8e4f38f6d875cd68f
+  checksum: 10c0/048a7e4e2863738d0e13fc5460b75c0d82cffed7e360242f2a6e82dae810c626b0021058e6c92e58ec69897f920dd01bf55be40669ea6bb67a7c67ae93bb96b4
   languageName: node
   linkType: hard
 
@@ -11429,8 +11402,8 @@ __metadata:
     "@babel/core": "npm:^7.28.6"
     "@babel/runtime": "npm:^7.28.6"
     "@eslint/js": "npm:^9.39.4"
-    "@expo/dom-webview": "npm:~55.0.3"
-    "@expo/log-box": "npm:55.0.11"
+    "@expo/dom-webview": "npm:~55.0.6"
+    "@expo/log-box": "npm:55.0.12"
     "@expo/metro-runtime": "npm:~55.0.11"
     "@formatjs/intl-segmenter": "npm:^12.1.0"
     "@lodev09/react-native-true-sheet": "npm:^3.8.1"
