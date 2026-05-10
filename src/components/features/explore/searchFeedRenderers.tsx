@@ -92,6 +92,7 @@ export const ExploreSuggestionsProfileRow = React.memo(
         backgroundColor={Colors.transparent}
         textColor={Colors.neutral[50]}
         nameFontWeight="Figtree-SemiBold"
+        skipServerProfileData
         style={styles.authorItemStyle}
       />
     );
@@ -165,6 +166,7 @@ const ProfilesFeedRenderer = React.memo(
             backgroundColor={Colors.transparent}
             textColor={Colors.neutral[50]}
             nameFontWeight="Figtree-SemiBold"
+            skipServerProfileData
             style={styles.authorItemStyle}
           />
         );

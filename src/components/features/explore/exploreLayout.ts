@@ -20,10 +20,4 @@ export const exploreSearchChromeHeight =
   EXPLORE_SEARCH_LAYOUT.BAR_HEIGHT +
   EXPLORE_SEARCH_LAYOUT.GAP_BELOW_BAR;
 
-/**
- * Total top offset from the screen top to the bottom of the search chrome.
- * Use this when positioning content outside the SafeAreaView (e.g., list headers).
- * For content inside SafeAreaView, use `exploreSearchChromeHeight` directly.
- */
-export const getExploreTopChromeSpacerHeight = (topInset: number): number =>
-  topInset + exploreSearchChromeHeight;
+export const getExploreTopChromeSpacerHeight = (): number => exploreSearchChromeHeight;

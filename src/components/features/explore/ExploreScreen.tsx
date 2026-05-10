@@ -263,10 +263,7 @@ const ExploreScreen: React.FC = () => {
     [hasHeaderBannerError, headers.length]
   );
   const computedHeaderHeight = Math.round(screenWidth / EXPLORE_HEADER_BANNER_ASPECT_RATIO);
-  const topChromeSpacerHeight = useMemo(
-    () => getExploreTopChromeSpacerHeight(insets.top),
-    [insets.top]
-  );
+  const topChromeSpacerHeight = useMemo(() => getExploreTopChromeSpacerHeight(), []);
   const activeHeaderHeight = useMemo(
     () => (isHeaderVisible ? computedHeaderHeight : topChromeSpacerHeight),
     [computedHeaderHeight, isHeaderVisible, topChromeSpacerHeight]
@@ -486,6 +483,7 @@ const ExploreScreen: React.FC = () => {
           keyExtractor={exploreListKeyExtractor}
           renderItem={renderExploreItem}
           contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding }]}
+          scrollIndicatorInsets={{ top: activeHeaderHeight }}
           showsVerticalScrollIndicator={
             suggestionsList.length >= SCROLL_INDICATOR_CONSTANTS.EXPLORE_SUGGESTIONS_MIN_ITEMS
           }
