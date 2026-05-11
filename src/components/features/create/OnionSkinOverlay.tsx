@@ -14,31 +14,30 @@ const getSegmentUri = (segment: Segment): string => {
 
 const OnionSkinOverlay: React.FC = () => {
   const lastSegment = useCreateSegmentsStore(s => s.segments[s.segments.length - 1] ?? null);
-  const [thumbnail, setThumbnail] = useState<string | null>(null);
+  const [thumbState, setThumbState] = useState<{ segmentKey: string; uri: string } | null>(null);
+
+  const segmentKey = lastSegment
+    ? `${getSegmentUri(lastSegment)}:${lastSegment.duration}`
+    : null;
+  const thumbnail = thumbState?.segmentKey === segmentKey ? thumbState.uri : null;
 
   useEffect(() => {
-    if (!lastSegment) {
-      setThumbnail(null);
-      return;
-    }
+    if (!lastSegment || !segmentKey) return;
     const uri = getSegmentUri(lastSegment);
-    if (!uri || lastSegment.duration <= 0) {
-      setThumbnail(null);
-      return;
-    }
+    if (!uri || lastSegment.duration <= 0) return;
     let cancelled = false;
     const assetId = extractAssetId(lastSegment.video) ?? undefined;
     VideoProcessingService.extractLastFrame(uri, lastSegment.duration, assetId)
       .then(thumbUri => {
-        if (!cancelled) setThumbnail(thumbUri);
+        if (!cancelled) setThumbState({ segmentKey, uri: thumbUri });
       })
       .catch(() => {
-        if (!cancelled) setThumbnail(null);
+        if (!cancelled) setThumbState(null);
       });
     return () => {
       cancelled = true;
     };
-  }, [lastSegment]);
+  }, [lastSegment, segmentKey]);
 
   if (!thumbnail) return null;
 

@@ -7,7 +7,11 @@ import { SquircleView } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LegendList, type LegendListRef, type LegendListRenderItemProps } from '@legendapp/list/react-native';
+import {
+  LegendList,
+  type LegendListRef,
+  type LegendListRenderItemProps,
+} from '@legendapp/list/react-native';
 import Reanimated, { useSharedValue, FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { navigateToEncodedChannelUri } from '@/utils/navigation/navigateEncodedChannel';
@@ -99,8 +103,6 @@ const ExploreScreen: React.FC = () => {
   const followMutation = useFollowMutation();
   const insets = useSafeAreaInsets();
   const { isCompact, screenWidth, screenHeight } = useDeviceLayout();
-  const [hasHeaderBannerError, setHasHeaderBannerError] = useState<boolean>(false);
-
   const bottomPadding = isIosLiquidGlassAvailable
     ? getBottomNavBarHeight(insets, isCompact) + 10
     : getBottomNavBarHeight(insets, isCompact);
@@ -126,10 +128,8 @@ const ExploreScreen: React.FC = () => {
   }, [currentUser?.did]);
 
   const { data: fetchedHeaders = [], isPending: isHeadersPending } = useHeaders();
-
-  React.useEffect(() => {
-    setHasHeaderBannerError(false);
-  }, [fetchedHeaders]);
+  const [erroredHeaders, setErroredHeaders] = useState<typeof fetchedHeaders | null>(null);
+  const hasHeaderBannerError = erroredHeaders === fetchedHeaders && erroredHeaders !== null;
 
   const headers = useMemo(() => {
     return fetchedHeaders.map((header: Header) => ({
@@ -217,11 +217,9 @@ const ExploreScreen: React.FC = () => {
     return ['profiles', 'channels'];
   }, [debouncedQuery.length]);
 
-  React.useEffect(() => {
-    if (pages.length > 0 && !pages.includes(activeTab)) {
-      setActiveTab(pages[0]);
-    }
-  }, [pages, activeTab]);
+  const effectiveActiveTab: ExploreSearchTabId = pages.includes(activeTab)
+    ? activeTab
+    : (pages[0] ?? 'recently-visited');
 
   const handleIndicatorTap = useCallback((tabId: ExploreSearchTabId) => {
     searchPagerRef.current?.setPage(tabId);
@@ -450,7 +448,7 @@ const ExploreScreen: React.FC = () => {
         <HeaderBanner
           headers={headers}
           height={computedHeaderHeight}
-          onImageError={() => setHasHeaderBannerError(true)}
+          onImageError={() => setErroredHeaders(fetchedHeaders)}
         />
       );
     }
@@ -513,7 +511,7 @@ const ExploreScreen: React.FC = () => {
             <View style={styles.searchContentWrapper}>
               <SearchSwipePager
                 ref={searchPagerRef}
-                activeTab={activeTab}
+                activeTab={effectiveActiveTab}
                 onActiveTabChange={setActiveTab}
                 onPageIndexChange={handleSearchPageIndexChange}
                 pages={pages}

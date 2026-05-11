@@ -68,7 +68,14 @@ type VisitHistoryRowProps = {
 };
 
 const VisitHistoryRow = React.memo(
-  ({ item, profilesByDid, channelsByUri, onHistoryItemPress, onFollow, t }: VisitHistoryRowProps) => {
+  ({
+    item,
+    profilesByDid,
+    channelsByUri,
+    onHistoryItemPress,
+    onFollow,
+    t,
+  }: VisitHistoryRowProps) => {
     const isProfile = item.type === 'profile';
     const profileData = isProfile ? profilesByDid.get(item.did) : null;
     const channelData = !isProfile ? channelsByUri.get(item.uri) : null;

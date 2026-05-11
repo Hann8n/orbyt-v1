@@ -72,17 +72,12 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     }
   }, [savedAccounts, loadAccounts]);
 
-  useEffect(() => {
-    if (visible) {
-      setEditMode(false);
-    }
-  }, [visible]);
-
   const toggleEditMode = useCallback(() => {
     setEditMode(prev => !prev);
   }, []);
 
   const closeAccountSwitcherSheets = useCallback(() => {
+    setEditMode(false);
     dismissSheet('account-switcher');
   }, []);
 

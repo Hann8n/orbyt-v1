@@ -28,10 +28,7 @@ import Animated, {
   useAnimatedReaction,
 } from 'react-native-reanimated';
 import { AnimatedLegendList } from '@legendapp/list/reanimated';
-import type {
-  LegendListRef,
-  LegendListRenderItemProps,
-} from '@legendapp/list/react-native';
+import type { LegendListRef, LegendListRenderItemProps } from '@legendapp/list/react-native';
 import { scheduleOnRN } from 'react-native-worklets';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
 import type {
@@ -236,7 +233,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [scrollOffsetYSV, isAtEndSV]
     );
 
-
     const seedActiveIndex =
       typeof initialScrollIndex === 'number' ? initialScrollIndex : feed.length > 0 ? 0 : -1;
     const activeVisibleIndexRef = useRef(seedActiveIndex);
@@ -377,8 +373,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       hasNextPage === false &&
       !isFetchingNextPage;
 
-    
-
     const listRenderExtraData = useMemo(
       () => ({
         cardHeight,
@@ -450,8 +444,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Estimated content height + end-of-feed enabled flag for the rubberband overscroll hint.
     useEffect(() => {
-      const headerExtra = hasHeader && headerHeight > 0 ? headerHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP : 0;
-      const estimated = headerExtra + Math.max(0, feed.length * itemSpacing) + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
+      const headerExtra =
+        hasHeader && headerHeight > 0 ? headerHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP : 0;
+      const estimated =
+        headerExtra + Math.max(0, feed.length * itemSpacing) + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
       contentHeightSV.value = Math.round(estimated);
     }, [feed.length, headerHeight, hasHeader, itemSpacing]);
 
@@ -520,15 +516,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [headerHeight]
     );
 
-    const handleFeedLayout = useCallback(
-      (e: LayoutChangeEvent) => {
-        const h = Math.round(e.nativeEvent.layout.height);
-        if (h > 0) {
-          setFeedLayoutHeight(prev => (prev === h ? prev : h));
-        }
-      },
-      []
-    );
+    const handleFeedLayout = useCallback((e: LayoutChangeEvent) => {
+      const h = Math.round(e.nativeEvent.layout.height);
+      if (h > 0) {
+        setFeedLayoutHeight(prev => (prev === h ? prev : h));
+      }
+    }, []);
 
     const fadeDist = hasHeader ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
     const contentScrollProgressSV = useDerivedValue(() =>
@@ -680,61 +673,70 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     }, [feed.length, showEndOfFeed, endOfFeedHintColor, t]);
 
     const listBody = useMemo(
-      () => (
-        <View collapsable={false} style={listContainerStyle} onLayout={handleFeedLayout}>
-          {/* End-of-feed overscroll hint (fades in when user rubber-bands past end) */}
-          <Animated.View pointerEvents="none" style={[styles.endOfFeedOverscrollHint, endOfFeedOverscrollAnimatedStyle]}>
-            <View style={styles.endOfFeedOverscrollInner}>
-              <TypographyText variant="body" weight="medium" color={endOfFeedHintColor} align="center">
-                {t('feed.thatsAllForNow')}
-              </TypographyText>
+      () =>
+        (
+          <View collapsable={false} style={listContainerStyle} onLayout={handleFeedLayout}>
+            {/* End-of-feed overscroll hint (fades in when user rubber-bands past end) */}
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.endOfFeedOverscrollHint, endOfFeedOverscrollAnimatedStyle]}
+            >
+              <View style={styles.endOfFeedOverscrollInner}>
+                <TypographyText
+                  variant="body"
+                  weight="medium"
+                  color={endOfFeedHintColor}
+                  align="center"
+                >
+                  {t('feed.thatsAllForNow')}
+                </TypographyText>
+              </View>
+            </Animated.View>
+            <View style={styles.listWrapper}>
+              <AnimatedLegendList<FeedListItem>
+                ref={listRef}
+                style={styles.list}
+                data={listData}
+                renderItem={renderItem}
+                extraData={listRenderExtraData}
+                estimatedItemSize={itemSpacing}
+                drawDistance={FEED_VIEW_CONSTANTS.LEGENDLIST_DRAW_DISTANCE}
+                keyExtractor={listKeyExtractor}
+                getItemType={getListItemType}
+                sharedValues={listSharedValues}
+                onViewableItemsChanged={onViewableItemsChanged}
+                viewabilityConfig={viewabilityConfig}
+                refreshControl={refreshControlElement}
+                initialScrollIndex={initialScrollIndex}
+                ListHeaderComponent={listHeaderElement}
+                pagingEnabled={false}
+                snapToOffsets={snapToOffsets}
+                snapToInterval={snapToIntervalValue}
+                snapToAlignment={snapToIntervalValue != null ? 'start' : undefined}
+                decelerationRate={
+                  Platform.OS === 'ios'
+                    ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+                    : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
+                }
+                disableIntervalMomentum={true}
+                onEndReached={onLoadMore}
+                onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+                scrollEnabled={true}
+                showsVerticalScrollIndicator={
+                  listData.length >= SCROLL_INDICATOR_CONSTANTS.FEED_LIST_MIN_ITEMS
+                }
+                bounces={true}
+                directionalLockEnabled={true}
+                alwaysBounceVertical
+                alwaysBounceHorizontal={false}
+                ListEmptyComponent={listEmptyElement}
+                ItemSeparatorComponent={ItemSeparatorComponent}
+                ListFooterComponent={listFooterElement}
+                contentContainerStyle={listContentContainerStyle}
+              />
             </View>
-          </Animated.View>
-          <View style={styles.listWrapper}>
-            <AnimatedLegendList<FeedListItem>
-              ref={listRef}
-              style={styles.list}
-              data={listData}
-              renderItem={renderItem}
-              extraData={listRenderExtraData}
-              estimatedItemSize={itemSpacing}
-              drawDistance={FEED_VIEW_CONSTANTS.LEGENDLIST_DRAW_DISTANCE}
-              keyExtractor={listKeyExtractor}
-              getItemType={getListItemType}
-              sharedValues={listSharedValues}
-              onViewableItemsChanged={onViewableItemsChanged}
-              viewabilityConfig={viewabilityConfig}
-              refreshControl={refreshControlElement}
-              initialScrollIndex={initialScrollIndex}
-              ListHeaderComponent={listHeaderElement}
-              pagingEnabled={false}
-              snapToOffsets={snapToOffsets}
-              snapToInterval={snapToIntervalValue}
-              snapToAlignment={snapToIntervalValue != null ? 'start' : undefined}
-              decelerationRate={
-                Platform.OS === 'ios'
-                  ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
-                  : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
-              }
-              disableIntervalMomentum={true}
-              onEndReached={onLoadMore}
-              onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              scrollEnabled={true}
-              showsVerticalScrollIndicator={
-                listData.length >= SCROLL_INDICATOR_CONSTANTS.FEED_LIST_MIN_ITEMS
-              }
-              bounces={true}
-              directionalLockEnabled={true}
-              alwaysBounceVertical
-              alwaysBounceHorizontal={false}
-              ListEmptyComponent={listEmptyElement}
-              ItemSeparatorComponent={ItemSeparatorComponent}
-              ListFooterComponent={listFooterElement}
-              contentContainerStyle={listContentContainerStyle}
-            />
           </View>
-        </View>
-      ) as React.ReactElement,
+        ) as React.ReactElement,
       [
         listContainerStyle,
         handleFeedLayout,

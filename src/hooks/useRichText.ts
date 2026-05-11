@@ -1,57 +1,9 @@
-import { useState, useEffect } from 'react';
 import { RichText as RichTextAPI } from '@atproto/api';
-import { logger } from '../utils/logger';
 
-/**
- * Hook to process text into RichText instance and handle facet resolution
- * Similar to Bluesky's useRichText hook
- * @param text - The text to process
- * @returns [RichText instance, isResolving boolean]
- */
 export function useRichText(text: string): [RichTextAPI, boolean] {
-  const [richText, setRichText] = useState<RichTextAPI>(() => {
-    return new RichTextAPI({ text: text || '' });
-  });
-  const [isResolving, setIsResolving] = useState(false);
-
-  useEffect(() => {
-    // Create new RichText instance when text changes
-    const rt = new RichTextAPI({ text: text || '' });
-
-    // Detect facets without resolution first (synchronous)
-    rt.detectFacetsWithoutResolution();
-
-    setRichText(rt);
-    setIsResolving(true);
-
-    // Guard against stale async completions when `text` changes rapidly or
-    // the hook unmounts mid-resolution. Prevents out-of-order setRichText.
-    let cancelled = false;
-
-    const resolveFacets = async () => {
-      try {
-        // For display purposes, we use detectFacetsWithoutResolution
-        // This detects facets but doesn't resolve mentions to DIDs
-        // Full resolution happens when creating posts
-        rt.detectFacetsWithoutResolution();
-        if (cancelled) return;
-        setRichText(rt);
-      } catch (error) {
-        if (cancelled) return;
-        logger.error('Error detecting facets', error, { component: 'useRichText' });
-      } finally {
-        if (!cancelled) setIsResolving(false);
-      }
-    };
-
-    resolveFacets();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [text]);
-
-  return [richText, isResolving];
+  const rt = new RichTextAPI({ text: text || '' });
+  rt.detectFacetsWithoutResolution();
+  return [rt, false];
 }
 
 export type RichTextDisplayPart = {

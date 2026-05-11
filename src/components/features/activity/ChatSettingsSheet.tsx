@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text } from 'react-native';
 import VerticalListSheet, { VerticalListCheckboxButton } from '../../ui/VerticalListSheet';
@@ -27,20 +27,18 @@ export default function ChatSettingsSheet({ visible, onDismiss }: ChatSettingsSh
     (profile as { associated?: { chat?: { allowIncoming?: AllowIncoming } } })?.associated?.chat
       ?.allowIncoming ?? 'all';
 
-  const [localAllowIncoming, setLocalAllowIncoming] = useState<AllowIncoming>(initialAllowIncoming);
-
-  useEffect(() => {
-    setLocalAllowIncoming(initialAllowIncoming);
-  }, [initialAllowIncoming]);
+  const [pendingValue, setPendingValue] = useState<AllowIncoming | undefined>(undefined);
+  const localAllowIncoming = pendingValue ?? initialAllowIncoming;
 
   useSheetPresentation(visible, 'chat-settings-sheet');
 
   const handleSelect = useCallback(
     (value: AllowIncoming) => {
-      setLocalAllowIncoming(value);
+      setPendingValue(value);
       if (did) {
         ChatService.updateChatDeclaration(did, value).then(() => {
           queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(did) });
+          setPendingValue(undefined);
         });
       }
     },

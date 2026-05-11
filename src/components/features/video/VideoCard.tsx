@@ -412,7 +412,11 @@ function VideoCard({
   );
 
   const isInPreloadWindow = (rowBits & ROW_BITS_PRELOAD) !== 0;
-  const posterPriority: 'low' | 'normal' | 'high' = isVisible ? 'high' : isInPreloadWindow ? 'normal' : 'low';
+  const posterPriority: 'low' | 'normal' | 'high' = isVisible
+    ? 'high'
+    : isInPreloadWindow
+      ? 'normal'
+      : 'low';
   const mediaGestureProps = useMemo(
     () => ({
       videoGesture: gesture,

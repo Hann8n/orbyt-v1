@@ -21,7 +21,6 @@ const MutedUsersScreen: React.FC = () => {
   const loadMutedUsers = useCallback(
     async (isCancelled: () => boolean) => {
       try {
-        setLoading(true);
         const mutedDids = await GraphService.getMutedUsersFromAPI();
         if (isCancelled()) return;
 

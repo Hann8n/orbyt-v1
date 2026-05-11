@@ -290,11 +290,8 @@ export const Avatar: React.FC<AvatarProps> = ({
   const { t } = useTranslation();
   const isLive = isLiveStatus(status);
   const iconSize = fallbackIconSize || Math.max(size * 0.6, 20);
-  const [hasImageError, setHasImageError] = React.useState<boolean>(false);
-
-  React.useEffect(() => {
-    setHasImageError(false);
-  }, [uri]);
+  const [errorUri, setErrorUri] = React.useState<string | undefined>(undefined);
+  const hasImageError = errorUri === uri;
 
   const getBorderRadius = () => {
     switch (type) {
@@ -513,7 +510,7 @@ export const Avatar: React.FC<AvatarProps> = ({
         allowDownscaling={true}
         recyclingKey={uri}
         onError={() => {
-          setHasImageError(true);
+          setErrorUri(uri);
         }}
       />
     </View>

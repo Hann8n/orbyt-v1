@@ -48,9 +48,10 @@ const CreateScreen: React.FC = () => {
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const [isOnionSkinningEnabled, setIsOnionSkinningEnabled] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isDeletePreviewActive, setIsDeletePreviewActive] = useState(false);
+  const [_isDeletePreviewActive, setIsDeletePreviewActive] = useState(false);
 
   const segments = useCreateSegmentsStore(s => s.segments);
+  const isDeletePreviewActive = _isDeletePreviewActive && segments.length > 0;
   const maxDuration = useCreateSegmentsStore(s => s.maxDuration);
   const setMaxDuration = useCreateSegmentsStore(s => s.setMaxDuration);
   const totalDuration = useCreateSegmentsStore(s =>
@@ -154,10 +155,6 @@ const CreateScreen: React.FC = () => {
     useCreateSegmentsStore.getState().removeLastSegment();
     setIsDeletePreviewActive(false);
   }, []);
-
-  useEffect(() => {
-    if (isDeletePreviewActive && segments.length === 0) setIsDeletePreviewActive(false);
-  }, [isDeletePreviewActive, segments.length]);
 
   const deletePreviewUri = useMemo(() => {
     if (!isDeletePreviewActive || segments.length === 0) return null;

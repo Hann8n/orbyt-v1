@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
@@ -60,7 +60,8 @@ const AlgorithmicFeedScreen: React.FC = () => {
   const { hrefOpts } = useProfileChannelNavigation();
   const queryClient = useQueryClient();
   const { algorithmicFeedProvider, setAlgorithmicFeedProvider } = useAlgorithmicFeedProvider();
-  const [selectedUri, setSelectedUri] = useState<string | null>(algorithmicFeedProvider);
+  const [pendingUri, setPendingUri] = useState<string | null | undefined>(undefined);
+  const selectedUri = pendingUri !== undefined ? pendingUri : algorithmicFeedProvider;
   const {
     subscribedChannels: channels,
     subscribeToChannel,
@@ -132,24 +133,17 @@ const AlgorithmicFeedScreen: React.FC = () => {
     return options;
   }, [blueskyVideoData, videosForYouData, t]);
 
-  // Sync with store when it changes
-  useEffect(() => {
-    setSelectedUri(algorithmicFeedProvider);
-  }, [algorithmicFeedProvider]);
-
   const handleSelectProvider = async (uri: string | null) => {
     if (uri === selectedUri) return;
 
-    // Optimistic update - update UI immediately
-    setSelectedUri(uri);
-
-    // Save in background
-    setAlgorithmicFeedProvider(uri).catch(error => {
+    setPendingUri(uri);
+    setAlgorithmicFeedProvider(uri).then(() => {
+      setPendingUri(undefined);
+    }).catch(error => {
       logger.error('Error setting algorithmic feed provider', error, {
         component: 'AlgorithmicFeed',
       });
-      // Revert on error
-      setSelectedUri(algorithmicFeedProvider);
+      setPendingUri(undefined);
     });
 
     // Invalidate feed queries to refresh with new provider

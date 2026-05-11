@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
@@ -50,45 +50,24 @@ const HiddenPostsScreen: React.FC = () => {
   const router = useRouter();
   const { agent, currentUser } = useUserStoreState();
   const { moderationPrefs } = useModerationSettings(currentUser?.did ?? undefined);
-  const [hiddenPosts, setHiddenPosts] = useState<HiddenPost[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [removedUris, setRemovedUris] = useState<Set<string>>(new Set());
   const [unhidingPosts, setUnhidingPosts] = useState<Set<string>>(new Set());
 
-  const loadHiddenPosts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const hiddenPostUris = moderationPrefs?.hiddenPosts ?? [];
-
-      // Convert URIs to HiddenPost objects with mock data
-      const postObjects = hiddenPostUris.map((uri, index) => ({
-        id: `post-${index}`,
-        uri,
-        author: {
-          did: `did:example:${index}`,
-          handle: `user${index}`,
-          displayName: `User ${index}`,
-          avatar: undefined,
-        },
-        text: t('settings.hiddenPostContent'),
-        createdAt: new Date().toISOString(),
-      }));
-
-      setHiddenPosts(postObjects);
-    } catch (error) {
-      logger.error('Error loading hidden posts', error, {
-        component: 'HiddenPostsScreen',
-        action: 'loadHiddenPosts',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [moderationPrefs, t]);
-
-  useEffect(() => {
-    if (moderationPrefs) {
-      loadHiddenPosts();
-    }
-  }, [moderationPrefs, loadHiddenPosts]);
+  const loading = moderationPrefs === undefined;
+  const hiddenPosts: HiddenPost[] = (moderationPrefs?.hiddenPosts ?? [])
+    .filter(uri => !removedUris.has(uri))
+    .map((uri, index) => ({
+      id: `hidden-${index}-${uri}`,
+      uri,
+      author: {
+        did: `did:example:${index}`,
+        handle: `user${index}`,
+        displayName: `User ${index}`,
+        avatar: undefined,
+      },
+      text: t('settings.hiddenPostContent'),
+      createdAt: new Date().toISOString(),
+    }));
 
   const handleUnhidePost = async (postId: string) => {
     try {
@@ -104,7 +83,7 @@ const HiddenPostsScreen: React.FC = () => {
           agent ?? undefined,
           currentUser?.did ?? undefined
         );
-        setHiddenPosts(prev => prev.filter(post => post.id !== postId));
+        setRemovedUris(prev => new Set(prev).add(postToUnhide.uri));
       }
     } catch (error) {
       logger.error('Error unhiding post', error, {

@@ -21,7 +21,6 @@ const BlockedUsersScreen: React.FC = () => {
   const loadBlockedUsers = useCallback(
     async (isCancelled: () => boolean) => {
       try {
-        setLoading(true);
         const blockedDids = await GraphService.getBlockedUsersFromAPI();
         if (isCancelled()) return;
 

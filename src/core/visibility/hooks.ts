@@ -52,18 +52,21 @@ export function useFeedVisibility({
 
   const lastEmittedIndexRef = useRef(-1);
 
-  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const token = selectViewableToken(viewableItems);
-    const nextIndex = typeof token?.index === 'number' ? token.index : -1;
-    if (nextIndex < 0) {
-      lastEmittedIndexRef.current = -1;
-      return;
-    }
-    if (nextIndex !== lastEmittedIndexRef.current) {
-      lastEmittedIndexRef.current = nextIndex;
-      onActiveVisibleIndexChangeRef.current?.(nextIndex);
-    }
-  }, []);
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const token = selectViewableToken(viewableItems);
+      const nextIndex = typeof token?.index === 'number' ? token.index : -1;
+      if (nextIndex < 0) {
+        lastEmittedIndexRef.current = -1;
+        return;
+      }
+      if (nextIndex !== lastEmittedIndexRef.current) {
+        lastEmittedIndexRef.current = nextIndex;
+        onActiveVisibleIndexChangeRef.current?.(nextIndex);
+      }
+    },
+    []
+  );
 
   return {
     onViewableItemsChanged,

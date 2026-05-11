@@ -70,14 +70,6 @@ export default function LoginSignInModal() {
     return () => clearTimeout(id);
   }, [handle]);
 
-  useEffect(() => {
-    if (!pickedActor) return;
-    const typed = normalizeSearchTerm(handle).toLowerCase();
-    if (typed !== pickedActor.handle.toLowerCase()) {
-      setPickedActor(null);
-    }
-  }, [handle, pickedActor]);
-
   const searchTerm = normalizeSearchTerm(debouncedSearch);
   const searchEnabled = shouldRunActorSearch(debouncedSearch);
 

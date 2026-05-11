@@ -24,7 +24,11 @@ import {
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
-import { LegendList, type LegendListRef, type LegendListRenderItemProps } from '@legendapp/list/react-native';
+import {
+  LegendList,
+  type LegendListRef,
+  type LegendListRenderItemProps,
+} from '@legendapp/list/react-native';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AtprotoCore } from '../../../services/api/core';

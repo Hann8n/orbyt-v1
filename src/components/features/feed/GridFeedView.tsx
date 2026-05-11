@@ -21,11 +21,7 @@ import { NativePressable } from '@/components/ui/NativePressable';
 import { Link, type Href } from 'expo-router';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  useSharedValue,
-  useDerivedValue,
-  useAnimatedReaction,
-} from 'react-native-reanimated';
+import { useSharedValue, useDerivedValue, useAnimatedReaction } from 'react-native-reanimated';
 import { LegendList, type LegendListRef } from '@legendapp/list/react-native';
 import type { ListFeedViewRef, ListFeedPullToRefresh } from '../../../types';
 import { Colors } from '../../../theme';
@@ -195,9 +191,12 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const contentScrollProgressSV = useDerivedValue(() =>
       fadeDist > 0 ? Math.max(0, Math.min(1, scrollOffsetYSV.value / fadeDist)) : 0
     );
-    const scrollHandler = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
-      scrollOffsetYSV.value = Math.max(0, event.nativeEvent.contentOffset.y);
-    }, []);
+    const scrollHandler = useCallback(
+      (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+        scrollOffsetYSV.value = Math.max(0, event.nativeEvent.contentOffset.y);
+      },
+      []
+    );
 
     useAnimatedReaction(
       () => contentScrollProgressSV.value,
@@ -240,10 +239,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const isTablet =
       Device.deviceType === Device.DeviceType.TABLET || Math.min(windowWidth, windowHeight) >= 600;
     const numColumns =
-      windowWidth > 1200 || isTablet ? 6
-      : windowWidth > 900 ? 5
-      : windowWidth > 480 ? 4
-      : 3;
+      windowWidth > 1200 || isTablet ? 6 : windowWidth > 900 ? 5 : windowWidth > 480 ? 4 : 3;
     const itemWidth = windowWidth / numColumns;
     const itemHeight = itemWidth / DEFAULT_VIDEO_ASPECT_RATIO;
     const itemSpacing = itemHeight + FEED_VIEW_CONSTANTS.GRID_CELL_GAP;

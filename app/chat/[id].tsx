@@ -2236,10 +2236,7 @@ export default function ChatScreen() {
           keyExtractor={keyExtractor}
           getItemType={getItemType}
           style={styles.list}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: insets.bottom + 16 },
-          ]}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 16 }]}
           ItemSeparatorComponent={ChatItemSeparator}
           ListEmptyComponent={
             !messagesLoading && messagesData && (messagesData.messages?.length ?? 0) === 0 ? (

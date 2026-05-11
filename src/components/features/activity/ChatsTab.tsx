@@ -23,7 +23,11 @@ import {
 } from './ActivityListStyles';
 import { View, Text, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
-import { LegendList, type LegendListRef, type LegendListRenderItemProps } from '@legendapp/list/react-native';
+import {
+  LegendList,
+  type LegendListRef,
+  type LegendListRenderItemProps,
+} from '@legendapp/list/react-native';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { ChatBskyConvoDefs } from '@atproto/api';
 import { ChatService, type ListConvosFilter } from '../../../services/api/chat/ChatService';
