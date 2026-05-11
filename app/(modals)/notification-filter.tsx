@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
@@ -88,14 +88,18 @@ const FilterOption: React.FC<{
   label: string;
   checked: boolean;
   onPress: () => void;
-}> = ({ label, checked, onPress }) => (
-  <SquircleNativePressable onPress={onPress} style={styles.filterOption}>
-    <Text style={styles.filterOptionLabel}>{label}</Text>
-    <View style={[styles.checkbox, checked && styles.checkboxSelected]}>
-      {checked && <Icon name="check" size={16} color={Colors.neutral[975]} />}
-    </View>
-  </SquircleNativePressable>
-);
+}> = ({ label, checked, onPress }) => {
+  const checkboxStyle = useMemo(() => [styles.checkbox, checked && styles.checkboxSelected], [checked]);
+  
+  return (
+    <SquircleNativePressable onPress={onPress} style={styles.filterOption}>
+      <Text style={styles.filterOptionLabel}>{label}</Text>
+      <View style={checkboxStyle}>
+        {checked && <Icon name="check" size={16} color={Colors.neutral[975]} />}
+      </View>
+    </SquircleNativePressable>
+  );
+};
 
 export default function NotificationFilterModal() {
   const { t } = useTranslation();
@@ -128,6 +132,10 @@ export default function NotificationFilterModal() {
     [localSelected]
   );
 
+  const hasFilters = localSelected.length > 0;
+
+  const clearBtnStyle = useMemo(() => [styles.clearBtn, !hasFilters && styles.clearBtnDisabled], [hasFilters]);
+
   const handleToggleReason = useCallback((reason: NotificationReason) => {
     setLocalSelected(prev =>
       prev.includes(reason) ? prev.filter(r => r !== reason) : [...prev, reason]
@@ -144,8 +152,6 @@ export default function NotificationFilterModal() {
   }, []);
 
   const handleClear = useCallback(() => setLocalSelected([]), []);
-
-  const hasFilters = localSelected.length > 0;
 
   // Apply filter when selection changes (no Done button)
   useEffect(() => {
@@ -177,7 +183,7 @@ export default function NotificationFilterModal() {
             <SquircleNativePressable
               onPress={handleClear}
               disabled={!hasFilters}
-              style={[styles.clearBtn, !hasFilters && styles.clearBtnDisabled]}
+              style={clearBtnStyle}
             >
               <Text style={styles.clearBtnText}>{t('activity.clear')}</Text>
             </SquircleNativePressable>

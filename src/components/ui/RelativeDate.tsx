@@ -12,7 +12,7 @@ import {
   parseISO,
 } from 'date-fns';
 import { Colors } from '../../theme';
-import { FontFamily, fontSizeFor } from '../../utils/components/typography';
+import { FontFamily, Typography } from '../../utils/components/typography';
 
 interface RelativeDateProps {
   dateString?: string;
@@ -74,8 +74,9 @@ export const formatRelativeDate = (dateString?: string, _showTime: boolean = fal
 const styles = StyleSheet.create({
   dateText: {
     color: Colors.neutral[200],
-    fontSize: fontSizeFor(13),
+    fontSize: Typography.sizes.caption,
     fontFamily: FontFamily.regular,
+    lineHeight: Typography.lineHeights.caption,
   },
 });
 

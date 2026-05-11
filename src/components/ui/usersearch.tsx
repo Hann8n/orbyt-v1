@@ -1,56 +1,26 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-
-/** Debounce helper for selection changes */
-function useDebouncedSelection(
-  selection: { start: number; end: number } | null,
-  delay: number = 50
-) {
-  const [debounced, setDebounced] = useState(selection);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    timeoutRef.current = setTimeout(() => {
-      setDebounced(selection);
-    }, delay);
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [selection, delay]);
-
-  return debounced;
-}
+import { useState, useEffect, useRef, useCallback, useDeferredValue } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS } from '../../utils/constants';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
+  Platform,
   type StyleProp,
   type ViewStyle,
   ActivityIndicator,
 } from 'react-native';
 import { SquircleNativePressable } from './Squircle';
-import { useInfiniteQuery, InfiniteData, useQuery } from '@tanstack/react-query';
+import { LinearGradient } from './LinearGradient';
+import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../utils/query/queryKeys';
-import { ActorService } from '../../services/api/actor/ActorService';
 import { AtprotoFeedService } from '../../services/api/feed/FeedService';
-import { Colors, Avatar as UIAvatar } from './UI';
-import { Typography, FontFamily } from '../../utils/components/typography';
-
-// Types
-export interface UserProfile {
-  did: string;
-  handle: string;
-  displayName?: string;
-  avatar?: string;
-}
+import AuthorItem from './AuthorItem';
+import { Colors } from './UI';
+import { FontFamily, Typography } from '../../utils/components/typography';
+import { useProfileSearch, type UserProfile } from '../../hooks/useProfileSearch';
+import { getSearchQuery } from '../../utils/searchQueryExtractors';
 
 /** Author row styling for `RichTextSearchModal` (video post description @/# search) and matching surfaces. */
 export const RICH_TEXT_SEARCH_AUTHOR_ITEM_STYLE: ViewStyle = {
@@ -93,35 +63,7 @@ export interface RichTextSearchModalProps {
   containerStyle?: StyleProp<ViewStyle>;
 }
 
-// Helper: extract @mention query from text and cursor position
-function getMentionQuery(text: string, cursor: number) {
-  const beforeCursor = text.slice(0, cursor);
-  const match = /(^|\s)@([\w.-]*)$/.exec(beforeCursor);
-  if (match) {
-    return {
-      query: match[2],
-      start: match.index + match[1].length,
-      end: cursor,
-    };
-  }
-  return null;
-}
-
-// Helper: extract #hashtag query from text and cursor position
-function getHashtagQuery(text: string, cursor: number) {
-  const beforeCursor = text.slice(0, cursor);
-  const match = /(^|\s)#([\w]*)$/.exec(beforeCursor);
-  if (match) {
-    return {
-      query: match[2],
-      start: match.index + match[1].length,
-      end: cursor,
-    };
-  }
-  return null;
-}
-
-// Sub-components
+// Helper functions are now imported from searchQueryExtractors
 
 const LoadingState = () => (
   <View style={styles.loadingWrapper}>
@@ -133,28 +75,6 @@ const EmptyState = ({ message }: { message: string }) => (
   <View style={styles.emptyWrapper}>
     <Text style={styles.emptyText}>{message}</Text>
   </View>
-);
-
-const UserPill = ({ user, onPress }: { user: UserProfile; onPress: () => void }) => (
-  <SquircleNativePressable
-    style={styles.compactUserCard}
-    onPress={onPress}
-  >
-    <UIAvatar uri={user.avatar} size={24} style={styles.compactAvatar} />
-    <Text style={styles.compactHandle} numberOfLines={1}>
-      {user.handle}
-    </Text>
-  </SquircleNativePressable>
-);
-
-const HashtagPill = ({ tag, onPress }: { tag: string; onPress: () => void }) => (
-  <SquircleNativePressable
-    style={styles.hashtagItem}
-    onPress={onPress}
-  >
-    <Text style={styles.hashtagSymbol}>#</Text>
-    <Text style={styles.hashtagTag}>{tag}</Text>
-  </SquircleNativePressable>
 );
 
 // Unified search banner component (handles both mentions and hashtags)
@@ -178,47 +98,34 @@ function SearchBanner({
   containerStyle,
 }: SearchBannerProps) {
   const { t } = useTranslation();
-
-  // User search query
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  
+  // Use shared profile search hook for mentions
   const {
     data: userData,
     isLoading: isLoadingUsers,
-  } = useInfiniteQuery<
-    { profiles: UserProfile[]; cursor: string | null },
-    Error,
-    InfiniteData<{ profiles: UserProfile[]; cursor: string | null }, string | null>,
-    ReturnType<typeof queryKeys.search.profiles>,
-    string | null
-  >({
-    queryKey: queryKeys.search.profiles(searchQuery),
-    queryFn: async ({ pageParam }) => {
-      return ActorService.searchProfilesPaginated(searchQuery, pageParam as string | null);
-    },
-    getNextPageParam: lastPage => lastPage?.cursor ?? null,
-    initialPageParam: null,
-    enabled: visible && searchType === 'mention' && searchQuery.length > 0,
+    isFetchingNextPage: isFetchingMoreUsers,
+    fetchNextPage: fetchMoreUsers,
+    hasNextPage: hasMoreUsers,
+  } = useProfileSearch(deferredSearchQuery, {
+    enabled: searchType === 'mention' && visible,
     staleTime: 30 * 1000,
   });
 
   const users = userData?.pages.flatMap(page => page.profiles) || [];
 
   // Hashtag suggestions from API — min 3 chars to avoid expensive searches on every keystroke
-  const { data: hashtagSuggestionsData, isLoading: isLoadingHashtags, error: hashtagError } = useQuery<
-    { hashtags: string[] },
-    Error,
-    { hashtags: string[] },
-    ReturnType<typeof queryKeys.search.hashtags>
-  >({
-    queryKey: queryKeys.search.hashtags(searchQuery),
-    queryFn: async () => {
-      const hashtags = await AtprotoFeedService.searchHashtagSuggestions(searchQuery, 10);
-      return { hashtags };
-    },
-    enabled: visible && searchType === 'hashtag' && searchQuery.length >= 3,
+  const {
+    data: hashtagSuggestionsData,
+    isLoading: isLoadingHashtags,
+  } = useQuery<string[]>({
+    queryKey: queryKeys.search.hashtags(deferredSearchQuery),
+    queryFn: () => AtprotoFeedService.searchHashtagSuggestions(deferredSearchQuery, 10),
+    enabled: searchType === 'hashtag' && deferredSearchQuery.length >= 3 && visible,
     staleTime: 5 * 60 * 1000,
   });
 
-  const hashtagSuggestions = searchType === 'hashtag' ? (hashtagSuggestionsData?.hashtags || []) : [];
+  const hashtagSuggestions = hashtagSuggestionsData ?? [];
 
   if (!visible) return null;
 
@@ -230,49 +137,66 @@ function SearchBanner({
         ) : users.length === 0 ? (
           <EmptyState message={t('feed.noUsersFound')} />
         ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.horizontalListContent}
-          >
-            {users.map(user => (
-              <UserPill
-                key={user.did}
-                user={user}
-                onPress={() => {
-                  onSelectUser?.(user);
-                }}
-              />
-            ))}
-          </ScrollView>
-        )
-      ) : searchQuery.length < 3 ? (
-        <EmptyState message={t('feed.typeMoreForHashtags')} />
-      ) : isLoadingHashtags ? (
-        <LoadingState />
-      ) : hashtagError ? (
-        <EmptyState message={t('feed.errorLoadingHashtags')} />
-      ) : hashtagSuggestions.length === 0 ? (
-        <EmptyState message={t('feed.noHashtagsFound')} />
-      ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.horizontalListContent}
-        >
-          {hashtagSuggestions.map(tag => (
-            <HashtagPill
-              key={tag}
-              tag={tag}
-              onPress={() => {
-                onSelectHashtag?.(tag);
-                onRequestClose();
+          <View style={styles.listContainer}>
+            <FlatList
+              data={users}
+              keyExtractor={item => item.did}
+              renderItem={({ item }) => (
+                <AuthorItem
+                  {...RICH_TEXT_SEARCH_AUTHOR_ITEM_DEFAULTS}
+                  handle={item.handle}
+                  did={item.did}
+                  displayName={item.displayName}
+                  avatar={item.avatar}
+                  onPress={() => onSelectUser?.(item)}
+                  style={RICH_TEXT_SEARCH_AUTHOR_ITEM_STYLE}
+                />
+              )}
+              onEndReached={() => {
+                if (hasMoreUsers && !isFetchingMoreUsers) fetchMoreUsers();
               }}
+              onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+              keyboardShouldPersistTaps="handled"
+              style={styles.resultsList}
+              contentContainerStyle={styles.resultsListContent}
+              scrollEnabled={true}
             />
-          ))}
-        </ScrollView>
+            <LinearGradient
+              colors={['transparent', Colors.neutral[975]]}
+              locations={[0, 1]}
+              style={styles.fadeGradient}
+              pointerEvents="none"
+            />
+          </View>
+        )
+      ) : isLoadingHashtags ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={Colors.neutral[50]} />
+        </View>
+      ) : hashtagSuggestions.length === 0 ? (
+        <View style={styles.centered}>
+          <Text style={styles.emptyText}>{t('feed.noHashtagsFound')}</Text>
+        </View>
+      ) : (
+        <View style={styles.listContainer}>
+          <FlatList
+            data={hashtagSuggestions}
+            keyExtractor={item => item}
+            renderItem={({ item }) => (
+              <SquircleNativePressable
+                style={styles.hashtagItem}
+                onPress={() => onSelectHashtag?.(item)}
+              >
+                <Text style={styles.hashtagText}>
+                  <Text style={styles.hashtagSymbol}>#</Text>
+                  <Text style={styles.hashtagTag}>{item}</Text>
+                </Text>
+              </SquircleNativePressable>
+            )}
+            contentContainerStyle={styles.hashtagListContent}
+            keyboardShouldPersistTaps="handled"
+          />
+        </View>
       )}
     </View>
   );
@@ -340,47 +264,34 @@ function useSearchTrigger({
   
   // Track cursor position after insertion for controlled selection prop
   const pendingCursorPosRef = useRef<number | null>(null);
-  
-  // Debounce selection for mention detection (reduces re-renders during typing)
-  const debouncedSelection = useDebouncedSelection(selection, 50);
+  const deferredValue = useDeferredValue(value);
 
-  // Watch value/selection for @ mention or # hashtag
+  // Watch value/selection for @ mention or # hashtag using shared utility
   useEffect(() => {
-    if (!debouncedSelection) return;
+    if (!selection) return undefined;
     
-    const cursor = debouncedSelection.start;
-
-    // If modal is visible and user types a space, dismiss it
-    if (modalVisible && cursor > 0 && value[cursor - 1] === ' ') {
+    const searchResult = getSearchQuery(deferredValue, selection.start, enableHashtags);
+    
+    // If modal is visible and user types a space, dismiss it.
+    // Use the live `value` (not deferred) so the character at the current cursor is accurate.
+    if (modalVisible && selection.start > 0 && value[selection.start - 1] === ' ') {
       setSearchQuery('');
       setSearchRange(null);
       setModalVisible(false);
       return;
     }
 
-    if (enableHashtags) {
-      const hashtag = getHashtagQuery(value, cursor);
-      if (hashtag) {
-        setSearchQuery(hashtag.query);
-        setSearchRange({ start: hashtag.start, end: hashtag.end });
-        setSearchType('hashtag');
-        setModalVisible(true);
-        return;
-      }
-    }
-
-    const mention = getMentionQuery(value, cursor);
-    if (mention && mention.query.length > 0) {
-      setSearchQuery(mention.query);
-      setSearchRange({ start: mention.start, end: mention.end });
-      setSearchType('mention');
+    if (searchResult) {
+      setSearchQuery(searchResult.query.query);
+      setSearchRange({ start: searchResult.query.start, end: searchResult.query.end });
+      setSearchType(searchResult.type);
       setModalVisible(true);
     } else if (modalVisible) {
       setSearchQuery('');
       setSearchRange(null);
       setModalVisible(false);
     }
-  }, [value, debouncedSelection, modalVisible, enableHashtags]);
+  }, [value, deferredValue, selection, modalVisible, enableHashtags]);
 
   // Clear pending cursor position after it's been applied
   useEffect(() => {
@@ -437,6 +348,8 @@ function useSearchTrigger({
       onChangeText,
       onSelectionChange,
       selection: selectionProp,
+      autoCorrect: false,
+      autoCapitalize: 'none' as const,
     },
     modalProps: {
       visible: modalVisible,
@@ -480,6 +393,33 @@ export function useRichTextSearchTrigger(props: UseUserSearchTriggerProps) {
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: Colors.overlay.black85,
+    zIndex: 1000,
+  },
+  modal: {
+    backgroundColor: Colors.neutral[975],
+    borderTopLeftRadius: BORDER_RADIUS.LARGE,
+    borderTopRightRadius: BORDER_RADIUS.LARGE,
+    maxHeight: '50%',
+    minHeight: 200,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.black,
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
   bannerContainer: {
     backgroundColor: Colors.neutral[975],
     borderTopWidth: 1,
@@ -490,12 +430,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 0,
     overflow: 'hidden',
-    alignItems: 'flex-start',
-  },
-  horizontalListContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 0,
-    gap: 4,
     alignItems: 'flex-start',
   },
   loadingWrapper: {
@@ -510,10 +444,40 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     width: '100%',
   },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
   emptyText: {
     color: Colors.neutral[400],
     fontSize: Typography.sizes.body,
-    fontFamily: FontFamily.medium,
+    fontFamily: FontFamily.regular,
+    textAlign: 'center',
+  },
+  listContainer: {
+    flex: 1,
+    width: '100%',
+  },
+  resultsList: {
+    flex: 1,
+    width: '100%',
+  },
+  resultsListContent: {
+    paddingHorizontal: 0,
+    paddingBottom: 40,
+  },
+  fadeGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 60,
+  },
+  hashtagListContent: {
+    paddingHorizontal: 0,
+    paddingBottom: 16,
   },
   hashtagItem: {
     flexDirection: 'row',
@@ -522,21 +486,23 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 12,
     borderRadius: BORDER_RADIUS.LARGE,
-    marginRight: 6,
-    backgroundColor: Colors.transparent,
-    borderWidth: 1,
-    borderColor: Colors.neutral[800],
-    flexShrink: 0,
+    marginBottom: 0,
+    backgroundColor: Colors.neutral[975],
+  },
+  hashtagText: {
+    color: Colors.neutral[50],
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
   },
   hashtagSymbol: {
     color: Colors.neutral[50],
-    fontFamily: FontFamily.regular,
-    fontSize: Typography.sizes.body,
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.medium,
   },
   hashtagTag: {
     color: Colors.neutral[50],
+    fontSize: Typography.sizes.bodySmall,
     fontFamily: FontFamily.bold,
-    fontSize: Typography.sizes.body,
   },
   compactUserCard: {
     flexDirection: 'row',

@@ -16,6 +16,7 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 import { Colors } from '@/theme';
 import { selectIsSessionValid, useUserStore } from '@/stores/userStore';
 import { useBookmarkStore } from '@/stores/bookmarkStore';
+import { useBookmarksQuery } from '@/hooks/useBookmarksQuery';
 import GlobalAccountSwitcher from '@/components/ui/GlobalAccountSwitcher';
 import { EmailVerificationModal } from '@/components/ui/EmailVerificationModal';
 import { queryClient } from '@/utils/query/queryClient';
@@ -104,12 +105,19 @@ SplashScreen.preventAutoHideAsync().catch(error => {
   logger.debug('SplashScreen.preventAutoHideAsync failed', { error });
 });
 
+// Component to handle bookmarks query inside QueryClientProvider
+const BookmarksQueryHandler: React.FC = () => {
+  useBookmarksQuery();
+  return null;
+};
+
 // Consolidated providers wrapper
 const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <QueryClientProvider client={queryClient}>
         <LocaleSync />
+        <BookmarksQueryHandler />
         <GestureHandlerRootView style={styles.gestureHandler}>
           <KeyboardProvider>
             <PostHogProvider
@@ -298,7 +306,6 @@ export default Sentry.wrap(function RootLayout() {
 
   const isAuthenticated = useUserStore(selectIsSessionValid);
   const initializeUserState = useUserStore(state => state.initializeUserState);
-  const loadBookmarks = useBookmarkStore(state => state.loadBookmarks);
   const clearBookmarks = useBookmarkStore(state => state.clearBookmarks);
   const isInitializingAuth = useUserStore(state => state.isInitializingAuth);
   const pathname = usePathname();
@@ -344,23 +351,12 @@ export default Sentry.wrap(function RootLayout() {
     initializeApp();
   }, [initializeUserState]);
 
-  // Load bookmarks when user is authenticated
+  // Clear bookmarks on logout (useBookmarksQuery stops fetching automatically via enabled:sessionValid)
   useEffect(() => {
     if (!isAuthenticated) {
       clearBookmarks();
-      return;
     }
-
-    // Defer until interactions complete (service already checks authentication state)
-    const id = requestIdleCallback(
-      () => {
-        loadBookmarks().catch(() => {});
-      },
-      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-    );
-
-    return () => cancelIdleCallback(id);
-  }, [isAuthenticated, loadBookmarks, clearBookmarks]);
+  }, [isAuthenticated, clearBookmarks]);
 
   // Initialize seen video service and subscribe to user changes
   useEffect(() => {

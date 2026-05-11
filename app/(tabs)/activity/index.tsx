@@ -2,6 +2,7 @@ import React, { useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { tabRefs } from '@/utils/navigation/tabRefs';
 import { View, StyleSheet, StatusBar } from 'react-native';
+import type { Edge } from 'react-native-safe-area-context';
 import { NativePressable } from '@/components/ui/NativePressable';
 import PagerView from 'react-native-pager-view';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -74,6 +75,7 @@ const ActivityScreen: React.FC = () => {
   const { notificationsCount, messagesCount } = useUnreadCount();
 
   const pages = useMemo<Array<'chats' | 'notifications'>>(() => ['notifications', 'chats'], []);
+  const safeAreaEdges = useMemo<Edge[]>(() => ['top'], []);
   const notificationsTabRef = useRef<typeof tabRefs.activity>(null);
   const chatsTabRef = useRef<typeof tabRefs.activity>(null);
 
@@ -82,7 +84,7 @@ const ActivityScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
 
       {/* Header with animated tab indicators */}
-      <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
+      <SafeAreaView edges={safeAreaEdges} style={styles.headerSafeArea}>
         <View style={styles.headerSection}>
           <View style={styles.tabSection}>
             <View style={styles.indicatorContainer}>

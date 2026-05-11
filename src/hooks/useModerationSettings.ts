@@ -28,7 +28,6 @@ export function useModerationSettings(userDid?: string) {
   return {
     moderationPrefs: data?.moderationPrefs ?? null,
     labelDefs: data?.labelDefs ?? null,
-    settings: data?.moderationPrefs ?? null,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

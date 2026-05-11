@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
-import { BlurView } from '../../../ui/BlurView';
+import { BlurView } from 'expo-blur';
 import { BORDER_RADIUS } from '../../../../utils/constants';
 import { Colors } from '../../../../theme';
 import { FontFamily, Typography } from '../../../../utils/components/typography';

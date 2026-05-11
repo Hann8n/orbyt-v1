@@ -9,6 +9,13 @@ const tabStackScreenOptions = {
   animation: 'slide_from_right' as const,
 };
 
+/** Regular functions to avoid inline arrow functions */
+const getUserSingularName = (_name: string, params: any) =>
+  (params?.did as string | undefined) ?? 'unknown-user';
+
+const getChannelSingularName = (_name: string, params: any) =>
+  (params?.id as string | undefined) ?? 'unknown-channel';
+
 /**
  * Home tab lives under `(tabs)/home` so the tab segment name (`home`) never collides with the stack’s
  * root screen name (`index` from `index.tsx`). Duplicate `index` (tab + screen) breaks nested navigation.
@@ -21,15 +28,11 @@ export function HomeTabStackLayout() {
       <Stack.Screen name="full-height-video" />
       <Stack.Screen
         name="user/[did]"
-        dangerouslySingular={(_name, params) =>
-          (params?.did as string | undefined) ?? 'unknown-user'
-        }
+        dangerouslySingular={getUserSingularName}
       />
       <Stack.Screen
         name="channel/[id]"
-        dangerouslySingular={(_name, params) =>
-          (params?.id as string | undefined) ?? 'unknown-channel'
-        }
+        dangerouslySingular={getChannelSingularName}
       />
     </Stack>
   );
@@ -47,15 +50,11 @@ export function IndexExploreActivityStackLayout() {
       <Stack.Screen name="full-height-video" />
       <Stack.Screen
         name="user/[did]"
-        dangerouslySingular={(_name, params) =>
-          (params?.did as string | undefined) ?? 'unknown-user'
-        }
+        dangerouslySingular={getUserSingularName}
       />
       <Stack.Screen
         name="channel/[id]"
-        dangerouslySingular={(_name, params) =>
-          (params?.id as string | undefined) ?? 'unknown-channel'
-        }
+        dangerouslySingular={getChannelSingularName}
       />
     </Stack>
   );
@@ -70,15 +69,11 @@ export function ProfileTabStackLayout() {
       <Stack.Screen name="full-height-video" />
       <Stack.Screen
         name="[did]"
-        dangerouslySingular={(_name, params) =>
-          (params?.did as string | undefined) ?? 'unknown-user'
-        }
+        dangerouslySingular={getUserSingularName}
       />
       <Stack.Screen
         name="channel/[id]"
-        dangerouslySingular={(_name, params) =>
-          (params?.id as string | undefined) ?? 'unknown-channel'
-        }
+        dangerouslySingular={getChannelSingularName}
       />
     </Stack>
   );

@@ -28,7 +28,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { itemSizeConfig, sharedItemStyles, sharedListRowStyles } from './ItemStyles';
 import { useUserStore } from '../../stores/userStore';
 import { isCurrentUser } from '../../stores/profileInteractionStore';
-import { BlurView } from './BlurView';
+import { BlurView } from 'expo-blur';
 
 interface AuthorItemProps {
   handle: string;

@@ -30,7 +30,7 @@ import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
 import { FFmpegKit } from 'ffmpeg-kit-react-native';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
-import { BlurView } from '@/components/ui/BlurView';
+import { BlurView } from 'expo-blur';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Avatar } from '@/components/ui/UI';
 import Icon, { BackArrowIcon, DownSmallFillIcon } from '@/components/ui/Icon';
@@ -744,6 +744,7 @@ const VideoPostScreen: React.FC = () => {
   }, [hasVideoSource, t]);
 
   // removed legacy expo-av handlers (not used with expo-video)
+
 
   const toggleContentWarning = (id: string) => {
     if (selectedContentWarnings.includes(id)) {

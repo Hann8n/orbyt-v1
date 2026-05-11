@@ -29,7 +29,7 @@ import { COMPOSER_INPUT_PADDING } from '../../../utils/components/truesheet/util
 import { RichTextSearchModal, type RichTextSearchModalProps } from '../../ui/usersearch';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileByDid } from '../../../services/data/ProfileService';
-import { Typography } from '../../../utils/components/typography';
+import { FontFamily, Typography } from '../../../utils/components/typography';
 
 interface TextInputSelectionChangeEventData extends TargetedEvent {
   selection: {
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     color: Colors.neutral[200],
     fontSize: Typography.sizes.bodySmall,
     textAlign: 'center',
-    fontFamily: Typography.families.medium,
+    fontFamily: FontFamily.medium,
     lineHeight: Typography.lineHeights.bodySmall,
   },
   charCountTextError: {

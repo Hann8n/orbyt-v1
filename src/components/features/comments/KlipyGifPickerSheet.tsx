@@ -25,7 +25,7 @@ import {
 import { Colors } from '@/theme';
 import { BORDER_RADIUS, ICON_SIZES, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import { FontFamily, Typography } from '@/utils/components/typography';
-import { BlurView } from '@/components/ui/BlurView';
+import { BlurView } from 'expo-blur';
 import Icon from '@/components/ui/Icon';
 import { useKlipySearch, useKlipyTrending } from '@/hooks/klipy/useKlipyGifs';
 import { getKlipyService } from '@/services/klipy/klipyConfig';

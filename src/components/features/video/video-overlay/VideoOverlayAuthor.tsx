@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { NativePressable } from '@/components/ui/NativePressable';
-import { BlurView } from '@/components/ui/BlurView';
+import { BlurView } from 'expo-blur';
 import { sharedItemStyles } from '@/components/ui/ItemStyles';
 import { Avatar } from '../../../ui/UI';
 import { VerificationBadge, BotBadge } from '../../badging';

@@ -1,164 +1,67 @@
 /**
  * Bookmark Store
- * Efficiently manages bookmark state by caching all bookmarks
- * Provides O(1) lookup to check if a post is bookmarked
+ * Provides O(1) lookup for bookmarked post URIs.
+ * Loading is handled by useBookmarksQuery (React Query) which calls populate().
+ * Optimistic add/remove stay synchronous for instant UI feedback.
  */
 import { create } from 'zustand';
-import { BookmarkService } from '../services/api/bookmark/BookmarkService';
-import { logger } from '../utils/logger';
 
 interface BookmarkState {
-  // Set of bookmarked post URIs for O(1) lookup
   bookmarkedPostUris: Set<string>;
-
-  // Map of post URI to bookmark subject (for reference)
   bookmarkSubjects: Map<string, { uri: string; cid: string }>;
 
-  // Loading state
-  isLoading: boolean;
-  lastFetched: number | null;
-
-  // Actions
-  loadBookmarks: () => Promise<void>;
+  populate: (
+    uris: Array<{ uri: string; subject?: { uri: string; cid: string } }>
+  ) => void;
   isBookmarked: (postUri: string) => boolean;
   addBookmark: (postUri: string, bookmarkSubject?: { uri: string; cid: string }) => void;
   removeBookmark: (postUri: string) => void;
   clearBookmarks: () => void;
-  refreshBookmarks: () => Promise<void>;
 }
-
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export const useBookmarkStore = create<BookmarkState>((set, get) => ({
   bookmarkedPostUris: new Set(),
   bookmarkSubjects: new Map(),
-  isLoading: false,
-  lastFetched: null,
 
   /**
-   * Load all bookmarks from the API
-   * Fetches all pages and caches the post URIs
+   * Bulk-populate from React Query fetch results. Replaces the store with the
+   * authoritative server state so server-side removals are reflected correctly.
    */
-  loadBookmarks: async () => {
-    const state = get();
-
-    // Don't reload if recently fetched
-    if (
-      state.lastFetched &&
-      Date.now() - state.lastFetched < CACHE_DURATION &&
-      state.bookmarkedPostUris.size > 0
-    ) {
-      return;
-    }
-
-    if (state.isLoading) {
-      return;
-    }
-
-    set({ isLoading: true });
-
-    try {
-      const bookmarkedUris = new Set<string>();
+  populate: (entries) => {
+    set(() => {
+      const uris = new Set<string>();
       const subjects = new Map<string, { uri: string; cid: string }>();
-      let cursor: string | null = null;
-      let hasMore = true;
-      let pageCount = 0;
-      const maxPages = 20; // Safety limit
-
-      while (hasMore && pageCount < maxPages) {
-        const response = await BookmarkService.getBookmarks(cursor || undefined, 100);
-
-        // Process bookmarks from this page
-        for (const bookmark of response.bookmarks) {
-          const postUri = bookmark.uri;
-          if (postUri && postUri.includes('app.bsky.feed.post')) {
-            bookmarkedUris.add(postUri);
-
-            const bookmarkSubject = bookmark.bookmarkSubject;
-            if (bookmarkSubject?.uri && bookmarkSubject?.cid) {
-              subjects.set(postUri, { uri: bookmarkSubject.uri, cid: bookmarkSubject.cid });
-            }
-          }
-        }
-
-        cursor = response.cursor;
-        hasMore = !!cursor && response.bookmarks.length > 0;
-        pageCount++;
+      for (const { uri, subject } of entries) {
+        uris.add(uri);
+        if (subject) subjects.set(uri, subject);
       }
-
-      set({
-        bookmarkedPostUris: bookmarkedUris,
-        bookmarkSubjects: subjects,
-        isLoading: false,
-        lastFetched: Date.now(),
-      });
-    } catch (error) {
-      logger.error('[BookmarkStore] Error loading bookmarks', error);
-      set({ isLoading: false });
-    }
+      return { bookmarkedPostUris: uris, bookmarkSubjects: subjects };
+    });
   },
 
-  /**
-   * Check if a post is bookmarked (O(1) lookup)
-   */
-  isBookmarked: (postUri: string) => {
-    return get().bookmarkedPostUris.has(postUri);
-  },
+  isBookmarked: (postUri: string) => get().bookmarkedPostUris.has(postUri),
 
-  /**
-   * Add a bookmark to the cache (optimistic update)
-   */
   addBookmark: (postUri: string, bookmarkSubject?: { uri: string; cid: string }) => {
     set(state => {
       const newUris = new Set(state.bookmarkedPostUris);
       newUris.add(postUri);
-
       const newSubjects = new Map(state.bookmarkSubjects);
-      if (bookmarkSubject) {
-        newSubjects.set(postUri, bookmarkSubject);
-      }
-
-      return {
-        bookmarkedPostUris: newUris,
-        bookmarkSubjects: newSubjects,
-      };
+      if (bookmarkSubject) newSubjects.set(postUri, bookmarkSubject);
+      return { bookmarkedPostUris: newUris, bookmarkSubjects: newSubjects };
     });
   },
 
-  /**
-   * Remove a bookmark from the cache
-   */
   removeBookmark: (postUri: string) => {
     set(state => {
       const newUris = new Set(state.bookmarkedPostUris);
       newUris.delete(postUri);
-
       const newSubjects = new Map(state.bookmarkSubjects);
       newSubjects.delete(postUri);
-
-      return {
-        bookmarkedPostUris: newUris,
-        bookmarkSubjects: newSubjects,
-      };
+      return { bookmarkedPostUris: newUris, bookmarkSubjects: newSubjects };
     });
   },
 
-  /**
-   * Clear all bookmarks (e.g., on logout)
-   */
   clearBookmarks: () => {
-    set({
-      bookmarkedPostUris: new Set(),
-      bookmarkSubjects: new Map(),
-      lastFetched: null,
-    });
-  },
-
-  /**
-   * Force refresh bookmarks from API
-   */
-  refreshBookmarks: async () => {
-    set({ lastFetched: null }); // Clear cache timestamp
-    await get().loadBookmarks();
+    set({ bookmarkedPostUris: new Set(), bookmarkSubjects: new Map() });
   },
 }));

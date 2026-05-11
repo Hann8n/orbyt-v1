@@ -120,6 +120,12 @@ export const queryKeys = {
     infiniteByPost: (postUri: string) => [...queryKeys.likes.infinite(), postUri] as const,
   },
 
+  // Bookmark queries
+  bookmarks: {
+    all: ['bookmarks'] as const,
+    list: () => ['bookmarks', 'list'] as const,
+  },
+
   // Block/Mute queries
   blocks: {
     all: blocksBase,

@@ -1,57 +1,27 @@
 import { useState, useEffect } from 'react';
 import { RichText as RichTextAPI } from '@atproto/api';
-import { logger } from '../utils/logger';
 
 /**
- * Hook to process text into RichText instance and handle facet resolution
- * Similar to Bluesky's useRichText hook
+ * Hook to process text into RichText instance and handle facet detection.
+ * Uses detectFacetsWithoutResolution (synchronous) — full mention resolution
+ * to DIDs only happens at post-creation time, not for display.
  * @param text - The text to process
- * @returns [RichText instance, isResolving boolean]
+ * @returns RichText instance with facets detected
  */
-export function useRichText(text: string): [RichTextAPI, boolean] {
+export function useRichText(text: string): RichTextAPI {
   const [richText, setRichText] = useState<RichTextAPI>(() => {
-    return new RichTextAPI({ text: text || '' });
+    const rt = new RichTextAPI({ text: text || '' });
+    rt.detectFacetsWithoutResolution();
+    return rt;
   });
-  const [isResolving, setIsResolving] = useState(false);
 
   useEffect(() => {
-    // Create new RichText instance when text changes
     const rt = new RichTextAPI({ text: text || '' });
-
-    // Detect facets without resolution first (synchronous)
     rt.detectFacetsWithoutResolution();
-
     setRichText(rt);
-    setIsResolving(true);
-
-    // Guard against stale async completions when `text` changes rapidly or
-    // the hook unmounts mid-resolution. Prevents out-of-order setRichText.
-    let cancelled = false;
-
-    const resolveFacets = async () => {
-      try {
-        // For display purposes, we use detectFacetsWithoutResolution
-        // This detects facets but doesn't resolve mentions to DIDs
-        // Full resolution happens when creating posts
-        rt.detectFacetsWithoutResolution();
-        if (cancelled) return;
-        setRichText(rt);
-      } catch (error) {
-        if (cancelled) return;
-        logger.error('Error detecting facets', error, { component: 'useRichText' });
-      } finally {
-        if (!cancelled) setIsResolving(false);
-      }
-    };
-
-    resolveFacets();
-
-    return () => {
-      cancelled = true;
-    };
   }, [text]);
 
-  return [richText, isResolving];
+  return richText;
 }
 
 export type RichTextDisplayPart = {
@@ -62,91 +32,34 @@ export type RichTextDisplayPart = {
 };
 
 /**
- * Format rich text for display (extracts mentions and hashtags for styling)
+ * Format rich text for display (extracts mentions and hashtags for styling).
+ * Uses the SDK's segments() iterator so byte-position math is handled internally.
  * @param richText - RichText instance from @atproto/api
  * @returns Array of text parts with formatting info
  */
 export function formatRichTextForDisplay(richText: RichTextAPI): RichTextDisplayPart[] {
   const parts: RichTextDisplayPart[] = [];
-  const text = richText.text;
+  let k = 0;
 
-  if (!text || !richText.facets || richText.facets.length === 0) {
-    return [{ displayKey: 'rt-all', text: text || '', isSemiBold: false }];
-  }
+  for (const segment of richText.segments()) {
+    const segText = segment.text;
+    if (!segText) continue;
 
-  let partSeq = 0;
-  const textBytes = new TextEncoder().encode(text);
-  let lastByteIndex = 0;
-  const sortedFacets = [...richText.facets].sort((a, b) => a.index.byteStart - b.index.byteStart);
-
-  for (const facet of sortedFacets) {
-    // Add text before facet
-    if (facet.index.byteStart > lastByteIndex) {
-      const beforeBytes = textBytes.slice(lastByteIndex, facet.index.byteStart);
-      const beforeText = new TextDecoder().decode(beforeBytes);
-
-      if (beforeText) {
-        parts.push({
-          displayKey: `rt-plain-${lastByteIndex}-${facet.index.byteStart}-${partSeq++}`,
-          text: beforeText,
-          isSemiBold: false,
-        });
-      }
-    }
-
-    // Extract facet text using byte positions
-    const facetBytes = textBytes.slice(facet.index.byteStart, facet.index.byteEnd);
-    const facetText = new TextDecoder().decode(facetBytes);
-
-    // Check if this is a mention or hashtag (for semi-bold styling)
-    const isMention = facet.features.some(f => f.$type === 'app.bsky.richtext.facet#mention');
-    const isHashtag = facet.features.some(f => f.$type === 'app.bsky.richtext.facet#tag');
-
-    if (isMention || isHashtag) {
-      // Split symbol from text for mentions/hashtags
-      const symbol = facetText[0]; // @ or #
-      const textAfterSymbol = facetText.slice(1);
-
+    if (segment.isMention() || segment.isTag()) {
+      const symbol = segText[0]; // @ or #
+      const body = segText.slice(1);
       if (symbol) {
-        parts.push({
-          displayKey: `rt-sym-${facet.index.byteStart}-${facet.index.byteEnd}-${partSeq++}`,
-          text: symbol,
-          isSemiBold: false,
-          isSymbol: true,
-        });
+        parts.push({ displayKey: `rt-sym-${k++}`, text: symbol, isSemiBold: false, isSymbol: true });
       }
-      if (textAfterSymbol) {
-        parts.push({
-          displayKey: `rt-body-${facet.index.byteStart}-${facet.index.byteEnd}-${partSeq++}`,
-          text: textAfterSymbol,
-          isSemiBold: true,
-        });
+      if (body) {
+        parts.push({ displayKey: `rt-body-${k++}`, text: body, isSemiBold: true });
       }
     } else {
-      parts.push({
-        displayKey: `rt-facet-${facet.index.byteStart}-${facet.index.byteEnd}-${partSeq++}`,
-        text: facetText,
-        isSemiBold: false,
-      });
-    }
-
-    lastByteIndex = facet.index.byteEnd;
-  }
-
-  // Add remaining text
-  if (lastByteIndex < textBytes.length) {
-    const remainingBytes = textBytes.slice(lastByteIndex);
-    const remainingText = new TextDecoder().decode(remainingBytes);
-    if (remainingText) {
-      parts.push({
-        displayKey: `rt-trail-${lastByteIndex}-${textBytes.length}-${partSeq++}`,
-        text: remainingText,
-        isSemiBold: false,
-      });
+      parts.push({ displayKey: `rt-plain-${k++}`, text: segText, isSemiBold: false });
     }
   }
 
   return parts.length > 0
     ? parts
-    : [{ displayKey: 'rt-fallback', text: text || '', isSemiBold: false }];
+    : [{ displayKey: 'rt-fallback', text: richText.text || '', isSemiBold: false }];
 }

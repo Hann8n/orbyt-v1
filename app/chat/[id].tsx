@@ -250,6 +250,17 @@ function ChatMessageRichText({
   const currentTab = useFeedModalTabSegment();
   const parts = useMemo(() => formatChatRichTextParts(text, facets), [text, facets]);
 
+  const messageTextStyle = useMemo(() => [styles.messageText, isFromMe && styles.messageTextFromMe], [isFromMe]);
+
+  const getPartStyle = useCallback((part: ChatRichTextPart) => [
+    part.isSymbol && styles.messageTextMedium,
+    part.isSemiBold && styles.messageTextSemiBold,
+    part.kind === 'link' &&
+      (isFromMe
+        ? [styles.messageTextLinkFromMe, { color: fromMeAccentColor ?? Colors.brand.teal }]
+        : styles.messageTextLink),
+  ], [isFromMe, fromMeAccentColor]);
+
   const handlePartPress = useCallback(
     (part: ChatRichTextPart) => {
       if (!part.kind) return;
@@ -288,18 +299,11 @@ function ChatMessageRichText({
   );
 
   return (
-    <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
+    <Text style={messageTextStyle}>
       {parts.map(part => (
         <Text
           key={part.partKey}
-          style={[
-            part.isSymbol && styles.messageTextMedium,
-            part.isSemiBold && styles.messageTextSemiBold,
-            part.kind === 'link' &&
-              (isFromMe
-                ? [styles.messageTextLinkFromMe, { color: fromMeAccentColor ?? Colors.brand.teal }]
-                : styles.messageTextLink),
-          ]}
+          style={getPartStyle(part)}
           onPress={part.kind ? () => handlePartPress(part) : undefined}
         >
           {part.text}

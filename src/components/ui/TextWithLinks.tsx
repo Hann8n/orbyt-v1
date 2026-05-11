@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Text, Linking, StyleSheet, StyleProp, TextStyle, type TextProps } from 'react-native';
 import { RichText } from '@atproto/api';
-import { Typography } from '../../utils/components/typography';
+import { FontFamily } from '../../utils/components/typography';
 import { NATIVE_PRESSABLE_ACTIVE_OPACITY } from '@/utils/constants';
 
 export interface TextWithLinksProps {
@@ -196,13 +196,13 @@ function TextWithLinksBase({
 const styles = StyleSheet.create({
   link: {
     textDecorationLine: 'underline',
-    fontFamily: Typography.families.medium,
+    fontFamily: FontFamily.medium,
   },
   symbol: {
-    fontFamily: Typography.families.medium,
+    fontFamily: FontFamily.medium,
   },
   mentionTagText: {
-    fontFamily: Typography.families.bold,
+    fontFamily: FontFamily.bold,
   },
   pressed: {
     opacity: NATIVE_PRESSABLE_ACTIVE_OPACITY,
