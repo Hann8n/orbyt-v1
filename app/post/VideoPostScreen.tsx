@@ -65,11 +65,6 @@ import VerticalListSheet, {
 } from '@/components/ui/VerticalListSheet';
 import { SHEET_STYLES } from '@/utils/components/truesheet';
 import { useRichTextSearchTrigger, RichTextSearchModal } from '@/components/ui/usersearch';
-import {
-  useRichText,
-  formatRichTextForDisplay,
-  type RichTextDisplayPart,
-} from '@/hooks/useRichText';
 
 const VIDEO_WIDTH = 150; // Fixed preview width
 
@@ -173,9 +168,8 @@ const VideoPreviewContent: React.FC<{
 // Reusable description preview component
 const DescriptionPreview: React.FC<{
   description: string;
-  formattedRichText: RichTextDisplayPart[];
   onPress: () => void;
-}> = ({ description, formattedRichText, onPress }) => {
+}> = ({ description, onPress }) => {
   const { t } = useTranslation();
   return (
     <View style={[styles.descriptionSection, styles.descriptionSectionNoPadding]}>
@@ -185,20 +179,7 @@ const DescriptionPreview: React.FC<{
       <NativePressable onPress={onPress} style={styles.descriptionInputTouchable}>
         {description ? (
           <Text style={styles.descriptionInputPreview} numberOfLines={3}>
-            {formattedRichText.map(part => (
-              <Text
-                key={part.displayKey}
-                style={
-                  part.isSymbol
-                    ? styles.descriptionInputPreviewMedium
-                    : part.isSemiBold
-                      ? styles.descriptionInputPreviewSemiBold
-                      : styles.descriptionInputPreviewNormal
-                }
-              >
-                {part.text}
-              </Text>
-            ))}
+            {description}
           </Text>
         ) : (
           <Text style={[styles.descriptionInputPreview, styles.descriptionInputPlaceholder]}>
@@ -418,8 +399,8 @@ const PostButton: React.FC<{
 const DescriptionInputModal: React.FC<{
   visible: boolean;
   description: string;
-  formattedRichText: RichTextDisplayPart[];
   setDescription: (text: string) => void;
+  selection?: { start: number; end: number };
   setDescriptionSelection: (selection: { start: number; end: number }) => void;
   onClose: () => void;
   richTextSearchModalProps: {
@@ -440,8 +421,8 @@ const DescriptionInputModal: React.FC<{
 }> = ({
   visible,
   description,
-  formattedRichText,
   setDescription,
+  selection,
   setDescriptionSelection,
   onClose,
   richTextSearchModalProps,
@@ -493,6 +474,7 @@ const DescriptionInputModal: React.FC<{
                   onSelectionChange={e => {
                     setDescriptionSelection(e.nativeEvent.selection);
                   }}
+                  selection={selection}
                   style={styles.descriptionModalInput}
                   placeholder={t('video.addTextPlaceholder')}
                   placeholderTextColor={Colors.neutral[600]}
@@ -509,24 +491,6 @@ const DescriptionInputModal: React.FC<{
                   importantForAutofill="no"
                   caretHidden={false}
                 />
-                {description && (
-                  <View style={styles.descriptionInputOverlay} pointerEvents="none">
-                    <Text style={styles.descriptionInputOverlayText}>
-                      {formattedRichText.map(part => (
-                        <Text
-                          key={part.displayKey}
-                          style={
-                            part.isSemiBold
-                              ? styles.descriptionInputOverlaySemiBold
-                              : styles.descriptionInputOverlayNormal
-                          }
-                        >
-                          {part.text}
-                        </Text>
-                      ))}
-                    </Text>
-                  </View>
-                )}
               </View>
               {richTextSearchModalProps.visible && (
                 <RichTextSearchModal
@@ -638,7 +602,7 @@ const VideoPostScreen: React.FC = () => {
   }));
 
   // Rich text search hook for description input (for @ mentions and # hashtags)
-  const { richTextSearchModalProps } = useRichTextSearchTrigger({
+  const { inputProps: descriptionInputProps, richTextSearchModalProps } = useRichTextSearchTrigger({
     value: description,
     selection: descriptionSelection,
     onChangeText: setDescription,
@@ -780,12 +744,6 @@ const VideoPostScreen: React.FC = () => {
   }, [hasVideoSource, t]);
 
   // removed legacy expo-av handlers (not used with expo-video)
-
-  // Use RichText API hook for formatting
-  const [richText] = useRichText(description);
-
-  // Format rich text for display using RichText API
-  const formattedRichText = formatRichTextForDisplay(richText);
 
   const toggleContentWarning = (id: string) => {
     if (selectedContentWarnings.includes(id)) {
@@ -1266,7 +1224,7 @@ const VideoPostScreen: React.FC = () => {
       <DescriptionInputModal
         visible={showDescriptionInputModal}
         description={description}
-        formattedRichText={formattedRichText}
+        selection={descriptionInputProps.selection}
         setDescription={setDescription}
         setDescriptionSelection={setDescriptionSelection}
         onClose={() => setShowDescriptionInputModal(false)}
@@ -1458,7 +1416,6 @@ const VideoPostScreen: React.FC = () => {
               </View>
               <DescriptionPreview
                 description={description}
-                formattedRichText={formattedRichText}
                 onPress={() => setShowDescriptionInputModal(true)}
               />
               <ChannelSelector
@@ -1551,7 +1508,6 @@ const VideoPostScreen: React.FC = () => {
 
           <DescriptionPreview
             description={description}
-            formattedRichText={formattedRichText}
             onPress={() => setShowDescriptionInputModal(true)}
           />
 
@@ -1992,18 +1948,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.body,
     lineHeight: Typography.lineHeights.body,
   },
-  descriptionInputPreviewMedium: {
-    color: Colors.neutral[200],
-    fontFamily: Typography.families.medium,
-    fontSize: Typography.sizes.body,
-    lineHeight: Typography.lineHeights.body,
-  },
-  descriptionInputPreviewSemiBold: {
-    color: Colors.neutral[200],
-    fontFamily: Typography.families.bold,
-    fontSize: Typography.sizes.body,
-    lineHeight: Typography.lineHeights.body,
-  },
   descriptionInputPlaceholder: {
     color: Colors.neutral[600],
   },
@@ -2069,34 +2013,6 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 24,
     maxHeight: 400,
-  },
-  descriptionInputOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-  },
-  descriptionInputOverlayText: {
-    color: Colors.neutral[200],
-    fontFamily: FontFamily.regular,
-    fontSize: Typography.sizes.body,
-    textAlignVertical: 'top',
-    includeFontPadding: false,
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-  },
-  descriptionInputOverlayNormal: {
-    color: Colors.neutral[200],
-    fontFamily: FontFamily.regular,
-    fontSize: Typography.sizes.body,
-  },
-  descriptionInputOverlaySemiBold: {
-    color: Colors.neutral[200],
-    fontFamily: Typography.families.bold,
-    fontSize: Typography.sizes.body,
   },
   searchModalContainer: {
     flex: 1,

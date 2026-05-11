@@ -1,4 +1,30 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+
+/** Debounce helper for selection changes */
+function useDebouncedSelection(
+  selection: { start: number; end: number } | null,
+  delay: number = 50
+) {
+  const [debounced, setDebounced] = useState(selection);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      setDebounced(selection);
+    }, delay);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [selection, delay]);
+
+  return debounced;
+}
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../utils/constants';
 import {
@@ -311,12 +337,18 @@ function useSearchTrigger({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'mention' | 'hashtag'>('mention');
   const [searchRange, setSearchRange] = useState<{ start: number; end: number } | null>(null);
-  const isInsertingRef = useRef(false);
+  
+  // Track cursor position after insertion for controlled selection prop
+  const pendingCursorPosRef = useRef<number | null>(null);
+  
+  // Debounce selection for mention detection (reduces re-renders during typing)
+  const debouncedSelection = useDebouncedSelection(selection, 50);
 
   // Watch value/selection for @ mention or # hashtag
   useEffect(() => {
-    if (!selection || isInsertingRef.current) return;
-    const cursor = selection.start;
+    if (!debouncedSelection) return;
+    
+    const cursor = debouncedSelection.start;
 
     // If modal is visible and user types a space, dismiss it
     if (modalVisible && cursor > 0 && value[cursor - 1] === ' ') {
@@ -343,55 +375,68 @@ function useSearchTrigger({
       setSearchRange({ start: mention.start, end: mention.end });
       setSearchType('mention');
       setModalVisible(true);
-    } else {
+    } else if (modalVisible) {
       setSearchQuery('');
       setSearchRange(null);
       setModalVisible(false);
     }
-  }, [value, selection, modalVisible, enableHashtags]);
+  }, [value, debouncedSelection, modalVisible, enableHashtags]);
+
+  // Clear pending cursor position after it's been applied
+  useEffect(() => {
+    if (pendingCursorPosRef.current !== null && selection.start === pendingCursorPosRef.current) {
+      pendingCursorPosRef.current = null;
+    }
+  }, [selection]);
 
   // Insert selected user at the mention position
-  const handleSelectUser = (user: UserProfile) => {
+  const handleSelectUser = useCallback((user: UserProfile) => {
     if (!searchRange || searchType !== 'mention') return;
-    isInsertingRef.current = true;
     const before = value.slice(0, searchRange.start);
     const after = value.slice(searchRange.end);
     const insert = `@${user.handle} `;
     const newValue = before + insert + after;
+    const newCursorPos = searchRange.start + insert.length;
+    
+    // Store the intended cursor position for controlled selection prop
+    pendingCursorPosRef.current = newCursorPos;
+    
     onChangeText(newValue);
     setModalVisible(false);
     setSearchQuery('');
     setSearchRange(null);
     onMentionInsert?.(user);
-    // Reset insertion guard after state settles
-    setTimeout(() => {
-      isInsertingRef.current = false;
-    }, 100);
-  };
+  }, [searchRange, searchType, value, onChangeText, onMentionInsert]);
 
   // Insert selected hashtag at the hashtag position
-  const handleSelectHashtag = (hashtag: string) => {
+  const handleSelectHashtag = useCallback((hashtag: string) => {
     if (!searchRange || searchType !== 'hashtag') return;
-    isInsertingRef.current = true;
     const before = value.slice(0, searchRange.start);
     const after = value.slice(searchRange.end);
     const insert = `#${hashtag} `;
     const newValue = before + insert + after;
+    const newCursorPos = searchRange.start + insert.length;
+    
+    // Store the intended cursor position for controlled selection prop
+    pendingCursorPosRef.current = newCursorPos;
+    
     onChangeText(newValue);
     setModalVisible(false);
     setSearchQuery('');
     setSearchRange(null);
-    setTimeout(() => {
-      isInsertingRef.current = false;
-    }, 100);
-  };
+  }, [searchRange, searchType, value, onChangeText]);
+
+  // Compute selection prop: use pending position if available, otherwise undefined (uncontrolled)
+  const selectionProp = pendingCursorPosRef.current !== null
+    ? { start: pendingCursorPosRef.current, end: pendingCursorPosRef.current }
+    : undefined;
 
   return {
     inputProps: {
       value,
       onChangeText,
-      selection,
       onSelectionChange,
+      selection: selectionProp,
     },
     modalProps: {
       visible: modalVisible,

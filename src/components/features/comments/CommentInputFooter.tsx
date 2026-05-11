@@ -117,7 +117,6 @@ const EMPTY_SELECTED_IMAGES = Object.freeze(
 const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   value,
   onChangeText,
-  inputSelection,
   onSelectionChange,
   placeholder,
   onSubmit,
@@ -320,17 +319,16 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
             <SquircleView style={styles.inputWrapper}>
               <TextInput
                 {...mentionInputProps}
+                ref={inputRef}
                 nativeID="comment-input"
                 value={value}
                 onChangeText={onChangeText}
-                selection={inputSelection}
                 onSelectionChange={onSelectionChange}
                 style={styles.textInput}
                 placeholder={resolvedPlaceholder}
                 placeholderTextColor={Colors.neutral[500]}
                 multiline
                 editable={!isPosting}
-                ref={inputRef}
                 maxLength={maxLength + 25}
                 keyboardType="default"
                 returnKeyType="default"
