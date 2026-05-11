@@ -13,7 +13,6 @@ import {
   type NativeSyntheticEvent,
   type TargetedEvent,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -26,7 +25,7 @@ import { Colors } from '../../../theme';
 import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
 import { androidTextFix } from '../../../utils/styling/platformText';
 import { COMPOSER_STYLES } from '../../../utils/components/truesheet/sheetStyles';
-import { getFooterBottomPadding, COMPOSER_INPUT_PADDING } from '../../../utils/components/truesheet/utils';
+import { COMPOSER_INPUT_PADDING } from '../../../utils/components/truesheet/utils';
 import { RichTextSearchModal, type RichTextSearchModalProps } from '../../ui/usersearch';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileByDid } from '../../../services/data/ProfileService';
@@ -148,7 +147,6 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
 }) => {
   const resolvedSelectedImages = selectedImages ?? EMPTY_SELECTED_IMAGES;
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const resolvedPlaceholder = placeholder ?? t('comments.saySomething');
   const resolvedSubmitLabel = submitAccessibilityLabel ?? t('comments.sendComment');
   const charCount = value.length;
