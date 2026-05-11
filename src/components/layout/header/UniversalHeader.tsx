@@ -888,7 +888,7 @@ const HeaderContentComponent = memo<{
           const titleRowInner = content.customTitle ? (
             <View style={styles.titleRow}>
               {content.customTitle}
-              {content.badge && <View style={styles.badgeMargin}>{content.badge}</View>}
+              {content.badge}
             </View>
           ) : (
             <InlineTitleWithBadges
@@ -1552,10 +1552,6 @@ const styles = StyleSheet.create({
   inlineBadgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 1,
-  },
-  badgeMargin: {
-    marginLeft: 6,
   },
   textContainerNoMargin: {
     marginBottom: 0,

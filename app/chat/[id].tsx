@@ -78,6 +78,7 @@ import { seedChatEmbedVideoFeed } from '@/utils/chat/seedChatEmbedVideoFeed';
 import { getVideoView } from '@/utils/video/helpers';
 import { blendColors, hexToRGBA } from '@/utils/formatting/colors';
 import type { PostView, ProfileViewBasic } from '@/services/api/types';
+import type { Label } from '@atproto/api/dist/client/types/com/atproto/label/defs';
 import type { RichTextFacet } from '@/utils/types/richText';
 import EmojiPicker from 'react-native-emoji-chooser';
 import * as Clipboard from 'expo-clipboard';
@@ -1325,11 +1326,27 @@ export default function ChatScreen() {
   const convoFetched = openByDid ? convoByMembersFetched : convoByIdFetched;
   const convoId = openByDid ? (convo?.id ?? '') : rawId;
 
+  // Extract basic profile info from conversation members (same React Query as chat items)
+  const otherUserBasicProfile = useMemo(() => {
+    if (!convo || !otherDid) return null;
+    const members = (convo as unknown as { members?: ProfileViewBasic[] })?.members;
+    if (!members) return null;
+    return members.find((m: ProfileViewBasic) => m.did === otherDid) || null;
+  }, [convo, otherDid]);
+
+  // Fetch viewer-specific data (blocking, labels, status) - still needed for full functionality
   const {
-    data: profile,
+    data: otherUserFullProfile,
     isError: profileIsError,
     isFetched: profileFetched,
   } = useProfileByDid(otherDid || null);
+
+  // Merge basic profile from convo with viewer-specific data from profile query
+  const profile = useMemo(() => {
+    if (!otherUserBasicProfile) return otherUserFullProfile;
+    if (!otherUserFullProfile) return otherUserBasicProfile;
+    return { ...otherUserBasicProfile, ...otherUserFullProfile };
+  }, [otherUserBasicProfile, otherUserFullProfile]);
 
   const isOtherUserUnavailable =
     !!otherDid &&
@@ -1347,7 +1364,7 @@ export default function ChatScreen() {
     [sentMessageAccentColor]
   );
   const otherUserAccentColor = otherRingProps.ringColor || Colors.neutral[700];
-  const headerAvatarSize = itemSizeConfig.large.avatarSize;
+  const headerAvatarSize = itemSizeConfig.medium.avatarSize;
   const headerBadgeSize = itemSizeConfig.large.badgeTextSize;
   const reactionPicker = useReactionPicker();
   const {
@@ -1377,8 +1394,8 @@ export default function ChatScreen() {
     lastMsgSenderDid != null &&
     lastMsgSenderDid !== currentUserDid;
   const blockMutation = useBlockMutation();
-  const isBlocked = !!(profile?.viewer?.blocking || profile?.viewer?.blockingByList);
-  const isBlockedByList = !!profile?.viewer?.blockingByList;
+  const isBlocked = !!((profile as ProfileViewBasic)?.viewer?.blocking || (profile as ProfileViewBasic)?.viewer?.blockingByList);
+  const isBlockedByList = !!((profile as ProfileViewBasic)?.viewer?.blockingByList);
 
   const { data: messagesData, isLoading: messagesLoading } = useQuery({
     queryKey: queryKeys.chat.messages.byConversation(convoId),
@@ -1936,7 +1953,9 @@ export default function ChatScreen() {
     if (!did) return;
     if (blockMutation.isPending || isBlockedByList) return;
     const handle =
-      profile?.handle && profile.handle.length > 0 ? profile.handle : 'unknown.invalid';
+      profile?.handle && profile.handle.length > 0
+        ? profile.handle
+        : 'unknown.invalid';
     if (isBlocked) {
       blockMutation.mutate({ did, handle, isBlocked: false });
     } else {
@@ -2080,14 +2099,13 @@ export default function ChatScreen() {
                 uri={profile?.avatar}
                 type="profile"
                 size={headerAvatarSize}
-                status={profile?.status}
               />
             </View>
             <View style={styles.headerTitleColumn}>
               <View style={styles.headerNameRow}>
                 {headerHandleTitle !== '' ? (
                   <Text
-                    style={[sharedItemStyles.accountDisplayName, styles.headerAuthorItemName]}
+                    style={sharedItemStyles.accountDisplayName}
                     numberOfLines={1}
                   >
                     {headerHandleTitle}
@@ -2104,7 +2122,7 @@ export default function ChatScreen() {
                   <BotBadge
                     handle={headerHandleRaw}
                     did={otherDid}
-                    labels={(profile as ProfileViewBasic | undefined)?.labels}
+                    labels={profile?.labels as Label[] | undefined}
                     textSize={headerBadgeSize}
                     textColor={Colors.neutral[50]}
                   />
@@ -2363,7 +2381,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingBottom: 10,
+    paddingBottom: 6,
     backgroundColor: Colors.black,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.neutral[975],
@@ -2434,7 +2452,7 @@ const styles = StyleSheet.create({
   },
   headerTitleColumn: {
     minWidth: 0,
-    maxWidth: '68%',
+    maxWidth: '100%',
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
@@ -2442,15 +2460,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    gap: 4,
+
     maxWidth: '100%',
-  },
-  /** Matches AuthorItem name line for the active `itemSizeConfig` tier. */
-  headerAuthorItemName: {
-    fontSize: itemSizeConfig.large.nameFontSize,
-    fontFamily: FontFamily.black,
-    flexShrink: 1,
-    textAlign: 'left',
   },
   headerRight: {
     width: 88,
@@ -2462,8 +2473,8 @@ const styles = StyleSheet.create({
   headerStreakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     borderRadius: BORDER_RADIUS.FULL,
     backgroundColor: Colors.neutral[975],
     gap: 4,

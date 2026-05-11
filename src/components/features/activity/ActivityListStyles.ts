@@ -48,6 +48,7 @@ export const activityListSharedStyles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
     minWidth: 0,
   },
   namePressable: {

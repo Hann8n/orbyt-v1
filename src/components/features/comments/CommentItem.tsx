@@ -1104,7 +1104,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'nowrap',
-    gap: 6,
     minWidth: 0,
   },
   commentAuthorNamePressable: {
