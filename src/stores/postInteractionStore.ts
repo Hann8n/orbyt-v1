@@ -23,7 +23,10 @@ export function mergePostInteractionDelta(
   stored: Partial<PostInteraction> | undefined
 ): PostInteraction {
   if (!stored) return defaultState;
-  return { ...defaultState, ...stored };
+  // Only merge interaction state, not counts. Counts always come from feed data
+  // to ensure fresh server counts aren't overridden by stale optimistic updates.
+  const { likeCount, commentCount, repostCount, ...interactionOnlyStored } = stored;
+  return { ...defaultState, ...interactionOnlyStored };
 }
 
 interface PostInteractionState {
@@ -43,11 +46,12 @@ export const usePostInteractionStore = create<PostInteractionState>((set, get) =
   updatePostInteraction: (postUri: string, update: Partial<PostInteraction>) => {
     set(state => {
       const newInteractions = new Map(state.interactions);
-      // Merge onto existing persisted deltas only. Do not seed missing keys with zeros:
-      // the first like/repost update would otherwise persist fake zeros and wipe repost/
-      // comment state that still lives on the post from the feed (see getPostInteraction).
+      // Only persist user-specific interaction state, not counts.
+      // Counts should always come from feed data to avoid stale counts
+      // overriding fresh server data when the feed refetches.
+      const { likeCount, commentCount, repostCount, ...interactionOnlyUpdate } = update;
       const current = newInteractions.get(postUri) ?? {};
-      newInteractions.set(postUri, { ...current, ...update });
+      newInteractions.set(postUri, { ...current, ...interactionOnlyUpdate });
       return { interactions: newInteractions };
     });
   },

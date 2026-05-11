@@ -984,17 +984,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     () => [
       {
         id: 'comments',
-        label:
-          displayedTotalComments > 0
-            ? t('comments.commentsCount', { formattedCount: formatNumber(displayedTotalComments) })
-            : t('comments.comments'),
+        label: t('comments.commentsCount', { formattedCount: formatNumber(displayedTotalComments) }),
       },
       {
         id: 'likes',
-        label:
-          resolvedTotalLikes > 0
-            ? t('comments.likesCount', { formattedCount: formatNumber(resolvedTotalLikes) })
-            : t('comments.likes'),
+        label: t('comments.likesCount', { formattedCount: formatNumber(resolvedTotalLikes) }),
       },
     ],
     [t, displayedTotalComments, resolvedTotalLikes]
@@ -1318,7 +1312,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 10,
     backgroundColor: Colors.neutral[975],
   },
   headerScrolled: {
@@ -1343,9 +1337,12 @@ const styles = StyleSheet.create({
     color: Colors.neutral[400],
     fontSize: Typography.sizes.body,
     fontFamily: FontFamily.medium,
+    lineHeight: Typography.lineHeights.body,
   },
   actionButton: {
     padding: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   listContent: {

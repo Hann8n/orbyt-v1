@@ -242,6 +242,7 @@ const styles = StyleSheet.create({
   tabText: {
     includeFontPadding: false,
     textAlignVertical: 'center',
+    flexShrink: 0,
   },
   activeTabText: {
     opacity: 1,
@@ -313,8 +314,7 @@ const styles = StyleSheet.create({
   },
   tabTextComments: {
     fontFamily: Typography.families.black,
-    fontSize: Typography.sizes.subtitle,
-    textTransform: 'lowercase',
+    fontSize: 17,
   },
 });
 
