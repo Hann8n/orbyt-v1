@@ -79,6 +79,8 @@ interface AuthorItemProps {
   reverseRow?: boolean;
   /** No session: skip profile/ring queries (e.g. sign-in suggestions). */
   skipServerProfileData?: boolean;
+  /** Use formatted handle as the display name (for search results, lists). Hides handle line. */
+  handleAsDisplayName?: boolean;
   /** `listRow`: hairline row; `card`: default squircle surface. */
   variant?: 'card' | 'listRow';
   /** Use rectangular avatar (like channels) instead of circular. */
@@ -157,6 +159,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   nonInteractive = false,
   reverseRow = false,
   skipServerProfileData = false,
+  handleAsDisplayName = false,
   variant = 'card',
   rectangularAvatar = false,
 }) => {
@@ -176,8 +179,10 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
 
   const trimmedPropName = displayName?.trim();
   const trimmedCachedName = cachedProfile?.displayName?.trim();
-  const actualDisplayName =
-    trimmedPropName || trimmedCachedName || formatHandle(handle) || t('feed.unknownUser');
+  // When handleAsDisplayName is true, use formatted handle as primary display (for search/lists)
+  const actualDisplayName = handleAsDisplayName
+    ? formatHandle(handle)
+    : trimmedPropName || trimmedCachedName || formatHandle(handle) || t('feed.unknownUser');
   const ringProps = useAvatarProfileRing(skipServerProfileData ? null : (did ?? null));
   const actualIsFollowing = cachedProfile?.viewer?.following ? true : isFollowing;
   const isBlocked = !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList);

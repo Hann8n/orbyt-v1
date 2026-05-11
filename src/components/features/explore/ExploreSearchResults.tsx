@@ -41,7 +41,6 @@ export const ExploreSuggestionsProfileRow = React.memo(
       <AuthorItem
         handle={profile.handle || ''}
         did={profile.did}
-        displayName={profile.displayName}
         avatar={profile.avatar}
         size="large"
         showArrow={false}
@@ -52,7 +51,7 @@ export const ExploreSuggestionsProfileRow = React.memo(
         backgroundColor={Colors.transparent}
         textColor={Colors.neutral[50]}
         nameFontWeight="Figtree-SemiBold"
-        skipServerProfileData
+        handleAsDisplayName
         style={styles.authorItemStyle}
       />
     );
@@ -103,7 +102,6 @@ const ProfilesFeedRenderer = React.memo(
           <AuthorItem
             handle={profile.handle || ''}
             did={profile.did}
-            displayName={profile.displayName}
             avatar={profile.avatar}
             size="large"
             showArrow={false}
@@ -119,6 +117,7 @@ const ProfilesFeedRenderer = React.memo(
             backgroundColor={Colors.transparent}
             nameFontWeight="Figtree-SemiBold"
             customFontSize={18}
+            handleAsDisplayName
             style={styles.authorItemStyle}
           />
         );
@@ -264,7 +263,8 @@ const RecentlyVisitedFeedRenderer = React.memo(
         const isProfile = 'handle' in item;
         const slug = !isProfile ? extractFeedSlug(item.uri) : null;
         const handle = isProfile ? item.handle : (slug || '');
-        const displayName = isProfile ? item.displayName : (slug || item.displayName);
+        // Channels only: pass displayName. Profiles use handleAsDisplayName.
+        const displayName = isProfile ? undefined : (slug || item.displayName);
         const onPress = isProfile
           ? () => (onProfilePress ? onProfilePress(item) : prefetchProfileThenOpen(item, queryClient, goToProfile))
           : () => (onChannelPress ? onChannelPress(item) : navigateToEncodedChannelUri(item.uri, goToChannel));
@@ -286,6 +286,7 @@ const RecentlyVisitedFeedRenderer = React.memo(
             backgroundColor={Colors.transparent}
             nameFontWeight="Figtree-SemiBold"
             customFontSize={18}
+            handleAsDisplayName={isProfile}
             style={styles.authorItemStyle}
           />
         );
