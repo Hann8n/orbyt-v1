@@ -2099,7 +2099,8 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.body,
   },
   searchModalContainer: {
-    marginTop: 0,
+    flex: 1,
+    marginTop: 8,
   },
   channelSelectorContainer: {
     flexDirection: 'row',
