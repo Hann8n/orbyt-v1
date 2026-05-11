@@ -97,6 +97,8 @@ export const exploreScreenStyles = StyleSheet.create({
   authorItemStyle: {
     paddingVertical: 10,
     paddingHorizontal: 15,
+    marginBottom: 0,
+    borderRadius: 0,
   },
   channelItem: {
     flexDirection: 'row',

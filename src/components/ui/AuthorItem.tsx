@@ -81,6 +81,8 @@ interface AuthorItemProps {
   skipServerProfileData?: boolean;
   /** `listRow`: hairline row; `card`: default squircle surface. */
   variant?: 'card' | 'listRow';
+  /** Use rectangular avatar (like channels) instead of circular. */
+  rectangularAvatar?: boolean;
 }
 
 /** Dim grey for inactive/skeleton state to indicate tappable action. */
@@ -156,6 +158,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   reverseRow = false,
   skipServerProfileData = false,
   variant = 'card',
+  rectangularAvatar = false,
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -228,7 +231,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
       <View style={[styles.avatarContainer, nonInteractive && styles.avatarContainerEmbed]}>
         <Avatar
           uri={actualAvatar}
-          type="profile"
+          type={rectangularAvatar ? 'channel' : 'profile'}
           size={config.avatarSize}
           showRing={showRing ?? ringProps.showRing}
           ringColor={ringProps.ringColor}

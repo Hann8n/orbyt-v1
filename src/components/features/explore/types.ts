@@ -1,5 +1,6 @@
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import type { ExtendedFeedViewPost } from '@/services/api/types';
+import type { CachedChannel } from '@/services/data/ChannelService';
 
 /** Explore search / pager tab identifiers */
 export type ExploreSearchTabId = 'recently-visited' | 'profiles' | 'channels';
@@ -8,29 +9,9 @@ export interface SearchSwipePagerRef {
   setPage: (tabId: ExploreSearchTabId) => void;
 }
 
-/** Canonical slim profile shape for explore lists */
-export type Profile = Pick<
-  ProfileViewWithOrbyt,
-  'did' | 'handle' | 'displayName' | 'avatar' | 'description' | 'viewer' | 'verification' | 'status'
->;
-
-export interface Channel {
-  uri: string;
-  cid: string;
-  did: string;
-  /** Search hits may omit optional creator fields; grid uses did/handle minimum. */
-  creator: {
-    did: string;
-    handle: string;
-    displayName?: string;
-    avatar?: string;
-  };
-  displayName: string;
-  description?: string;
-  avatar?: string;
-  likeCount?: number;
-  indexedAt: string;
-}
+/** Type aliases for SDK types used in explore */
+export type Profile = ProfileViewWithOrbyt;
+export type Channel = CachedChannel;
 
 export type ProfileResult = {
   type: 'profile';

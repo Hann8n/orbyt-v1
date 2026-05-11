@@ -26,25 +26,24 @@ import { HeaderService, useHeaders, type Header } from '@/services/OrbytBannerSe
 import { useFeed } from '@/hooks/useFeed';
 import { isIosLiquidGlassAvailable, useUserStore } from '@/stores/userStore';
 import type { ExtendedFeedViewPost } from '@/services/api/types';
-import { useFollowStore } from '@/stores/followStore';
 import { useOrbytChannels } from '@/services/OrbytChannelsService';
-import { useVisitHistory, type VisitHistoryEntry } from '@/hooks/useVisitHistory';
+import { useVisitHistory } from '@/hooks/useVisitHistory';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 
 import {
   exploreListKeyExtractor,
-  type Profile,
-  type Channel,
   type ListItem,
-  type SearchResult,
   type ExploreSearchTabId,
+  type Profile,
 } from './types';
+import type { ProfileViewWithOrbyt } from '@/services/api/types';
+import type { CachedChannel } from '@/services/data/ChannelService';
 import { prefetchProfileThenOpen } from './prefetchProfileThenOpen';
 import { exploreScreenStyles as styles } from './ExploreScreenStyles';
 import { SearchSwipePager } from './SearchSwipePager';
 import type { SearchSwipePagerRef } from './SearchSwipePager';
-import { SearchFeedRenderer, ExploreSuggestionsProfileRow } from './searchFeedRenderers';
+import { SearchFeedRenderer, ExploreSuggestionsProfileRow } from './ExploreSearchResults';
 import { OrbytChannelsGrid } from './OrbytChannelsGrid';
 import {
   ExploreSectionHeaderRow,
@@ -53,7 +52,7 @@ import {
 import { ExploreSpotlightCarousel } from './ExploreSpotlightCarousel';
 import { ExploreSectionLoading, ExploreTopSpacer } from './exploreListChrome';
 import { ExploreSearchTabIndicator } from './ExploreSearchTabIndicator';
-import { mapSearchFeedToResults } from './mapSearchFeedToResults';
+import { mapSearchFeedToResults } from './exploreSearchMapper';
 import { useExploreSuggestionsQueries } from './useExploreSuggestionsQueries';
 import { useExploreTabRefs } from './useExploreTabRefs';
 import { useExploreSearchDebounce } from './useExploreSearchDebounce';
@@ -75,11 +74,15 @@ const ExploreScreen: React.FC = () => {
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<ExploreSearchTabId>('recently-visited');
   const {
-    visitHistory,
     addVisit,
     profilesByDid: recentProfilesByDid,
     channelsByUri: recentChannelsByUri,
   } = useVisitHistory(currentUser?.did ?? null);
+
+  // Convert SDK types to arrays for rendering
+  const recentlyVisitedProfiles = useMemo(() => Array.from(recentProfilesByDid.values()), [recentProfilesByDid]);
+  const recentlyVisitedChannels = useMemo(() => Array.from(recentChannelsByUri.values()), [recentChannelsByUri]);
+
   const { debouncedQuery, clearPendingDebounce, setDebouncedQuery } =
     useExploreSearchDebounce(searchQuery);
 
@@ -157,54 +160,27 @@ const ExploreScreen: React.FC = () => {
     refetchOnMount: false,
   });
 
-  const followStoreFollows = useFollowStore(state => state.follows);
-
-  const searchResults: SearchResult[] = useMemo(() => {
+  const { profiles: searchProfiles, channels: searchChannels } = useMemo(() => {
     if (!searchFeedOption || !searchFeed.length) {
-      return [];
+      return { profiles: [], channels: [] };
     }
     return mapSearchFeedToResults(searchFeed as ExtendedFeedViewPost[], {
-      followStoreFollows,
       currentUser,
       t,
     });
-  }, [searchFeedOption, searchFeed, currentUser, followStoreFollows, t]);
-
-  const handleHistoryItemPress = useCallback(
-    (item: VisitHistoryEntry) => {
-      if (item.type === 'profile') {
-        const did = item.did;
-        const hydrated = recentProfilesByDid.get(did);
-        prefetchProfileThenOpen(
-          hydrated ??
-            ({
-              did,
-              handle: '',
-              displayName: '',
-              avatar: '',
-              description: '',
-            } as unknown as Profile),
-          queryClient,
-          goToProfile
-        );
-      } else if (item.type === 'channel') {
-        navigateToEncodedChannelUri(item.uri, goToChannel);
-      }
-    },
-    [goToChannel, goToProfile, queryClient, recentProfilesByDid]
-  );
+  }, [searchFeedOption, searchFeed, currentUser, t]);
 
   const handleProfileNavigation = useCallback(
-    (profile: Profile) => {
-      addVisit('profile', profile);
+    (profile: ProfileViewWithOrbyt) => {
+      addVisit('profile', { did: profile.did });
       prefetchProfileThenOpen(profile, queryClient, goToProfile);
     },
     [addVisit, goToProfile, queryClient]
   );
 
   const handleChannelNavigation = useCallback(
-    (channel: Channel) => {
-      addVisit('channel', channel);
+    (channel: CachedChannel) => {
+      addVisit('channel', { uri: channel.uri });
       navigateToEncodedChannelUri(channel.uri, goToChannel);
     },
     [addVisit, goToChannel]
@@ -273,15 +249,13 @@ const ExploreScreen: React.FC = () => {
     (tabId: ExploreSearchTabId) => (
       <SearchFeedRenderer
         feedOption={tabId}
-        searchResults={searchResults}
-        onFollow={handleFollow}
+        profiles={searchProfiles}
+        channels={searchChannels}
         isLoading={isSearchLoading}
         onProfilePress={handleProfileNavigation}
         onChannelPress={handleChannelNavigation}
-        visitHistory={visitHistory}
-        onHistoryItemPress={handleHistoryItemPress}
-        profilesByDid={recentProfilesByDid}
-        channelsByUri={recentChannelsByUri}
+        recentlyVisitedProfiles={recentlyVisitedProfiles}
+        recentlyVisitedChannels={recentlyVisitedChannels}
         bottomPadding={bottomPadding}
         hasNextPage={hasSearchNextPage}
         isFetchingNextPage={isSearchFetchingNextPage}
@@ -289,15 +263,13 @@ const ExploreScreen: React.FC = () => {
       />
     ),
     [
-      searchResults,
-      handleFollow,
+      searchProfiles,
+      searchChannels,
       isSearchLoading,
       handleProfileNavigation,
       handleChannelNavigation,
-      visitHistory,
-      handleHistoryItemPress,
-      recentProfilesByDid,
-      recentChannelsByUri,
+      recentlyVisitedProfiles,
+      recentlyVisitedChannels,
       bottomPadding,
       hasSearchNextPage,
       isSearchFetchingNextPage,
