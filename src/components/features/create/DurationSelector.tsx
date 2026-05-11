@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 
 import { Colors } from '@/theme';
-import { FontFamily, fontSizeFor } from '@/utils/components/typography';
+import { FontFamily, TextStyles } from '@/utils/components/typography';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { useCreateSegmentsStore } from '@/stores/createSegmentsStore';
 
@@ -55,8 +55,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
+    ...TextStyles.headerAction,
     color: Colors.neutral[50],
-    fontSize: fontSizeFor(17),
     fontFamily: FontFamily.bold,
   },
 });

@@ -55,7 +55,7 @@ import {
 } from '../../../utils/constants';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
-import { FontFamily, Typography, fontSizeFor } from '../../../utils/components/typography';
+import { FontFamily, Typography, TextStyles } from '../../../utils/components/typography';
 import CommentInputFooter from './CommentInputFooter';
 import CommentItem from './CommentItem';
 import { CommentLikeItem } from './CommentLikeItem';
@@ -1188,6 +1188,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         currentUserAvatar={currentUserProfile?.avatar}
         richTextSearchModalProps={richTextSearchModalProps}
         mentionInputProps={mentionInputProps}
+        horizontalPillStyle={true}
       />
     </View>
   );
@@ -1244,7 +1245,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onDidDismiss={handleClose}
         scrollable={true}
         header={headerComponent}
-        footer={activeTab === 'comments' ? wrapFooter(ComposerFooter) : undefined}
+        footer={wrapFooter(ComposerFooter)}
       >
         <View style={styles.container}>
           {activeTab === 'comments' ? (
@@ -1395,17 +1396,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.neutral[975],
   },
   replyBannerText: {
+    ...TextStyles.chyron,
     color: Colors.neutral[200],
-    fontSize: fontSizeFor(13),
     fontFamily: FontFamily.medium,
     flex: 1,
     minWidth: 0,
     marginRight: 12,
   },
   replyBannerNameText: {
+    ...TextStyles.chyronBold,
     color: Colors.neutral[200],
-    fontSize: fontSizeFor(13),
-    fontFamily: FontFamily.bold,
   },
   replyBannerCloseButton: {
     paddingVertical: 2,

@@ -6,7 +6,7 @@ import { Image } from 'expo-image';
 import CancelButton from '@/components/ui/CancelButton';
 import { Colors } from '@/theme';
 import { LAYOUT_INSETS } from '@/utils/constants';
-import { FontFamily, Typography, fontSizeFor, lineHeightFor } from '@/utils/components/typography';
+import { FontFamily, Typography, TextStyles } from '@/utils/components/typography';
 
 /** Hero size for profile/channel error GIF (readable on phone; larger than TV empty 70). */
 const ERROR_GIF_SIZE = 100;
@@ -113,12 +113,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   boundaryTitle: {
-    fontSize: fontSizeFor(32),
-    fontFamily: FontFamily.semibold,
+    ...TextStyles.displayLarge,
     color: Colors.neutral[50],
     textAlign: 'left',
     marginBottom: 12,
-    lineHeight: lineHeightFor(fontSizeFor(32)),
     letterSpacing: 0.15,
     width: '100%',
   },

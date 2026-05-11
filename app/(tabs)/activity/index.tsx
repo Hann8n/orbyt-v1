@@ -16,7 +16,7 @@ import { Colors } from '@/theme';
 import ChatsTab from '@/components/features/activity/ChatsTab';
 import NotificationsTab from '@/components/features/activity/NotificationsTab';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
-import { FontFamily, fontSizeFor } from '@/utils/components/typography';
+import { FontFamily, TextStyles } from '@/utils/components/typography';
 
 // Tab label keys (resolved via t() in component)
 const TAB_LABEL_KEYS: { [key: string]: string } = {
@@ -38,7 +38,7 @@ const ActivityIndicatorItem = React.memo(function ActivityIndicatorItem({
   onPress: () => void;
   badge?: React.ReactNode;
 }) {
-  const fontSize = fontSizeFor(22);
+  const fontSize = TextStyles.sectionHeader.fontSize;
   const animatedStyle = useAnimatedStyle(() => {
     'worklet';
     const baseProgress = pageScrollProgress.value;

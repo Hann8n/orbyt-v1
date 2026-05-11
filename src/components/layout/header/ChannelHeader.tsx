@@ -19,7 +19,7 @@ import { NativePressable } from '../../ui/NativePressable';
 import type { ViewMode } from '../../../types';
 import { hexToRGBA, getStatusBarStyle, isColorDark } from '../../../utils/formatting/colors';
 import { Colors } from '../../../theme';
-import { FontFamily, fontSizeFor } from '../../../utils/components/typography';
+import { FontFamily, TextStyles } from '../../../utils/components/typography';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
 import {
   isOrbytChannel,
@@ -398,8 +398,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   subscribeButtonText: {
+    ...TextStyles.headerAction,
     fontFamily: FontFamily.bold,
-    fontSize: fontSizeFor(17),
   },
 
   viewToggleContainer: {
@@ -420,9 +420,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   title: {
-    fontFamily: FontFamily.black,
+    ...TextStyles.pageTitle,
     fontWeight: 'bold',
-    fontSize: fontSizeFor(28),
     flexShrink: 1,
   },
   orbytSlash: {

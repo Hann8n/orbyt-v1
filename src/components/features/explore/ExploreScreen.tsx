@@ -254,6 +254,7 @@ const ExploreScreen: React.FC = () => {
         isLoading={isSearchLoading}
         onProfilePress={handleProfileNavigation}
         onChannelPress={handleChannelNavigation}
+        onFollow={handleFollow}
         recentlyVisitedProfiles={recentlyVisitedProfiles}
         recentlyVisitedChannels={recentlyVisitedChannels}
         bottomPadding={bottomPadding}
@@ -268,6 +269,7 @@ const ExploreScreen: React.FC = () => {
       isSearchLoading,
       handleProfileNavigation,
       handleChannelNavigation,
+      handleFollow,
       recentlyVisitedProfiles,
       recentlyVisitedChannels,
       bottomPadding,

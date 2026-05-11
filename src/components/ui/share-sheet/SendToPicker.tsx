@@ -194,7 +194,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
           showCheckmarkSkeleton={!isSelected && !isCurrentUserProfile && !isDisabled}
           backgroundColor={Colors.transparent}
           textColor={Colors.neutral[50]}
-          nameFontWeight="Figtree-SemiBold"
+          nameFontWeight="Figtree-Bold"
           style={exploreScreenStyles.authorItemStyle}
           onPress={handleItemPress}
         />

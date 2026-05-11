@@ -28,6 +28,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { itemSizeConfig, sharedItemStyles, sharedListRowStyles } from './ItemStyles';
 import { useUserStore } from '../../stores/userStore';
 import { isCurrentUser } from '../../stores/profileInteractionStore';
+import { useFollowStore } from '../../stores/followStore';
 import { BlurView } from 'expo-blur';
 
 interface AuthorItemProps {
@@ -180,7 +181,12 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const actualDisplayName = handleAsDisplayName
     ? formatHandle(handle)
     : trimmedPropName || trimmedCachedName || formatHandle(handle) || t('feed.unknownUser');
-  const actualIsFollowing = cachedProfile?.viewer?.following ? true : isFollowing;
+  const followStoreState = useFollowStore(state => (skipServerProfileData && did ? state.follows.get(did) : undefined));
+  const actualIsFollowing = cachedProfile?.viewer?.following
+    ? true
+    : followStoreState !== undefined
+      ? followStoreState.isFollowing
+      : isFollowing;
   const isBlocked = !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList);
 
   const isCurrentUserProfile = isCurrentUser(did, handle, currentUser);

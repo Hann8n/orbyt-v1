@@ -62,7 +62,7 @@ const SuggestedUserItem: React.FC<SuggestedUserItemProps> = ({ item }) => {
       isFollowing={isFollowing}
       backgroundColor={Colors.transparent}
       textColor={Colors.neutral[50]}
-      nameFontWeight="Figtree-SemiBold"
+      nameFontWeight="Figtree-Bold"
       skipServerProfileData
       variant="listRow"
       handleAsDisplayName

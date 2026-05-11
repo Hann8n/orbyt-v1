@@ -39,7 +39,7 @@ import { TextOverlay } from '@/types';
 import { resolveVideoPath, VideoPathInfo } from '@/utils/video/path';
 import { FULLSCREEN_BUFFER_OPTIONS, DEFAULT_VIDEO_ASPECT_RATIO } from '@/utils/video/helpers';
 import { Colors } from '@/theme';
-import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
+import { FontFamily, Typography, TextStyles } from '@/utils/components/typography';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useCurrentUser } from '@/stores/userStore';
 import ProfileService from '@/services/data/ProfileService';
@@ -412,7 +412,6 @@ const DescriptionInputModal: React.FC<{
       avatar?: string;
     }) => void;
     onSelectHashtag?: (hashtag: string) => void;
-    onRequestClose: () => void;
     searchQuery: string;
     searchType: 'mention' | 'hashtag';
     containerStyle?: import('react-native').ViewStyle;
@@ -1685,9 +1684,8 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   textOverlay: {
+    ...TextStyles.sectionHeader,
     color: Colors.neutral[200],
-    fontSize: fontSizeFor(22),
-    fontFamily: FontFamily.bold,
     textAlign: 'center',
     textShadowColor: Colors.overlay.black50,
     textShadowOffset: { width: 1, height: 1 },

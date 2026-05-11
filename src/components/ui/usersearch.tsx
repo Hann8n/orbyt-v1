@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback, useDeferredValue } from 'react';
-import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 import {
   View,
@@ -9,16 +8,16 @@ import {
   Platform,
   type StyleProp,
   type ViewStyle,
-  ActivityIndicator,
 } from 'react-native';
 import { SquircleNativePressable } from './Squircle';
 import { LinearGradient } from './LinearGradient';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { queryKeys } from '../../utils/query/queryKeys';
 import { AtprotoFeedService } from '../../services/api/feed/FeedService';
 import AuthorItem from './AuthorItem';
+import UI from './UI';
 import { Colors } from './UI';
-import { FontFamily, Typography } from '../../utils/components/typography';
+import { FontFamily, Typography, TextStyles } from '../../utils/components/typography';
 import { useProfileSearch, type UserProfile } from '../../hooks/useProfileSearch';
 import { getSearchQuery } from '../../utils/searchQueryExtractors';
 
@@ -41,7 +40,6 @@ export const RICH_TEXT_SEARCH_AUTHOR_ITEM_DEFAULTS = {
 interface UserSearchModalProps {
   visible: boolean;
   onSelect: (user: UserProfile) => void;
-  onRequestClose: () => void;
   searchQuery: string;
 }
 
@@ -57,25 +55,14 @@ export interface RichTextSearchModalProps {
   visible: boolean;
   onSelectUser?: (user: UserProfile) => void;
   onSelectHashtag?: (hashtag: string) => void;
-  onRequestClose: () => void;
   searchQuery: string;
   searchType: 'mention' | 'hashtag';
   containerStyle?: StyleProp<ViewStyle>;
+  /** Use horizontal pill style (for comment footer) vs vertical list style (for video post screen) */
+  horizontalPillStyle?: boolean;
 }
 
 // Helper functions are now imported from searchQueryExtractors
-
-const LoadingState = () => (
-  <View style={styles.loadingWrapper}>
-    <ActivityIndicator size="small" color={Colors.neutral[400]} />
-  </View>
-);
-
-const EmptyState = ({ message }: { message: string }) => (
-  <View style={styles.emptyWrapper}>
-    <Text style={styles.emptyText}>{message}</Text>
-  </View>
-);
 
 // Unified search banner component (handles both mentions and hashtags)
 interface SearchBannerProps {
@@ -84,8 +71,9 @@ interface SearchBannerProps {
   searchType: 'mention' | 'hashtag' | null;
   onSelectUser?: (user: UserProfile) => void;
   onSelectHashtag?: (hashtag: string) => void;
-  onRequestClose: () => void;
   containerStyle?: StyleProp<ViewStyle>;
+  /** Use horizontal pill style (for comment footer) vs vertical list style (for video post screen) */
+  horizontalPillStyle?: boolean;
 }
 
 function SearchBanner({
@@ -94,48 +82,102 @@ function SearchBanner({
   searchType,
   onSelectUser,
   onSelectHashtag,
-  onRequestClose,
   containerStyle,
+  horizontalPillStyle = false,
 }: SearchBannerProps) {
-  const { t } = useTranslation();
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  
+
   // Use shared profile search hook for mentions
+  // Use a ref to track previous results and avoid flashing during search
+  const prevUsersRef = useRef<UserProfile[]>([]);
+
   const {
     data: userData,
-    isLoading: isLoadingUsers,
     isFetchingNextPage: isFetchingMoreUsers,
     fetchNextPage: fetchMoreUsers,
     hasNextPage: hasMoreUsers,
+    isFetching: isFetchingUsers,
   } = useProfileSearch(deferredSearchQuery, {
     enabled: searchType === 'mention' && visible,
     staleTime: 30 * 1000,
   });
 
-  const users = userData?.pages.flatMap(page => page.profiles) || [];
+  const currentUsers = userData?.pages.flatMap(page => page.profiles) || [];
+  // Keep showing previous results while loading new ones to prevent flashing
+  const users = currentUsers.length > 0
+    ? currentUsers
+    : isFetchingUsers
+      ? prevUsersRef.current
+      : [];
+  // Update ref when we have real results
+  if (currentUsers.length > 0) {
+    prevUsersRef.current = currentUsers;
+  }
 
   // Hashtag suggestions from API — min 3 chars to avoid expensive searches on every keystroke
-  const {
-    data: hashtagSuggestionsData,
-    isLoading: isLoadingHashtags,
-  } = useQuery<string[]>({
+  const prevHashtagsRef = useRef<string[]>([]);
+
+  const { data: hashtagSuggestionsData, isFetching: isFetchingHashtags } = useQuery<string[]>({
     queryKey: queryKeys.search.hashtags(deferredSearchQuery),
     queryFn: () => AtprotoFeedService.searchHashtagSuggestions(deferredSearchQuery, 10),
     enabled: searchType === 'hashtag' && deferredSearchQuery.length >= 3 && visible,
     staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
-  const hashtagSuggestions = hashtagSuggestionsData ?? [];
+  const currentHashtags = hashtagSuggestionsData ?? [];
+  // Keep showing previous results while loading new ones to prevent flashing
+  const hashtagSuggestions = currentHashtags.length > 0
+    ? currentHashtags
+    : isFetchingHashtags
+      ? prevHashtagsRef.current
+      : [];
+  // Update ref when we have real results
+  if (currentHashtags.length > 0) {
+    prevHashtagsRef.current = currentHashtags;
+  }
 
   if (!visible) return null;
 
   return (
     <View style={[styles.bannerContainer, containerStyle]}>
-      {searchType === 'mention' ? (
-        isLoadingUsers ? (
-          <LoadingState />
-        ) : users.length === 0 ? (
-          <EmptyState message={t('feed.noUsersFound')} />
+      {searchType === 'mention' && users.length > 0 ? (
+        horizontalPillStyle ? (
+          <View style={styles.listContainer}>
+            <FlatList
+              data={users}
+              keyExtractor={(item, index) => `${item.did}-${index}`}
+              horizontal
+              renderItem={({ item }) => (
+                <SquircleNativePressable
+                  style={styles.horizontalPill}
+                  onPress={() => onSelectUser?.(item)}
+                >
+                  <UI.Avatar
+                    uri={item.avatar}
+                    size={28}
+                    style={styles.pillAvatar}
+                  />
+                  <Text style={styles.pillContent}>{item.handle}</Text>
+                </SquircleNativePressable>
+              )}
+              onEndReached={() => {
+                if (hasMoreUsers && !isFetchingMoreUsers) fetchMoreUsers();
+              }}
+              onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+              keyboardShouldPersistTaps="handled"
+              style={styles.resultsList}
+              contentContainerStyle={styles.horizontalListContent}
+              scrollEnabled={true}
+              showsHorizontalScrollIndicator={false}
+            />
+            <LinearGradient
+              colors={['transparent', Colors.neutral[975]]}
+              locations={[0, 1]}
+              style={styles.horizontalFadeGradient}
+              pointerEvents="none"
+            />
+          </View>
         ) : (
           <View style={styles.listContainer}>
             <FlatList
@@ -169,22 +211,36 @@ function SearchBanner({
             />
           </View>
         )
-      ) : isLoadingHashtags ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.neutral[50]} />
+      ) : horizontalPillStyle && hashtagSuggestions.length > 0 ? (
+        <View style={styles.listContainer}>
+          <FlatList
+            data={hashtagSuggestions}
+            keyExtractor={item => item}
+            horizontal
+            renderItem={({ item }) => (
+              <SquircleNativePressable
+                style={styles.hashtagPill}
+                onPress={() => onSelectHashtag?.(item)}
+              >
+                <Text style={styles.pillText}>
+                  <Text style={styles.pillPrefix}>#</Text>
+                  <Text style={styles.pillContent}>{item}</Text>
+                </Text>
+              </SquircleNativePressable>
+            )}
+            contentContainerStyle={styles.horizontalListContent}
+            keyboardShouldPersistTaps="handled"
+            showsHorizontalScrollIndicator={false}
+          />
         </View>
-      ) : hashtagSuggestions.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyText}>{t('feed.noHashtagsFound')}</Text>
-        </View>
-      ) : (
+      ) : hashtagSuggestions.length > 0 ? (
         <View style={styles.listContainer}>
           <FlatList
             data={hashtagSuggestions}
             keyExtractor={item => item}
             renderItem={({ item }) => (
               <SquircleNativePressable
-                style={styles.hashtagItem}
+                style={styles.verticalHashtagItem}
                 onPress={() => onSelectHashtag?.(item)}
               >
                 <Text style={styles.hashtagText}>
@@ -197,7 +253,7 @@ function SearchBanner({
             keyboardShouldPersistTaps="handled"
           />
         </View>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -206,7 +262,6 @@ function SearchBanner({
 export function UserSearchModal({
   visible,
   onSelect,
-  onRequestClose,
   searchQuery,
 }: UserSearchModalProps) {
   return (
@@ -215,7 +270,6 @@ export function UserSearchModal({
       searchQuery={searchQuery}
       searchType="mention"
       onSelectUser={onSelect}
-      onRequestClose={onRequestClose}
     />
   );
 }
@@ -225,10 +279,10 @@ export function RichTextSearchModal({
   visible,
   onSelectUser,
   onSelectHashtag,
-  onRequestClose,
   searchQuery,
   searchType,
   containerStyle,
+  horizontalPillStyle = false,
 }: RichTextSearchModalProps) {
   return (
     <SearchBanner
@@ -237,8 +291,8 @@ export function RichTextSearchModal({
       searchType={searchType}
       onSelectUser={onSelectUser}
       onSelectHashtag={onSelectHashtag}
-      onRequestClose={onRequestClose}
       containerStyle={containerStyle}
+      horizontalPillStyle={horizontalPillStyle}
     />
   );
 }
@@ -247,6 +301,8 @@ export function RichTextSearchModal({
 interface UseSearchTriggerProps extends UseUserSearchTriggerProps {
   /** Enable hashtag search (#) in addition to mention search (@) */
   enableHashtags?: boolean;
+  /** Use horizontal pill style (for comment footer) vs vertical list style (for video post screen) */
+  horizontalPillStyle?: boolean;
 }
 
 function useSearchTrigger({
@@ -256,6 +312,7 @@ function useSearchTrigger({
   onSelectionChange,
   onMentionInsert,
   enableHashtags = false,
+  horizontalPillStyle = false,
 }: UseSearchTriggerProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -357,7 +414,7 @@ function useSearchTrigger({
       searchType,
       onSelectUser: handleSelectUser,
       onSelectHashtag: handleSelectHashtag,
-      onRequestClose: () => setModalVisible(false),
+      horizontalPillStyle,
     },
   };
 }
@@ -371,7 +428,6 @@ export function useUserSearchTrigger(props: UseUserSearchTriggerProps) {
       visible: modalProps.visible,
       searchQuery: modalProps.searchQuery,
       onSelect: modalProps.onSelectUser,
-      onRequestClose: modalProps.onRequestClose,
     },
   };
 }
@@ -387,7 +443,7 @@ export function useRichTextSearchTrigger(props: UseUserSearchTriggerProps) {
       searchType: modalProps.searchType,
       onSelectUser: modalProps.onSelectUser,
       onSelectHashtag: modalProps.onSelectHashtag,
-      onRequestClose: modalProps.onRequestClose,
+      horizontalPillStyle: modalProps.horizontalPillStyle,
     },
   };
 }
@@ -426,8 +482,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: Colors.neutral[925],
     width: '100%',
-    minHeight: 44,
-    paddingVertical: 8,
+    minHeight: 36,
+    paddingVertical: 4,
     paddingHorizontal: 0,
     overflow: 'hidden',
     alignItems: 'flex-start',
@@ -479,7 +535,68 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingBottom: 16,
   },
-  hashtagItem: {
+  horizontalListContent: {
+    paddingHorizontal: 12,
+    paddingBottom: 4,
+    gap: 8,
+  },
+  horizontalFadeGradient: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 60,
+  },
+  // Shared horizontal pill style for profiles (with nested avatar)
+  horizontalPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 3,
+    paddingLeft: 3,
+    paddingRight: 10,
+    borderRadius: BORDER_RADIUS.FULL,
+    marginRight: 6,
+    backgroundColor: Colors.transparent,
+    borderWidth: 1,
+    borderColor: Colors.neutral[800],
+  },
+  // Hashtag pill (normal left padding, no avatar)
+  hashtagPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: BORDER_RADIUS.FULL,
+    marginRight: 6,
+    backgroundColor: Colors.transparent,
+    borderWidth: 1,
+    borderColor: Colors.neutral[800],
+  },
+  pillAvatar: {
+    flexShrink: 0,
+    marginRight: 6,
+  },
+  pillText: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  pillPrefix: {
+    color: Colors.neutral[50],
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.medium,
+  },
+  pillContent: {
+    ...TextStyles.profileHandleSmall,
+    color: Colors.neutral[50],
+    textTransform: 'lowercase',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  // Vertical list hashtag style (unaffected)
+  verticalHashtagItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -503,28 +620,5 @@ const styles = StyleSheet.create({
     color: Colors.neutral[50],
     fontSize: Typography.sizes.bodySmall,
     fontFamily: FontFamily.bold,
-  },
-  compactUserCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 4,
-    marginRight: 6,
-    backgroundColor: Colors.transparent,
-    borderRadius: BORDER_RADIUS.FULL,
-    borderWidth: 1,
-    borderColor: Colors.neutral[800],
-    gap: 6,
-  },
-  compactAvatar: {
-    flexShrink: 0,
-  },
-  compactHandle: {
-    color: Colors.neutral[50],
-    fontSize: Typography.sizes.bodySmall,
-    fontFamily: FontFamily.bold,
-    flex: 1,
-    textAlign: 'left',
-    paddingRight: 4,
   },
 });

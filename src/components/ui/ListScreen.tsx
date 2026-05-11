@@ -120,7 +120,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
             isFollowing={isFollowing}
             onFollowPress={() => handleFollowPress(item)}
             backgroundColor={Colors.transparent}
-            nameFontWeight="Figtree-SemiBold"
+            nameFontWeight="Figtree-Bold"
             handleAsDisplayName
             style={styles.authorItem}
             onPress={() => handleUserPress(item.did)}

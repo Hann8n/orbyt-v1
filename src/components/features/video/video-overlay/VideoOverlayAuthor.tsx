@@ -8,7 +8,7 @@ import { sharedItemStyles } from '@/components/ui/ItemStyles';
 import { Avatar } from '../../../ui/UI';
 import { VerificationBadge, BotBadge } from '../../badging';
 import { Colors } from '../../../../theme';
-import { FontFamily, Typography } from '@/utils/components/typography';
+import { FontFamily, Typography, TextStyles } from '@/utils/components/typography';
 import { formatHandle } from '../../../../utils/formatting/handles';
 import { getLocalizedChannelDisplayNameFromSlug } from '../../../../utils/channels/orbyt';
 import { BORDER_RADIUS } from '../../../../utils/constants';
@@ -266,10 +266,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 0,
   },
   authorName: {
-    fontSize: Typography.sizes.subtitle,
-    fontFamily: FontFamily.bold,
-    lineHeight: Typography.lineHeights.subtitle,
-    includeFontPadding: false,
+    ...TextStyles.profileHandle,
     flexShrink: 1,
     textShadowColor: Colors.transparent,
     textShadowRadius: 0,

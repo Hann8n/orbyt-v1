@@ -107,6 +107,10 @@ interface CommentInputFooterProps {
    * When true, omit the add (+) control entirely (e.g. chat / messages composer).
    */
   hideMediaAddButton?: boolean;
+  /**
+   * Use horizontal pill style for search results (for comment footer)
+   */
+  horizontalPillStyle?: boolean;
 }
 
 const EMPTY_SELECTED_IMAGES = Object.freeze(
@@ -142,6 +146,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   onClearGif,
   hasAttachment = false,
   onClearAttachment,
+  horizontalPillStyle = false,
 }) => {
   const resolvedSelectedImages = selectedImages ?? EMPTY_SELECTED_IMAGES;
   const { t } = useTranslation();
@@ -215,7 +220,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   return (
     <View style={styles.footerContainer}>
       {richTextSearchModalProps && (
-        <RichTextSearchModal {...richTextSearchModalProps} />
+        <RichTextSearchModal {...richTextSearchModalProps} horizontalPillStyle={horizontalPillStyle} />
       )}
       <View style={[styles.inputContainer, { paddingBottom: COMPOSER_INPUT_PADDING.vertical }]}>
           {attachmentKind === 'none' ? null : (

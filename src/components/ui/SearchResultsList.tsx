@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import AuthorItem from './AuthorItem';
 import { Colors } from './UI';
 import { QUERY_CONSTANTS } from '../../utils/constants';
-import { FontFamily } from '../../utils/components/typography';
+import { TextStyles } from '../../utils/components/typography';
 import type { UserProfile } from '../../hooks/useProfileSearch';
 
 interface SearchResultsListProps {
@@ -115,15 +115,13 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   errorText: {
+    ...TextStyles.bodyMedium,
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: FontFamily.medium,
     textAlign: 'center',
   },
   emptyText: {
+    ...TextStyles.body,
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: FontFamily.regular,
     textAlign: 'center',
   },
   list: {

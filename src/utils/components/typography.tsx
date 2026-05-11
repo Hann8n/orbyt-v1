@@ -140,6 +140,119 @@ export const Typography = {
   } as Record<TextVariant, FontWeightToken>,
 };
 
+/**
+ * Semantic text style tokens — single source of truth for recurring UI roles.
+ * Spread into StyleSheet objects: `{ ...TextStyles.profileHandle, color: myColor }`
+ * All sizes go through fontSizeFor so they scale with accessibility settings.
+ */
+export const TextStyles = {
+  /** Primary name / handle shown on author rows, list items, overlays. */
+  profileHandle: {
+    fontSize: fontSizeFor(BASE_SIZES.subtitle + 0.5),
+    fontFamily: FontFamily.bold,
+    lineHeight: lineHeightFor(fontSizeFor(BASE_SIZES.subtitle + 0.5)),
+    includeFontPadding: false,
+  },
+  /** Smaller variant used in compact chips, chyrons, parent reply indicators. */
+  profileHandleSmall: {
+    fontSize: fontSizeFor(BASE_SIZES.bodySmall + 0.5),
+    fontFamily: FontFamily.bold,
+    lineHeight: lineHeightFor(fontSizeFor(BASE_SIZES.bodySmall + 0.5)),
+    includeFontPadding: false,
+  },
+  /** Standard body copy inside posts, comments, descriptions. */
+  body: {
+    fontSize: fontSizeFor(BASE_SIZES.body),
+    fontFamily: FontFamily.regular,
+    lineHeight: lineHeightFor(fontSizeFor(BASE_SIZES.body)),
+    includeFontPadding: false,
+  },
+  /** Medium-weight body — previews, secondary lines, action text. */
+  bodyMedium: {
+    fontSize: fontSizeFor(BASE_SIZES.body),
+    fontFamily: FontFamily.medium,
+    lineHeight: lineHeightFor(fontSizeFor(BASE_SIZES.body)),
+    includeFontPadding: false,
+  },
+  /** Caption / timestamp / meta text. */
+  caption: {
+    fontSize: fontSizeFor(BASE_SIZES.caption),
+    fontFamily: FontFamily.regular,
+    lineHeight: lineHeightFor(fontSizeFor(BASE_SIZES.caption)),
+    includeFontPadding: false,
+  },
+  /** Small caption for badges, counters, secondary labels. */
+  captionSmall: {
+    fontSize: fontSizeFor(BASE_SIZES.caption),
+    fontFamily: FontFamily.semibold,
+    lineHeight: lineHeightFor(fontSizeFor(BASE_SIZES.caption)),
+    includeFontPadding: false,
+  },
+  /** Extra small caption for timestamps, micro labels. */
+  captionExtraSmall: {
+    fontSize: fontSizeFor(11),
+    fontFamily: FontFamily.regular,
+    lineHeight: lineHeightFor(fontSizeFor(11)),
+    includeFontPadding: false,
+  },
+  /** Navigation / header action buttons (e.g. Cancel, Save, Follow). */
+  headerAction: {
+    fontSize: fontSizeFor(17),
+    fontFamily: FontFamily.semibold,
+    lineHeight: lineHeightFor(fontSizeFor(17)),
+    includeFontPadding: false,
+  },
+  /** Chyron / overlay text (e.g. video upload banner, reply banner). */
+  chyron: {
+    fontSize: fontSizeFor(13),
+    fontFamily: FontFamily.regular,
+    lineHeight: lineHeightFor(fontSizeFor(13)),
+    includeFontPadding: false,
+  },
+  /** Bold chyron / overlay text (e.g. reply banner name). */
+  chyronBold: {
+    fontSize: fontSizeFor(13.5),
+    fontFamily: FontFamily.bold,
+    lineHeight: lineHeightFor(fontSizeFor(13.5)),
+    includeFontPadding: false,
+  },
+  /** Large display text for error screens, empty states. */
+  displayLarge: {
+    fontSize: fontSizeFor(32),
+    fontFamily: FontFamily.semibold,
+    lineHeight: lineHeightFor(fontSizeFor(32)),
+    includeFontPadding: false,
+  },
+  /** Page titles (channel, profile, error screens). */
+  pageTitle: {
+    fontSize: fontSizeFor(28),
+    fontFamily: FontFamily.black,
+    lineHeight: lineHeightFor(fontSizeFor(28)),
+    includeFontPadding: false,
+  },
+  /** Hero titles (universal header, large screens). */
+  heroTitle: {
+    fontSize: fontSizeFor(30),
+    fontFamily: FontFamily.black,
+    lineHeight: lineHeightFor(fontSizeFor(30)),
+    includeFontPadding: false,
+  },
+  /** Section headers, tab labels (e.g. activity tab, filter headers). */
+  sectionHeader: {
+    fontSize: fontSizeFor(22),
+    fontFamily: FontFamily.bold,
+    lineHeight: lineHeightFor(fontSizeFor(22)),
+    includeFontPadding: false,
+  },
+  /** Edit profile screen large labels. */
+  editLabelLarge: {
+    fontSize: fontSizeFor(26),
+    fontFamily: FontFamily.bold,
+    lineHeight: lineHeightFor(fontSizeFor(26)),
+    includeFontPadding: false,
+  },
+} as const;
+
 // Optional standardized Text component for consistent usage
 import React, { useEffect, useState } from 'react';
 import { Text as RNText, TextProps as RNTextProps, StyleSheet } from 'react-native';

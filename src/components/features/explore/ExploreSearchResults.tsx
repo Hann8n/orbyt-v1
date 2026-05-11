@@ -9,6 +9,7 @@ import AuthorItem from '@/components/ui/AuthorItem';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { navigateToEncodedChannelUri } from '@/utils/navigation/navigateEncodedChannel';
 import { extractFeedSlug } from '@/utils/channels/orbyt';
+import { useFollowStore } from '@/stores/followStore';
 
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import type { CachedChannel } from '@/services/data/ChannelService';
@@ -27,7 +28,8 @@ type ExploreSuggestionsProfileRowProps = {
 
 export const ExploreSuggestionsProfileRow = React.memo(
   ({ profile, queryClient, goToProfile, onFollow }: ExploreSuggestionsProfileRowProps) => {
-    const isFollowing = !!profile.viewer?.following;
+    const followStoreState = useFollowStore(state => state.follows.get(profile.did));
+    const isFollowing = followStoreState?.isFollowing ?? !!profile.viewer?.following;
 
     const handleFollowPress = useCallback(() => {
       onFollow(profile);
@@ -50,7 +52,7 @@ export const ExploreSuggestionsProfileRow = React.memo(
         onPress={handlePress}
         backgroundColor={Colors.transparent}
         textColor={Colors.neutral[50]}
-        nameFontWeight="Figtree-SemiBold"
+        nameFontWeight="Figtree-Bold"
         handleAsDisplayName
         style={styles.authorItemStyle}
       />
@@ -64,6 +66,7 @@ const ProfilesFeedRenderer = React.memo(
     profiles,
     isLoading,
     onProfilePress,
+    onFollow,
     bottomPadding = 0,
     hasNextPage,
     isFetchingNextPage,
@@ -72,6 +75,7 @@ const ProfilesFeedRenderer = React.memo(
     profiles: ProfileViewWithOrbyt[];
     isLoading?: boolean;
     onProfilePress?: (profile: ProfileViewWithOrbyt) => void;
+    onFollow?: (profile: ProfileViewWithOrbyt) => void;
     bottomPadding?: number;
     hasNextPage?: boolean;
     isFetchingNextPage?: boolean;
@@ -98,6 +102,8 @@ const ProfilesFeedRenderer = React.memo(
 
     const renderProfileItem = useCallback(
       ({ item: profile }: { item: ProfileViewWithOrbyt }) => {
+        const followStoreState = useFollowStore(state => state.follows.get(profile.did));
+        const isFollowing = followStoreState?.isFollowing ?? !!profile.viewer?.following;
         return (
           <AuthorItem
             handle={profile.handle || ''}
@@ -105,8 +111,9 @@ const ProfilesFeedRenderer = React.memo(
             avatar={profile.avatar}
             size="large"
             showArrow={false}
-            showFollowButton={false}
-            isFollowing={false}
+            showFollowButton={!isFollowing}
+            isFollowing={isFollowing}
+            onFollowPress={() => onFollow?.(profile)}
             onPress={() => {
               if (onProfilePress) {
                 onProfilePress(profile);
@@ -115,13 +122,13 @@ const ProfilesFeedRenderer = React.memo(
               }
             }}
             backgroundColor={Colors.transparent}
-            nameFontWeight="Figtree-SemiBold"
+            nameFontWeight="Figtree-Bold"
             handleAsDisplayName
             style={styles.authorItemStyle}
           />
         );
       },
-      [onProfilePress, queryClient, goToProfile]
+      [onFollow, onProfilePress, queryClient, goToProfile]
     );
 
     if (isLoading) {
@@ -202,7 +209,7 @@ const ChannelsFeedRenderer = React.memo(
               }
             }}
             backgroundColor={Colors.transparent}
-            nameFontWeight="Figtree-SemiBold"
+            nameFontWeight="Figtree-Bold"
             style={styles.authorItemStyle}
           />
         );
@@ -280,6 +287,9 @@ const RecentlyVisitedFeedRenderer = React.memo(
             rectangularAvatar={!isProfile}
             handleAsDisplayName={isProfile}
             onPress={onPress}
+            backgroundColor={Colors.transparent}
+            nameFontWeight="Figtree-Bold"
+            style={styles.authorItemStyle}
           />
         );
       },
@@ -326,6 +336,7 @@ export const SearchFeedRenderer = React.memo(
     isLoading,
     onProfilePress,
     onChannelPress,
+    onFollow,
     recentlyVisitedProfiles,
     recentlyVisitedChannels,
     bottomPadding = 0,
@@ -339,6 +350,7 @@ export const SearchFeedRenderer = React.memo(
     isLoading?: boolean;
     onProfilePress?: (profile: ProfileViewWithOrbyt) => void;
     onChannelPress?: (channel: CachedChannel) => void;
+    onFollow?: (profile: ProfileViewWithOrbyt) => void;
     recentlyVisitedProfiles?: ProfileViewWithOrbyt[];
     recentlyVisitedChannels?: CachedChannel[];
     bottomPadding?: number;
@@ -363,6 +375,7 @@ export const SearchFeedRenderer = React.memo(
             profiles={profiles}
             isLoading={isLoading}
             onProfilePress={onProfilePress}
+            onFollow={onFollow}
             bottomPadding={bottomPadding}
             hasNextPage={hasNextPage}
             isFetchingNextPage={isFetchingNextPage}

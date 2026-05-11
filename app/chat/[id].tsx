@@ -42,7 +42,7 @@ import { useRichTextSearchTrigger } from '@/components/ui/usersearch';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '@/theme';
-import { Typography, FontFamily, fontSizeFor } from '@/utils/components/typography';
+import { Typography, FontFamily, TextStyles } from '@/utils/components/typography';
 import { APP_CONSTANTS, BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import Icon, {
   BackArrowIcon,
@@ -2654,7 +2654,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.caption,
   },
   reactionCount: {
-    fontSize: fontSizeFor(11),
+    ...TextStyles.captionExtraSmall,
     color: REACTION_CHIP_STYLE.countColor,
     fontFamily: FontFamily.medium,
   },

@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { BORDER_RADIUS, ICON_SIZES } from '@/utils/constants';
-import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
+import { FontFamily, Typography, fontSizeFor, TextStyles } from '@/utils/components/typography';
 import { Colors } from '@/theme';
 
 /** Avatar column width on Chats + Notifications activity lists. */
@@ -57,12 +57,9 @@ export const activityListSharedStyles = StyleSheet.create({
     maxWidth: '100%',
   },
   authorName: {
+    ...TextStyles.profileHandle,
     color: Colors.neutral[50],
-    fontSize: Typography.sizes.subtitle,
-    lineHeight: Typography.lineHeights.subtitle,
     marginBottom: 2,
-    fontFamily: FontFamily.bold,
-    includeFontPadding: false,
     flexShrink: 1,
   },
   actionRow: {

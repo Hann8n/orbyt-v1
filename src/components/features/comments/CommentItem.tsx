@@ -29,7 +29,7 @@ import { ModerationService } from '../../../services/moderation/ModerationServic
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
-import { Typography, FontFamily, fontSizeFor } from '../../../utils/components/typography';
+import { Typography, FontFamily, TextStyles } from '../../../utils/components/typography';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 import { Colors } from '../../../theme';
 import UI from '../../ui/UI';
@@ -1112,10 +1112,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   commentAuthorName: {
+    ...TextStyles.profileHandle,
     color: Colors.neutral[50],
-    fontSize: Typography.sizes.subtitle,
-    fontFamily: FontFamily.bold,
-    lineHeight: Typography.lineHeights.subtitle,
   },
   commentText: {
     color: Colors.neutral[200],
@@ -1144,10 +1142,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   parentChyronText: {
+    ...TextStyles.profileHandleSmall,
     color: Colors.neutral[200],
-    fontSize: Typography.sizes.bodySmall,
-    lineHeight: Typography.lineHeights.bodySmall,
-    fontFamily: FontFamily.bold,
     flexShrink: 1,
   },
   commentMetaContainer: {
@@ -1189,9 +1185,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   likeCount: {
+    ...TextStyles.captionSmall,
     color: Colors.neutral[200],
-    fontSize: fontSizeFor(12.5),
-    fontFamily: FontFamily.semibold,
     marginTop: 2,
     textAlign: 'center',
     textShadowColor: Colors.overlay.black15,

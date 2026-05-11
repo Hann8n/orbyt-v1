@@ -18,8 +18,7 @@ import { getDeviceInfo } from '../../utils/version';
 import {
   FontFamily,
   Typography,
-  fontSizeFor,
-  lineHeightFor,
+  TextStyles,
 } from '../../utils/components/typography';
 
 export interface ErrorBoundaryProps {
@@ -318,20 +317,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   emoji: {
-    fontSize: fontSizeFor(32),
-    fontFamily: FontFamily.semibold,
+    ...TextStyles.displayLarge,
     color: Colors.neutral[50],
     textAlign: 'left',
     marginBottom: 8,
-    lineHeight: lineHeightFor(fontSizeFor(32)),
   },
   title: {
-    fontSize: fontSizeFor(32),
-    fontFamily: FontFamily.semibold,
+    ...TextStyles.displayLarge,
     color: Colors.neutral[50],
     textAlign: 'left',
     marginBottom: 12,
-    lineHeight: lineHeightFor(fontSizeFor(32)),
     letterSpacing: 0.15,
   },
   message: {

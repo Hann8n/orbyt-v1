@@ -37,7 +37,7 @@ import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation
 import { hexToRGBA, blendColors, getRelativeLuminance } from '../../../utils/formatting/colors';
 import { Avatar } from '../../ui/UI';
 import { Colors } from '../../../theme';
-import { Typography, FontFamily, fontSizeFor } from '../../../utils/components/typography';
+import { Typography, FontFamily, TextStyles } from '../../../utils/components/typography';
 import { splitHandleSuffix } from '../../../utils/formatting/handles';
 import { TextWithLinks } from '../../ui/TextWithLinks';
 import type { RichTextFacet } from '../../../utils/types/richText';
@@ -1464,14 +1464,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionText: {
+    ...TextStyles.headerAction,
     fontFamily: FontFamily.bold,
     textAlign: 'center',
-    fontSize: fontSizeFor(17),
   },
   actionTextBold: {
+    ...TextStyles.headerAction,
     fontFamily: FontFamily.bold,
     textAlign: 'center',
-    fontSize: fontSizeFor(17),
   },
   actionButtonGlassBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -1571,8 +1571,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   title: {
-    fontFamily: FontFamily.black,
-    fontSize: fontSizeFor(30),
+    ...TextStyles.heroTitle,
     flexShrink: 1,
   },
   subtitle: {
@@ -1639,16 +1638,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   subtitleSecondaryBold: {
-    fontFamily: FontFamily.bold,
-    fontSize: Typography.sizes.bodySmall,
+    ...TextStyles.captionSmall,
     letterSpacing: 0,
   },
   description: {
+    ...TextStyles.bodyMedium,
     marginTop: 12,
     flexShrink: 1,
     flexWrap: 'wrap',
-    fontFamily: FontFamily.medium,
-    fontSize: fontSizeFor(17),
   },
   content: {
     width: '100%',

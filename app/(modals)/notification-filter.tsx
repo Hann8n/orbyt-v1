@@ -9,7 +9,7 @@ import { Colors } from '@/theme';
 import { BORDER_RADIUS } from '@/utils/constants';
 import type { NotificationReason } from '@/services/api/types';
 import { useActivityFilterStore } from '@/stores/activityFilterStore';
-import { FontFamily, Typography, fontSizeFor, lineHeightFor } from '@/utils/components/typography';
+import { FontFamily, Typography, TextStyles } from '@/utils/components/typography';
 
 const NOTIFICATION_REASONS_LABEL_KEY: Record<NotificationReason, string> = {
   like: 'activity.likes',
@@ -256,11 +256,10 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   sectionTitle: {
+    ...TextStyles.headerAction,
     color: Colors.neutral[100],
-    fontSize: fontSizeFor(17),
     fontFamily: FontFamily.bold,
     letterSpacing: 0.2,
-    lineHeight: lineHeightFor(fontSizeFor(17)),
   },
   optionGroup: {
     gap: 8,
@@ -275,8 +274,8 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.LARGE,
   },
   filterOptionLabel: {
+    ...TextStyles.headerAction,
     color: Colors.neutral[50],
-    fontSize: fontSizeFor(17),
     fontFamily: FontFamily.semibold,
     flex: 1,
   },

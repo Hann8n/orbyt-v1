@@ -49,7 +49,7 @@ import { posthog } from '@/config/posthog';
 import { splitHandleSuffix } from '@/utils/formatting/handles';
 import { useOrbytColors, saveAndSyncColors } from '@/services/colors';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
-import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
+import { FontFamily, Typography, TextStyles } from '@/utils/components/typography';
 
 export interface ProfileColorOption {
   backgroundColor: string;
@@ -1072,14 +1072,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   largeText: {
+    ...TextStyles.editLabelLarge,
     fontFamily: FontFamily.black,
-    fontSize: fontSizeFor(26),
     lineHeight: Typography.lineHeights.h1,
   },
   handleAt: {
+    ...TextStyles.heroTitle,
     fontFamily: FontFamily.medium,
     fontWeight: '400',
-    fontSize: fontSizeFor(30),
     lineHeight: Typography.lineHeights.h1,
   },
   handleSuffix: {
@@ -1087,8 +1087,8 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.title,
   },
   largeInput: {
+    ...TextStyles.displayLarge,
     fontFamily: FontFamily.black,
-    fontSize: fontSizeFor(32),
     lineHeight: Typography.lineHeights.display,
     borderWidth: 0,
     paddingHorizontal: 0,
