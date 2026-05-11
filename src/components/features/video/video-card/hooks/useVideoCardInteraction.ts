@@ -1,4 +1,5 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { useRecyclingState } from '@legendapp/list/react-native';
 import * as Haptics from 'expo-haptics';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -76,7 +77,7 @@ export function useVideoCardInteraction({
     [defaultInteraction, postInteractionDelta]
   );
 
-  const [overlayState, setOverlayState] = useState<{
+  type OverlayState = {
     isLiked: boolean;
     isReposted: boolean;
     isBookmarked: boolean;
@@ -88,13 +89,15 @@ export function useVideoCardInteraction({
     bookmarkUri?: string;
     isLikePending: boolean;
     isRepostPending: boolean;
-  }>({
+  };
+
+  const [overlayState, setOverlayState] = useRecyclingState<OverlayState>(() => ({
     isLikePending: false,
     isRepostPending: false,
     likeUri: undefined,
     repostUri: undefined,
     ...persistedInteraction,
-  });
+  }));
 
   // Depend on specific fields — not the full overlayState object — so an unrelated
   // setOverlayState (e.g. isRepostPending: false) doesn't invalidate this memo.

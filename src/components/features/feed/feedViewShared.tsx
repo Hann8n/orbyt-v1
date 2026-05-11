@@ -8,7 +8,7 @@ import { blendColors, hexToRGBA } from '../../../utils/formatting/colors';
 
 export const FEED_VIEW_CONSTANTS = {
   LIST_ITEM_GAP: 3,
-  LEGENDLIST_DRAW_DISTANCE: 600,
+  LEGENDLIST_DRAW_DISTANCE: 1500,
   GRID_CELL_GAP: 2,
   HEADER_HEIGHT_TABS: 280,
   HEADER_BLOCKING_THRESHOLD: 250,

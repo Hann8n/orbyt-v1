@@ -17,7 +17,6 @@ import {
   StyleSheet,
   TextInput,
   Platform,
-  ScrollView,
   Alert,
   Pressable,
   useWindowDimensions,
@@ -28,10 +27,10 @@ import {
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView } from '@/components/ui/Squircle';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+// Legend list handles keyboard avoiding; no external KeyboardAvoidingView here
 import { Image } from 'expo-image';
 
-import { KeyboardChatLegendList } from '@legendapp/list/keyboard-chat';
+import { KeyboardAvoidingLegendList } from '@legendapp/list/keyboard';
 import { Link, useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -2229,41 +2228,37 @@ export default function ChatScreen() {
         </View>
       </VerticalListSheet>
 
-      <KeyboardAvoidingView style={styles.keyboardView} behavior="padding">
-        {listData.length > 0 ? (
-          <KeyboardChatLegendList
-            data={listData}
-            renderItem={renderListItem}
-            keyExtractor={keyExtractor}
-            getItemType={getItemType}
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={ChatItemSeparator}
-            showsVerticalScrollIndicator={
-              listData.length >= SCROLL_INDICATOR_CONSTANTS.CHAT_MESSAGES_MIN_ITEMS
-            }
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            estimatedItemSize={80}
-            maintainScrollAtEnd
-            maintainScrollAtEndThreshold={0.2}
-            alignItemsAtEnd
-          />
-        ) : (
-          <ScrollView
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-          >
-            {!messagesLoading && messagesData && (messagesData.messages?.length ?? 0) === 0 ? (
+      <View style={styles.keyboardView}>
+        <KeyboardAvoidingLegendList
+          key={convoId ?? 'chat'}
+          data={listData}
+          renderItem={renderListItem}
+          keyExtractor={keyExtractor}
+          getItemType={getItemType}
+          style={styles.list}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: insets.bottom + 16 },
+          ]}
+          ItemSeparatorComponent={ChatItemSeparator}
+          ListEmptyComponent={
+            !messagesLoading && messagesData && (messagesData.messages?.length ?? 0) === 0 ? (
               <View style={styles.empty}>
                 <Text style={styles.emptyText}>{t('chat.noMessagesYet')}</Text>
               </View>
-            ) : null}
-          </ScrollView>
-        )}
+            ) : null
+          }
+          showsVerticalScrollIndicator={
+            listData.length >= SCROLL_INDICATOR_CONSTANTS.CHAT_MESSAGES_MIN_ITEMS
+          }
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          estimatedItemSize={80}
+          initialScrollAtEnd
+          maintainScrollAtEnd
+          maintainScrollAtEndThreshold={0.2}
+          alignItemsAtEnd
+        />
 
         {needsAccept ? (
           <View style={styles.acceptBar}>
@@ -2331,7 +2326,7 @@ export default function ChatScreen() {
             />
           </View>
         )}
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }

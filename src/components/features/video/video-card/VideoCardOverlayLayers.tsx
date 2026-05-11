@@ -54,7 +54,7 @@ function VideoCardOverlayLayers({
         </View>
       ) : null}
 
-      {renderHeavyChrome && showOverlay ? (
+      {showOverlay ? (
         <View style={styles.videoOverlayLayer} pointerEvents={isActive ? 'box-none' : 'none'}>
           <VideoOverlayUI {...overlayProps} />
         </View>
@@ -128,12 +128,7 @@ const arePropsEqual = (
   if (prev.warningDescription !== next.warningDescription) return false;
   if (prev.onViewContent !== next.onViewContent) return false;
 
-  // Skip heavy comparisons entirely for rows where heavy chrome is not mounted.
-  if (!next.renderHeavyChrome) {
-    return true;
-  }
-
-  if (next.shouldRenderScrubber) {
+  if (next.renderHeavyChrome && next.shouldRenderScrubber) {
     if (prev.player !== next.player) return false;
     if (prev.seekingAnimationSV !== next.seekingAnimationSV) return false;
     if (prev.overlayOpacitySV !== next.overlayOpacitySV) return false;

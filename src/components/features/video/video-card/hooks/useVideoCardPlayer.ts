@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useEvent } from 'expo';
 import { useVideoPlayer, type VideoPlayer, type VideoSource } from 'expo-video';
+import { useRecyclingState } from '@legendapp/list/react-native';
 
 import {
   createVideoSource,
@@ -85,7 +86,7 @@ export function useVideoCardPlayer({
   const playerStatus = playerStatusEvent?.status ?? 'idle';
   const hasError = playerStatus === 'error';
 
-  const [videoState, setVideoState] = useState({ userPaused: false });
+  const [videoState, setVideoState] = useRecyclingState({ userPaused: false });
 
   const userPausedRef = useRef(videoState.userPaused);
 
@@ -127,17 +128,11 @@ export function useVideoCardPlayer({
     [player]
   );
 
-  const [firstFrameRendered, setFirstFrameRendered] = useState(false);
+  const [firstFrameRendered, setFirstFrameRendered] = useRecyclingState(false);
 
   const handleFirstFrameRender = useCallback(() => {
     setFirstFrameRendered(true);
   }, [setFirstFrameRendered]);
-
-  // Reset poster readiness when the card leaves the viewport so the poster
-  // shows again while the preloaded stream renders its first frame on return.
-  useEffect(() => {
-    if (!isVisible) setFirstFrameRendered(false);
-  }, [isVisible, setFirstFrameRendered]);
 
   // When a card becomes visible after being inactive, clear any sticky user-paused state
   // (we only want explicit pauses to persist within a single visit).

@@ -20,6 +20,7 @@ import {
   FEED_LIST_PLAYBACK_OUTSIDE_BITS,
   ROW_BITS_CHROME,
   ROW_BITS_PLAYBACK,
+  ROW_BITS_PRELOAD,
 } from '../../../core/visibility';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { seenVideoService } from '../../../services/SeenVideoService';
@@ -33,7 +34,7 @@ import { INTERACTIONSEEN } from '../../../services/api/types';
 import type { ExtendedFeedViewPost, ExtendedPostView } from '../../../services/api/types';
 import { useQueryClient } from '@tanstack/react-query';
 
-import VideoCardMediaLayer from './video-card/VideoCardMediaLayer';
+import VideoCardMediaGestureLayer from './video-card/VideoCardMediaGestureLayer';
 import VideoCardOverlayLayers from './video-card/VideoCardOverlayLayers';
 import { useVideoCardOverlayOpacity } from './video-card/useVideoCardOverlayOpacity';
 import { useFeedInteractionQueue } from './video-card/hooks/useFeedInteractionQueue';
@@ -410,8 +411,9 @@ function VideoCard({
     player.duration < MIN_SCRUBBER_DURATION_SECONDS
   );
 
-  const posterPriority: 'low' | 'normal' | 'high' = isVisible ? 'high' : 'normal';
-  const gestureVideoStackProps = useMemo(
+  const isInPreloadWindow = (rowBits & ROW_BITS_PRELOAD) !== 0;
+  const posterPriority: 'low' | 'normal' | 'high' = isVisible ? 'high' : isInPreloadWindow ? 'normal' : 'low';
+  const mediaGestureProps = useMemo(
     () => ({
       videoGesture: gesture,
       posterUrl,
@@ -506,7 +508,7 @@ function VideoCard({
 
   return (
     <View style={StyleSheet.compose(styles.container, getCardHeightStyle(cardHeight))}>
-      <VideoCardMediaLayer gestureStack={gestureVideoStackProps} />
+      <VideoCardMediaGestureLayer {...mediaGestureProps} />
 
       <VideoCardOverlayLayers
         renderHeavyChrome={renderHeavyChrome}
