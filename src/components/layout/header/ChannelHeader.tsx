@@ -423,6 +423,7 @@ const styles = StyleSheet.create({
     ...TextStyles.pageTitle,
     fontWeight: 'bold',
     flexShrink: 1,
+    textTransform: 'lowercase',
   },
   orbytSlash: {
     fontFamily: FontFamily.semibold,

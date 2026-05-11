@@ -30,6 +30,7 @@ Use `Typography` and `FontFamily` from `src/utils/components/typography` for con
 - Component: `TypographyText` for a pre-styled `<Text>` with variant/weight props
 - Migration note: existing code uses raw `fontSize`/`fontFamily: 'Figtree-*'` values. New and modified code should prefer Typography tokens.
 - Reference: `src/utils/components/typography.tsx`
+- **Text casing** (`textTransform`): see `orbyt-text-casing.mdc` for which roles are lowercase, sentence case, or uppercase. Never call `.toLowerCase()` / `.toUpperCase()` on display strings in JSX — use `textTransform` in the style instead.
 
 ## Constants
 

@@ -330,6 +330,7 @@ const styles = StyleSheet.create({
     color: Colors.teal[400],
     fontSize: Typography.sizes.caption,
     fontFamily: FontFamily.semibold,
+    textTransform: 'lowercase',
   },
   iconGrid: {
     flexDirection: 'row',

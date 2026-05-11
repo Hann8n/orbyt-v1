@@ -166,6 +166,7 @@ export const exploreScreenStyles = StyleSheet.create({
     color: Colors.neutral[50],
     fontSize: Typography.sizes.subtitle,
     fontFamily: FontFamily.bold,
+    textTransform: 'lowercase',
   },
   horizontalChannelButton: {
     borderRadius: BORDER_RADIUS.SMALL,
@@ -198,6 +199,7 @@ export const exploreScreenStyles = StyleSheet.create({
     color: Colors.neutral[50],
     fontSize: fontSizeFor(22),
     fontFamily: FontFamily.bold,
+    textTransform: 'lowercase',
   },
   channelContent: {
     flex: 1,
@@ -211,6 +213,7 @@ export const exploreScreenStyles = StyleSheet.create({
     fontSize: fontSizeFor(17),
     fontFamily: FontFamily.bold,
     flexShrink: 1,
+    textTransform: 'lowercase',
   },
   sectionHeader: {
     paddingHorizontal: 10,

@@ -1,0 +1,51 @@
+---
+description: Orbyt text casing and textTransform conventions
+alwaysApply: true
+---
+
+# Orbyt Text Casing
+
+Orbyt uses a deliberate, asymmetric casing system: lowercase for identity/relational text, sentence case for prose, and uppercase only for overline badges. Never manually call `.toLowerCase()` or `.toUpperCase()` on display strings — use `textTransform` in styles instead.
+
+## Rules by text role
+
+### Lowercase — `textTransform: 'lowercase'`
+
+Apply to any text that represents a user-supplied identifier or channel name as it appears in-context UI:
+
+- **AT Protocol handles** — `@handle.bsky.social` shown anywhere (overlays, chips, author rows, chyrons). Use `TextStyles.profileHandle` or `TextStyles.profileHandleSmall` from `src/utils/components/typography.tsx`; both carry `textTransform: 'lowercase'` already.
+- **Channel names** — channel display names rendered as selectors, list rows, or overlay labels (e.g. `channelSelectorName`, `channelListButtonText` in `VideoPostScreen`).
+- **Universal header subtitle** — the secondary line beneath hero titles (`subtitle` style in `UniversalHeader`).
+- **Edit-profile large display text** — the oversized name/handle preview in `edit-profile.tsx` (`largeText`, `handleSuffix`).
+- **App icon screen attribution link** — the teal lowercase link in `settings/app-icon.tsx`.
+- **Search/autocomplete handle chips** — `pillContent` in `usersearch.tsx`.
+- **Repost handle label** — `repostHandleText` in `VideoOverlayAuthor`.
+
+### Sentence case — no `textTransform`
+
+Default for all other prose text. Write the string in sentence case and let it render as-is:
+
+- Page titles, sheet titles, empty-state headings, error messages (`emptyTitle`, `sectionTitleLarge`, hero titles).
+- Section headers on Explore, Settings, activity feeds.
+- Body copy — post text, comments, descriptions, captions, tooltips.
+- Navigation labels — tab bar items, back buttons, header action buttons (Cancel, Save, Follow).
+- Button labels — CTA buttons, menu options, filter chips, category chips.
+- Toast / alert messages.
+- i18n strings — write sentence case in translation JSON files; do not call `.toLowerCase()` on interpolated params unless the casing is functionally required (e.g. lowercase handle normalization for a query key).
+
+### Uppercase — `textTransform: 'uppercase'` + `letterSpacing: 0.5`
+
+Reserved for micro-labels where ALL-CAPS conveys a badge/status rather than readable text:
+
+- **`overline`-sized ad / badge labels** — e.g. "AD" badge in `KlipyGifPickerSheet` (`adBadgeText`).
+- **Settings section headers that act as category dividers** — e.g. the caption-sized label above field groups in `edit-profile.tsx` (`fieldLabel`) and `app-icon.tsx` (`sectionLabel`).
+
+Always pair uppercase with `letterSpacing: 0.5` (minimum) to maintain readability at small sizes.
+
+## Implementation rules
+
+1. **Never `.toLowerCase()` on display strings in JSX.** Remove the call and add `textTransform: 'lowercase'` to the style instead.
+2. **Never `.toUpperCase()` on display strings in JSX.** Use `textTransform: 'uppercase'` in the style.
+3. **Reuse `TextStyles.profileHandle` / `TextStyles.profileHandleSmall`** for AT handle text — both carry the correct `textTransform` already; no need to add it inline.
+4. **Do not add `textTransform` to `TextStyles.body`, `TextStyles.heroTitle`, `TextStyles.pageTitle`, `TextStyles.sectionHeader`, or any prose/heading token.** Those must remain sentence case.
+5. **i18n interpolation exception** — `textTransform: 'lowercase'` on a `<Text>` lowercases the *entire rendered string*, including static prefix/suffix words from the translation template. When only an interpolated variable should be lowercase (e.g. `"Failed to load {{title}}"`), call `.toLowerCase()` on the variable at the interpolation site, not via style.

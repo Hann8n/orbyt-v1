@@ -1240,12 +1240,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     <>
       <AppTrueSheet
         name="comment-section"
+        grabber={false}
         detents={scrollToCommentUri ? [1] : [0.5, 1]}
         onDidPresent={() => setPresentedPostUri(post?.uri ?? null)}
         onDidDismiss={handleClose}
         scrollable={true}
         header={headerComponent}
-        footer={wrapFooter(ComposerFooter)}
+        footer={activeTab === 'comments' ? wrapFooter(ComposerFooter) : undefined}
       >
         <View style={styles.container}>
           {activeTab === 'comments' ? (

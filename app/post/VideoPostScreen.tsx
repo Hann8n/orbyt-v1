@@ -249,7 +249,7 @@ const ChannelSelector: React.FC<{
                 );
               })()}
               <Text style={[styles.channelSelectorName, styles.channelSelectorNameBold]}>
-                {selectedChannel.displayName.toLowerCase()}
+                {selectedChannel.displayName}
               </Text>
             </View>
           )}
@@ -1363,7 +1363,7 @@ const VideoPostScreen: React.FC = () => {
                         numberOfLines={1}
                         ellipsizeMode="tail"
                       >
-                        {channelDisplayName.toLowerCase()}
+                        {channelDisplayName}
                       </Text>
                     </View>
                     {!!channel.description && (
@@ -1883,6 +1883,7 @@ const styles = StyleSheet.create({
     color: Colors.neutral[200],
     fontFamily: FontFamily.semibold,
     fontSize: Typography.sizes.title,
+    textTransform: 'lowercase',
   },
   listButtonContent: {
     flexDirection: 'row',
@@ -2054,6 +2055,7 @@ const styles = StyleSheet.create({
     color: Colors.neutral[50],
     fontSize: Typography.sizes.title,
     fontFamily: FontFamily.medium,
+    textTransform: 'lowercase',
   },
 });
 

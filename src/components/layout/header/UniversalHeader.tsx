@@ -1579,6 +1579,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     fontFamily: FontFamily.medium,
     fontSize: Typography.sizes.title,
+    textTransform: 'lowercase',
   },
   subtitleSecondaryPill: {
     marginTop: 4,

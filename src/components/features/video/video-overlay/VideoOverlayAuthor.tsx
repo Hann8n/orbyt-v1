@@ -283,6 +283,7 @@ const styles = StyleSheet.create({
   sourceText: {
     fontSize: Typography.sizes.body,
     fontFamily: FontFamily.bold,
+    textTransform: 'lowercase',
   },
   sourceTextOpacity: {
     color: Colors.neutral[50],
@@ -323,6 +324,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.bodySmall,
     fontFamily: FontFamily.semibold,
     color: Colors.neutral[50],
+    textTransform: 'lowercase',
   },
   repostSuffixText: {
     fontSize: Typography.sizes.bodySmall,

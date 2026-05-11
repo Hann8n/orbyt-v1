@@ -314,6 +314,7 @@ const styles = StyleSheet.create({
   tabTextComments: {
     fontFamily: Typography.families.black,
     fontSize: Typography.sizes.subtitle,
+    textTransform: 'lowercase',
   },
 });
 

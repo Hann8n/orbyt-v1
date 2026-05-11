@@ -152,6 +152,7 @@ export const TextStyles = {
     fontFamily: FontFamily.bold,
     lineHeight: lineHeightFor(fontSizeFor(BASE_SIZES.subtitle + 0.5)),
     includeFontPadding: false,
+    textTransform: 'lowercase' as const,
   },
   /** Smaller variant used in compact chips, chyrons, parent reply indicators. */
   profileHandleSmall: {
@@ -159,6 +160,7 @@ export const TextStyles = {
     fontFamily: FontFamily.bold,
     lineHeight: lineHeightFor(fontSizeFor(BASE_SIZES.bodySmall + 0.5)),
     includeFontPadding: false,
+    textTransform: 'lowercase' as const,
   },
   /** Standard body copy inside posts, comments, descriptions. */
   body: {

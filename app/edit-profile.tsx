@@ -1075,6 +1075,7 @@ const styles = StyleSheet.create({
     ...TextStyles.editLabelLarge,
     fontFamily: FontFamily.black,
     lineHeight: Typography.lineHeights.h1,
+    textTransform: 'lowercase',
   },
   handleAt: {
     ...TextStyles.heroTitle,
@@ -1085,6 +1086,7 @@ const styles = StyleSheet.create({
   handleSuffix: {
     fontFamily: FontFamily.medium,
     fontSize: Typography.sizes.title,
+    textTransform: 'lowercase',
   },
   largeInput: {
     ...TextStyles.displayLarge,
