@@ -116,7 +116,6 @@ const ProfilesFeedRenderer = React.memo(
             }}
             backgroundColor={Colors.transparent}
             nameFontWeight="Figtree-SemiBold"
-            customFontSize={18}
             handleAsDisplayName
             style={styles.authorItemStyle}
           />
@@ -204,7 +203,6 @@ const ChannelsFeedRenderer = React.memo(
             }}
             backgroundColor={Colors.transparent}
             nameFontWeight="Figtree-SemiBold"
-            customFontSize={18}
             style={styles.authorItemStyle}
           />
         );
@@ -280,12 +278,8 @@ const RecentlyVisitedFeedRenderer = React.memo(
             showFollowButton={false}
             isFollowing={false}
             rectangularAvatar={!isProfile}
-            onPress={onPress}
-            backgroundColor={Colors.transparent}
-            nameFontWeight="Figtree-SemiBold"
-            customFontSize={18}
             handleAsDisplayName={isProfile}
-            style={styles.authorItemStyle}
+            onPress={onPress}
           />
         );
       },

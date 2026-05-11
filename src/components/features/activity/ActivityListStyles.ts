@@ -58,9 +58,11 @@ export const activityListSharedStyles = StyleSheet.create({
   },
   authorName: {
     color: Colors.neutral[50],
-    fontSize: Typography.sizes.title,
+    fontSize: Typography.sizes.subtitle,
+    lineHeight: Typography.lineHeights.subtitle,
     marginBottom: 2,
-    fontFamily: FontFamily.black,
+    fontFamily: FontFamily.bold,
+    includeFontPadding: false,
     flexShrink: 1,
   },
   actionRow: {

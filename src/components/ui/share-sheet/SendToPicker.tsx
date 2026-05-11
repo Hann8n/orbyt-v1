@@ -195,7 +195,6 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
           backgroundColor={Colors.transparent}
           textColor={Colors.neutral[50]}
           nameFontWeight="Figtree-SemiBold"
-          customFontSize={16}
           style={exploreScreenStyles.authorItemStyle}
           onPress={handleItemPress}
         />

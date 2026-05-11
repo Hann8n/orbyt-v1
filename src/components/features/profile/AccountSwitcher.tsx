@@ -219,6 +219,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           onDeletePress={() => handleRemoveAccount(account)}
           backgroundColor={Colors.neutral[925]}
           style={styles.accountRow}
+          handleAsDisplayName
           onPress={() => {
             if (!isActive && !editMode) {
               if (savedAccounts.length > 1) {

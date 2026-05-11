@@ -145,7 +145,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   showFollowButton = false,
   isFollowing = false,
   onFollowPress,
-  nameFontWeight = 'Figtree-Black',
+  nameFontWeight = 'Figtree-Bold',
   hideDisplayName,
   customFontSize,
   showDeleteButton = false,
