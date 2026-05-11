@@ -23,7 +23,6 @@ import {
   useFollowMutation,
   prefetchProfile,
 } from '../../services/data/ProfileService';
-import { useAvatarProfileRing } from '../../services/colors';
 import { formatHandle } from '../../utils/formatting/handles';
 import { useQueryClient } from '@tanstack/react-query';
 import { itemSizeConfig, sharedItemStyles, sharedListRowStyles } from './ItemStyles';
@@ -66,7 +65,6 @@ interface AuthorItemProps {
   handleColor?: string;
   hideHandleLine?: boolean;
   hideDisplayName?: boolean;
-  showRing?: boolean;
   customFontSize?: number;
   showDeleteButton?: boolean;
   onDeletePress?: () => void;
@@ -149,7 +147,6 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   onFollowPress,
   nameFontWeight = 'Figtree-Black',
   hideDisplayName,
-  showRing,
   customFontSize,
   showDeleteButton = false,
   onDeletePress,
@@ -183,7 +180,6 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const actualDisplayName = handleAsDisplayName
     ? formatHandle(handle)
     : trimmedPropName || trimmedCachedName || formatHandle(handle) || t('feed.unknownUser');
-  const ringProps = useAvatarProfileRing(skipServerProfileData ? null : (did ?? null));
   const actualIsFollowing = cachedProfile?.viewer?.following ? true : isFollowing;
   const isBlocked = !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList);
 
@@ -238,9 +234,6 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           uri={actualAvatar}
           type={rectangularAvatar ? 'channel' : 'profile'}
           size={config.avatarSize}
-          showRing={showRing ?? ringProps.showRing}
-          ringColor={ringProps.ringColor}
-          profileColors={ringProps.profileColors}
           blurRadius={isBlocked ? 30 : 0}
           status={cachedProfile?.status}
         />

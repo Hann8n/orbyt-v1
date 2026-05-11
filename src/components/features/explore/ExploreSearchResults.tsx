@@ -194,7 +194,6 @@ const ChannelsFeedRenderer = React.memo(
             showArrow={false}
             showFollowButton={false}
             isFollowing={false}
-            showRing={false}
             rectangularAvatar={true}
             onPress={() => {
               if (onChannelPress) {
@@ -280,7 +279,6 @@ const RecentlyVisitedFeedRenderer = React.memo(
             showArrow={false}
             showFollowButton={false}
             isFollowing={false}
-            showRing={isProfile}
             rectangularAvatar={!isProfile}
             onPress={onPress}
             backgroundColor={Colors.transparent}

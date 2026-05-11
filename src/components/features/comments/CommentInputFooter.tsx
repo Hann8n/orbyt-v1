@@ -29,7 +29,6 @@ import { COMPOSER_INPUT_PADDING } from '../../../utils/components/truesheet/util
 import { RichTextSearchModal, type RichTextSearchModalProps } from '../../ui/usersearch';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileByDid } from '../../../services/data/ProfileService';
-import { useAvatarProfileRing } from '../../../services/colors';
 import { Typography } from '../../../utils/components/typography';
 
 interface TextInputSelectionChangeEventData extends TargetedEvent {
@@ -161,7 +160,6 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   // Get current user profile for live status
   const currentUserDid = useUserStore(state => state.currentUser?.did ?? null);
   const { data: currentUserProfile } = useProfileByDid(currentUserDid);
-  const ringProps = useAvatarProfileRing(currentUserDid);
 
 
   const hasImages = resolvedSelectedImages.length > 0;
@@ -308,9 +306,6 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                   uri={currentUserAvatar ?? undefined}
                   type="profile"
                   size={42}
-                  showRing={ringProps.showRing}
-                  ringColor={ringProps.ringColor}
-                  profileColors={ringProps.profileColors}
                   style={styles.avatar}
                   status={currentUserProfile?.status}
                 />

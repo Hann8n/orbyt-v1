@@ -52,7 +52,6 @@ import ChatSettingsSheet from './ChatSettingsSheet';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { getActiveStreak, isStreakActive } from '../../../utils/chat/streak';
-import { useAvatarProfileRing } from '../../../services/colors';
 import type { ProfileViewBasic, RecordValue } from '../../../services/api/types';
 import ActivitySegmentedChips from './ActivitySegmentedChips';
 import { itemSizeConfig } from '@/components/ui/ItemStyles';
@@ -227,8 +226,6 @@ const ConversationItem = React.memo<ConversationItemProps>(
       currentUser?.did ?? undefined
     );
 
-    const ringProps = useAvatarProfileRing(other?.did ?? undefined);
-
     return (
       <View style={styles.conversationItem}>
         <View style={styles.conversationItemRow}>
@@ -240,9 +237,6 @@ const ConversationItem = React.memo<ConversationItemProps>(
               uri={other?.avatar}
               type="profile"
               size={55}
-              showRing={ringProps.showRing}
-              ringColor={ringProps.ringColor}
-              profileColors={ringProps.profileColors}
               style={activityListSharedStyles.avatarFill}
             />
           </NativePressable>

@@ -2076,9 +2076,6 @@ export default function ChatScreen() {
                 uri={profile?.avatar}
                 type="profile"
                 size={headerAvatarSize}
-                showRing={otherRingProps.showRing}
-                ringColor={otherRingProps.ringColor}
-                profileColors={otherRingProps.profileColors}
                 status={profile?.status}
               />
             </View>
