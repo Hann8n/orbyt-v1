@@ -212,7 +212,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           displayName={displayName}
           avatar={account.cachedProfile?.avatar}
           size="large"
-          showRing={true}
           showArrow={false}
           showDeleteButton={editMode && savedAccounts.length > 1}
           showCheckmark={shouldShowCheckmark}
@@ -220,6 +219,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           onDeletePress={() => handleRemoveAccount(account)}
           backgroundColor={Colors.neutral[925]}
           style={styles.accountRow}
+          handleAsDisplayName
           onPress={() => {
             if (!isActive && !editMode) {
               if (savedAccounts.length > 1) {

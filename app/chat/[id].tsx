@@ -38,6 +38,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { AppTrueSheet, SHEET_STYLES } from '@/utils/components/truesheet';
 import CommentInputFooter from '@/components/features/comments/CommentInputFooter';
+import { useRichTextSearchTrigger } from '@/components/ui/usersearch';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '@/theme';
@@ -1284,6 +1285,13 @@ export default function ChatScreen() {
   const currentUserDid = useUserStore(s => s.currentUser?.did);
   const currentUserAvatar = useUserStore(s => s.currentUser?.avatar ?? null);
 
+  const { inputProps: mentionInputProps, richTextSearchModalProps } = useRichTextSearchTrigger({
+    value: inputText,
+    selection: inputSelection,
+    onChangeText: setInputText,
+    onSelectionChange: e => setInputSelection(e.nativeEvent.selection),
+  });
+
   const openByDid = isDid(rawId);
   const members = useMemo(
     () => (currentUserDid && openByDid ? [currentUserDid, rawId].sort() : null),
@@ -2068,9 +2076,6 @@ export default function ChatScreen() {
                 uri={profile?.avatar}
                 type="profile"
                 size={headerAvatarSize}
-                showRing={otherRingProps.showRing}
-                ringColor={otherRingProps.ringColor}
-                profileColors={otherRingProps.profileColors}
                 status={profile?.status}
               />
             </View>
@@ -2335,6 +2340,8 @@ export default function ChatScreen() {
               submitAccessibilityLabel={t('a11y.sendMessage')}
               showAvatar
               hideMediaAddButton
+              richTextSearchModalProps={richTextSearchModalProps}
+              mentionInputProps={mentionInputProps}
             />
           </View>
         )}

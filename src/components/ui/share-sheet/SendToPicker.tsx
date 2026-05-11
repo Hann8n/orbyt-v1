@@ -4,7 +4,7 @@
  * Presented when user taps "Send" from the main share sheet.
  */
 
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -14,7 +14,6 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { NativePressable } from '../NativePressable';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
@@ -24,27 +23,24 @@ import {
   useMeasuredFooterHeight,
   SHEET_SPACING,
 } from '../../../utils/components/truesheet';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { chatReactQueryOptions } from '../../../utils/query/chatQueryOptions';
-import {
-  BORDER_RADIUS,
-  ICON_SIZES,
-  QUERY_CONSTANTS,
-  SCROLL_INDICATOR_CONSTANTS,
-} from '../../../utils/constants';
+import { BORDER_RADIUS, ICON_SIZES, QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
 import { useProfileByDid } from '../../../services/data/ProfileService';
-import { useUserSearchTrigger } from '../usersearch';
+import { useRichTextSearchTrigger } from '../usersearch';
 import CommentInputFooter from '../../features/comments/CommentInputFooter';
-import { ActorService } from '../../../services/api/actor/ActorService';
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { ChatService } from '../../../services/api/chat/ChatService';
 import { useUserStore } from '../../../stores/userStore';
 import { Colors } from '../UI';
 import AuthorItem from '../AuthorItem';
-import Icon from '../Icon';
 import { isCurrentUser } from '../../../stores/profileInteractionStore';
+import { formatHandle } from '../../../utils/formatting/handles';
+import { exploreScreenStyles } from '../../features/explore/ExploreScreenStyles';
+import { Shadows } from '../../../theme';
+import { androidTextFix } from '../../../utils/styling/platformText';
+import Icon from '../Icon';
 import type { ProfileViewBasic } from '../../../services/api/types';
 import type { ConvoView } from '../../../services/api/types';
 import { FontFamily, Typography } from '../../../utils/components/typography';
@@ -87,7 +83,6 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
 }) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [sendMessageText, setSendMessageText] = useState('');
   const [sendMessageInputSelection, setSendMessageInputSelection] = useState({
@@ -100,15 +95,14 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   >(null);
   const [isSending, setIsSending] = useState(false);
   const searchInputRef = useRef<TextInput | null>(null);
-  const messageInputRef = useRef<TextInput | null>(null);
-  const [isSheetPresented, setIsSheetPresented] = useState(false);
+  const messageInputRef = useRef<null>(null);
 
   const footerFallbackHeight = 96;
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
 
   const { data: currentUserProfile } = useProfileByDid(currentUserDid);
-  const { inputProps: messageMentionInputProps, userSearchModalProps: messageUserSearchProps } =
-    useUserSearchTrigger({
+  const { inputProps: messageMentionInputProps, richTextSearchModalProps: messageRichTextSearchProps } =
+    useRichTextSearchTrigger({
       value: sendMessageText,
       selection: sendMessageInputSelection,
       onChangeText: setSendMessageText,
@@ -125,210 +119,155 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
     ...chatReactQueryOptions,
   });
 
-  const conversations = useMemo(
-    () =>
-      (conversationsData?.pages ?? []).flatMap(
-        p => (p as { conversations?: ConvoView[] })?.conversations ?? []
-      ),
-    [conversationsData?.pages]
+  const conversations = (conversationsData?.pages ?? []).flatMap(
+    p => (p as { conversations?: ConvoView[] })?.conversations ?? []
   );
 
-  const {
-    data: searchData,
-    fetchNextPage: fetchMoreProfiles,
-    hasNextPage: hasMoreProfiles,
-  } = useInfiniteQuery({
-    queryKey: queryKeys.search.profiles(searchQuery),
-    queryFn: async ({ pageParam }) => {
-      return ActorService.searchProfilesPaginated(searchQuery, pageParam as string | null);
-    },
-    getNextPageParam: lastPage => lastPage?.cursor ?? null,
-    initialPageParam: null as string | null,
-    enabled: visible && searchQuery.trim().length > 0,
-  });
+  const filteredConversations = searchQuery.trim()
+    ? conversations.filter((c: ConvoView) => {
+        const other = c.members?.find(m => m.did !== currentUserDid) ?? c.members?.[0];
+        const name = (other as { displayName?: string })?.displayName?.toLowerCase() ?? '';
+        const handle = (other as { handle?: string })?.handle?.toLowerCase() ?? '';
+        const q = searchQuery.toLowerCase();
+        return name.includes(q) || handle.includes(q);
+      })
+    : conversations;
 
-  const searchResults = useMemo(() => {
-    if (!searchData?.pages) return [];
-    return searchData.pages.flatMap(page => page.profiles ?? []);
-  }, [searchData]);
-
-  const filteredConversations = useMemo(() => {
-    if (!searchQuery.trim()) return conversations;
-    const conversationMatches = conversations.filter((c: ConvoView) => {
-      const otherMember = c.members?.find(m => m.did !== currentUserDid) ?? c.members?.[0];
-      const name = (otherMember as { displayName?: string })?.displayName ?? '';
-      const handle = (otherMember as { handle?: string })?.handle ?? '';
-      const q = searchQuery.toLowerCase();
-      return name.toLowerCase().includes(q) || handle.toLowerCase().includes(q);
-    });
-    const conversationDids = new Set(conversations.flatMap(c => c.members?.map(m => m.did) ?? []));
-    const newProfiles = searchResults
-      .filter(p => !conversationDids.has(p.did))
-      .sort((_a, b) => (canBeMessaged(b) ? 1 : -1));
-    return [...conversationMatches, ...newProfiles];
-  }, [conversations, currentUserDid, searchQuery, searchResults]);
-
-  // Control TrueSheet visibility via instance ref (TrueSheet v3+)
-  // Do not auto-focus search: opening the keyboard would move the list up. User can tap search to focus.
+  // Control TrueSheet visibility via global static methods (TrueSheet v3+).
   useEffect(() => {
-    if (visible) {
-      if (!isSheetPresented) {
-        TrueSheet.present(SHEET_NAME).catch(() => {});
-      }
-    } else if (isSheetPresented) {
-      TrueSheet.dismiss(SHEET_NAME).catch(() => {});
-    }
-  }, [visible, isSheetPresented]);
+    if (visible) TrueSheet.present(SHEET_NAME).catch(() => {});
+    else TrueSheet.dismiss(SHEET_NAME).catch(() => {});
+  }, [visible]);
 
-  const handleDismiss = useCallback(() => {
-    setIsSheetPresented(false);
+  const handleDismiss = () => {
     setSearchQuery('');
     setSendMessageText('');
     setSelectedRecipientKey(null);
     setSelectedRecipientItem(null);
     onDismiss();
-  }, [onDismiss]);
+  };
 
-  const getPickerItemKey = useCallback((item: ConvoView | ProfileViewBasic, idx: number) => {
+  const getPickerItemKey = (item: ConvoView | ProfileViewBasic) => {
     if ('id' in item && typeof (item as ConvoView).id === 'string') {
-      return `convo-${(item as ConvoView).id}-${idx}`;
+      return `convo-${(item as ConvoView).id}`;
     }
     const p = item as ProfileViewBasic;
-    const base = p.did || p.handle || `search`;
-    return `profile-${base}-${idx}`;
-  }, []);
+    return `profile-${p.did || p.handle || 'search'}`;
+  };
 
   const currentUser = useUserStore(s => s.currentUser);
 
-  const renderConversationItem = useCallback(
-    ({ item, index }: { item: ConvoView | ProfileViewBasic; index: number }) => {
-      const itemIsConversation = 'id' in item && typeof (item as ConvoView).id === 'string';
-      const profile: ProfileViewBasic = itemIsConversation
-        ? (((item as ConvoView).members?.find(m => m.did !== currentUserDid) ??
-            (item as ConvoView).members?.[0]) as ProfileViewBasic)
-        : (item as ProfileViewBasic);
+  const renderConversationItem = ({ item }: { item: ConvoView | ProfileViewBasic }) => {
+    const itemIsConversation = 'id' in item && typeof (item as ConvoView).id === 'string';
+    const profile: ProfileViewBasic = itemIsConversation
+      ? (((item as ConvoView).members?.find(m => m.did !== currentUserDid) ??
+          (item as ConvoView).members?.[0]) as ProfileViewBasic)
+      : (item as ProfileViewBasic);
 
-      const isDisabled = !itemIsConversation && !canBeMessaged(item as ProfileViewBasic);
-      const key = getPickerItemKey(item, index);
-      const isSelected = selectedRecipientKey === key;
-      const isCurrentUserProfile = isCurrentUser(profile.did, profile.handle, currentUser);
+    const isDisabled = !itemIsConversation && !canBeMessaged(item as ProfileViewBasic);
+    const key = getPickerItemKey(item);
+    const isSelected = selectedRecipientKey === key;
+    const isCurrentUserProfile = isCurrentUser(profile.did, profile.handle, currentUser);
 
-      const handlePress = () => {
-        if (isDisabled) return;
-        if (isSelected) {
-          setSelectedRecipientKey(null);
-          setSelectedRecipientItem(null);
-          return;
-        }
-        setSelectedRecipientKey(key);
-        setSelectedRecipientItem(item);
-      };
-
-      return (
-        <View style={[styles.userItemContainer, isDisabled && styles.disabledItem]}>
-          <AuthorItem
-            handle={profile.handle ?? ''}
-            did={profile.did}
-            displayName={profile.displayName}
-            avatar={profile.avatar}
-            size="large"
-            showArrow={false}
-            showFollowButton={false}
-            showCheckmark={isSelected && !isCurrentUserProfile}
-            showCheckmarkSkeleton={!isSelected && !isCurrentUserProfile && !isDisabled}
-            backgroundColor={Colors.transparent}
-            textColor={Colors.neutral[50]}
-            nameFontWeight="Figtree-SemiBold"
-            customFontSize={16}
-            style={styles.authorItem}
-            onPress={handlePress}
-          />
-        </View>
-      );
-    },
-    [currentUserDid, getPickerItemKey, selectedRecipientKey, currentUser]
-  );
-
-  const handleSendToConversation = useCallback(
-    async (item: ConvoView | ProfileViewBasic) => {
-      if (isSending) return;
-      const isConversation = 'id' in item && typeof (item as ConvoView).id === 'string';
-
-      setIsSending(true);
-      try {
-        let cid = postCid;
-        if (!cid) {
-          try {
-            const post = await AtprotoFeedService.getPost(postUri);
-            cid = post?.cid ?? '';
-          } catch {
-            cid = '';
-          }
-        }
-
-        if (!cid) {
-          Alert.alert(t('common.error'), t('chat.unableToSendMissingInfo'));
-          return;
-        }
-
-        let conversationId: string;
-        if (isConversation) {
-          conversationId = (item as ConvoView).id;
-        } else {
-          const otherDid = (item as ProfileViewBasic).did;
-          const convo = await ChatService.getConvoForMembers([currentUserDid, otherDid].sort());
-          if (!convo) {
-            Alert.alert(t('common.error'), t('chat.couldNotStartConversation'));
-            return;
-          }
-          conversationId = convo.id;
-        }
-
-        const messageText = sendMessageText.trim();
-        await ChatService.sendMessage(conversationId, {
-          text: messageText,
-          embed: {
-            $type: 'app.bsky.embed.record',
-            record: { uri: postUri, cid },
-          },
-        });
-
-        setSendMessageText('');
+    const handleItemPress = () => {
+      if (isDisabled) return;
+      if (isSelected) {
         setSelectedRecipientKey(null);
         setSelectedRecipientItem(null);
-        queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
-        handleDismiss();
-        onSent();
-      } catch (_error: unknown) {
-        const msg = _error instanceof Error ? _error.message : t('errors.failedTryAgain');
-        Alert.alert(t('common.error'), msg);
-      } finally {
-        setIsSending(false);
+        return;
       }
-    },
-    [
-      isSending,
-      postUri,
-      postCid,
-      currentUserDid,
-      sendMessageText,
-      handleDismiss,
-      onSent,
-      queryClient,
-      t,
-    ]
-  );
+      setSelectedRecipientKey(key);
+      setSelectedRecipientItem(item);
+    };
 
-  const handleSubmitSend = useCallback(() => {
+    return (
+      <View style={[styles.userItemContainer, isDisabled && styles.disabledItem]}>
+        <AuthorItem
+          handle={formatHandle(profile.handle ?? '')}
+          did={profile.did}
+          displayName={formatHandle(profile.handle ?? '')}
+          avatar={profile.avatar}
+          size="large"
+          showArrow={false}
+          showFollowButton={false}
+          showCheckmark={isSelected && !isCurrentUserProfile}
+          showCheckmarkSkeleton={!isSelected && !isCurrentUserProfile && !isDisabled}
+          backgroundColor={Colors.transparent}
+          textColor={Colors.neutral[50]}
+          nameFontWeight="Figtree-SemiBold"
+          style={exploreScreenStyles.authorItemStyle}
+          onPress={handleItemPress}
+        />
+      </View>
+    );
+  };
+
+  const handleSendToConversation = async (item: ConvoView | ProfileViewBasic) => {
+    if (isSending) return;
+    const isConversation = 'id' in item && typeof (item as ConvoView).id === 'string';
+
+    setIsSending(true);
+    try {
+      let cid = postCid;
+      if (!cid) {
+        try {
+          const post = await AtprotoFeedService.getPost(postUri);
+          cid = post?.cid ?? '';
+        } catch {
+          cid = '';
+        }
+      }
+
+      if (!cid) {
+        Alert.alert(t('common.error'), t('chat.unableToSendMissingInfo'));
+        return;
+      }
+
+      let conversationId: string;
+      if (isConversation) {
+        conversationId = (item as ConvoView).id;
+      } else {
+        const otherDid = (item as ProfileViewBasic).did;
+        const convo = await ChatService.getConvoForMembers([currentUserDid, otherDid].sort());
+        if (!convo) {
+          Alert.alert(t('common.error'), t('chat.couldNotStartConversation'));
+          return;
+        }
+        conversationId = convo.id;
+      }
+
+      const messageText = sendMessageText.trim();
+      await ChatService.sendMessage(conversationId, {
+        text: messageText,
+        embed: {
+          $type: 'app.bsky.embed.record',
+          record: { uri: postUri, cid },
+        },
+      });
+
+      setSendMessageText('');
+      setSelectedRecipientKey(null);
+      setSelectedRecipientItem(null);
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+      handleDismiss();
+      onSent();
+    } catch (_error: unknown) {
+      const msg = _error instanceof Error ? _error.message : t('errors.failedTryAgain');
+      Alert.alert(t('common.error'), msg);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleSubmitSend = () => {
     if (!selectedRecipientItem) return;
     handleSendToConversation(selectedRecipientItem);
-  }, [handleSendToConversation, selectedRecipientItem]);
+  };
 
-  const trimmedSearch = searchQuery.trim();
   const header = (
-    <View style={styles.header}>
+    <View style={styles.searchHeader}>
       <View style={styles.searchRow}>
-        <Icon name="search" size={ICON_SIZES.LARGE} color={Colors.neutral[200]} />
+        <Icon name="search" size={ICON_SIZES.LARGE} color={Colors.neutral[400]} style={styles.searchIcon} />
         <TextInput
           ref={searchInputRef}
           value={searchQuery}
@@ -341,23 +280,19 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
           returnKeyType="search"
           autoComplete="off"
           textContentType="none"
+          keyboardAppearance="dark"
         />
-        <View style={styles.clearSlot}>
-          {trimmedSearch.length > 0 ? (
-            <NativePressable
-              onPress={() => setSearchQuery('')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.clearButton}
-              android_ripple={{ color: Colors.overlay.white10 }}
-              accessibilityRole="button"
-              accessibilityLabel={t('comments.clearSearch')}
-            >
-              <Icon name="close-circle" size={22.5} color={Colors.neutral[200]} />
-            </NativePressable>
-          ) : (
-            <View style={styles.clearButtonPlaceholder} />
-          )}
-        </View>
+        {searchQuery.length > 0 && (
+          <NativePressable
+            onPress={() => setSearchQuery('')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={exploreScreenStyles.clearButton}
+            accessibilityRole="button"
+            accessibilityLabel={t('comments.clearSearch')}
+          >
+            <Icon name="close-circle" size={22.5} color={Colors.neutral[400]} />
+          </NativePressable>
+        )}
       </View>
     </View>
   );
@@ -378,7 +313,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
       maxLength={MAX_MESSAGE_LENGTH}
       inputRef={messageInputRef}
       currentUserAvatar={currentUserProfile?.avatar}
-      userSearchModalProps={messageUserSearchProps}
+      richTextSearchModalProps={messageRichTextSearchProps}
       mentionInputProps={messageMentionInputProps}
     />
   );
@@ -387,7 +322,6 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
     <AppTrueSheet
       name={SHEET_NAME}
       variant="sendToPicker"
-      onDidPresent={() => setIsSheetPresented(true)}
       onDidDismiss={handleDismiss}
       header={header}
       footer={footer}
@@ -404,26 +338,18 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
             <FlatList
               style={styles.pickerList}
               data={filteredConversations}
-              keyExtractor={(item, idx) => getPickerItemKey(item, idx)}
+              keyExtractor={item => getPickerItemKey(item)}
               showsVerticalScrollIndicator={
                 filteredConversations.length >= SCROLL_INDICATOR_CONSTANTS.SEND_TO_PICKER_MIN_ITEMS
               }
               renderItem={renderConversationItem}
               contentContainerStyle={[
                 styles.conversationList,
-                {
-                  paddingBottom:
-                    contentBottomPadding + (typeof insets?.bottom === 'number' ? insets.bottom : 0),
-                },
+                { paddingBottom: contentBottomPadding },
                 filteredConversations.length === 0 && styles.conversationListEmpty,
               ]}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
-              onEndReached={() => {
-                if (searchQuery.trim() && hasMoreProfiles && !conversationsLoading) {
-                  fetchMoreProfiles();
-                }
-              }}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
               ListEmptyComponent={
                 <View style={styles.pickerEmptyContainer}>
@@ -442,25 +368,23 @@ const styles = StyleSheet.create({
   sheet: {
     flex: 1,
   },
-  header: {
-    backgroundColor: Colors.neutral[975],
-    paddingHorizontal: SHEET_SPACING.mediaPickerHorizontal,
-    paddingTop: 18,
-    paddingBottom: 6,
-    gap: 8,
+  searchHeader: {
+    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: Colors.neutral[800],
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.LARGE,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.neutral[700],
     paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
-    paddingVertical: 11,
-    minHeight: 46,
-    boxShadow: '0 1px 6px rgba(5,7,10,0.25)',
+    paddingVertical: 10,
+    minHeight: 44,
+    ...Shadows.small,
+  },
+  searchIcon: {
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
@@ -468,31 +392,9 @@ const styles = StyleSheet.create({
     color: Colors.neutral[50],
     fontFamily: Typography.families.regular,
     fontSize: Typography.sizes.title,
-    height: Typography.lineHeights.title,
+    lineHeight: Typography.lineHeights.title,
     padding: 0,
-    paddingVertical: 0,
-    textAlignVertical: 'center',
-    ...(Platform.OS === 'android' && {
-      includeFontPadding: false,
-    }),
-  },
-  clearSlot: {
-    marginLeft: 8,
-    width: 28,
-    height: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  clearButton: {
-    width: 28,
-    height: 28,
-    borderRadius: BORDER_RADIUS.FULL,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  clearButtonPlaceholder: {
-    width: 28,
-    height: 28,
+    ...androidTextFix,
   },
   content: {
     flex: 1,
@@ -539,13 +441,6 @@ const styles = StyleSheet.create({
   userItemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  authorItem: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    marginBottom: 0,
-    borderRadius: 0,
   },
   disabledItem: {
     opacity: 0.5,

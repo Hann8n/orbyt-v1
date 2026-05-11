@@ -1,14 +1,11 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 /** Re-export: use TrueSheet.present(name) to show, TrueSheet.dismiss(name) to hide. */
 export { TrueSheet };
 import {
   AppTrueSheet,
   type AppTrueSheetVariant,
-  getFooterBottomPadding,
 } from '../../utils/components/truesheet';
 import { LAYOUT_INSETS } from '../../utils/constants';
 import { CheckboxCuteFilledDuotoneIcon, CuteRegularSquareBoxEmptyIcon } from './Icon';
@@ -45,11 +42,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   contentBottomPadding,
   variant = 'default',
 }) => {
-  const insets = useSafeAreaInsets();
-  const paddingBottom =
-    contentBottomPadding !== undefined
-      ? contentBottomPadding
-      : getFooterBottomPadding(insets.bottom);
+  const paddingBottom = contentBottomPadding ?? 0;
 
   return (
     <AppTrueSheet name={name} variant={variant} onDidDismiss={onDismiss} scrollable={scrollable}>

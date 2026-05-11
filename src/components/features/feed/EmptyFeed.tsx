@@ -65,6 +65,7 @@ const SuggestedUserItem: React.FC<SuggestedUserItemProps> = ({ item }) => {
       nameFontWeight="Figtree-SemiBold"
       skipServerProfileData
       variant="listRow"
+      handleAsDisplayName
       style={styles.authorItem}
     />
   );

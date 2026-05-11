@@ -6,7 +6,6 @@ import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation
 import { Colors } from '../../../theme';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useProfileByDid } from '../../../services/data/ProfileService';
-import { useAvatarProfileRing } from '../../../services/colors';
 import type { Like } from '../../../services/api/types';
 
 import UI from '../../ui/UI';
@@ -28,7 +27,6 @@ const CommentLikeItemComponent: React.FC<CommentLikeItemProps> = ({ like, onPres
   const did = actor?.did ?? null;
 
   const { data: actorProfile } = useProfileByDid(did);
-  const ringProps = useAvatarProfileRing(did);
   const isActorBlocked = !!(actorProfile?.viewer?.blocking || actorProfile?.viewer?.blockingByList);
 
   const displayHandle = useMemo(() => formatHandle(handle) || handle || 'unknown', [handle]);
@@ -49,9 +47,6 @@ const CommentLikeItemComponent: React.FC<CommentLikeItemProps> = ({ like, onPres
           uri={actor?.avatar}
           type="profile"
           size={AVATAR_SIZE}
-          showRing={ringProps.showRing}
-          ringColor={ringProps.ringColor}
-          profileColors={ringProps.profileColors}
           blurRadius={isActorBlocked ? 30 : 0}
           status={actorProfile?.status}
           style={styles.avatar}

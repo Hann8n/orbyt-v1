@@ -46,6 +46,7 @@ export function useExploreSuggestionsQueries(
           avatar: cachedChannel.avatar,
           likeCount: cachedChannel.likeCount || 0,
           indexedAt: cachedChannel.indexedAt,
+          lastUpdated: cachedChannel.lastUpdated,
         })
       );
     },

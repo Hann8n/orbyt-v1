@@ -291,7 +291,6 @@ export default function LoginSignInModal() {
               did={actor.did}
               displayName={actor.displayName}
               avatar={actor.avatar}
-              showRing={false}
               skipServerProfileData
               style={[RICH_TEXT_SEARCH_AUTHOR_ITEM_STYLE, styles.signInSuggestionAuthorAlign]}
               onPress={() => handlePickSuggestion(actor.handle, actor)}

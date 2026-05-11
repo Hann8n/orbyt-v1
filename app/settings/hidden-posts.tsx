@@ -11,7 +11,6 @@ import { Avatar } from '@/components/ui/UI';
 import { ModerationService } from '@/services/moderation/ModerationService';
 import { useUserStoreState } from '@/stores/userStore';
 import { useModerationSettings } from '@/hooks/useModerationSettings';
-import { useAvatarProfileRing } from '@/services/colors';
 import { logger } from '@/utils/logger';
 import { FontFamily, Typography } from '@/utils/components/typography';
 
@@ -28,22 +27,11 @@ interface HiddenPost {
   createdAt: string;
 }
 
-/** Avatar with profile ring colors; must be a component to use useAvatarProfileRing */
 const HiddenPostAvatar: React.FC<{
   author: HiddenPost['author'];
-}> = ({ author }) => {
-  const ringProps = useAvatarProfileRing(author.did ?? null);
-  return (
-    <Avatar
-      uri={author.avatar}
-      type="profile"
-      size={32}
-      showRing={ringProps.showRing}
-      ringColor={ringProps.ringColor}
-      profileColors={ringProps.profileColors}
-    />
-  );
-};
+}> = ({ author }) => (
+  <Avatar uri={author.avatar} type="profile" size={32} />
+);
 
 const HiddenPostsScreen: React.FC = () => {
   const { t } = useTranslation();

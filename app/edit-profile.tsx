@@ -805,7 +805,6 @@ const EditProfileScreen: React.FC = () => {
                         textColor: currentColors.textColor,
                         foregroundColor: currentColors.textColor,
                       }}
-                      showRing={true}
                     />
                     <View style={styles.avatarButtonColumn}>
                       <Text

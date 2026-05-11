@@ -121,7 +121,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
             onFollowPress={() => handleFollowPress(item)}
             backgroundColor={Colors.transparent}
             nameFontWeight="Figtree-SemiBold"
-            customFontSize={16}
+            handleAsDisplayName
             style={styles.authorItem}
             onPress={() => handleUserPress(item.did)}
           />

@@ -34,7 +34,7 @@ export const itemSizeConfig = {
     avatarSize: 48,
     textSize: 16,
     badgeTextSize: 16,
-    nameFontSize: 18,
+    nameFontSize: Typography.sizes.subtitle,
     handleFontSize: 15,
   },
 };
@@ -64,9 +64,10 @@ export const sharedItemStyles = StyleSheet.create({
   },
   accountDisplayName: {
     color: Colors.neutral[50],
-    fontSize: Typography.sizes.title,
-    fontWeight: 'bold',
+    fontSize: Typography.sizes.subtitle,
     fontFamily: FontFamily.bold,
+    lineHeight: Typography.lineHeights.subtitle,
+    includeFontPadding: false,
     marginBottom: 2,
   },
   accountArrow: {

@@ -48,7 +48,6 @@ import { formatRelativeDate } from '../../ui/RelativeDate';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
 import { queryKeys } from '../../../utils/query/queryKeys';
-import { useAvatarProfileRing } from '../../../services/colors';
 import { itemSizeConfig } from '@/components/ui/ItemStyles';
 import { activityListSharedStyles } from './ActivityListStyles';
 import {
@@ -457,7 +456,6 @@ const NotificationItem = React.memo<NotificationItemProps>(
     const { reason, author, indexedAt, uri } = item;
     const { presentCommentSection } = useGlobalCommentSection();
     const { data: authorProfile } = useProfileByDid(author?.did);
-    const ringProps = useAvatarProfileRing(author?.did ?? null);
     const isPostAction = POST_ACTION_TYPES.includes(reason as PostActionReason);
     const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : undefined;
     const embed = postData ? getEmbed(postData) : null;
@@ -710,9 +708,6 @@ const NotificationItem = React.memo<NotificationItemProps>(
               uri={author?.avatar}
               type="profile"
               size={55}
-              showRing={ringProps.showRing}
-              ringColor={ringProps.ringColor}
-              profileColors={ringProps.profileColors}
               style={activityListSharedStyles.avatarFill}
               status={authorProfile?.status}
             />

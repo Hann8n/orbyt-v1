@@ -23,7 +23,6 @@ import {
   useFollowMutation,
   prefetchProfile,
 } from '../../services/data/ProfileService';
-import { useAvatarProfileRing } from '../../services/colors';
 import { formatHandle } from '../../utils/formatting/handles';
 import { useQueryClient } from '@tanstack/react-query';
 import { itemSizeConfig, sharedItemStyles, sharedListRowStyles } from './ItemStyles';
@@ -66,7 +65,6 @@ interface AuthorItemProps {
   handleColor?: string;
   hideHandleLine?: boolean;
   hideDisplayName?: boolean;
-  showRing?: boolean;
   customFontSize?: number;
   showDeleteButton?: boolean;
   onDeletePress?: () => void;
@@ -79,6 +77,8 @@ interface AuthorItemProps {
   reverseRow?: boolean;
   /** No session: skip profile/ring queries (e.g. sign-in suggestions). */
   skipServerProfileData?: boolean;
+  /** Use formatted handle as the display name (for search results, lists). Hides handle line. */
+  handleAsDisplayName?: boolean;
   /** `listRow`: hairline row; `card`: default squircle surface. */
   variant?: 'card' | 'listRow';
   /** Use rectangular avatar (like channels) instead of circular. */
@@ -145,9 +145,8 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   showFollowButton = false,
   isFollowing = false,
   onFollowPress,
-  nameFontWeight = 'Figtree-Black',
+  nameFontWeight = 'Figtree-Bold',
   hideDisplayName,
-  showRing,
   customFontSize,
   showDeleteButton = false,
   onDeletePress,
@@ -157,6 +156,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   nonInteractive = false,
   reverseRow = false,
   skipServerProfileData = false,
+  handleAsDisplayName = false,
   variant = 'card',
   rectangularAvatar = false,
 }) => {
@@ -176,9 +176,10 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
 
   const trimmedPropName = displayName?.trim();
   const trimmedCachedName = cachedProfile?.displayName?.trim();
-  const actualDisplayName =
-    trimmedPropName || trimmedCachedName || formatHandle(handle) || t('feed.unknownUser');
-  const ringProps = useAvatarProfileRing(skipServerProfileData ? null : (did ?? null));
+  // When handleAsDisplayName is true, use formatted handle as primary display (for search/lists)
+  const actualDisplayName = handleAsDisplayName
+    ? formatHandle(handle)
+    : trimmedPropName || trimmedCachedName || formatHandle(handle) || t('feed.unknownUser');
   const actualIsFollowing = cachedProfile?.viewer?.following ? true : isFollowing;
   const isBlocked = !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList);
 
@@ -233,9 +234,6 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           uri={actualAvatar}
           type={rectangularAvatar ? 'channel' : 'profile'}
           size={config.avatarSize}
-          showRing={showRing ?? ringProps.showRing}
-          ringColor={ringProps.ringColor}
-          profileColors={ringProps.profileColors}
           blurRadius={isBlocked ? 30 : 0}
           status={cachedProfile?.status}
         />
@@ -314,7 +312,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           />
         </View>
       ) : showCheckmarkSkeleton ? (
-        <StatusIconButton variant="skeleton" size={28} />
+        <View style={styles.checkmarkIconContainer}>
+          <CuteFilledSquareBoxIcon size={34} color={SKELETON_BG} />
+        </View>
       ) : (
         showArrow && (
           <View style={[styles.accountArrow, arrowStyle === 'option' && styles.optionArrowSlot]}>

@@ -224,7 +224,6 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
                 }
               }}
               size="large"
-              showRing={true}
               showArrow={true}
               arrowStyle="option"
               backgroundBlurIntensity={BLUR_INTENSITY.ACCOUNT_CARD}

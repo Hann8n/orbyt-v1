@@ -716,29 +716,30 @@ export async function searchHashtagVideosPaginated(
 }
 
 /**
- * Search for hashtag suggestions
- * @param query - Search query (partial hashtag without #)
- * @param limit - Number of suggestions to return
- * @returns Array of unique hashtag suggestions
+ * Search for hashtag suggestions by scraping hashtags from post search results.
+ *
+ * NOTE: Bluesky has no native hashtag suggestions API. This works by calling
+ * `searchPosts` with `#<query>` and extracting hashtags from matching post text.
+ * As a result it is relatively slow and results depend on Bluesky's full-text
+ * ranking rather than hashtag popularity. Callers should gate requests to a
+ * minimum query length (≥ 3 chars) and cache results aggressively.
+ *
+ * @param query - Partial hashtag text (without #). Must be at least 1 char.
+ * @param limit - Maximum number of suggestions to return (default 10).
+ * @returns Array of unique lowercase hashtag strings.
  */
 export async function searchHashtagSuggestions(
   query: string = '',
   limit: number = 10
 ): Promise<string[]> {
+  // Require at least one character — empty-query searches are expensive and return noise.
+  if (!query.trim()) return [];
+
   await AtprotoCore.ensureSession();
   try {
     const { api } = await AtprotoCore.getApiClient();
 
-    // Build search query
-    // If query is empty, search for popular hashtags by searching common terms
-    // If query exists, search for posts with that hashtag pattern
-    let searchQuery: string;
-    if (query) {
-      searchQuery = `#${query}`;
-    } else {
-      // For empty query, search for popular terms that often have hashtags
-      searchQuery = 'video OR art OR music OR photography';
-    }
+    const searchQuery = `#${query}`;
 
     const response = await api.app.bsky.feed.searchPosts({
       q: searchQuery,
