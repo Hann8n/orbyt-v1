@@ -2,14 +2,11 @@ import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Linking, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
-  CONTENT_TO_FOOTER_GAP_REDUCTION,
   SheetActionFooter,
   useMeasuredFooterHeight,
-  getFooterBottomPadding,
   SHEET_STYLES,
 } from '../../../utils/components/truesheet';
 import CloseButton from '../../ui/CloseButton';
@@ -37,10 +34,8 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
   onDismiss,
 }) => {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
-  const footerBottomPadding = getFooterBottomPadding(insets.bottom);
-  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44 + footerBottomPadding);
+  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44);
 
   const status = profile?.status;
 
@@ -135,7 +130,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
         )
       }
       footer={wrapFooter(
-        <SheetActionFooter bottomPadding={footerBottomPadding}>
+        <SheetActionFooter>
           <CancelButton onPress={handleClosePress} text={t('common.close')} />
         </SheetActionFooter>
       )}
@@ -144,7 +139,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
         style={[
           styles.content,
           {
-            paddingBottom: Math.max(0, contentBottomPadding - CONTENT_TO_FOOTER_GAP_REDUCTION),
+            paddingBottom: contentBottomPadding,
           },
         ]}
       >

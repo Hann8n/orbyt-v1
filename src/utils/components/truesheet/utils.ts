@@ -4,11 +4,11 @@
  * and apply the returned padding to your list's contentContainerStyle (or content wrapper).
  */
 
-/** Maximum bottom padding for compact sheet footers on large-safe-area devices. */
-const FOOTER_BOTTOM_PADDING_MAX = 16;
+/** Maximum bottom padding for sheet footers (caps the home-indicator inset on large-safe-area devices). */
+const FOOTER_BOTTOM_PADDING_MAX = 34;
 
-/** Default compact footer inset when safe-area data is unavailable. */
-const FOOTER_BOTTOM_PADDING_DEFAULT = 12;
+/** Fallback footer inset when safe-area data is unavailable. */
+const FOOTER_BOTTOM_PADDING_DEFAULT = 0;
 
 /** Default padding between sheet content and footer (above Cancel/Close button). */
 export const FOOTER_TOP_PADDING_DEFAULT = 12;

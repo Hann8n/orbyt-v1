@@ -314,7 +314,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           />
         </View>
       ) : showCheckmarkSkeleton ? (
-        <StatusIconButton variant="skeleton" size={28} />
+        <View style={styles.checkmarkIconContainer}>
+          <CuteFilledSquareBoxIcon size={34} color={SKELETON_BG} />
+        </View>
       ) : (
         showArrow && (
           <View style={[styles.accountArrow, arrowStyle === 'option' && styles.optionArrowSlot]}>

@@ -47,7 +47,7 @@ import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { Colors } from '../../../theme';
 import { NanoIcon } from '../../ui/NanoIcon';
 import RelativeDate from '../../ui/RelativeDate';
-import { useUserSearchTrigger } from '../../ui/usersearch';
+import { useRichTextSearchTrigger } from '../../ui/usersearch';
 import {
   APP_CONSTANTS,
   QUERY_CONSTANTS,
@@ -437,7 +437,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const { currentUser } = useUserStore();
   const { data: currentUserProfile } = useProfileByDid(currentUser?.did ?? null);
 
-  const { inputProps: mentionInputProps, userSearchModalProps } = useUserSearchTrigger({
+  const { inputProps: mentionInputProps, richTextSearchModalProps } = useRichTextSearchTrigger({
     value: newCommentText,
     selection: inputSelection,
     onChangeText: setNewCommentText,
@@ -1186,7 +1186,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         maxLength={MAX_COMMENT_LENGTH}
         inputRef={inputRef}
         currentUserAvatar={currentUserProfile?.avatar}
-        userSearchModalProps={userSearchModalProps}
+        richTextSearchModalProps={richTextSearchModalProps}
         mentionInputProps={mentionInputProps}
       />
     </View>

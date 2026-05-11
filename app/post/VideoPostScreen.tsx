@@ -434,7 +434,6 @@ const DescriptionInputModal: React.FC<{
     onRequestClose: () => void;
     searchQuery: string;
     searchType: 'mention' | 'hashtag';
-    anchorPosition?: { x: number; y: number };
     containerStyle?: import('react-native').ViewStyle;
   };
   insets: { top: number };
@@ -2100,8 +2099,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.body,
   },
   searchModalContainer: {
-    flex: 1,
-    marginTop: 8,
+    marginTop: 0,
   },
   channelSelectorContainer: {
     flexDirection: 'row',

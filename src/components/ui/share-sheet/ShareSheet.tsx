@@ -13,11 +13,9 @@ import {
   FOOTER_TOP_PADDING_DEFAULT,
   SheetActionFooter,
   useMeasuredFooterHeight,
-  getFooterBottomPadding,
   SHEET_SPACING,
   SHEET_STYLES,
 } from '../../../utils/components/truesheet';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../Icon';
 import CloseButton from '../CloseButton';
 import CancelButton from '../CancelButton';
@@ -49,10 +47,8 @@ const ShareSheet: React.FC = () => {
   const addBookmark = useBookmarkStore(state => state.addBookmark);
   const removeBookmark = useBookmarkStore(state => state.removeBookmark);
 
-  const insets = useSafeAreaInsets();
-  const footerBottomPadding = getFooterBottomPadding(insets.bottom);
   const footerTop = FOOTER_TOP_PADDING_DEFAULT;
-  const footerFallbackHeight = footerTop + 44 + footerBottomPadding;
+  const footerFallbackHeight = footerTop + 44;
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
 
   // Present/dismiss sheet based on data presence (TrueSheet v3+)
@@ -376,12 +372,11 @@ const ShareSheet: React.FC = () => {
       <AppTrueSheet
         name="share-sheet"
         grabber={false}
-        insetAdjustment="automatic"
         onDidPresent={() => setIsSheetPresented(true)}
         onDidDismiss={handleDismiss}
         header={headerComponent}
         footer={wrapFooter(
-          <SheetActionFooter bottomPadding={footerBottomPadding} topPadding={footerTop}>
+          <SheetActionFooter topPadding={footerTop}>
             <CancelButton onPress={dismissSheet} text={t('common.close')} />
           </SheetActionFooter>
         )}

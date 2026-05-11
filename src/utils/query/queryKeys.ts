@@ -145,6 +145,7 @@ export const queryKeys = {
     unified: (query: string) => [...searchBase, 'unified', query] as const,
     profiles: (query: string) => [...searchBase, 'profiles', query] as const,
     feeds: (query: string) => [...searchBase, 'feeds', query] as const,
+    hashtags: (query: string) => [...searchBase, 'hashtags', query] as const,
   },
 
   // Tab bar unread (single source: notifications + chats)
