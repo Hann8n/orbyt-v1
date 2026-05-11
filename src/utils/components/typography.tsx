@@ -148,9 +148,9 @@ export const Typography = {
 export const TextStyles = {
   /** Primary name / handle shown on author rows, list items, overlays. */
   profileHandle: {
-    fontSize: fontSizeFor(BASE_SIZES.subtitle + 0.5),
+    fontSize: fontSizeFor(BASE_SIZES.subtitle + 1),
     fontFamily: FontFamily.bold,
-    lineHeight: lineHeightFor(fontSizeFor(BASE_SIZES.subtitle + 0.5)),
+    lineHeight: lineHeightFor(fontSizeFor(BASE_SIZES.subtitle + 1)),
     includeFontPadding: false,
   },
   /** Smaller variant used in compact chips, chyrons, parent reply indicators. */

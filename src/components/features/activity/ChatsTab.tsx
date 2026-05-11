@@ -72,14 +72,14 @@ const EmptyChats: React.FC<{ message?: string }> = ({ message }) => {
   const { t } = useTranslation();
   const displayMessage = message ?? t('chat.noChatsYet');
   return (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyText}>{displayMessage}</Text>
+    <View style={activityListSharedStyles.emptyContainer}>
+      <Text style={activityListSharedStyles.emptyText}>{displayMessage}</Text>
     </View>
   );
 };
 
 const ChatsLoading = () => (
-  <View style={styles.loadingContainer}>
+  <View style={activityListSharedStyles.loadingContainer}>
     <ActivityIndicator size="large" color={Colors.neutral[50]} />
   </View>
 );
@@ -322,11 +322,14 @@ const ConversationItem = React.memo<ConversationItemProps>(
                   </Text>
                 </View>
                 {sentAt && (
-                  <Text
-                    style={[activityListSharedStyles.timeText, isMuted && styles.timeTextMuted]}
-                  >
-                    {formatRelativeDate(sentAt)}
-                  </Text>
+                  <>
+                    <Text style={activityListSharedStyles.separatorDot}>•</Text>
+                    <Text
+                      style={[activityListSharedStyles.timeText, isMuted && styles.timeTextMuted]}
+                    >
+                      {formatRelativeDate(sentAt)}
+                    </Text>
+                  </>
                 )}
               </View>
             </View>
@@ -601,7 +604,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
     <>
       <FlashList
         ref={listRef}
-        style={styles.listContainer}
+        style={activityListSharedStyles.listContainer}
         contentContainerStyle={[
           activityListSharedStyles.listContentContainer,
           { paddingBottom: bottomNavBarHeight + 5 },
@@ -630,7 +633,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
         }
         ListEmptyComponent={
           isError ? (
-            <View style={styles.errorContainer}>
+            <View style={activityListSharedStyles.errorContainer}>
               <EmptyFeed
                 type="no-connection"
                 message={t('chat.cantLoadConversations')}
@@ -638,7 +641,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
               />
             </View>
           ) : isLoading && conversations.length === 0 ? (
-            <View style={styles.loadingContainer}>
+            <View style={activityListSharedStyles.loadingContainer}>
               <ChatsLoading />
             </View>
           ) : (
@@ -647,7 +650,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
         }
         ListFooterComponent={
           isFetchingNextPage ? (
-            <View style={styles.loadingMoreContainer}>
+            <View style={activityListSharedStyles.loadingMoreContainer}>
               <ActivityIndicator size="small" color={Colors.neutral[50]} />
             </View>
           ) : null
@@ -684,7 +687,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  listContainer: { flex: 1 },
   conversationItem: {
     flexDirection: 'column',
     paddingVertical: 10,
@@ -714,7 +716,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   streakBadgeText: {
-    fontSize: Typography.sizes.caption,
+    fontSize: Typography.sizes.bodySmall,
     fontFamily: FontFamily.semibold,
   },
   streakBadgeTextFlame: {
@@ -751,8 +753,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   requestOptionButtonText: {
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.medium,
     textAlign: 'center',
-    fontSize: Typography.sizes.body,
   },
   requestOptionButtonAcceptBg: {
     backgroundColor: Colors.brand.teal,
@@ -784,25 +787,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
-  },
-  errorContainer: { flex: 1, padding: 20 },
-  loadingMoreContainer: { padding: 20, alignItems: 'center' },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100,
-    paddingBottom: 100,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    color: Colors.neutral[200],
-    fontSize: Typography.sizes.subtitle,
-    fontFamily: FontFamily.medium,
   },
 });

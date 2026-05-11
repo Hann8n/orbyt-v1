@@ -32,7 +32,6 @@ import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { NotificationService } from '../../../services/api/notification/NotificationService';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { FontFamily, Typography } from '../../../utils/components/typography';
 
 import ProfileService, {
   prefetchProfile,
@@ -83,7 +82,7 @@ const EmptyNotifications = ({
 }) => {
   const { t } = useTranslation();
   return (
-    <View style={styles.emptyContainer}>
+    <View style={activityListSharedStyles.emptyContainer}>
       <View style={styles.emptyContent}>
         <Image
           source={RadarGif}
@@ -93,14 +92,14 @@ const EmptyNotifications = ({
           priority="low"
           allowDownscaling={true}
         />
-        <Text style={styles.emptyText}>{t(messageKey)}</Text>
+        <Text style={activityListSharedStyles.emptyText}>{t(messageKey)}</Text>
       </View>
     </View>
   );
 };
 
 const NotificationLoading = () => (
-  <View style={styles.loadingContainer}>
+  <View style={activityListSharedStyles.loadingContainer}>
     <ActivityIndicator size="large" color={Colors.neutral[50]} />
   </View>
 );
@@ -685,7 +684,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
               <Image
                 source={{ uri: thumbnail }}
                 style={styles.thumbnailVideo}
-                contentFit="contain"
+                contentFit="cover"
                 recyclingKey={uri}
                 transition={0}
               />
@@ -751,9 +750,12 @@ const NotificationItem = React.memo<NotificationItemProps>(
                   </Text>
                 </View>
                 {indexedAt && (
-                  <Text style={activityListSharedStyles.timeText}>
-                    {formatRelativeDate(indexedAt)}
-                  </Text>
+                  <>
+                    <Text style={activityListSharedStyles.separatorDot}>•</Text>
+                    <Text style={activityListSharedStyles.timeText}>
+                      {formatRelativeDate(indexedAt)}
+                    </Text>
+                  </>
                 )}
               </View>
             </View>
@@ -996,7 +998,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
   return (
     <FlashList
       ref={flashListRef}
-      style={styles.listContainer}
+      style={activityListSharedStyles.listContainer}
       contentContainerStyle={[
         activityListSharedStyles.listContentContainer,
         { paddingBottom: bottomNavBarHeight + 5 },
@@ -1022,7 +1024,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
       }
       ListEmptyComponent={
         isError ? (
-          <View style={styles.errorContainer}>
+          <View style={activityListSharedStyles.errorContainer}>
             <EmptyFeed
               type="no-connection"
               message={t('activity.cantLoadNotifications')}
@@ -1030,7 +1032,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
             />
           </View>
         ) : isLoading && notifications.length === 0 ? (
-          <View style={styles.loadingContainer}>
+          <View style={activityListSharedStyles.loadingContainer}>
             <NotificationLoading />
           </View>
         ) : filteredNotifications.length > 0 && visibleNotifications.length === 0 ? (
@@ -1041,7 +1043,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
       }
       ListFooterComponent={
         isFetchingNextPage ? (
-          <View style={styles.loadingMoreContainer}>
+          <View style={activityListSharedStyles.loadingMoreContainer}>
             <ActivityIndicator size="small" color={Colors.neutral[50]} />
           </View>
         ) : null
@@ -1054,9 +1056,6 @@ NotificationsTab.displayName = 'NotificationsTab';
 export default NotificationsTab;
 
 const styles = StyleSheet.create({
-  listContainer: {
-    flex: 1,
-  },
   notificationItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1071,12 +1070,12 @@ const styles = StyleSheet.create({
     marginRight: -10,
   },
   notificationContentTail: {
-    marginRight: 10,
+    marginRight: 12,
   },
   thumbnailContainer: {
     position: 'relative',
-    width: 45,
-    height: 80, // 9:16 aspect ratio (45/80 = 0.5625)
+    aspectRatio: 1,
+    width: 55,
     borderRadius: BORDER_RADIUS.SMALL,
     overflow: 'hidden',
     backgroundColor: Colors.neutral[925],
@@ -1095,28 +1094,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: Colors.neutral[925],
   },
-  errorContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  loadingMoreContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100, // Space below header
-    paddingBottom: 100, // Space above bottom nav bar
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 60,
-  },
   emptyContent: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1125,11 +1102,5 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     marginBottom: 16,
-  },
-  emptyText: {
-    color: Colors.neutral[200],
-    fontSize: Typography.sizes.subtitle,
-    textAlign: 'center',
-    fontFamily: FontFamily.medium,
   },
 });

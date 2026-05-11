@@ -11,7 +11,8 @@ const ACTIVITY_LIST_AVATAR_GAP = 12;
 export const ACTIVITY_LIST_TEXT_LEADING = ACTIVITY_LIST_AVATAR_SIZE + ACTIVITY_LIST_AVATAR_GAP;
 
 /** Preview / secondary line body — shared by Chats and Notifications rows. */
-const ACTIVITY_LIST_PREVIEW_FONT_SIZE = fontSizeFor(16.5);
+const ACTIVITY_LIST_PREVIEW_FONT_SIZE = fontSizeFor(16);
+
 
 /** Muted-conversation bell — between `ICON_SIZES.SMALL` and `MEDIUM`. */
 export const ACTIVITY_LIST_MUTED_ICON_SIZE = 18;
@@ -78,7 +79,7 @@ export const activityListSharedStyles = StyleSheet.create({
     maxWidth: '100%',
   },
   actionText: {
-    color: Colors.neutral[400],
+    color: Colors.neutral[300],
     fontSize: ACTIVITY_LIST_PREVIEW_FONT_SIZE,
     fontFamily: FontFamily.medium,
   },
@@ -88,9 +89,46 @@ export const activityListSharedStyles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     marginLeft: 4,
   },
+  separatorDot: {
+    color: Colors.neutral[500],
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
+    marginLeft: 6,
+    marginRight: 4,
+  },
   dividerInset: {
     height: 1,
     backgroundColor: Colors.neutral[925],
     marginLeft: ACTIVITY_LIST_TEXT_LEADING,
+  },
+  listContainer: {
+    flex: 1,
+  },
+  errorContainer: {
+    flex: 1,
+    padding: 20,
+  },
+  loadingMoreContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+    paddingBottom: 100,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.medium,
+    color: Colors.neutral[200],
+    textAlign: 'center',
   },
 });

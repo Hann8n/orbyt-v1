@@ -35,7 +35,7 @@ const RelativeDate: React.FC<RelativeDateProps> = ({ dateString, style, showTime
 /**
  * Format a date string into a relative time string.
  * For dates within 7 days: short format (1s, 30m, 2h, 5d) for all locales.
- * For older dates: formatted date string with localized month names.
+ * For older dates: numeric date format (M/d or M/d/yy for previous years).
  *
  * @param dateString - ISO date string to format
  * @param showTime - Whether to show the time for older dates (currently unused, kept for API compatibility)
@@ -65,10 +65,13 @@ export const formatRelativeDate = (dateString?: string, _showTime: boolean = fal
     return `${diffDays}d`;
   }
 
-  if (diffDays >= 365) {
-    return format(date, 'MM/dd/yy', { locale: dateFnsLocale });
+  // Check if the date is from a previous year
+  const isPreviousYear = date.getFullYear() !== now.getFullYear();
+
+  if (isPreviousYear) {
+    return format(date, 'M/d/yy', { locale: dateFnsLocale });
   }
-  return format(date, 'MMM d', { locale: dateFnsLocale });
+  return format(date, 'M/d', { locale: dateFnsLocale });
 };
 
 const styles = StyleSheet.create({
