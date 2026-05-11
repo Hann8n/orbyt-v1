@@ -6,6 +6,7 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
   type Ref,
 } from 'react';
@@ -19,7 +20,6 @@ import {
   FEED_LIST_PLAYBACK_OUTSIDE_BITS,
   ROW_BITS_CHROME,
   ROW_BITS_PLAYBACK,
-  ROW_BITS_PRELOAD,
 } from '../../../core/visibility';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { seenVideoService } from '../../../services/SeenVideoService';
@@ -42,7 +42,6 @@ import { useVideoCardAuthor } from './video-card/hooks/useVideoCardAuthor';
 import { useVideoCardGesture } from './video-card/hooks/useVideoCardGesture';
 import { useVideoCardInteraction } from './video-card/hooks/useVideoCardInteraction';
 import { useVideoCardPlayer } from './video-card/hooks/useVideoCardPlayer';
-import { useRecyclingState } from '@shopify/flash-list';
 import type { VideoOverlayUIProps } from './VideoOverlayUI';
 
 type Post = ExtendedPostView | ExtendedFeedViewPost;
@@ -126,7 +125,6 @@ function VideoCard({
 
   const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
 
-  // ── Visibility: read playback bits from the list-level store (single source of truth). ───
   const listPlayback = useContext(FeedListPlaybackContext);
   const listPlaybackAttached = Boolean(listPlayback && typeof index === 'number');
   const rowBits = useSyncExternalStore(
@@ -141,30 +139,21 @@ function VideoCard({
   const renderHeavyChrome = listPlaybackAttached
     ? (rowBits & ROW_BITS_CHROME) !== 0
     : renderHeavyChromeFromProps;
-  // Source-hold window is decided list-side by ROW_BITS_PRELOAD (1 behind + 2 ahead).
-  // Outside a list (e.g. fullscreen video) FEED_LIST_PLAYBACK_OUTSIDE_BITS already has
-  // the bit set, so this collapses to "always hold a source".
-  const holdSource = (rowBits & ROW_BITS_PRELOAD) !== 0;
-
-  // ── Layout. ────────────────────────────────────────────────────────────────────────────
   const { height: windowHeight } = useWindowDimensions();
   const cardHeight = height ?? windowHeight;
 
-  // ── Moderation. ────────────────────────────────────────────────────────────────────────
-  const [userChoseToView, setUserChoseToView] = useRecyclingState(false, [postView.uri]);
+  const [userChoseToView, setUserChoseToView] = useState(false);
   const { cannotShowMedia, isBlurred, warningDescription, handleViewContent } =
     useVideoCardModerationState(postView, feedItem, userChoseToView, setUserChoseToView);
 
-  // ── Media URLs. ────────────────────────────────────────────────────────────────────────
   const videoView = getVideoView(postView.embed);
   const videoUrl = videoView?.playlist || null;
   const posterUrl = videoView?.thumbnail || null;
 
   // Use post URI or CID as unique recycling key to prevent image reuse from other videos
-  // when no thumbnail has loaded yet (FlashList/expo-image recycling).
+  // when no thumbnail has loaded yet (LegendList/expo-image recycling).
   const recyclingKey = postView?.uri || postView?.cid || `item-${idx}`;
 
-  // ── Player. ────────────────────────────────────────────────────────────────────────────
   const {
     videoSource,
     player,
@@ -183,7 +172,6 @@ function VideoCard({
     postUri: postView.uri,
     feedOption,
     isVisible,
-    holdSource,
     shouldDisablePlayback,
     cannotShowMedia,
     isBlurred,
@@ -195,7 +183,6 @@ function VideoCard({
     onUserPausedChange(userPaused);
   }, [isVisible, userPaused, onUserPausedChange]);
 
-  // ── Interaction (likes, reposts, comment count). ───────────────────────────────────────
   const {
     display: displayInteraction,
     isLikePending,
@@ -207,11 +194,9 @@ function VideoCard({
     handleRepost,
   } = useVideoCardInteraction({ postView, feedOption });
 
-  // ── Author / profile / follow. ─────────────────────────────────────────────────────────
   const currentUser = useUserStore(state => state.currentUser);
   const author = useVideoCardAuthor({ postView, currentUser });
 
-  // ── Misc handlers (kept here as the integration layer between the four hooks). ─────────
   const followMutation = useFollowMutation();
   const presentShareSheet = useModalStore(state => state.presentShareSheet);
   const presentCommentSection = useModalStore(state => state.presentCommentSection);
@@ -319,7 +304,6 @@ function VideoCard({
     });
   }, [postView, presentCommentSection, handleLike, displayInteractionRef, overlayPendingRef]);
 
-  // ── Gestures (tap / double-tap / long-press) — shared values stay inside the hook. ─────
   const { gesture, heartAnimatedStyle } = useVideoCardGesture({
     postUri: postView.uri,
     cardHeight,
@@ -328,7 +312,6 @@ function VideoCard({
     onLongPress: handleOpenComments,
   });
 
-  // ── Imperative handle (exposed for non-feed consumers; unused by VideoItem). ───────────
   useImperativeHandle(
     ref,
     () => ({
@@ -378,7 +361,6 @@ function VideoCard({
     [player, shouldPlayVideo, togglePlayback, seek, setUserPaused, userPausedRef]
   );
 
-  // ── Feed interaction queue (mark seen, debounced flush). ───────────────────────────────
   const { queueSeenInteractionOnce } = useFeedInteractionQueue({
     postUri: postView.uri,
     feedContext,
@@ -393,7 +375,6 @@ function VideoCard({
     }
   }, [isVisible, queueSeenInteractionOnce, postView.uri]);
 
-  // ── Caption-expand dim. Driven on the UI thread to avoid card re-renders. ──────────────
   const textDimOpacitySV = useSharedValue(0);
   useEffect(() => {
     textDimOpacitySV.value = 0;
@@ -408,7 +389,6 @@ function VideoCard({
     [textDimOpacitySV, isVisible]
   );
 
-  // ── Scrubber + overlay opacity (composed shared values). ───────────────────────────────
   const seekingAnimationSV = useSharedValue(0);
   const feedScrollMotion = useFeedScrollMotion();
   const feedScrollLayout = useFeedScrollLayout();
@@ -430,8 +410,6 @@ function VideoCard({
     player.duration < MIN_SCRUBBER_DURATION_SECONDS
   );
 
-  // ── Prop bags for the layered children. ────────────────────────────────────────────────
-  // Active row's poster decodes ahead of preload neighbours' posters.
   const posterPriority: 'low' | 'normal' | 'high' = isVisible ? 'high' : 'normal';
   const gestureVideoStackProps = useMemo(
     () => ({

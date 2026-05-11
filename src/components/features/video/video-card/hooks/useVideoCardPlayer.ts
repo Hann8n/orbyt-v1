@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useEvent } from 'expo';
 import { useVideoPlayer, type VideoPlayer, type VideoSource } from 'expo-video';
-import { useRecyclingState } from '@shopify/flash-list';
 
 import {
   createVideoSource,
@@ -24,13 +23,6 @@ export interface UseVideoCardPlayerArgs {
   postUri: string;
   feedOption?: string;
   isVisible: boolean;
-  /**
-   * When true, hold an HLS source on this row's `useVideoPlayer` so the
-   * player buffers ahead of swipe. Computed by the list-level playback store
-   * (`ROW_BITS_PRELOAD`) — keeps source juggling out of this hook so the
-   * preload window can be tuned in one place.
-   */
-  holdSource: boolean;
   shouldDisablePlayback: boolean;
   cannotShowMedia: boolean;
   isBlurred: boolean;
@@ -68,16 +60,13 @@ export interface UseVideoCardPlayerResult {
 export function useVideoCardPlayer({
   videoUrl,
   postUri,
-  feedOption,
   isVisible,
-  holdSource,
   shouldDisablePlayback,
   cannotShowMedia,
   isBlurred,
   onVideoStatus,
 }: UseVideoCardPlayerArgs): UseVideoCardPlayerResult {
   const videoSource = useMemo(() => createVideoSource(videoUrl), [videoUrl]);
-  const activeSource = holdSource ? videoSource : null;
 
   const configureVideoPlayer = useCallback((player: VideoPlayer) => {
     player.loop = true;
@@ -85,16 +74,18 @@ export function useVideoCardPlayer({
     player.seekTolerance = DEFAULT_SEEK_TOLERANCE_SCRUBBER;
   }, []);
 
-  const player = useVideoPlayer(activeSource, configureVideoPlayer);
+  // Always pass videoSource (never null) to keep the native VideoPlayer stable.
+  // Passing null creates a new player and releases the old one, which causes
+  // NativeSharedObjectNotFoundException when React's reconciler diffs the old props.
+  // LegendList's drawDistance (600px) already unmounts far items, so the null-source
+  // trick that guarded against too many concurrent HLS manifests is unnecessary here.
+  const player = useVideoPlayer(videoSource, configureVideoPlayer);
 
   const playerStatusEvent = useEvent(player, 'statusChange', { status: 'idle' });
   const playerStatus = playerStatusEvent?.status ?? 'idle';
   const hasError = playerStatus === 'error';
 
-  const [videoState, setVideoState] = useRecyclingState({ userPaused: false }, [
-    postUri,
-    feedOption,
-  ]);
+  const [videoState, setVideoState] = useState({ userPaused: false });
 
   const userPausedRef = useRef(videoState.userPaused);
 
@@ -127,8 +118,6 @@ export function useVideoCardPlayer({
       if (!player) return;
       try {
         const positionInSeconds = position > 1000 ? position / 1000 : position;
-        // expo-video player is an imperative SDK handle; assigning currentTime is the
-        // documented seek API. Not a React-managed value.
         // eslint-disable-next-line react-compiler/react-compiler
         player.currentTime = positionInSeconds;
       } catch (err) {
@@ -138,10 +127,7 @@ export function useVideoCardPlayer({
     [player]
   );
 
-  const [firstFrameRendered, setFirstFrameRendered] = useRecyclingState(false, [
-    postUri,
-    feedOption,
-  ]);
+  const [firstFrameRendered, setFirstFrameRendered] = useState(false);
 
   const handleFirstFrameRender = useCallback(() => {
     setFirstFrameRendered(true);

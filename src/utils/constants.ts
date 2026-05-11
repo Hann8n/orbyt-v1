@@ -58,7 +58,7 @@ export const QUERY_CONSTANTS = {
 export const SCROLL_CONSTANTS = {
   POSITION_CHANGE_THRESHOLD: 30,
   DECELERATION_RATE_IOS: 'fast' as const,
-  DECELERATION_RATE_ANDROID: 0.98,
+  DECELERATION_RATE_ANDROID: 'fast' as const,
   /** Scroll distance (px) over which header content fade goes 0→1. Used for contentScrollProgressSV. */
   HEADER_FADE_DISTANCE: 400,
 } as const;

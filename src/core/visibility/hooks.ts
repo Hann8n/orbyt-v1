@@ -6,12 +6,12 @@ import { FEED_ROW_VIEWABILITY_CONFIG } from './feedRowVisibility';
 
 interface FeedVisibilityOptions {
   isActive: boolean;
-  /** Emits the most visible row index from native list viewability callbacks. */
+  /** Emits the most-visible row index from native list viewability callbacks. */
   onActiveVisibleIndexChange?: (index: number) => void;
 }
 
 interface FeedVisibilityResult {
-  onViewableItemsChanged: ({ viewableItems }: { viewableItems: ViewToken[] }) => void;
+  onViewableItemsChanged: (info: { viewableItems: ViewToken[] }) => void;
   viewabilityConfig: ViewabilityConfig;
   canPlay: boolean;
 }
@@ -28,8 +28,9 @@ const selectViewableToken = (
 };
 
 /**
- * Visibility hook keeps only environment gates (route/app state) and native viewability wiring.
- * Per-list visible index ownership is handled by the list component itself.
+ * Visibility hook: gates playback on route focus + app foreground, and threads native
+ * list viewability into a single most-visible row index. The list owns the callback;
+ * consumers pass `onActiveVisibleIndexChange` to receive updates.
  */
 export function useFeedVisibility({
   isActive,
@@ -43,7 +44,6 @@ export function useFeedVisibility({
     () => AppState.currentState === 'active',
     () => true
   );
-  const canPlay = isActive && isForeground;
 
   const onActiveVisibleIndexChangeRef = useRef(onActiveVisibleIndexChange);
   useEffect(() => {
@@ -52,28 +52,23 @@ export function useFeedVisibility({
 
   const lastEmittedIndexRef = useRef(-1);
 
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      const token = selectViewableToken(viewableItems);
-      const nextIndex = typeof token?.index === 'number' ? token.index : -1;
-
-      if (nextIndex < 0) {
-        lastEmittedIndexRef.current = -1;
-        return;
-      }
-
-      if (nextIndex !== lastEmittedIndexRef.current) {
-        lastEmittedIndexRef.current = nextIndex;
-        onActiveVisibleIndexChangeRef.current?.(nextIndex);
-      }
-    },
-    []
-  );
+  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const token = selectViewableToken(viewableItems);
+    const nextIndex = typeof token?.index === 'number' ? token.index : -1;
+    if (nextIndex < 0) {
+      lastEmittedIndexRef.current = -1;
+      return;
+    }
+    if (nextIndex !== lastEmittedIndexRef.current) {
+      lastEmittedIndexRef.current = nextIndex;
+      onActiveVisibleIndexChangeRef.current?.(nextIndex);
+    }
+  }, []);
 
   return {
     onViewableItemsChanged,
-    viewabilityConfig: FEED_ROW_VIEWABILITY_CONFIG satisfies ViewabilityConfig,
-    canPlay,
+    viewabilityConfig: FEED_ROW_VIEWABILITY_CONFIG,
+    canPlay: isActive && isForeground,
   };
 }
 

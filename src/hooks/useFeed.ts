@@ -1,7 +1,7 @@
 /**
- * FlashList v2-Optimized Feed Hook
- * Enhanced for FlashList v2 performance with advanced caching and memory management
- * Takes advantage of v2's automatic sizing and maintainVisibleContentPosition
+ * LegendList-Optimized Feed Hook
+ * Enhanced for LegendList performance with advanced caching and memory management
+ * Takes advantage of LegendList's minimal overhead and React Native compatibility
  * Replaces: useFeedQuery.tsx, useInfiniteScroll.tsx
  */
 

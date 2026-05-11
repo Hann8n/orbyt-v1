@@ -1,14 +1,12 @@
 import { useLayoutEffect, type RefObject } from 'react';
 import type { TextInput } from 'react-native';
-import type { FlashListRef } from '@shopify/flash-list';
+import type { LegendListRef } from '@legendapp/list/react-native';
 
 import { tabRefs } from '@/utils/navigation/tabRefs';
 import type { ExploreRef } from '@/utils/navigation/tabRefs';
 
-import type { ListItem } from './types';
-
 type Params = {
-  flashListRef: RefObject<FlashListRef<ListItem> | null>;
+  listRef: RefObject<LegendListRef | null>;
   searchInputRef: RefObject<TextInput | null>;
   resetExploreSearch: () => void;
   setIsSearchFocused: (v: boolean) => void;
@@ -16,7 +14,7 @@ type Params = {
 };
 
 export function useExploreTabRefs({
-  flashListRef,
+  listRef,
   searchInputRef,
   resetExploreSearch,
   setIsSearchFocused,
@@ -25,7 +23,7 @@ export function useExploreTabRefs({
   useLayoutEffect(() => {
     tabRefs.explore = {
       scrollToTop: () => {
-        flashListRef.current?.scrollToTop({ animated: true });
+        listRef.current?.scrollToOffset({ offset: 0, animated: true });
       },
       dismissSearch: () => {
         resetExploreSearch();
@@ -40,5 +38,5 @@ export function useExploreTabRefs({
     return () => {
       tabRefs.explore = null;
     };
-  }, [flashListRef, isSearching, resetExploreSearch, searchInputRef, setIsSearchFocused]);
+  }, [listRef, isSearching, resetExploreSearch, searchInputRef, setIsSearchFocused]);
 }

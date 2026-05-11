@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, ActivityIndicator } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { LegendList, type LegendListRenderItemProps } from '@legendapp/list/react-native';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import { Colors } from '@/theme';
@@ -57,6 +57,99 @@ function dedupeSearchResultChannels(results: SearchResult[]): Channel[] {
 }
 
 const noopVisitHistoryPress = (_item: VisitHistoryEntry) => {};
+
+type VisitHistoryRowProps = {
+  item: VisitHistoryEntry;
+  profilesByDid: Map<string, ProfileViewWithOrbyt>;
+  channelsByUri: Map<string, CachedChannel>;
+  onHistoryItemPress: (item: VisitHistoryEntry) => void;
+  onFollow: (profile: Profile) => void;
+  t: (key: string) => string;
+};
+
+const VisitHistoryRow = React.memo(
+  ({ item, profilesByDid, channelsByUri, onHistoryItemPress, onFollow, t }: VisitHistoryRowProps) => {
+    const isProfile = item.type === 'profile';
+    const profileData = isProfile ? profilesByDid.get(item.did) : null;
+    const channelData = !isProfile ? channelsByUri.get(item.uri) : null;
+
+    if (isProfile && profileData) {
+      const isFollowing = !!profileData.viewer?.following;
+      return (
+        <AuthorItem
+          handle={profileData.handle || ''}
+          did={profileData.did}
+          displayName={profileData.displayName}
+          avatar={profileData.avatar}
+          size="large"
+          showArrow={false}
+          showFollowButton={!isFollowing}
+          isFollowing={isFollowing}
+          onFollowPress={() => onFollow(profileData as unknown as Profile)}
+          onPress={() => onHistoryItemPress(item)}
+          backgroundColor={Colors.transparent}
+          textColor={Colors.neutral[50]}
+          nameFontWeight="Figtree-SemiBold"
+          style={styles.authorItemStyle}
+        />
+      );
+    }
+
+    if (isProfile) {
+      return (
+        <AuthorItem
+          handle=""
+          did={item.did}
+          displayName={t('feed.loading')}
+          avatar={undefined}
+          size="large"
+          showArrow={false}
+          showFollowButton={false}
+          isFollowing={false}
+          onFollowPress={undefined}
+          onPress={() => onHistoryItemPress(item)}
+          backgroundColor={Colors.transparent}
+          textColor={Colors.neutral[50]}
+          nameFontWeight="Figtree-SemiBold"
+          style={styles.authorItemStyle}
+        />
+      );
+    }
+
+    if (channelData) {
+      return (
+        <ChannelItem
+          uri={channelData.uri}
+          displayName={channelData.displayName}
+          avatar={channelData.avatar}
+          size="large"
+          showArrow={false}
+          onPress={() => onHistoryItemPress(item)}
+          backgroundColor={Colors.transparent}
+          textColor={Colors.neutral[50]}
+          nameFontWeight="Figtree-Bold"
+          style={styles.channelItemStyle}
+        />
+      );
+    }
+
+    return (
+      <ChannelItem
+        uri={item.uri}
+        displayName={t('feed.loading')}
+        avatar={undefined}
+        size="large"
+        showArrow={false}
+        onPress={() => onHistoryItemPress(item)}
+        backgroundColor={Colors.transparent}
+        textColor={Colors.neutral[50]}
+        nameFontWeight="Figtree-Bold"
+        style={styles.channelItemStyle}
+      />
+    );
+  }
+);
+VisitHistoryRow.displayName = 'VisitHistoryRow';
 
 type ExploreSuggestionsProfileRowProps = {
   profile: Profile;
@@ -142,7 +235,7 @@ const ProfilesFeedRenderer = React.memo(
     );
 
     const renderProfileItem = useCallback(
-      ({ item: profile }: { item: Profile }) => {
+      ({ item: profile }: LegendListRenderItemProps<Profile>) => {
         const isFollowing = !!profile.viewer?.following;
 
         return (
@@ -183,7 +276,7 @@ const ProfilesFeedRenderer = React.memo(
     }
 
     return (
-      <FlashList
+      <LegendList
         data={profiles}
         keyExtractor={profile => `profile-${profile.did || profile.handle}`}
         renderItem={renderProfileItem}
@@ -195,11 +288,8 @@ const ProfilesFeedRenderer = React.memo(
         keyboardDismissMode="on-drag"
         onEndReached={handleLoadMore}
         onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-        maintainVisibleContentPosition={{
-          disabled: false,
-          autoscrollToTopThreshold: undefined,
-        }}
         ListEmptyComponent={renderEmptyProfiles}
+        estimatedItemSize={72}
       />
     );
   }
@@ -233,7 +323,7 @@ const ChannelsFeedRenderer = React.memo(
     );
 
     const renderChannelItem = useCallback(
-      ({ item: channel }: { item: Channel }) => (
+      ({ item: channel }: LegendListRenderItemProps<Channel>) => (
         <ChannelItem
           uri={channel.uri}
           displayName={channel.displayName}
@@ -265,7 +355,7 @@ const ChannelsFeedRenderer = React.memo(
     }
 
     return (
-      <FlashList
+      <LegendList
         data={channels}
         keyExtractor={channel => `channel-${channel.uri || channel.cid}`}
         renderItem={renderChannelItem}
@@ -276,11 +366,18 @@ const ChannelsFeedRenderer = React.memo(
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         ListEmptyComponent={renderEmptyChannels}
+        estimatedItemSize={72}
       />
     );
   }
 );
 ChannelsFeedRenderer.displayName = 'ChannelsFeedRenderer';
+
+const visitHistoryKeyExtractor = (item: VisitHistoryEntry): string =>
+  item.type === 'profile' ? `history-profile-${item.did}` : `history-channel-${item.uri}`;
+
+const visitHistoryGetItemType = (item: VisitHistoryEntry): 'profile' | 'channel' =>
+  item.type === 'profile' ? 'profile' : 'channel';
 
 const VisitHistoryList = React.memo(
   ({
@@ -309,100 +406,27 @@ const VisitHistoryList = React.memo(
       [t]
     );
 
+    const renderItem = useCallback(
+      ({ item }: LegendListRenderItemProps<VisitHistoryEntry>) => (
+        <VisitHistoryRow
+          item={item}
+          profilesByDid={profilesByDid}
+          channelsByUri={channelsByUri}
+          onHistoryItemPress={onHistoryItemPress}
+          onFollow={onFollow}
+          t={t}
+        />
+      ),
+      [profilesByDid, channelsByUri, onHistoryItemPress, onFollow, t]
+    );
+
     return (
-      <FlashList
+      <LegendList
         data={visitHistory}
-        keyExtractor={item => {
-          if (item.type === 'profile') {
-            return `history-profile-${item.did}`;
-          } else {
-            return `history-channel-${item.uri}`;
-          }
-        }}
-        renderItem={({ item }) => {
-          const isProfile = item.type === 'profile';
-          const profileData = isProfile ? profilesByDid.get(item.did) : null;
-          const channelData = !isProfile ? channelsByUri.get(item.uri) : null;
-
-          if (isProfile && profileData) {
-            const isFollowing = !!profileData.viewer?.following;
-
-            return (
-              <AuthorItem
-                handle={profileData.handle || ''}
-                did={profileData.did}
-                displayName={profileData.displayName}
-                avatar={profileData.avatar}
-                size="large"
-                showArrow={false}
-                showFollowButton={!isFollowing}
-                isFollowing={isFollowing}
-                onFollowPress={() => onFollow(profileData as unknown as Profile)}
-                onPress={() => onHistoryItemPress(item)}
-                backgroundColor={Colors.transparent}
-                textColor={Colors.neutral[50]}
-                nameFontWeight="Figtree-SemiBold"
-                style={styles.authorItemStyle}
-              />
-            );
-          }
-
-          if (isProfile && !profileData) {
-            return (
-              <AuthorItem
-                handle=""
-                did={item.did}
-                displayName={t('feed.loading')}
-                avatar={undefined}
-                size="large"
-                showArrow={false}
-                showFollowButton={false}
-                isFollowing={false}
-                onFollowPress={undefined}
-                onPress={() => onHistoryItemPress(item)}
-                backgroundColor={Colors.transparent}
-                textColor={Colors.neutral[50]}
-                nameFontWeight="Figtree-SemiBold"
-                style={styles.authorItemStyle}
-              />
-            );
-          }
-
-          if (!isProfile && channelData) {
-            return (
-              <ChannelItem
-                uri={channelData.uri}
-                displayName={channelData.displayName}
-                avatar={channelData.avatar}
-                size="large"
-                showArrow={false}
-                onPress={() => onHistoryItemPress(item)}
-                backgroundColor={Colors.transparent}
-                textColor={Colors.neutral[50]}
-                nameFontWeight="Figtree-Bold"
-                style={styles.channelItemStyle}
-              />
-            );
-          }
-
-          if (!isProfile && !channelData) {
-            return (
-              <ChannelItem
-                uri={item.uri}
-                displayName={t('feed.loading')}
-                avatar={undefined}
-                size="large"
-                showArrow={false}
-                onPress={() => onHistoryItemPress(item)}
-                backgroundColor={Colors.transparent}
-                textColor={Colors.neutral[50]}
-                nameFontWeight="Figtree-Bold"
-                style={styles.channelItemStyle}
-              />
-            );
-          }
-          return null;
-        }}
+        keyExtractor={visitHistoryKeyExtractor}
+        getItemType={visitHistoryGetItemType}
+        renderItem={renderItem}
+        recycleItems
         contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
         showsVerticalScrollIndicator={
           visitHistory.length >= SCROLL_INDICATOR_CONSTANTS.SEARCH_RESULTS_MIN_ITEMS
@@ -410,6 +434,7 @@ const VisitHistoryList = React.memo(
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         ListEmptyComponent={renderVisitHistoryEmpty}
+        estimatedItemSize={72}
       />
     );
   }

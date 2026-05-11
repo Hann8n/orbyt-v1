@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -69,64 +69,27 @@ function VideoOverlayAuthorComponent({
   onFollowPress,
 }: VideoOverlayAuthorProps) {
   const { t } = useTranslation();
-  const author = useMemo(() => post.author ?? {}, [post.author]);
-  const profilePicUrl =
-    author.avatar && author.avatar.startsWith('http') ? author.avatar : undefined;
-  const repostAvatarUrl =
-    post.repostedBy?.avatar && post.repostedBy.avatar.startsWith('http')
-      ? post.repostedBy.avatar
-      : undefined;
+  const author = post.author;
+  const profilePicUrl = author?.avatar?.startsWith('http') ? author.avatar : undefined;
+  const repostAvatarUrl = post.repostedBy?.avatar?.startsWith('http')
+    ? post.repostedBy.avatar
+    : undefined;
   const ringColor = profileColors?.textColor;
-
-  const formattedAuthorHandle = formatHandle(author.handle);
-  const formattedRepostHandle = formatHandle(post.repostedBy?.handle || '');
+  const formattedAuthorHandle = formatHandle(author?.handle);
+  const formattedRepostHandle = formatHandle(post.repostedBy?.handle ?? '');
   const showFollowText = hasProfile && !isFollowing && !isCurrentUserProfile;
 
-  const handleAvatarAndNamePress = useCallback(() => {
-    onAuthorPress?.(author.did ?? author.handle ?? '', author);
-  }, [onAuthorPress, author]);
+  const handleAvatarAndNamePress = () => {
+    onAuthorPress?.(author?.did ?? author?.handle ?? '', author);
+  };
 
-  const avatarProfileColors = useMemo(
-    () =>
-      profileColors
-        ? {
-            backgroundColor: profileColors.backgroundColor,
-            foregroundColor: profileColors.foregroundColor,
-            textColor: profileColors.textColor,
-          }
-        : undefined,
-    [profileColors]
-  );
-
-  const avatarContainerStyle = useMemo(
-    () => StyleSheet.compose(styles.avatarContainer, sharedItemStyles.avatarContainer),
-    []
-  );
-  const authorTextContainerStyle = useMemo(
-    () => StyleSheet.compose(styles.authorTextContainer, sharedItemStyles.accountInfoContainer),
-    []
-  );
-  const authorNameTextStyle = useMemo(
-    () => StyleSheet.compose(styles.baseText, styles.authorName),
-    []
-  );
-  const followSeparatorStyle = useMemo(
-    () => StyleSheet.compose(styles.authorName, styles.followSeparator),
-    []
-  );
-  const followTextStyle = useMemo(
-    () =>
-      StyleSheet.compose(StyleSheet.compose(styles.baseText, styles.authorName), styles.followText),
-    []
-  );
-  const sourceTextStyle = useMemo(
-    () => StyleSheet.compose(styles.sourceText, styles.sourceTextOpacity),
-    []
-  );
-  const repostIndicatorTextStyle = useMemo(
-    () => StyleSheet.compose(styles.repostIndicatorText, styles.repostTextOpacity),
-    []
-  );
+  const avatarProfileColors = profileColors
+    ? {
+        backgroundColor: profileColors.backgroundColor,
+        foregroundColor: profileColors.foregroundColor,
+        textColor: profileColors.textColor,
+      }
+    : undefined;
 
   return (
     <>
@@ -140,7 +103,7 @@ function VideoOverlayAuthorComponent({
             <View style={styles.repostAvatarWrapper}>
               <Avatar uri={repostAvatarUrl} type="profile" size={22} />
             </View>
-            <Text style={repostIndicatorTextStyle} numberOfLines={1}>
+            <Text style={styles.repostIndicatorText} numberOfLines={1}>
               <Text style={styles.repostHandleText}>{formattedRepostHandle}</Text>
               <Text style={styles.repostSuffixText}>{' reposted'}</Text>
             </Text>
@@ -149,7 +112,7 @@ function VideoOverlayAuthorComponent({
       ) : null}
 
       <View style={styles.authorInfoContainer}>
-        <View style={avatarContainerStyle}>
+        <View style={composed.avatarContainer}>
           <NativePressable onPress={handleAvatarAndNamePress} hitSlop={HIT_SLOP_6}>
             <Avatar
               uri={profilePicUrl}
@@ -163,18 +126,18 @@ function VideoOverlayAuthorComponent({
             />
           </NativePressable>
         </View>
-        <View style={authorTextContainerStyle}>
+        <View style={composed.authorTextContainer}>
           <View style={styles.authorNameRow}>
             <NativePressable
               style={styles.authorNamePressable}
               onPress={handleAvatarAndNamePress}
               hitSlop={HIT_SLOP_8_6}
             >
-              <Text style={authorNameTextStyle} numberOfLines={1} ellipsizeMode="tail">
+              <Text style={composed.authorNameText} numberOfLines={1} ellipsizeMode="tail">
                 {formattedAuthorHandle}
               </Text>
             </NativePressable>
-            {author.handle ? (
+            {author?.handle ? (
               <View style={styles.authorBadgeWrapper}>
                 <VerificationBadge
                   handle={author.handle}
@@ -193,10 +156,10 @@ function VideoOverlayAuthorComponent({
             ) : null}
             {showFollowText ? (
               <>
-                <Text style={followSeparatorStyle}>{' · '}</Text>
+                <Text style={composed.followSeparator}>{' · '}</Text>
                 <View style={styles.followButtonWrapper}>
                   <NativePressable onPress={onFollowPress} hitSlop={HIT_SLOP_8_4_6}>
-                    <Text style={followTextStyle}>{t('profile.follow')}</Text>
+                    <Text style={composed.followText}>{t('profile.follow')}</Text>
                   </NativePressable>
                 </View>
               </>
@@ -208,7 +171,7 @@ function VideoOverlayAuthorComponent({
               onPress={onChannelPress}
               hitSlop={HIT_SLOP_12}
             >
-              <Text style={sourceTextStyle}>
+              <Text style={styles.sourceText}>
                 <Text style={styles.sourceSlash}>/</Text>
                 {getLocalizedChannelDisplayNameFromSlug(channelSlug, channelSlug)}
               </Text>
@@ -277,8 +240,6 @@ const styles = StyleSheet.create({
   sourceIndicatorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 0,
-    paddingHorizontal: 0,
   },
   sourceSlash: {
     fontFamily: FontFamily.semibold,
@@ -286,8 +247,6 @@ const styles = StyleSheet.create({
   sourceText: {
     fontSize: Typography.sizes.body,
     fontFamily: FontFamily.bold,
-  },
-  sourceTextOpacity: {
     color: Colors.neutral[50],
     opacity: 0.7,
   },
@@ -333,10 +292,22 @@ const styles = StyleSheet.create({
     color: Colors.neutral[50],
     opacity: 0.9,
   },
-  repostTextOpacity: {
-    opacity: 1,
-  },
 });
+
+// Stable module-level composed styles — no per-render allocation.
+const composed = {
+  avatarContainer: StyleSheet.compose(styles.avatarContainer, sharedItemStyles.avatarContainer),
+  authorTextContainer: StyleSheet.compose(
+    styles.authorTextContainer,
+    sharedItemStyles.accountInfoContainer
+  ),
+  authorNameText: StyleSheet.compose(styles.baseText, styles.authorName),
+  followSeparator: StyleSheet.compose(styles.authorName, styles.followSeparator),
+  followText: StyleSheet.compose(
+    StyleSheet.compose(styles.baseText, styles.authorName),
+    styles.followText
+  ),
+};
 
 export const VideoOverlayAuthor = memo(VideoOverlayAuthorComponent);
 VideoOverlayAuthorComponent.displayName = 'VideoOverlayAuthor';

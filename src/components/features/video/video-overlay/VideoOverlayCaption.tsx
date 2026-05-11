@@ -3,13 +3,11 @@ import { useTranslation } from 'react-i18next';
 import {
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
   type LayoutChangeEvent,
   type NativeSyntheticEvent,
   type TextLayoutEventData,
 } from 'react-native';
-import { useRecyclingState } from '@shopify/flash-list';
 
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { TextWithAuthorLinks } from '../../../ui/TextWithLinks';
@@ -57,21 +55,13 @@ function VideoOverlayCaptionComponent({
   onOverlayCollapsedChange,
 }: VideoOverlayCaptionProps) {
   const { t } = useTranslation();
-  const { width } = useWindowDimensions();
   const record = post.record as PostRecord | undefined;
   const text = record?.text?.trim() ?? '';
   const hasDescription = text.length > 0;
 
-  const [isOverlayCollapsed, setIsOverlayCollapsed] = useRecyclingState(true, [
-    post?.uri,
-    post?.record,
-  ]);
+  const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(true);
   const [captionMeasureWidth, setCaptionMeasureWidth] = useState(0);
-  const [descriptionOverflows, setDescriptionOverflows] = useRecyclingState<boolean | null>(null, [
-    post?.uri,
-    post?.record,
-    width,
-  ]);
+  const [descriptionOverflows, setDescriptionOverflows] = useState<boolean | null>(null);
 
   const toggleCollapsed = useCallback(() => {
     setIsOverlayCollapsed(prev => !prev);

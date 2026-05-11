@@ -31,7 +31,7 @@ import { SquircleView } from '@/components/ui/Squircle';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Image } from 'expo-image';
 
-import { FlashList } from '@shopify/flash-list';
+import { KeyboardChatLegendList } from '@legendapp/list/keyboard-chat';
 import { Link, useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -1827,14 +1827,6 @@ export default function ChatScreen() {
     return item.type === 'date' ? 'date' : 'message';
   }, []);
 
-  const maintainVisibleContentPositionConfig = useMemo(
-    () => ({
-      startRenderingFromBottom: true,
-      autoscrollToBottomThreshold: 0.2,
-    }),
-    []
-  );
-
   const handleBack = useCallback(() => router.back(), [router]);
 
   const { navigateToProfile: goToProfileFromChat } = useProfileChannelNavigation();
@@ -2239,22 +2231,23 @@ export default function ChatScreen() {
 
       <KeyboardAvoidingView style={styles.keyboardView} behavior="padding">
         {listData.length > 0 ? (
-          <FlashList
+          <KeyboardChatLegendList
             data={listData}
             renderItem={renderListItem}
             keyExtractor={keyExtractor}
             getItemType={getItemType}
-            drawDistance={400}
-            extraData={{ listLength: listData.length }}
             style={styles.list}
             contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={ChatFlashListItemSeparator}
+            ItemSeparatorComponent={ChatItemSeparator}
             showsVerticalScrollIndicator={
               listData.length >= SCROLL_INDICATOR_CONSTANTS.CHAT_MESSAGES_MIN_ITEMS
             }
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            maintainVisibleContentPosition={maintainVisibleContentPositionConfig}
+            estimatedItemSize={80}
+            maintainScrollAtEnd
+            maintainScrollAtEndThreshold={0.2}
+            alignItemsAtEnd
           />
         ) : (
           <ScrollView
@@ -2870,6 +2863,6 @@ const styles = StyleSheet.create({
   },
 });
 
-function ChatFlashListItemSeparator() {
+function ChatItemSeparator() {
   return <View style={styles.listItemSeparator} />;
 }

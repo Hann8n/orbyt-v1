@@ -24,7 +24,7 @@ export type ViewMode = 'list' | 'grid';
 
 export type { FeedModalSearchParams, GridFeedModalZoomConfig };
 
-/** Pull-to-refresh wiring for FlashList-based feeds (e.g. profile/channel). */
+/** Pull-to-refresh wiring for LegendList-based feeds (e.g. profile/channel). */
 export interface ListFeedPullToRefresh {
   refreshing: boolean;
   onRefresh: () => void | Promise<void>;
@@ -65,7 +65,7 @@ export interface ListFeedViewProps {
   zoomTargetPostUri?: string | null;
   /** When set on iOS, grid uses `Link` + `Link.AppleZoom` per Expo Router zoom transition docs. */
   gridFeedModalZoomConfig?: GridFeedModalZoomConfig | null;
-  /** Native pull-to-refresh on list and grid FlashList. */
+  /** Native pull-to-refresh on list and grid LegendList. */
   pullToRefresh?: ListFeedPullToRefresh;
   /** Navigate to a hashtag feed. */
   onHashtagPress?: (hashtag: string) => void;
@@ -145,7 +145,7 @@ export type FeedOption =
   | string;
 
 /**
- * Feed list items for FlashList / feed views
+ * Feed list items for LegendList / feed views
  * @usage src/components/features/feed/ListFeedView.tsx
  */
 export type FeedListItem = ExtendedFeedViewPost;

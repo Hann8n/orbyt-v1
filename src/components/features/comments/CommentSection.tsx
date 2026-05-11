@@ -20,7 +20,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
+import { LegendList, type LegendListRef, type LegendListRenderItemProps } from '@legendapp/list/react-native';
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { navigateToProfileImageViewer } from '@/utils/navigation/profileImageViewer';
@@ -288,8 +288,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const klipySheetRef = useRef<TrueSheetHandle>(null);
   const [presentedPostUri, setPresentedPostUri] = useState<string | null>(null);
-  const commentsListRef = useRef<FlashListRef<Comment> | null>(null);
-  const likesListRef = useRef<FlashListRef<Like> | null>(null);
+  const commentsListRef = useRef<LegendListRef>(null);
+  const likesListRef = useRef<LegendListRef>(null);
 
   const [activeTab, setActiveTab] = useState<'comments' | 'likes'>('comments');
   const [likesQueryEnabled, setLikesQueryEnabled] = useState(false);
@@ -619,7 +619,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const previousCommentsLengthRef = useRef<number>(0);
 
   // Important: keep `flattenedComments` referentially stable.
-  // FlashList can end up in a render/layout update loop if `data` changes identity every render.
+  // LegendList can end up in a render/layout update loop if `data` changes identity every render.
   const flattenedComments = useMemo(() => {
     const comments = commentsPages?.pages.flatMap(p => p.comments) ?? [];
 
@@ -1064,8 +1064,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
-  const renderCommentItem = useCallback<ListRenderItem<Comment>>(
-    ({ item, index }) => {
+  const renderCommentItem = useCallback(
+    ({ item, index }: LegendListRenderItemProps<Comment>) => {
       const level = item.parent ? 1 : 0;
       const commentKey = item?.uri || item?.cid || `comment-${index}`;
       return (
@@ -1084,8 +1084,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [scrollToCommentUri, onDismiss, handleCommentDeleted, handleReplyPress]
   );
 
-  const renderLikeItem = useCallback<ListRenderItem<Like>>(
-    ({ item }) => {
+  const renderLikeItem = useCallback(
+    ({ item }: LegendListRenderItemProps<Like>) => {
       const handlePress = () => {
         onDismiss?.();
         if (item.actor.did) {
@@ -1248,7 +1248,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       >
         <View style={styles.container}>
           {activeTab === 'comments' ? (
-            <FlashList
+            <LegendList
               ref={commentsListRef}
               data={post ? flattenedComments : []}
               keyExtractor={commentKeyExtractor}
@@ -1259,17 +1259,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               showsVerticalScrollIndicator={
                 flattenedComments.length >= SCROLL_INDICATOR_CONSTANTS.COMMENTS_MIN_ITEMS
               }
-              nestedScrollEnabled
-              scrollEventThrottle={16}
               onScroll={handleListScroll}
               onEndReached={onEndReachedComments}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              removeClippedSubviews={true}
-              drawDistance={250}
               ListEmptyComponent={CommentsEmptyComponent}
+              estimatedItemSize={80}
             />
           ) : (
-            <FlashList
+            <LegendList
               ref={likesListRef}
               data={post ? likes : []}
               keyExtractor={likeKeyExtractor}
@@ -1281,14 +1278,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               showsVerticalScrollIndicator={
                 likes.length >= SCROLL_INDICATOR_CONSTANTS.COMMENTS_MIN_ITEMS
               }
-              nestedScrollEnabled
-              scrollEventThrottle={16}
               onScroll={handleListScroll}
               onEndReached={onEndReachedLikes}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              removeClippedSubviews={true}
-              drawDistance={250}
               ListEmptyComponent={LikesEmptyComponent}
+              estimatedItemSize={60}
             />
           )}
         </View>

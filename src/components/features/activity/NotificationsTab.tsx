@@ -24,7 +24,7 @@ import {
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
-import { FlashList, FlashListRef } from '@shopify/flash-list';
+import { LegendList, type LegendListRef, type LegendListRenderItemProps } from '@legendapp/list/react-native';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AtprotoCore } from '../../../services/api/core';
@@ -792,14 +792,14 @@ NotificationItem.displayName = 'NotificationItem';
 
 const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
   const { t } = useTranslation();
-  const flashListRef = useRef<FlashListRef<EnrichedNotification>>(null);
+  const listRef = useRef<LegendListRef>(null);
 
   // Expose scrollToTop method
   useImperativeHandle(
     ref,
     () => ({
       scrollToTop: () => {
-        flashListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        listRef.current?.scrollToOffset({ offset: 0, animated: true });
       },
     }),
     []
@@ -859,7 +859,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
     if (!scrollToTopAfterUpdateRef.current || !data?.pages?.length) return;
     scrollToTopAfterUpdateRef.current = false;
     requestAnimationFrame(() => {
-      flashListRef.current?.scrollToOffset({ offset: 0, animated: false });
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
     });
   }, [data]);
 
@@ -963,7 +963,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
   }, [refetch]);
 
   const renderNotificationContent = useCallback(
-    ({ item }: { item: EnrichedNotification }) => {
+    ({ item }: LegendListRenderItemProps<EnrichedNotification>) => {
       return (
         <NotificationItem
           item={item}
@@ -999,20 +999,18 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
   }, []);
 
   return (
-    <FlashList
-      ref={flashListRef}
+    <LegendList
+      ref={listRef}
       style={styles.listContainer}
       contentContainerStyle={[
         activityListSharedStyles.listContentContainer,
         { paddingBottom: bottomNavBarHeight + 5 },
       ]}
       data={isError ? [] : visibleNotifications}
-      extraData={postDataMap.size}
       renderItem={renderNotificationContent}
       keyExtractor={keyExtractor}
       getItemType={getItemType}
       ItemSeparatorComponent={NotificationDivider}
-      drawDistance={400}
       refreshControl={
         <RefreshControl
           refreshing={isUserRefreshing}
@@ -1051,6 +1049,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
           </View>
         ) : null
       }
+      estimatedItemSize={100}
     />
   );
 });

@@ -9,7 +9,6 @@ import React, {
 import {
   View,
   StyleSheet,
-  Dimensions,
   LayoutChangeEvent,
   Platform,
   Pressable,
@@ -22,17 +21,16 @@ import { NativePressable } from '@/components/ui/NativePressable';
 import { Link, type Href } from 'expo-router';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
+import {
   useSharedValue,
   useDerivedValue,
-  useAnimatedScrollHandler,
+  useAnimatedReaction,
 } from 'react-native-reanimated';
-import { FlashList, FlashListRef } from '@shopify/flash-list';
+import { LegendList, type LegendListRef } from '@legendapp/list/react-native';
 import type { ListFeedViewRef, ListFeedPullToRefresh } from '../../../types';
 import { Colors } from '../../../theme';
 import { getVideoView, DEFAULT_VIDEO_ASPECT_RATIO } from '../../../utils/video/helpers';
 import {
-  APP_CONSTANTS,
   QUERY_CONSTANTS,
   SCROLL_CONSTANTS,
   SCROLL_INDICATOR_CONSTANTS,
@@ -58,13 +56,7 @@ import type {
   FeedScrollMotionValue,
 } from '../../../context/FeedScrollContext';
 import type { SharedValue } from 'react-native-reanimated';
-import type { ComponentType, Ref } from 'react';
-import type { FlashListProps } from '@shopify/flash-list';
 import type { GridFeedModalZoomConfig } from '@/utils/navigation/feedModalRoute';
-
-const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as ComponentType<
-  FlashListProps<ExtendedFeedViewPost> & { ref?: Ref<FlashListRef<ExtendedFeedViewPost>> }
->;
 const VideoGridItem: React.FC<{
   item: ExtendedFeedViewPost;
   index: number;
@@ -174,7 +166,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
   ) => {
     const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
     const profileColors = getProfileColors(backgroundColor, secondaryColor);
-    const flashListRef = useRef<FlashListRef<ExtendedFeedViewPost>>(null);
+    const listRef = useRef<LegendListRef>(null);
     const [headerHeight, setHeaderHeight] = useState(0);
     const [gridLayoutHeight, setGridLayoutHeight] = useState(0);
     const hasHeader = Boolean(headerComponent);
@@ -200,10 +192,22 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const scrollOffsetYSV = useSharedValue(0);
     const homePagerChromeUserHoldSV = useSharedValue(0);
     const fadeDist = useScrollTracking ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
-    const contentScrollProgressSV = useDerivedValue(() => {
-      'worklet';
-      return fadeDist > 0 ? Math.max(0, Math.min(1, scrollOffsetYSV.value / fadeDist)) : 0;
-    }, [scrollOffsetYSV, fadeDist]);
+    const contentScrollProgressSV = useDerivedValue(() =>
+      fadeDist > 0 ? Math.max(0, Math.min(1, scrollOffsetYSV.value / fadeDist)) : 0
+    );
+    const scrollHandler = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
+      scrollOffsetYSV.value = Math.max(0, event.nativeEvent.contentOffset.y);
+    }, []);
+
+    useAnimatedReaction(
+      () => contentScrollProgressSV.value,
+      v => {
+        if (contentScrollProgressOutput) {
+          contentScrollProgressOutput.value = v;
+        }
+      },
+      [contentScrollProgressOutput]
+    );
 
     const setHomePagerChromeUserHold = useCallback(
       (held: boolean) => {
@@ -211,22 +215,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         homePagerChromeUserHoldSV.value = held ? 1 : 0;
       },
       [homePagerChromeUserHoldSV]
-    );
-
-    const scrollHandler = useAnimatedScrollHandler(
-      {
-        onScroll: event => {
-          'worklet';
-          const y = event.contentOffset.y;
-          /* eslint-disable react-hooks/immutability -- SharedValue.value in worklet */
-          scrollOffsetYSV.value = y;
-          if (contentScrollProgressOutput && fadeDist > 0) {
-            contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
-          }
-          /* eslint-enable react-hooks/immutability */
-        },
-      },
-      [contentScrollProgressOutput, fadeDist]
     );
 
     const handleHeaderLayout = (e: LayoutChangeEvent) => {
@@ -240,8 +228,8 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       ref,
       () => ({
         scrollToTop: () => {
-          if (flashListRef.current) {
-            flashListRef.current.scrollToTop({ animated: true });
+          if (listRef.current) {
+            void listRef.current.scrollToOffset({ offset: 0, animated: true });
           }
         },
       }),
@@ -251,23 +239,12 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const { width: windowWidth, height: windowHeight } = useWindowDimensions();
     const isTablet =
       Device.deviceType === Device.DeviceType.TABLET || Math.min(windowWidth, windowHeight) >= 600;
-    const computedColumns = (() => {
-      const w = windowWidth || Dimensions.get('window').width;
-      let cols = 3;
-      if (w > 1200 || isTablet) {
-        cols = 6;
-      } else if (w > 900) {
-        cols = 5;
-      } else if (w > 480) {
-        cols = 4;
-      } else {
-        cols = 3;
-      }
-      return Math.max(3, cols);
-    })();
-
-    const numColumns = computedColumns;
-    const itemWidth = (windowWidth || Dimensions.get('window').width) / numColumns;
+    const numColumns =
+      windowWidth > 1200 || isTablet ? 6
+      : windowWidth > 900 ? 5
+      : windowWidth > 480 ? 4
+      : 3;
+    const itemWidth = windowWidth / numColumns;
     const itemHeight = itemWidth / DEFAULT_VIDEO_ASPECT_RATIO;
     const itemSpacing = itemHeight + FEED_VIEW_CONSTANTS.GRID_CELL_GAP;
     const extraBottomPadding = isIosLiquidGlassAvailable
@@ -358,26 +335,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       };
     }, [useScrollTracking, headerHeight, viewportDimensions.height, itemSpacing]);
 
-    const ListEl = ListComponent || (useScrollTracking ? AnimatedFlashList : FlashList);
-    const listProps = useMemo(
-      () => ({
-        ...(ListComponent ? {} : { ref: flashListRef }),
-        decelerationRate:
-          Platform.OS === 'ios'
-            ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
-            : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID,
-        ...(useScrollTracking
-          ? {
-              onScroll: scrollHandler,
-              scrollEventThrottle: APP_CONSTANTS.SCROLL_THROTTLE,
-              disableIntervalMomentum: true,
-              snapToOffsets: gridSnapToOffsets,
-            }
-          : {}),
-      }),
-      [ListComponent, useScrollTracking, scrollHandler, gridSnapToOffsets]
-    );
-
     const separatorStyle = {
       height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
       backgroundColor: Colors.transparent,
@@ -395,16 +352,93 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 
     const listFooter = feed.length > 0 ? <View style={separatorStyle} /> : null;
 
-    const listContent = (
-      <ListEl
-        {...listProps}
-        key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
+    const listEmptyComponent = isLoading ? (
+      <View
+        style={[
+          styles.gridEmptyLoading,
+          {
+            minHeight: emptyComponentHeight,
+            backgroundColor: Colors.transparent,
+          },
+        ]}
+      >
+        <ActivityIndicator
+          size="large"
+          color={profileColors?.textColor || secondaryColor || Colors.neutral[50]}
+        />
+      </View>
+    ) : isError ? (
+      <EmptyFeed
+        type="error"
+        secondaryColor={secondaryColor}
+        profileColors={profileColors}
+        onRetry={onRetry}
+        viewableAreaHeight={emptyComponentHeight}
+        feedOption={feedOption}
+      />
+    ) : (
+      <EmptyFeed
+        type={getEmptyFeedType(feedOption)}
+        secondaryColor={secondaryColor}
+        profileColors={profileColors}
+        viewableAreaHeight={emptyComponentHeight}
+        feedOption={feedOption}
+      />
+    );
+
+    const gridKey = `grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`;
+    const gridContentStyle = [
+      styles.listContent,
+      {
+        backgroundColor: Colors.transparent,
+        ...(feed.length > 0 && {
+          paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom + extraBottomPadding,
+        }),
+      },
+    ];
+    const decelerationRate =
+      Platform.OS === 'ios'
+        ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+        : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID;
+
+    const ExternalListEl = ListComponent as React.ComponentType<Record<string, unknown>>;
+    const listContent = ListComponent ? (
+      <ExternalListEl
+        key={gridKey}
         data={feed}
         renderItem={renderGridItem}
         keyExtractor={gridKeyExtractor}
         numColumns={numColumns}
+        estimatedItemSize={itemSpacing}
+        decelerationRate={decelerationRate}
+        contentContainerStyle={gridContentStyle}
+        style={{ backgroundColor: Colors.transparent }}
+        showsVerticalScrollIndicator={feed.length >= SCROLL_INDICATOR_CONSTANTS.FEED_GRID_MIN_ITEMS}
+        contentInsetAdjustmentBehavior="never"
+        bounces={true}
+        ListHeaderComponent={listHeader}
+        ListFooterComponent={listFooter}
+        ListEmptyComponent={listEmptyComponent}
+        scrollEnabled={true}
+        onEndReached={hasNextPage ? onLoadMore : undefined}
+        onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+      />
+    ) : (
+      <LegendList<ExtendedFeedViewPost>
+        ref={listRef}
+        key={gridKey}
+        onScroll={scrollHandler}
+        data={feed}
+        renderItem={renderGridItem}
+        keyExtractor={gridKeyExtractor}
+        numColumns={numColumns}
+        estimatedItemSize={itemSpacing}
+        decelerationRate={decelerationRate}
+        {...(useScrollTracking
+          ? { disableIntervalMomentum: true, snapToOffsets: gridSnapToOffsets }
+          : {})}
         refreshControl={
-          !ListComponent && pullToRefresh ? (
+          pullToRefresh ? (
             <RefreshControl
               refreshing={pullToRefresh.refreshing}
               onRefresh={pullToRefresh.onRefresh}
@@ -413,56 +447,14 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             />
           ) : undefined
         }
-        contentContainerStyle={[
-          styles.listContent,
-          {
-            backgroundColor: Colors.transparent,
-            ...(feed.length > 0 && {
-              paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom + extraBottomPadding,
-            }),
-          },
-        ]}
+        contentContainerStyle={gridContentStyle}
         style={{ backgroundColor: Colors.transparent }}
         showsVerticalScrollIndicator={feed.length >= SCROLL_INDICATOR_CONSTANTS.FEED_GRID_MIN_ITEMS}
         contentInsetAdjustmentBehavior="never"
         bounces={true}
         ListHeaderComponent={listHeader}
         ListFooterComponent={listFooter}
-        ListEmptyComponent={
-          isLoading ? (
-            <View
-              style={[
-                styles.gridEmptyLoading,
-                {
-                  minHeight: emptyComponentHeight,
-                  backgroundColor: Colors.transparent,
-                },
-              ]}
-            >
-              <ActivityIndicator
-                size="large"
-                color={profileColors?.textColor || secondaryColor || Colors.neutral[50]}
-              />
-            </View>
-          ) : isError ? (
-            <EmptyFeed
-              type="error"
-              secondaryColor={secondaryColor}
-              profileColors={profileColors}
-              onRetry={onRetry}
-              viewableAreaHeight={emptyComponentHeight}
-              feedOption={feedOption}
-            />
-          ) : (
-            <EmptyFeed
-              type={getEmptyFeedType(feedOption)}
-              secondaryColor={secondaryColor}
-              profileColors={profileColors}
-              viewableAreaHeight={emptyComponentHeight}
-              feedOption={feedOption}
-            />
-          )
-        }
+        ListEmptyComponent={listEmptyComponent}
         scrollEnabled={true}
         onEndReached={hasNextPage ? onLoadMore : undefined}
         onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}

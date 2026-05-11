@@ -1,4 +1,4 @@
-import {
+import React, {
   useState,
   useEffect,
   useLayoutEffect,
@@ -8,8 +8,6 @@ import {
   forwardRef,
   useImperativeHandle,
   memo,
-  type ComponentType,
-  type Ref,
 } from 'react';
 import {
   View,
@@ -25,19 +23,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView as RNScreensSafeAreaView } from 'react-native-screens/experimental';
 import Animated, {
   useSharedValue,
-  useAnimatedScrollHandler,
-  useAnimatedReaction,
+  useDerivedValue,
   useAnimatedStyle,
-  runOnJS,
-  type SharedValue,
+  useAnimatedReaction,
 } from 'react-native-reanimated';
-import {
-  FlashList,
-  FlashListRef,
-  type FlashListProps,
-  type ListRenderItemInfo,
-  RenderTargetOptions,
-} from '@shopify/flash-list';
+import { AnimatedLegendList } from '@legendapp/list/reanimated';
+import type {
+  LegendListRef,
+  LegendListRenderItemProps,
+} from '@legendapp/list/react-native';
+import { scheduleOnRN } from 'react-native-worklets';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
 import type {
   FeedScrollLayoutValue,
@@ -64,7 +59,6 @@ import { getEffectiveTopInset, getViewportDimensions } from '../../../utils/devi
 import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
 import {
-  APP_CONSTANTS,
   SCROLL_CONSTANTS,
   QUERY_CONSTANTS,
   SCROLL_INDICATOR_CONSTANTS,
@@ -79,10 +73,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { TypographyText } from '@/utils/components/typography';
 
-const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as ComponentType<
-  FlashListProps<FeedListItem> & { ref?: Ref<FlashListRef<FeedListItem>> }
->;
-
 const ItemSeparatorComponent = ({
   leadingItem: _leadingItem,
   trailingItem: _trailingItem,
@@ -92,7 +82,7 @@ const ItemSeparatorComponent = ({
 }) => <View style={styles.itemSeparator} />;
 
 const getListItemType = (item: FeedListItem): string => {
-  if (item.post?.embed?.$type === 'app.bsky.embed.record#view') return 'video';
+  if (item.post?.embed?.$type === 'app.bsky.embed.video#view') return 'video';
   return 'default';
 };
 
@@ -109,9 +99,7 @@ interface ListEmptyComponentProps {
 }
 
 const minHeightStyleCache = new Map<number, { minHeight: number }>();
-const measurementHeightStyleCache = new Map<number, { height: number }>();
 const bottomPaddingStyleCache = new Map<number, { paddingBottom: number }>();
-const overscrollHintLayoutStyleCache = new Map<number, { paddingBottom: number; bottom: number }>();
 
 const getMinHeightStyle = (minHeight: number): { minHeight: number } => {
   const normalized = Math.max(0, Math.round(minHeight));
@@ -119,15 +107,6 @@ const getMinHeightStyle = (minHeight: number): { minHeight: number } => {
   if (cached) return cached;
   const style = { minHeight: normalized };
   minHeightStyleCache.set(normalized, style);
-  return style;
-};
-
-const getMeasurementHeightStyle = (height: number): { height: number } => {
-  const normalized = Math.max(0, Math.round(height));
-  const cached = measurementHeightStyleCache.get(normalized);
-  if (cached) return cached;
-  const style = { height: normalized };
-  measurementHeightStyleCache.set(normalized, style);
   return style;
 };
 
@@ -139,18 +118,6 @@ const getBottomPaddingStyle = (paddingBottom: number): { paddingBottom: number }
   bottomPaddingStyleCache.set(normalized, style);
   return style;
 };
-
-const getOverscrollHintLayoutStyle = (
-  bottomInset: number
-): { paddingBottom: number; bottom: number } => {
-  const normalized = Math.max(0, Math.round(bottomInset));
-  const cached = overscrollHintLayoutStyleCache.get(normalized);
-  if (cached) return cached;
-  const style = { paddingBottom: normalized, bottom: END_OF_FEED_HINT_BOTTOM_OFFSET };
-  overscrollHintLayoutStyleCache.set(normalized, style);
-  return style;
-};
-const MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED = { disabled: true } as const;
 const SAFE_AREA_BOTTOM_EDGES = { bottom: true } as const;
 
 const ListEmptyComponent = ({
@@ -198,50 +165,10 @@ const ListEmptyComponent = ({
 
 ListEmptyComponent.displayName = 'ListEmptyComponent';
 
-const END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX = 56;
 const CHROME_SHOW_DIRECTION_THRESHOLD_PX = 4;
 const CHROME_HIDE_DIRECTION_THRESHOLD_PX = 18;
-
+const END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX = 56;
 const END_OF_FEED_HINT_BOTTOM_OFFSET = 40;
-type EndOfFeedOverscrollHintProps = {
-  opacitySV: SharedValue<number>;
-  bottomInset: number;
-  labelColor: string;
-};
-
-const EndOfFeedOverscrollHint = memo(
-  ({ opacitySV, bottomInset, labelColor }: EndOfFeedOverscrollHintProps) => {
-    const { t } = useTranslation();
-    const hintLayoutStyle = useMemo(() => getOverscrollHintLayoutStyle(bottomInset), [bottomInset]);
-    const animatedStyle = useAnimatedStyle(() => ({
-      opacity: opacitySV.value,
-    }));
-    const hintContainerStyle = useMemo(
-      () =>
-        StyleSheet.compose(
-          StyleSheet.compose(styles.endOfFeedOverscrollHint, hintLayoutStyle),
-          animatedStyle
-        ),
-      [hintLayoutStyle, animatedStyle]
-    );
-    return (
-      <Animated.View pointerEvents="none" style={hintContainerStyle}>
-        <View style={styles.endOfFeedOverscrollInner}>
-          <TypographyText
-            variant="body"
-            weight="medium"
-            color={labelColor}
-            align="center"
-            style={styles.endOfFeedLabel}
-          >
-            {t('feed.thatsAllForNow')}
-          </TypographyText>
-        </View>
-      </Animated.View>
-    );
-  }
-);
-EndOfFeedOverscrollHint.displayName = 'EndOfFeedOverscrollHint';
 
 const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
   (
@@ -296,13 +223,19 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const [feedLayoutHeight, setFeedLayoutHeight] = useState(0);
 
     // Refs
-    const flashListRef = useRef<FlashListRef<FeedListItem>>(null);
+    const listRef = useRef<LegendListRef>(null);
     const gridRef = useRef<ListFeedViewRef>(null);
 
     const scrollOffsetYSV = useSharedValue(0);
+    const isAtEndSV = useSharedValue(false);
     const homePagerChromeUserHoldSV = useSharedValue(0);
+    const contentHeightSV = useSharedValue(0);
     const endOfFeedEnabledSV = useSharedValue(0);
-    const endOfFeedOverscrollOpacitySV = useSharedValue(0);
+    const listSharedValues = useMemo(
+      () => ({ scrollOffset: scrollOffsetYSV, isAtEnd: isAtEndSV }),
+      [scrollOffsetYSV, isAtEndSV]
+    );
+
 
     const seedActiveIndex =
       typeof initialScrollIndex === 'number' ? initialScrollIndex : feed.length > 0 ? 0 : -1;
@@ -369,7 +302,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       },
       (blocked, prev) => {
         if (prev === null || blocked !== prev) {
-          runOnJS(patchHeaderBlockingPlayback)(blocked === 1);
+          scheduleOnRN(patchHeaderBlockingPlayback, blocked === 1);
         }
       },
       [scrollOffsetYSV, headerBlockingBaseSuppressedSV, patchHeaderBlockingPlayback]
@@ -399,7 +332,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ? getVideoCardHeight(screenWidth, screenHeight)
       : Math.max(0, viewableAreaHeight - FEED_VIEW_CONSTANTS.LIST_ITEM_GAP);
 
-    const handleActiveVisibleIndexChange = useCallback(
+    const patchActiveIndex = useCallback(
       (index: number) => {
         if (activeVisibleIndexRef.current === index) return;
         activeVisibleIndexRef.current = index;
@@ -408,28 +341,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [listPlaybackStore]
     );
 
-    useEffect(() => {
-      if (typeof initialScrollIndex !== 'number') return;
-      if (activeVisibleIndexRef.current === initialScrollIndex) return;
-      activeVisibleIndexRef.current = initialScrollIndex;
-      listPlaybackStore.patch({ activeIndex: initialScrollIndex });
-    }, [initialScrollIndex, listPlaybackStore]);
-
-    useEffect(() => {
-      if (feed.length === 0) {
-        if (activeVisibleIndexRef.current === -1) return;
-        activeVisibleIndexRef.current = -1;
-        listPlaybackStore.patch({ activeIndex: -1 });
-        return;
-      }
-      if (activeVisibleIndexRef.current >= 0) return;
-      activeVisibleIndexRef.current = 0;
-      listPlaybackStore.patch({ activeIndex: 0 });
-    }, [feed.length, listPlaybackStore]);
-
-    const { onViewableItemsChanged, viewabilityConfig, canPlay } = useFeedVisibility({
+    const { canPlay, onViewableItemsChanged, viewabilityConfig } = useFeedVisibility({
       isActive: listSurfaceActive,
-      onActiveVisibleIndexChange: handleActiveVisibleIndexChange,
+      onActiveVisibleIndexChange: patchActiveIndex,
     });
 
     useLayoutEffect(() => {
@@ -463,12 +377,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       hasNextPage === false &&
       !isFetchingNextPage;
 
-    useEffect(() => {
-      endOfFeedEnabledSV.value = showEndOfFeed ? 1 : 0;
-      if (!showEndOfFeed) {
-        endOfFeedOverscrollOpacitySV.value = 0;
-      }
-    }, [showEndOfFeed, endOfFeedEnabledSV, endOfFeedOverscrollOpacitySV]);
+    
 
     const listRenderExtraData = useMemo(
       () => ({
@@ -481,18 +390,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     );
 
     const renderItem = useCallback(
-      ({ item, index, target, extraData }: ListRenderItemInfo<FeedListItem>) => {
+      ({ item, index, extraData }: LegendListRenderItemProps<FeedListItem>) => {
         const xd = extraData as typeof listRenderExtraData | undefined;
-        const h = xd?.cardHeight ?? 0;
-        if (target === RenderTargetOptions.Measurement || !xd) {
-          return (
-            <View
-              style={StyleSheet.compose(
-                styles.measurementPlaceholder,
-                getMeasurementHeightStyle(h)
-              )}
-            />
-          );
+        if (!xd) {
+          return null;
         }
 
         const isAppleZoomTarget =
@@ -519,14 +420,14 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       (_event: { window: ScaledSize }) => {
         const idx = activeVisibleIndexRef.current;
         if (
-          flashListRef.current &&
+          listRef.current &&
           feed.length > 0 &&
           listSurfaceActive &&
           idx >= 0 &&
           resolvedViewMode === 'list'
         ) {
           try {
-            flashListRef.current.scrollToIndex({
+            void listRef.current.scrollToIndex({
               index: idx,
               animated: false,
               viewPosition: 0.5,
@@ -546,6 +447,17 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     const itemSpacing = cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
     const hasHeader = Boolean(headerComponent);
+
+    // Estimated content height + end-of-feed enabled flag for the rubberband overscroll hint.
+    useEffect(() => {
+      const headerExtra = hasHeader && headerHeight > 0 ? headerHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP : 0;
+      const estimated = headerExtra + Math.max(0, feed.length * itemSpacing) + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
+      contentHeightSV.value = Math.round(estimated);
+    }, [feed.length, headerHeight, hasHeader, itemSpacing]);
+
+    useEffect(() => {
+      endOfFeedEnabledSV.value = showEndOfFeed ? 1 : 0;
+    }, [showEndOfFeed]);
 
     const listViewportForEmpty = feedLayoutHeight > 0 ? feedLayoutHeight : viewableAreaHeight;
     const emptyStateHeaderDeduction = ListComponent
@@ -608,49 +520,41 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [headerHeight]
     );
 
-    const handleFeedLayout = useCallback((e: LayoutChangeEvent) => {
-      const h = Math.round(e.nativeEvent.layout.height);
-      if (h > 0) {
-        setFeedLayoutHeight(prev => (prev === h ? prev : h));
-      }
-    }, []);
+    const handleFeedLayout = useCallback(
+      (e: LayoutChangeEvent) => {
+        const h = Math.round(e.nativeEvent.layout.height);
+        if (h > 0) {
+          setFeedLayoutHeight(prev => (prev === h ? prev : h));
+        }
+      },
+      []
+    );
 
     const fadeDist = hasHeader ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
-    const contentScrollProgressSV = useSharedValue(0);
+    const contentScrollProgressSV = useDerivedValue(() =>
+      fadeDist > 0 ? Math.max(0, Math.min(1, scrollOffsetYSV.value / fadeDist)) : 0
+    );
 
-    const scrollHandler = useAnimatedScrollHandler(
-      {
-        onScroll: event => {
-          'worklet';
+    const endOfFeedOverscrollOpacitySV = useDerivedValue(() => {
+      if (endOfFeedEnabledSV.value < 0.5 || !isAtEndSV.value) return 0;
+      const layoutH = Math.max(0, feedLayoutHeight);
+      const maxY = Math.max(0, contentHeightSV.value - layoutH);
+      const over = Math.max(0, scrollOffsetYSV.value - maxY);
+      return Math.min(1, over / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX);
+    });
 
-          const y = Math.max(0, event.contentOffset.y);
-          scrollOffsetYSV.value = y;
+    const endOfFeedOverscrollAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: endOfFeedOverscrollOpacitySV.value,
+    }));
 
-          if (fadeDist > 0) {
-            contentScrollProgressSV.value = Math.max(0, Math.min(1, y / fadeDist));
-          } else {
-            contentScrollProgressSV.value = 0;
-          }
-
-          if (contentScrollProgressOutput && fadeDist > 0) {
-            contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
-          }
-
-          const contentH = event.contentSize?.height ?? 0;
-          const layoutH = event.layoutMeasurement?.height ?? 0;
-          const maxY = Math.max(0, contentH - layoutH);
-          const overscrollPastEnd = y - maxY;
-          if (endOfFeedEnabledSV.value < 0.5) {
-            endOfFeedOverscrollOpacitySV.value = 0;
-          } else {
-            endOfFeedOverscrollOpacitySV.value = Math.max(
-              0,
-              Math.min(1, overscrollPastEnd / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX)
-            );
-          }
-        },
+    useAnimatedReaction(
+      () => contentScrollProgressSV.value,
+      v => {
+        if (contentScrollProgressOutput) {
+          contentScrollProgressOutput.value = v;
+        }
       },
-      [contentScrollProgressOutput, fadeDist]
+      [contentScrollProgressOutput]
     );
 
     const setHomePagerChromeUserHold = useCallback(
@@ -694,12 +598,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         scrollToTop: () =>
           resolvedViewMode === 'grid'
             ? gridRef.current?.scrollToTop()
-            : flashListRef.current?.scrollToTop({ animated: true }),
+            : void listRef.current?.scrollToOffset({
+                offset: 0,
+                animated: true,
+              }),
       }),
       [resolvedViewMode]
     );
-
-    const endOfFeedHintBottomInset = useNativeTabBottomSafeArea ? 12 : Math.max(12, insets.bottom);
 
     const listContentContainerExtraStyle = useMemo(() => {
       if (feed.length === 0) {
@@ -767,31 +672,38 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       );
     }, [headerComponent, handleHeaderLayout, feed.length]);
 
-    const listFooterElement = useMemo(
-      () => (feed.length > 0 ? <View style={styles.itemSeparator} /> : null),
-      [feed.length]
-    );
+    const { t } = useTranslation();
+
+    const listFooterElement = useMemo(() => {
+      if (feed.length === 0) return null;
+      return <View style={styles.itemSeparator} />;
+    }, [feed.length, showEndOfFeed, endOfFeedHintColor, t]);
 
     const listBody = useMemo(
       () => (
         <View collapsable={false} style={listContainerStyle} onLayout={handleFeedLayout}>
-          {showEndOfFeed ? (
-            <EndOfFeedOverscrollHint
-              opacitySV={endOfFeedOverscrollOpacitySV}
-              bottomInset={endOfFeedHintBottomInset}
-              labelColor={endOfFeedHintColor}
-            />
-          ) : null}
-          <View style={styles.flashListWrapper}>
-            <AnimatedFlashList
-              ref={flashListRef}
-              style={styles.flashList}
+          {/* End-of-feed overscroll hint (fades in when user rubber-bands past end) */}
+          <Animated.View pointerEvents="none" style={[styles.endOfFeedOverscrollHint, endOfFeedOverscrollAnimatedStyle]}>
+            <View style={styles.endOfFeedOverscrollInner}>
+              <TypographyText variant="body" weight="medium" color={endOfFeedHintColor} align="center">
+                {t('feed.thatsAllForNow')}
+              </TypographyText>
+            </View>
+          </Animated.View>
+          <View style={styles.listWrapper}>
+            <AnimatedLegendList<FeedListItem>
+              ref={listRef}
+              style={styles.list}
               data={listData}
               renderItem={renderItem}
               extraData={listRenderExtraData}
-              drawDistance={FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE}
+              estimatedItemSize={itemSpacing}
+              drawDistance={FEED_VIEW_CONSTANTS.LEGENDLIST_DRAW_DISTANCE}
               keyExtractor={listKeyExtractor}
               getItemType={getListItemType}
+              sharedValues={listSharedValues}
+              onViewableItemsChanged={onViewableItemsChanged}
+              viewabilityConfig={viewabilityConfig}
               refreshControl={refreshControlElement}
               initialScrollIndex={initialScrollIndex}
               ListHeaderComponent={listHeaderElement}
@@ -805,13 +717,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
                   : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
               }
               disableIntervalMomentum={true}
-              scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
-              onScroll={scrollHandler}
               onEndReached={onLoadMore}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              onViewableItemsChanged={onViewableItemsChanged}
-              viewabilityConfig={viewabilityConfig}
-              maintainVisibleContentPosition={MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED}
               scrollEnabled={true}
               showsVerticalScrollIndicator={
                 listData.length >= SCROLL_INDICATOR_CONSTANTS.FEED_LIST_MIN_ITEMS
@@ -827,14 +734,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             />
           </View>
         </View>
-      ),
+      ) as React.ReactElement,
       [
         listContainerStyle,
         handleFeedLayout,
-        showEndOfFeed,
-        endOfFeedOverscrollOpacitySV,
-        endOfFeedHintBottomInset,
-        endOfFeedHintColor,
         listData,
         renderItem,
         listRenderExtraData,
@@ -843,13 +746,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         listHeaderElement,
         snapToOffsets,
         snapToIntervalValue,
-        scrollHandler,
         onLoadMore,
-        onViewableItemsChanged,
-        viewabilityConfig,
         listEmptyElement,
         listFooterElement,
         listContentContainerStyle,
+        listSharedValues,
+        onViewableItemsChanged,
+        viewabilityConfig,
       ]
     );
 
@@ -949,11 +852,11 @@ const styles = StyleSheet.create({
   contentContainerListItemsNativeTabBottom: {
     paddingBottom: 0,
   },
-  flashListWrapper: {
+  listWrapper: {
     flex: 1,
     zIndex: 1,
   },
-  flashList: {
+  list: {
     flex: 1,
     backgroundColor: Colors.transparent,
   },
@@ -969,26 +872,27 @@ const styles = StyleSheet.create({
     height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
     backgroundColor: Colors.transparent,
   },
-  measurementPlaceholder: {
-    // Used by FlashList for measurement passes
+  endOfFeedFooter: {
+    paddingVertical: 24,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  endOfFeedLabel: {
+    letterSpacing: 0.5,
   },
   endOfFeedOverscrollHint: {
     position: 'absolute',
     left: 0,
     right: 0,
-    zIndex: 0,
-    paddingTop: 16,
-    paddingHorizontal: 24,
+    bottom: END_OF_FEED_HINT_BOTTOM_OFFSET,
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    backgroundColor: Colors.transparent,
+    zIndex: 0,
+    pointerEvents: 'none',
   },
   endOfFeedOverscrollInner: {
+    paddingVertical: 20,
+    paddingHorizontal: 24,
     alignItems: 'center',
-    maxWidth: 280,
-  },
-  endOfFeedLabel: {
-    letterSpacing: 0.5,
   },
 });
 

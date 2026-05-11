@@ -7,7 +7,7 @@ import { SquircleView } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FlashList, FlashListRef } from '@shopify/flash-list';
+import { LegendList, type LegendListRef, type LegendListRenderItemProps } from '@legendapp/list/react-native';
 import Reanimated, { useSharedValue, FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { navigateToEncodedChannelUri } from '@/utils/navigation/navigateEncodedChannel';
@@ -66,7 +66,7 @@ import { EXPLORE_HEADER_BANNER_ASPECT_RATIO } from './exploreConstants';
 
 const ExploreScreen: React.FC = () => {
   const { t } = useTranslation();
-  const flashListRef = useRef<FlashListRef<ListItem> | null>(null);
+  const listRef = useRef<LegendListRef>(null);
   const currentUser = useUserStore(state => state.currentUser);
   const searchInputRef = useRef<TextInput | null>(null);
   const searchPagerRef = useRef<SearchSwipePagerRef>(null);
@@ -331,7 +331,7 @@ const ExploreScreen: React.FC = () => {
   ]);
 
   const renderExploreItem = useCallback(
-    ({ item }: { item: ListItem }) => {
+    ({ item }: LegendListRenderItemProps<ListItem>) => {
       if (item.type === 'section-header') {
         if (!('title' in item) || !item.title) {
           return <ExploreSectionLoading variant="sectionHeader" />;
@@ -380,20 +380,12 @@ const ExploreScreen: React.FC = () => {
   );
 
   useExploreTabRefs({
-    flashListRef,
+    listRef,
     searchInputRef,
     resetExploreSearch,
     setIsSearchFocused,
     isSearching,
   });
-
-  const viewabilityConfig = useMemo(
-    () => ({
-      viewAreaCoveragePercentThreshold: 50,
-      minimumViewTime: 300,
-    }),
-    []
-  );
 
   const loadingSuggestedItems = useMemo(() => {
     return [{ type: 'loading' as const, variant: 'full' as const, key: 'loading-indicator' }];
@@ -476,8 +468,8 @@ const ExploreScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor={Colors.transparent} translucent={true} />
 
       <View style={StyleSheet.absoluteFill}>
-        <FlashList<ListItem>
-          ref={flashListRef}
+        <LegendList<ListItem>
+          ref={listRef}
           ListHeaderComponent={listHeaderComponent}
           data={suggestionsList}
           keyExtractor={exploreListKeyExtractor}
@@ -488,11 +480,9 @@ const ExploreScreen: React.FC = () => {
             suggestionsList.length >= SCROLL_INDICATOR_CONSTANTS.EXPLORE_SUGGESTIONS_MIN_ITEMS
           }
           bounces={true}
-          scrollEventThrottle={16}
           onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-          removeClippedSubviews={false}
-          viewabilityConfig={viewabilityConfig}
           ListEmptyComponent={renderExploreListEmpty}
+          estimatedItemSize={200}
         />
       </View>
 

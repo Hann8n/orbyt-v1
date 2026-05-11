@@ -2917,6 +2917,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@legendapp/list@npm:^3.0.0-beta.53":
+  version: 3.0.0-beta.53
+  resolution: "@legendapp/list@npm:3.0.0-beta.53"
+  dependencies:
+    use-sync-external-store: "npm:^1.5.0"
+  peerDependencies:
+    react: "*"
+  peerDependenciesMeta:
+    react-dom:
+      optional: true
+    react-native:
+      optional: true
+  checksum: 10c0/995024bb07a2556d90440f77ff0ad5ea0ef96b9d71e01726029232ab124b7d74d6449ba1e1777be107dfe5a5ce3b7ec23924f875805d489c21286c611634eab0
+  languageName: node
+  linkType: hard
+
 "@lodev09/react-native-true-sheet@npm:^3.8.1":
   version: 3.10.0
   resolution: "@lodev09/react-native-true-sheet@npm:3.10.0"
@@ -11406,6 +11422,7 @@ __metadata:
     "@expo/log-box": "npm:55.0.12"
     "@expo/metro-runtime": "npm:~55.0.11"
     "@formatjs/intl-segmenter": "npm:^12.1.0"
+    "@legendapp/list": "npm:^3.0.0-beta.53"
     "@lodev09/react-native-true-sheet": "npm:^3.8.1"
     "@react-native-async-storage/async-storage": "npm:^2.2.0"
     "@react-native-menu/menu": "npm:^2.0.0"

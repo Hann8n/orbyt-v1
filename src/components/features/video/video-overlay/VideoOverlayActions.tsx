@@ -73,7 +73,7 @@ function VideoOverlayActionsComponent({
     };
   });
 
-  // Reset shared values on FlashList recycle so the previous post's press animation
+  // Reset shared values on LegendList recycle so the previous post's press animation
   // doesn't bleed into the new post.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/immutability

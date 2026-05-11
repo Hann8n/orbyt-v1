@@ -1,8 +1,8 @@
 /**
- * FlashList v2-Optimized Feed Service
- * Consolidates all feed-related functionality with FlashList v2 performance optimizations
+ * LegendList-Optimized Feed Service
+ * Consolidates all feed-related functionality with LegendList performance optimizations
  * Enhanced memory management and caching for optimal video playback
- * Takes advantage of v2's automatic sizing and maintainVisibleContentPosition
+ * Takes advantage of LegendList's automatic sizing and minimal overhead
  */
 
 import { logger } from '../utils/logger';
@@ -648,7 +648,7 @@ class FeedService {
     }
   }
 
-  // Removed custom infinite scroll - using FlashList's onEndReached instead
+  // Removed custom infinite scroll - using LegendList's onEndReached instead
 
   // Query configuration helper (hooks must be called in useFeed hook, not here)
   // This method is kept for backwards compatibility but should not use hooks

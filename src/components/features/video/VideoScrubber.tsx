@@ -14,7 +14,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnUI, scheduleOnRN } from 'react-native-worklets';
-import { type VideoPlayer } from 'expo-video';
+import type { VideoPlayer } from 'expo-video';
 import { formatTime } from '../../../utils/formatting/time';
 import { Colors } from '../../../theme';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
@@ -44,10 +44,9 @@ const SCRUBBER_TOTAL_HEIGHT = SCRUBBER_TOUCH_AREA_HEIGHT + SCRUBBER_BAR_HEIGHT;
 const SCRUBBER_TRACK_CONTAINER_HEIGHT = 34;
 const SCRUBBER_BAR_HEIGHT_RANGE_PX = 5;
 const SCRUBBER_BAR_BASE_OPACITY = 0.5;
-// When video is actively playing (not user-seeking), make the leading progress line brighter.
 const SCRUBBER_BAR_PLAYING_OPACITY = 0.9;
-// Reduce the inactive/background track opacity so it's less visually prominent.
 const SCRUBBER_TRACK_OPACITY = 0.2;
+const SEEK_SETTLE_DELAY_MS = 50;
 
 function VideoScrubberActive({
   active,
@@ -160,7 +159,7 @@ function VideoScrubberActive({
       });
     };
 
-    syncPlaying(player.playing ?? false);
+    syncPlaying(player.playing);
     const sub = player.addListener('playingChange', ({ isPlaying }) => syncPlaying(isPlaying));
     return () => sub.remove();
   }, [player, active, isPlayingSV, currentTimeSV]);
@@ -243,30 +242,25 @@ function VideoScrubberActive({
     }
   }, [player]);
 
-  // Non-blocking seek - never interferes with playback state.
-  // expo-video's currentTime setter is already non-blocking.
   const seekTo = useCallback(
     (time: number) => {
       if (!player) return;
       try {
-        // expo-video player is an imperative SDK handle; assigning currentTime is the
-        // documented seek API. Not a React-managed value.
+        // eslint-disable-next-line react-compiler/react-compiler
         player.currentTime = time;
-
         scheduleOnUI(() => {
           'worklet';
           currentTimeSV.set(time);
         });
-
         setTimeout(() => {
           scheduleOnUI(() => {
             'worklet';
             isSeekingSV.set(false);
             seekingAnimationSV.set(withTiming(0, { duration: 500 }));
           });
-        }, 50);
+        }, SEEK_SETTLE_DELAY_MS);
       } catch (_error) {
-        // Silently ignore - scrubber never blocks or interferes with playback
+        // Silently ignore
       }
     },
     [player, isSeekingSV, seekingAnimationSV, currentTimeSV]
@@ -340,7 +334,7 @@ function VideoScrubberActive({
   // no Skia GPU surface, no extra render pass on every visible card.
   const trackContainerStyle = useAnimatedStyle(() => {
     const seekingAnim = seekingAnimationSV.get();
-    const containerOpacity = overlayOpacitySV.value;
+    const containerOpacity = overlayOpacitySV.get();
     return {
       opacity: seekingAnim > 0 ? Math.max(containerOpacity, 0.95) : Math.max(containerOpacity, 0.1),
     };
@@ -389,7 +383,7 @@ function VideoScrubberActive({
   }, [seekingAnimationSV, isSeekingSV, isPlayingSV, currentTimeSV, seekProgressSV]);
 
   const childrenContainerStyle = useAnimatedStyle(() => ({
-    opacity: overlayOpacitySV.value,
+    opacity: overlayOpacitySV.get(),
   }));
 
   const composedTimeStyle = useMemo(

@@ -57,7 +57,7 @@ export function useVideoCardGesture({
     transform: [{ scale: heartScale.value }],
   }));
 
-  // FlashList recycle: cancel in-flight heart animation so SVs don't leak to the next post.
+  // LegendList recycle: cancel in-flight heart animation so SVs don't leak to the next post.
   useEffect(() => {
     cancelAnimation(heartScale);
     cancelAnimation(heartOpacity);

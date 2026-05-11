@@ -23,7 +23,7 @@ import {
 } from './ActivityListStyles';
 import { View, Text, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
-import { FlashList, FlashListRef } from '@shopify/flash-list';
+import { LegendList, type LegendListRef, type LegendListRenderItemProps } from '@legendapp/list/react-native';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { ChatBskyConvoDefs } from '@atproto/api';
 import { ChatService, type ListConvosFilter } from '../../../services/api/chat/ChatService';
@@ -397,7 +397,7 @@ export interface ChatsTabProps {
 
 const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref) => {
   const { t } = useTranslation();
-  const listRef = useRef<FlashListRef<ConvoView>>(null);
+  const listRef = useRef<LegendListRef>(null);
   const scrollOffsetRef = useRef(0);
   const previousFirstConvoIdRef = useRef<string | undefined>(undefined);
   const navigation = useRouter();
@@ -549,7 +549,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: ConvoView }) => (
+    ({ item }: LegendListRenderItemProps<ConvoView>) => (
       <ConversationItem
         item={item}
         navigation={navigation}
@@ -605,22 +605,20 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
 
   return (
     <>
-      <FlashList
+      <LegendList
         ref={listRef}
         style={styles.listContainer}
         contentContainerStyle={[
           activityListSharedStyles.listContentContainer,
           { paddingBottom: bottomNavBarHeight + 5 },
         ]}
-        contentInsetAdjustmentBehavior="never"
         data={isError ? [] : conversations}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         getItemType={getItemType}
+        recycleItems
         ItemSeparatorComponent={ChatDivider}
-        drawDistance={400}
         onScroll={handleScroll}
-        scrollEventThrottle={16}
         ListHeaderComponent={listHeaderComponent}
         refreshControl={
           <RefreshControl
@@ -658,6 +656,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
             </View>
           ) : null
         }
+        estimatedItemSize={100}
       />
       <ChatSettingsSheet
         visible={showChatSettingsSheet}

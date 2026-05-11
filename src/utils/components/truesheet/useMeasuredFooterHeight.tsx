@@ -20,7 +20,7 @@ const wrapperStyle = StyleSheet.create({
  *     footer={wrapFooter(<MyFooter />)}
  *     ...
  *   >
- *     <FlashList contentContainerStyle={{ paddingBottom: contentBottomPadding }} ... />
+ *     <LegendList contentContainerStyle={{ paddingBottom: contentBottomPadding }} ... />
  *   </TrueSheet>
  *
  * @param fallbackHeight - Used before first layout and when measured height is 0 (e.g. 96 for comment input, 52 for cancel button).

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativePressable } from './NativePressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FlashList } from '@shopify/flash-list';
+import { LegendList } from '@legendapp/list/react-native';
 import { useRouter } from 'expo-router';
 import { QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '../../utils/constants';
 import { Colors } from './UI';
@@ -191,13 +191,14 @@ const ListScreen: React.FC<ListScreenProps> = ({
     return (
       <View style={[styles.container, { backgroundColor: Colors.neutral[975] }]}>
         {renderListHeader()}
-        <FlashList
+        <LegendList
           data={[]}
           renderItem={() => null}
           keyExtractor={() => 'loading'}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderLoading}
           contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 20 }]}
+          estimatedItemSize={100}
         />
       </View>
     );
@@ -207,13 +208,14 @@ const ListScreen: React.FC<ListScreenProps> = ({
     return (
       <View style={[styles.container, { backgroundColor: Colors.neutral[975] }]}>
         {renderListHeader()}
-        <FlashList
+        <LegendList
           data={[]}
           renderItem={() => null}
           keyExtractor={() => 'error'}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderError}
           contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 20 }]}
+          estimatedItemSize={100}
         />
       </View>
     );
@@ -222,10 +224,11 @@ const ListScreen: React.FC<ListScreenProps> = ({
   return (
     <View style={[styles.container, { backgroundColor: Colors.neutral[975] }]}>
       {renderListHeader()}
-      <FlashList
+      <LegendList
         data={data}
         renderItem={renderUser}
         keyExtractor={item => item.did}
+        recycleItems
         showsVerticalScrollIndicator={
           data.length >= SCROLL_INDICATOR_CONSTANTS.GENERIC_LIST_MIN_ITEMS
         }
@@ -237,6 +240,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
         onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 20 }]}
+        estimatedItemSize={72}
       />
     </View>
   );

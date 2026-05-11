@@ -1,7 +1,7 @@
 /**
  * Optimized feed renderer: single entry for list/grid feeds with visibility-aware playback.
- * Uses useMemo/useCallback so FlashList-bound props (`data`, `onLoadMore`, `commonProps`) stay
- * stable when unrelated parent/query churn occurs — aligns with FlashList v2 prop-memo guidance.
+ * Uses useMemo/useCallback so LegendList-bound props (`data`, `onLoadMore`, `commonProps`) stay
+ * stable when unrelated parent/query churn occurs — aligns with LegendList prop-memo guidance.
  * React Compiler handles memoization automatically; no manual memo() wrapper needed.
  */
 
@@ -84,7 +84,7 @@ interface FeedRendererProps {
   /** When opening the feed modal from grid, matches `Link.AppleZoomTarget` on the list row (iOS 18+). */
   zoomTargetPostUri?: string | null;
 
-  /** When true, FlashList shows pull-to-refresh (profile/channel). Ignored for search feeds. */
+  /** When true, LegendList shows pull-to-refresh (profile/channel). Ignored for search feeds. */
   pullToRefreshEnabled?: boolean;
   /** Runs in parallel with the feed infinite-query `refetch` (e.g. profile/channel metadata). */
   onPullToRefreshExtra?: () => Promise<unknown>;

@@ -1,5 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
-import { useRecyclingState } from '@shopify/flash-list';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -45,7 +44,6 @@ export interface UseVideoCardInteractionResult {
  */
 export function useVideoCardInteraction({
   postView,
-  feedOption,
 }: UseVideoCardInteractionArgs): UseVideoCardInteractionResult {
   const defaultInteraction = useMemo(
     () => ({
@@ -78,14 +76,25 @@ export function useVideoCardInteraction({
     [defaultInteraction, postInteractionDelta]
   );
 
-  const [overlayState, setOverlayState] = useRecyclingState(
-    {
-      isLikePending: false,
-      isRepostPending: false,
-      ...persistedInteraction,
-    },
-    [postView.uri, feedOption]
-  );
+  const [overlayState, setOverlayState] = useState<{
+    isLiked: boolean;
+    isReposted: boolean;
+    isBookmarked: boolean;
+    likeCount: number;
+    commentCount: number;
+    repostCount: number;
+    likeUri: string | undefined;
+    repostUri: string | undefined;
+    bookmarkUri?: string;
+    isLikePending: boolean;
+    isRepostPending: boolean;
+  }>({
+    isLikePending: false,
+    isRepostPending: false,
+    likeUri: undefined,
+    repostUri: undefined,
+    ...persistedInteraction,
+  });
 
   // Depend on specific fields — not the full overlayState object — so an unrelated
   // setOverlayState (e.g. isRepostPending: false) doesn't invalidate this memo.
@@ -142,6 +151,7 @@ export function useVideoCardInteraction({
       isBookmarked: display.isBookmarked,
       commentCount: display.commentCount,
       repostCount: display.repostCount,
+      repostUri: display.repostUri,
       isRepostPending: overlayState.isRepostPending,
     }),
     [display, overlayState.isLikePending, overlayState.isRepostPending]
