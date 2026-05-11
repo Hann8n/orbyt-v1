@@ -76,10 +76,11 @@ import { buildFeedModalHref, buildFullHeightVideoHref } from '@/utils/navigation
 import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { seedChatEmbedVideoFeed } from '@/utils/chat/seedChatEmbedVideoFeed';
 import { getVideoView } from '@/utils/video/helpers';
-import { blendColors, hexToRGBA } from '@/utils/formatting/colors';
+import { hexToRGBA, isColorDark } from '@/utils/formatting/colors';
 import type { PostView, ProfileViewBasic } from '@/services/api/types';
 import type { Label } from '@atproto/api/dist/client/types/com/atproto/label/defs';
 import type { RichTextFacet } from '@/utils/types/richText';
+import { formatRelativeDate } from '@/components/ui/RelativeDate';
 import EmojiPicker from 'react-native-emoji-chooser';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -239,19 +240,26 @@ function ChatMessageRichText({
   facets,
   isFromMe,
   fromMeAccentColor,
+  fromMeTextColor,
 }: {
   text: string;
   facets?: RichTextFacet[] | null;
   isFromMe: boolean;
   /** Profile ring / accent for outgoing link color */
   fromMeAccentColor?: string;
+  /** Profile text color for outgoing messages */
+  fromMeTextColor?: string;
 }) {
   const router = useRouter();
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
   const currentTab = useFeedModalTabSegment();
   const parts = useMemo(() => formatChatRichTextParts(text, facets), [text, facets]);
 
-  const messageTextStyle = useMemo(() => [styles.messageText, isFromMe && styles.messageTextFromMe], [isFromMe]);
+  const messageTextStyle = useMemo(() => [
+    styles.messageText,
+    isFromMe && styles.messageTextFromMe,
+    isFromMe && fromMeTextColor && { color: fromMeTextColor },
+  ], [isFromMe, fromMeTextColor]);
 
   const getPartStyle = useCallback((part: ChatRichTextPart) => [
     part.isSymbol && styles.messageTextMedium,
@@ -369,11 +377,11 @@ type EmbedRecordShape = {
   detached?: true;
 };
 
-const CHAT_EMBED_VIDEO_WIDTH = 150;
+const CHAT_EMBED_VIDEO_WIDTH = 160;
 const CHAT_EMBED_VIDEO_ASPECT = 9 / 16; // 9:16 card
-const CHAT_EMBED_VIDEO_RADIUS = 10; // slightly less round
+const CHAT_EMBED_VIDEO_RADIUS = BORDER_RADIUS.SMALL;
 /** Bottom corner toward screen edge — text/caption bubbles only */
-const CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS = 6;
+const CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS = BORDER_RADIUS.LARGE;
 
 type EmbedImage = {
   thumb?: string;
@@ -518,6 +526,53 @@ function EmbedDescription({
   );
 }
 
+/** Engagement metrics row for non-video embeds (likes, replies, reposts) */
+function EmbedMetrics({
+  replyCount,
+  repostCount,
+  likeCount,
+  isFromMe,
+}: {
+  replyCount?: number;
+  repostCount?: number;
+  likeCount?: number;
+  isFromMe: boolean;
+}) {
+  const hasMetrics = (replyCount ?? 0) > 0 || (repostCount ?? 0) > 0 || (likeCount ?? 0) > 0;
+  if (!hasMetrics) return null;
+
+  const textColor = isFromMe ? Colors.neutral[300] : Colors.neutral[400];
+
+  return (
+    <View style={[styles.embedMetricsRow, isFromMe && styles.embedMetricsRowFromMe]}>
+      {(replyCount ?? 0) > 0 && (
+        <View style={styles.embedMetricItem}>
+          <Icon name="chat" size={12} color={textColor} />
+          <Text style={[styles.embedMetricText, { color: textColor }]}>
+            {replyCount}
+          </Text>
+        </View>
+      )}
+      {(repostCount ?? 0) > 0 && (
+        <View style={styles.embedMetricItem}>
+          <Icon name="share_forward" size={12} color={textColor} />
+          <Text style={[styles.embedMetricText, { color: textColor }]}>
+            {repostCount}
+          </Text>
+        </View>
+      )}
+      {(likeCount ?? 0) > 0 && (
+        <View style={styles.embedMetricItem}>
+          <Icon name="heart" size={12} color={textColor} />
+          <Text style={[styles.embedMetricText, { color: textColor }]}>
+            {likeCount}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 /** Face-pile style overlap (px); smaller = more fanned out */
 const REACTION_OVERLAP = 5;
 const REACTION_CHIP_SIZE = 22;
@@ -659,7 +714,11 @@ function ChatMessageRow({
           {beforeEmbed}
         </NativePressable>
       ) : null}
-      {embed}
+      {beforeEmbed != null && embed ? (
+        <View style={styles.embedSpacing}>{embed}</View>
+      ) : (
+        embed
+      )}
       {caption != null ? (
         <NativePressable
           delayLongPress={400}
@@ -1199,8 +1258,17 @@ function ChatEmbeddedPost({
   const hasImages = embedImages.length > 0;
 
   const getClampedAspectRatio = (ar: number) => Math.max(0.5, Math.min(2.0, ar));
-  const CHAT_EMBED_IMAGE_SIZE = 80;
-  const CHAT_EMBED_IMAGE_SINGLE_MAX = 180;
+  // Increased image sizes for better visibility
+  const CHAT_EMBED_IMAGE_SIZE = 96;
+  const CHAT_EMBED_IMAGE_SINGLE_MAX = 240;
+
+  const engagementMetrics = {
+    replyCount: record.replyCount,
+    repostCount: record.repostCount,
+    likeCount: record.likeCount,
+  };
+
+  const timestamp = record.indexedAt ? formatRelativeDate(record.indexedAt) : null;
 
   return (
     <SquircleView style={[styles.embedContent, isFromMe && styles.embedContentFromMe]}>
@@ -1249,7 +1317,13 @@ function ChatEmbeddedPost({
           </View>
         )}
         <EmbedAuthor author={author} isFromMe={isFromMe} />
-        <EmbedDescription text={text} isFromMe={isFromMe} />
+        <EmbedDescription text={text} isFromMe={isFromMe} marginTop={hasImages ? 8 : 0} />
+        <EmbedMetrics {...engagementMetrics} isFromMe={isFromMe} />
+        {timestamp && (
+          <Text style={[styles.embedTimestamp, isFromMe && { textAlign: 'right' }]}>
+            {timestamp}
+          </Text>
+        )}
       </NativePressable>
     </SquircleView>
   );
@@ -1342,6 +1416,7 @@ export default function ChatScreen() {
   } = useProfileByDid(otherDid || null);
 
   // Merge basic profile from convo with viewer-specific data from profile query
+  // Prefer convo member data for speed, fall back to profile query
   const profile = useMemo(() => {
     if (!otherUserBasicProfile) return otherUserFullProfile;
     if (!otherUserFullProfile) return otherUserBasicProfile;
@@ -1355,14 +1430,19 @@ export default function ChatScreen() {
   const otherRingProps = useAvatarProfileRing(otherDid || null);
   const currentUserRingProps = useAvatarProfileRing(currentUserDid ?? null);
   const sentMessageAccentColor = currentUserRingProps.ringColor || Colors.brand.teal;
-  /** Outgoing bubble surface + rim: blend profile ring into neutral base (matches app profile colors). */
+  /** Outgoing bubble surface + rim: use profile colors directly */
   const sentBubbleBlendedStyle = useMemo(
     () => ({
-      backgroundColor: blendColors(Colors.neutral[900], sentMessageAccentColor, 0.3),
-      borderColor: blendColors(Colors.neutral[800], sentMessageAccentColor, 0.45),
+      backgroundColor: currentUserRingProps.profileColors?.backgroundColor || Colors.neutral[900],
+      borderColor: currentUserRingProps.profileColors?.backgroundColor || Colors.neutral[900],
     }),
-    [sentMessageAccentColor]
+    [currentUserRingProps.profileColors]
   );
+  /** Text color based on background luminance: white for dark backgrounds, black for light backgrounds */
+  const sentMessageTextColor = useMemo(() => {
+    const bgColor = currentUserRingProps.profileColors?.backgroundColor || Colors.neutral[900];
+    return isColorDark(bgColor) ? Colors.neutral[50] : Colors.neutral[900];
+  }, [currentUserRingProps.profileColors]);
   const otherUserAccentColor = otherRingProps.ringColor || Colors.neutral[700];
   const headerAvatarSize = itemSizeConfig.medium.avatarSize;
   const headerBadgeSize = itemSizeConfig.large.badgeTextSize;
@@ -1746,9 +1826,14 @@ export default function ChatScreen() {
             facets={(msg as { facets?: RichTextFacet[] | null }).facets ?? null}
             isFromMe={!!isFromMe}
             fromMeAccentColor={sentMessageAccentColor}
+            fromMeTextColor={sentMessageTextColor}
           />
         ) : (!msg.text || msg.text === '') && !hasEmbed ? (
-          <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
+          <Text style={[
+            styles.messageText,
+            isFromMe && styles.messageTextFromMe,
+            isFromMe && sentMessageTextColor && { color: sentMessageTextColor },
+          ]}>
             {getMessagePreview(msg)}
           </Text>
         ) : null;
@@ -1768,6 +1853,17 @@ export default function ChatScreen() {
             ]}
           >
             {beforeEmbedRaw}
+            {isFromMe ? (
+              <>
+                <View style={[styles.bubbleRightArrow, { backgroundColor: sentBubbleBlendedStyle.backgroundColor }]} />
+                <View style={[styles.bubbleRightArrowOverlap, { backgroundColor: Colors.neutral[975] }]} />
+              </>
+            ) : (
+              <>
+                <View style={[styles.bubbleLeftArrow, { backgroundColor: Colors.neutral[900] }]} />
+                <View style={styles.bubbleLeftArrowOverlap} />
+              </>
+            )}
           </SquircleView>
         ) : (
           beforeEmbedRaw
@@ -1792,7 +1888,19 @@ export default function ChatScreen() {
             facets={(msg as { facets?: RichTextFacet[] | null }).facets ?? null}
             isFromMe={!!isFromMe}
             fromMeAccentColor={sentMessageAccentColor}
+            fromMeTextColor={sentMessageTextColor}
           />
+          {isFromMe ? (
+            <>
+              <View style={[styles.bubbleRightArrow, { backgroundColor: sentBubbleBlendedStyle.backgroundColor }]} />
+              <View style={[styles.bubbleRightArrowOverlap, { backgroundColor: Colors.neutral[975] }]} />
+            </>
+          ) : (
+            <>
+              <View style={[styles.bubbleLeftArrow, { backgroundColor: Colors.neutral[900] }]} />
+              <View style={styles.bubbleLeftArrowOverlap} />
+            </>
+          )}
         </SquircleView>
       ) : null;
 
@@ -2004,6 +2112,7 @@ export default function ChatScreen() {
   );
 
   const headerHandleRaw = profile?.handle?.trim() ?? '';
+  // Show handle if available, otherwise show DID (immediate feedback, no waiting for profile fetch)
   const headerHandleTitle =
     headerHandleRaw !== ''
       ? formatHandle(headerHandleRaw)
@@ -2453,8 +2562,6 @@ const styles = StyleSheet.create({
   headerTitleColumn: {
     minWidth: 0,
     maxWidth: '100%',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
   },
   headerNameRow: {
     flexDirection: 'row',
@@ -2577,35 +2684,62 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   messageBubble: {
-    maxWidth: '85%',
+    maxWidth: '75%',
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-  },
-  messageBubbleThem: {
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.neutral[900],
     borderColor: Colors.neutral[800],
-    borderTopLeftRadius: BORDER_RADIUS.LARGE,
-    borderTopRightRadius: BORDER_RADIUS.LARGE,
-    borderBottomRightRadius: BORDER_RADIUS.LARGE,
-    borderBottomLeftRadius: CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
   messageBubbleMe: {
     alignSelf: 'flex-end',
-    borderTopLeftRadius: BORDER_RADIUS.LARGE,
-    borderTopRightRadius: BORDER_RADIUS.LARGE,
-    borderBottomLeftRadius: BORDER_RADIUS.LARGE,
     borderBottomRightRadius: CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS,
   },
-  /**
-   * Text under a video card: same bubble chrome as other messages (maxWidth, colors),
+  messageBubbleThem: {
+    alignSelf: 'flex-start',
+    borderBottomLeftRadius: CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS,
+    backgroundColor: Colors.neutral[900],
+  },
+  /** Text under a video card: same bubble chrome as other messages (maxWidth, colors),
    * slightly tighter padding and small top gap so it reads as attached to the video.
    */
   videoCaptionBubble: {
     marginTop: 4,
     paddingVertical: 8,
+  },
+  bubbleRightArrow: {
+    position: 'absolute',
+    width: 20,
+    height: 25,
+    bottom: 0,
+    borderBottomLeftRadius: 25,
+    right: -10,
+  },
+  bubbleRightArrowOverlap: {
+    position: 'absolute',
+    width: 20,
+    height: 35,
+    bottom: -6,
+    borderBottomLeftRadius: 18,
+    right: -20,
+  },
+  bubbleLeftArrow: {
+    position: 'absolute',
+    backgroundColor: Colors.neutral[900],
+    width: 20,
+    height: 25,
+    bottom: 0,
+    borderBottomRightRadius: 25,
+    left: -10,
+  },
+  bubbleLeftArrowOverlap: {
+    position: 'absolute',
+    backgroundColor: Colors.neutral[975],
+    width: 20,
+    height: 35,
+    bottom: -6,
+    borderBottomRightRadius: 18,
+    left: -20,
   },
   messageText: {
     color: Colors.neutral[50],
@@ -2749,12 +2883,15 @@ const styles = StyleSheet.create({
     color: Colors.coral[300],
   },
   embedContent: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    maxWidth: '85%',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    maxWidth: '90%',
     alignSelf: 'flex-start',
     backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderTopLeftRadius: BORDER_RADIUS.LARGE,
+    borderTopRightRadius: BORDER_RADIUS.LARGE,
+    borderBottomRightRadius: BORDER_RADIUS.LARGE,
+    borderBottomLeftRadius: CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.neutral[800],
     overflow: 'hidden',
@@ -2765,6 +2902,10 @@ const styles = StyleSheet.create({
   embedContentFromMe: {
     alignSelf: 'flex-end',
     alignItems: 'flex-end',
+    borderTopLeftRadius: BORDER_RADIUS.LARGE,
+    borderTopRightRadius: BORDER_RADIUS.LARGE,
+    borderBottomRightRadius: CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS,
+    borderBottomLeftRadius: BORDER_RADIUS.LARGE,
   },
   embedImagesContainer: {
     flexDirection: 'row',
@@ -2773,18 +2914,21 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     alignSelf: 'flex-start',
   },
+  embedSpacing: {
+    marginTop: 8,
+  },
   embedImagesContainerFromMe: {
     alignSelf: 'flex-end',
   },
   embedImageWrap: {
     overflow: 'hidden',
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   embedAuthorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   embedAuthorRowCompact: {
     marginBottom: 0,
@@ -2803,10 +2947,37 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.bodySmall,
     fontFamily: FontFamily.regular,
     lineHeight: Typography.lineHeights.bodySmall,
+    marginTop: 4,
   },
   embedDescriptionFromMe: {
     color: Colors.neutral[300],
     textAlign: 'right',
+  },
+  embedMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  embedMetricsRowFromMe: {
+    alignSelf: 'flex-end',
+  },
+  embedMetricItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  embedMetricText: {
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.medium,
+    color: Colors.neutral[400],
+  },
+  embedTimestamp: {
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.regular,
+    color: Colors.neutral[500],
+    marginTop: 4,
   },
   embedUnavailable: {
     opacity: 0.85,
