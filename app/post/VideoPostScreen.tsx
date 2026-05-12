@@ -403,6 +403,7 @@ const DescriptionInputModal: React.FC<{
   selection?: { start: number; end: number };
   setDescriptionSelection: (selection: { start: number; end: number }) => void;
   onClose: () => void;
+  inputRef?: React.RefObject<TextInput | null>;
   richTextSearchModalProps: {
     visible: boolean;
     onSelectUser?: (user: {
@@ -424,6 +425,7 @@ const DescriptionInputModal: React.FC<{
   selection,
   setDescriptionSelection,
   onClose,
+  inputRef,
   richTextSearchModalProps,
   insets,
 }) => {
@@ -467,6 +469,7 @@ const DescriptionInputModal: React.FC<{
             >
               <View style={styles.descriptionInputContainer}>
                 <TextInput
+                  ref={inputRef}
                   nativeID="video-post-description-input"
                   value={description}
                   onChangeText={setDescription}
@@ -601,13 +604,16 @@ const VideoPostScreen: React.FC = () => {
   }));
 
   // Rich text search hook for description input (for @ mentions and # hashtags)
-  const { inputProps: descriptionInputProps, richTextSearchModalProps } = useRichTextSearchTrigger({
+  const descriptionInputRef = useRef<TextInput | null>(null);
+
+  const { richTextSearchModalProps } = useRichTextSearchTrigger({
     value: description,
     selection: descriptionSelection,
     onChangeText: setDescription,
     onSelectionChange: e => {
       setDescriptionSelection(e.nativeEvent.selection);
     },
+    inputRef: descriptionInputRef,
   });
 
   useEffect(() => {
@@ -1224,10 +1230,11 @@ const VideoPostScreen: React.FC = () => {
       <DescriptionInputModal
         visible={showDescriptionInputModal}
         description={description}
-        selection={descriptionInputProps.selection}
+        selection={descriptionSelection}
         setDescription={setDescription}
         setDescriptionSelection={setDescriptionSelection}
         onClose={() => setShowDescriptionInputModal(false)}
+        inputRef={descriptionInputRef}
         richTextSearchModalProps={richTextSearchModalProps}
         insets={insets}
       />

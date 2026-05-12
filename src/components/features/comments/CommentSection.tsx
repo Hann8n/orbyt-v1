@@ -442,6 +442,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     selection: inputSelection,
     onChangeText: setNewCommentText,
     onSelectionChange: e => setInputSelection(e.nativeEvent.selection),
+    inputRef,
+    horizontalPillStyle: true,
   });
 
   const defaultHeaderInteraction = useMemo(

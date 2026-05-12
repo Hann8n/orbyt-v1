@@ -1369,6 +1369,8 @@ export default function ChatScreen() {
     selection: inputSelection,
     onChangeText: setInputText,
     onSelectionChange: e => setInputSelection(e.nativeEvent.selection),
+    inputRef,
+    horizontalPillStyle: true,
   });
 
   const openByDid = isDid(rawId);
@@ -2473,6 +2475,7 @@ export default function ChatScreen() {
               hideMediaAddButton
               richTextSearchModalProps={richTextSearchModalProps}
               mentionInputProps={mentionInputProps}
+              horizontalPillStyle={true}
             />
           </View>
         )}

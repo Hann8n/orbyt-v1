@@ -3,6 +3,7 @@ import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   FlatList,
   Platform,
@@ -49,6 +50,7 @@ interface UseUserSearchTriggerProps {
   onChangeText: (text: string) => void;
   onSelectionChange?: (e: { nativeEvent: { selection: { start: number; end: number } } }) => void;
   onMentionInsert?: (user: UserProfile) => void;
+  inputRef?: React.RefObject<TextInput | null>;
 }
 
 export interface RichTextSearchModalProps {
@@ -311,6 +313,7 @@ function useSearchTrigger({
   onChangeText,
   onSelectionChange,
   onMentionInsert,
+  inputRef,
   enableHashtags = false,
   horizontalPillStyle = false,
 }: UseSearchTriggerProps) {
@@ -318,9 +321,6 @@ function useSearchTrigger({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'mention' | 'hashtag'>('mention');
   const [searchRange, setSearchRange] = useState<{ start: number; end: number } | null>(null);
-  
-  // Track cursor position after insertion for controlled selection prop
-  const pendingCursorPosRef = useRef<number | null>(null);
   const deferredValue = useDeferredValue(value);
 
   // Watch value/selection for @ mention or # hashtag using shared utility
@@ -350,12 +350,13 @@ function useSearchTrigger({
     }
   }, [value, deferredValue, selection, modalVisible, enableHashtags]);
 
-  // Clear pending cursor position after it's been applied
-  useEffect(() => {
-    if (pendingCursorPosRef.current !== null && selection.start === pendingCursorPosRef.current) {
-      pendingCursorPosRef.current = null;
-    }
-  }, [selection]);
+  // Imperatively place cursor after insertion without holding a controlled `selection` prop.
+  // setNativeProps is a fire-and-forget nudge that doesn't fight native cursor on subsequent keystrokes.
+  const placeCursor = useCallback((pos: number) => {
+    requestAnimationFrame(() => {
+      inputRef?.current?.setNativeProps({ selection: { start: pos, end: pos } });
+    });
+  }, [inputRef]);
 
   // Insert selected user at the mention position
   const handleSelectUser = useCallback((user: UserProfile) => {
@@ -366,15 +367,13 @@ function useSearchTrigger({
     const newValue = before + insert + after;
     const newCursorPos = searchRange.start + insert.length;
     
-    // Store the intended cursor position for controlled selection prop
-    pendingCursorPosRef.current = newCursorPos;
-    
     onChangeText(newValue);
+    placeCursor(newCursorPos);
     setModalVisible(false);
     setSearchQuery('');
     setSearchRange(null);
     onMentionInsert?.(user);
-  }, [searchRange, searchType, value, onChangeText, onMentionInsert]);
+  }, [searchRange, searchType, value, onChangeText, placeCursor, onMentionInsert]);
 
   // Insert selected hashtag at the hashtag position
   const handleSelectHashtag = useCallback((hashtag: string) => {
@@ -385,26 +384,18 @@ function useSearchTrigger({
     const newValue = before + insert + after;
     const newCursorPos = searchRange.start + insert.length;
     
-    // Store the intended cursor position for controlled selection prop
-    pendingCursorPosRef.current = newCursorPos;
-    
     onChangeText(newValue);
+    placeCursor(newCursorPos);
     setModalVisible(false);
     setSearchQuery('');
     setSearchRange(null);
-  }, [searchRange, searchType, value, onChangeText]);
-
-  // Compute selection prop: use pending position if available, otherwise undefined (uncontrolled)
-  const selectionProp = pendingCursorPosRef.current !== null
-    ? { start: pendingCursorPosRef.current, end: pendingCursorPosRef.current }
-    : undefined;
+  }, [searchRange, searchType, value, onChangeText, placeCursor]);
 
   return {
     inputProps: {
       value,
       onChangeText,
       onSelectionChange,
-      selection: selectionProp,
       autoCorrect: false,
       autoCapitalize: 'none' as const,
     },
@@ -433,8 +424,9 @@ export function useUserSearchTrigger(props: UseUserSearchTriggerProps) {
 }
 
 // Legacy wrapper for backward compatibility
-export function useRichTextSearchTrigger(props: UseUserSearchTriggerProps) {
-  const { inputProps, modalProps } = useSearchTrigger({ ...props, enableHashtags: true });
+export function useRichTextSearchTrigger(props: UseUserSearchTriggerProps & { horizontalPillStyle?: boolean }) {
+  const { horizontalPillStyle, ...rest } = props;
+  const { inputProps, modalProps } = useSearchTrigger({ ...rest, enableHashtags: true, horizontalPillStyle });
   return {
     inputProps,
     richTextSearchModalProps: {

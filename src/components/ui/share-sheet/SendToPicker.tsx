@@ -95,7 +95,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   >(null);
   const [isSending, setIsSending] = useState(false);
   const searchInputRef = useRef<TextInput | null>(null);
-  const messageInputRef = useRef<null>(null);
+  const messageInputRef = useRef<TextInput | null>(null);
 
   const footerFallbackHeight = 96;
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
@@ -107,6 +107,8 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
       selection: sendMessageInputSelection,
       onChangeText: setSendMessageText,
       onSelectionChange: e => setSendMessageInputSelection(e.nativeEvent.selection),
+      inputRef: messageInputRef,
+      horizontalPillStyle: true,
     });
 
   const { data: conversationsData, isLoading: conversationsLoading } = useInfiniteQuery({
@@ -315,6 +317,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
       currentUserAvatar={currentUserProfile?.avatar}
       richTextSearchModalProps={messageRichTextSearchProps}
       mentionInputProps={messageMentionInputProps}
+      horizontalPillStyle={true}
     />
   );
 
