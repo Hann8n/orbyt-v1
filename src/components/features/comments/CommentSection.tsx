@@ -52,7 +52,6 @@ import {
   QUERY_CONSTANTS,
   SCROLL_INDICATOR_CONSTANTS,
 } from '../../../utils/constants';
-import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { FontFamily, Typography, TextStyles } from '../../../utils/components/typography';
 import CommentInputFooter from './CommentInputFooter';
@@ -277,7 +276,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const isLiked = globalData?.isLiked ?? propIsLiked;
   const postedAt = globalData?.postedAt ?? propPostedAt;
   const scrollToCommentUri = globalData?.scrollToCommentUri;
-  const [displayedTotalComments, setDisplayedTotalComments] = useState(totalComments);
 
   const [listBottomPadding, wrapFooter] = useMeasuredFooterHeight(96);
   const listContentStyle = useMemo(
@@ -461,13 +459,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const updatePostInteraction = usePostInteractionStore(state => state.updatePostInteraction);
   const deletedComments = useCommentStore(state => state.deletedComments);
 
-  useEffect(() => {
-    const nextCount = post?.uri
-      ? (persistedHeaderInteraction?.commentCount ?? totalComments)
-      : totalComments;
-    setDisplayedTotalComments(nextCount);
-  }, [post?.uri, totalComments, persistedHeaderInteraction?.commentCount]);
-
   const [headerLikeState, setHeaderLikeState] = useState<{
     isLiked: boolean;
     likeCount: number;
@@ -483,8 +474,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     if (!post?.uri) return !!isLiked;
     return persistedHeaderInteraction?.isLiked ?? !!isLiked;
   });
-  const resolvedTotalLikes = post?.uri ? headerLikeState.likeCount : totalLikes;
-
   useEffect(() => {
     if (!post?.uri) {
       const fallbackLiked = !!isLiked;
@@ -507,7 +496,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         likeCount: storeState.likeCount,
         likeUri: storeState.likeUri,
       }));
-      setDisplayedTotalComments(storeState.commentCount);
       setHeaderVisualLiked(prev => (prev === storeState.isLiked ? prev : storeState.isLiked));
       return;
     }
@@ -519,7 +507,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       likeCount: totalLikes,
       likeUri: undefined,
     }));
-    setDisplayedTotalComments(totalComments);
     setHeaderVisualLiked(prev => (prev === fallbackLiked ? prev : fallbackLiked));
     updatePostInteraction(post.uri, {
       isLiked: fallbackLiked,
@@ -754,11 +741,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     const previousCommentsData = queryClient.getQueryData<InfiniteData<CommentsPage>>(queryKey);
 
     if (!isReply) {
-      setDisplayedTotalComments(prev => {
-        const next = prev + 1;
-        updatePostInteraction(rootUri, { commentCount: next });
-        return next;
-      });
+      const currentCount = usePostInteractionStore.getState().interactions.get(rootUri)?.commentCount ?? totalComments;
+      const next = currentCount + 1;
+      updatePostInteraction(rootUri, { commentCount: next });
       queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, old =>
         bumpReplyCountInFeedCacheData(old, rootUri, 1)
       );
@@ -883,11 +868,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       setTimeout(() => inputRef.current?.focus?.(), 100);
     } catch (error) {
       if (!isReply) {
-        setDisplayedTotalComments(prev => {
-          const next = Math.max(0, prev - 1);
-          updatePostInteraction(rootUri, { commentCount: next });
-          return next;
-        });
+        const currentCount = usePostInteractionStore.getState().interactions.get(rootUri)?.commentCount ?? totalComments;
+        const next = Math.max(0, currentCount - 1);
+        updatePostInteraction(rootUri, { commentCount: next });
         queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, old =>
           bumpReplyCountInFeedCacheData(old, rootUri, -1)
         );
@@ -976,27 +959,23 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     () => [
       {
         id: 'comments',
-        label: t('comments.commentsCount', { formattedCount: formatNumber(displayedTotalComments) }),
+        label: t('comments.comments'),
       },
       {
         id: 'likes',
-        label: t('comments.likesCount', { formattedCount: formatNumber(resolvedTotalLikes) }),
+        label: t('comments.likes'),
       },
     ],
-    [t, displayedTotalComments, resolvedTotalLikes]
+    [t]
   );
 
   const handleCommentDeleted = useCallback(
     (wasReply?: boolean) => {
       if (wasReply) return;
-      setDisplayedTotalComments(prev => {
-        const next = Math.max(0, prev - 1);
-        if (post?.uri) {
-          updatePostInteraction(post.uri, { commentCount: next });
-        }
-        return next;
-      });
       if (!post?.uri) return;
+      const currentCount = usePostInteractionStore.getState().interactions.get(post.uri)?.commentCount ?? totalComments;
+      const next = Math.max(0, currentCount - 1);
+      updatePostInteraction(post.uri, { commentCount: next });
       queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, old =>
         bumpReplyCountInFeedCacheData(old, post.uri, -1)
       );

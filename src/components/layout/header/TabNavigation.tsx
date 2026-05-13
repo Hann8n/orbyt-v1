@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   },
   tabTextComments: {
     fontFamily: Typography.families.black,
-    fontSize: 17,
+    fontSize: 18,
   },
 });
 
