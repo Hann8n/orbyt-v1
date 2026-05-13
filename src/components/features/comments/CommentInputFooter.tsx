@@ -4,26 +4,23 @@ import {
   View,
   Text,
   TextInput,
-  ScrollView,
   StyleSheet,
   Platform,
-  type StyleProp,
-  type ViewStyle,
-  type ImageStyle,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { MenuView } from '@react-native-menu/menu';
 import type { MenuAction } from '@react-native-menu/menu';
-import Icon from '../../ui/Icon';
+import Icon, { CloseFillIcon } from '../../ui/Icon';
 import UI from '../../ui/UI';
 import { Colors } from '../../../theme';
-import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import { androidTextFix } from '../../../utils/styling/platformText';
 import { COMPOSER_STYLES } from '../../../utils/components/truesheet/sheetStyles';
-import { COMPOSER_INPUT_PADDING } from '../../../utils/components/truesheet/utils';
+import { COMPOSER_INPUT_PADDING, COMPOSER_INPUT_DIMENSIONS } from '../../../utils/components/truesheet/utils';
 import { useMentionInput } from '../../ui/MentionInputWithSearch';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileByDid } from '../../../services/data/ProfileService';
@@ -90,6 +87,36 @@ const EMPTY_SELECTED_IMAGES = Object.freeze(
   [] as NonNullable<CommentInputFooterProps['selectedImages']>
 );
 
+interface AttachmentThumbProps {
+  uri: string | null;
+  aspectRatio: number;
+  onRemove: (() => void) | null;
+  removeLabel: string;
+}
+
+const AttachmentThumb: React.FC<AttachmentThumbProps> = ({ uri, aspectRatio, onRemove, removeLabel }) => (
+  <SquircleView style={[styles.attachmentThumb, { aspectRatio }]}>
+    {uri ? (
+      <Image source={{ uri }} style={styles.attachmentThumbImage} contentFit="cover" />
+    ) : (
+      <View style={styles.attachmentThumbPlaceholder} />
+    )}
+    {onRemove ? (
+      <NativePressable
+        onPress={onRemove}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        style={styles.removeThumbButton}
+        accessibilityRole="button"
+        accessibilityLabel={removeLabel}
+      >
+        <BlurView style={styles.removeThumbPill} tint="dark" intensity={80}>
+          <CloseFillIcon size={13} color={Colors.neutral[50]} />
+        </BlurView>
+      </NativePressable>
+    ) : null}
+  </SquircleView>
+);
+
 const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   value,
   onChangeText,
@@ -146,14 +173,10 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const { data: currentUserProfile } = useProfileByDid(currentUserDid);
 
   const hasImages = resolvedSelectedImages.length > 0;
-  const hasGifPreview = !!selectedGifPreviewUri;
   // `selectedGifPreviewUri` can be null depending on the provider; `hasAttachment` is the reliable signal.
   const hasGifAttachment = !hasImages && !!hasAttachment;
   const gifAspectRatio =
     selectedGifAspectRatio && selectedGifAspectRatio > 0 ? selectedGifAspectRatio : 1;
-  const gifAttachmentWrapStyle = [styles.attachmentThumbWrap, { aspectRatio: gifAspectRatio }];
-  const attachmentThumbWrapStyle: StyleProp<ViewStyle> = styles.attachmentThumbWrap;
-  const attachmentThumbImageStyle: StyleProp<ImageStyle> = styles.attachmentThumb;
   const attachmentKind: 'images' | 'gif' | 'none' = hasImages
     ? 'images'
     : hasGifAttachment
@@ -169,6 +192,27 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const handlePickPhotos = () => {
     onPressPhotos?.();
   };
+
+  const [inputHeight, setInputHeight] = React.useState<number>(COMPOSER_INPUT_DIMENSIONS.minHeight);
+
+  const handleContentSizeChange = React.useCallback(
+    (e: { nativeEvent: { contentSize: { height: number } } }) => {
+      const h = e.nativeEvent.contentSize.height;
+      setInputHeight(
+        Math.max(
+          COMPOSER_INPUT_DIMENSIONS.minHeight,
+          Math.min(COMPOSER_INPUT_DIMENSIONS.maxHeight, h)
+        )
+      );
+    },
+    []
+  );
+
+  React.useEffect(() => {
+    if (!value) {
+      setInputHeight(COMPOSER_INPUT_DIMENSIONS.minHeight);
+    }
+  }, [value]);
 
   const mediaMenuActions: MenuAction[] = [];
   if (onPressGif) {
@@ -213,85 +257,6 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               </View>
             ) : null}
             <View style={styles.inputColumn}>
-              {attachmentKind === 'none' ? null : (
-                <View style={styles.attachmentRow}>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={
-                      (hasImages ? resolvedSelectedImages.length : hasGifAttachment ? 1 : 0) >=
-                      SCROLL_INDICATOR_CONSTANTS.COMPOSER_ATTACHMENTS_MIN_ITEMS
-                    }
-                    contentContainerStyle={styles.attachmentStrip}
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    {attachmentKind === 'gif' ? (
-                      <SquircleView style={gifAttachmentWrapStyle}>
-                        {hasGifPreview ? (
-                          <Image
-                            source={{ uri: selectedGifPreviewUri ?? undefined }}
-                            style={attachmentThumbImageStyle}
-                            contentFit="cover"
-                          />
-                        ) : (
-                          <View style={styles.gifFallbackThumb} />
-                        )}
-                        {onClearGif ? (
-                          <NativePressable
-                            onPress={onClearGif}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            style={styles.removeThumbButton}
-                            accessibilityRole="button"
-                            accessibilityLabel={t('comments.removeGif')}
-                          >
-                            <Icon name="close" size={18} color={Colors.neutral[50]} />
-                          </NativePressable>
-                        ) : onClearAttachment ? (
-                          <NativePressable
-                            onPress={onClearAttachment}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            style={styles.removeThumbButton}
-                            accessibilityRole="button"
-                            accessibilityLabel={t('comments.removeGif')}
-                          >
-                            <Icon name="close" size={18} color={Colors.neutral[50]} />
-                          </NativePressable>
-                        ) : null}
-                      </SquircleView>
-                    ) : null}
-                    {hasImages
-                      ? resolvedSelectedImages.slice(0, 4).map(img => {
-                          const ar =
-                            img.aspectRatio && img.aspectRatio.height > 0
-                              ? img.aspectRatio.width / img.aspectRatio.height
-                              : 1;
-                          return (
-                            <SquircleView
-                              key={img.uri}
-                              style={[attachmentThumbWrapStyle, { aspectRatio: ar }]}
-                            >
-                              <Image
-                                source={{ uri: img.uri }}
-                                style={attachmentThumbImageStyle}
-                                contentFit="cover"
-                              />
-                              {onRemoveImage ? (
-                                <NativePressable
-                                  onPress={() => onRemoveImage(img.uri)}
-                                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                  style={styles.removeThumbButton}
-                                  accessibilityRole="button"
-                                  accessibilityLabel={t('comments.removeImage')}
-                                >
-                                  <Icon name="close" size={18} color={Colors.neutral[50]} />
-                                </NativePressable>
-                              ) : null}
-                            </SquircleView>
-                          );
-                        })
-                      : null}
-                  </ScrollView>
-                </View>
-              )}
               <View style={styles.inputBubbleRow}>
                 <SquircleView style={styles.inputWrapper}>
                   <TextInput
@@ -302,9 +267,9 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                     placeholderTextColor={Colors.neutral[500]}
                     multiline
                     maxLength={maxLength + 25}
-                    style={styles.textInput}
-                    editable={!isPosting}
+                    style={[styles.textInput, { height: inputHeight }]}
                     onFocus={onFocus}
+                    onContentSizeChange={handleContentSizeChange}
                     keyboardType="default"
                     returnKeyType="default"
                     autoComplete="off"
@@ -393,6 +358,32 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
             </View>
           </View>
         </View>
+        {attachmentKind !== 'none' && (
+          <View style={styles.attachmentTray}>
+            {attachmentKind === 'gif' ? (
+              <AttachmentThumb
+                uri={selectedGifPreviewUri ?? null}
+                aspectRatio={gifAspectRatio}
+                onRemove={onClearGif ?? onClearAttachment ?? null}
+                removeLabel={t('comments.removeGif')}
+              />
+            ) : (
+              resolvedSelectedImages.slice(0, 4).map(img => (
+                <AttachmentThumb
+                  key={img.uri}
+                  uri={img.uri}
+                  aspectRatio={
+                    img.aspectRatio && img.aspectRatio.height > 0
+                      ? img.aspectRatio.width / img.aspectRatio.height
+                      : 1
+                  }
+                  onRemove={onRemoveImage ? () => onRemoveImage(img.uri) : null}
+                  removeLabel={t('comments.removeImage')}
+                />
+              ))
+            )}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -490,36 +481,42 @@ const styles = StyleSheet.create({
     color: Colors.coral[300],
     height: 84,
   },
-  attachmentRow: {
-    paddingBottom: 10,
-  },
-  attachmentStrip: {
+  attachmentTray: {
     flexDirection: 'row',
-    gap: 10,
-    paddingRight: 2,
-  },
-  attachmentThumbWrap: {
-    marginRight: 0,
-    height: 72,
-    maxWidth: 128,
-    borderRadius: BORDER_RADIUS.SMALL,
-    overflow: 'hidden',
-    backgroundColor: Colors.transparent,
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.neutral[900],
   },
   attachmentThumb: {
+    height: 72,
+    maxWidth: 160,
+    borderRadius: BORDER_RADIUS.SMALL,
+    overflow: 'hidden',
+    backgroundColor: Colors.neutral[900],
+  },
+  attachmentThumbImage: {
     width: '100%',
     height: '100%',
   },
-  gifFallbackThumb: {
+  attachmentThumbPlaceholder: {
     width: '100%',
     height: '100%',
     backgroundColor: Colors.overlay.white10,
   },
   removeThumbButton: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: Colors.transparent,
+    top: 5,
+    right: 5,
+  },
+  removeThumbPill: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },

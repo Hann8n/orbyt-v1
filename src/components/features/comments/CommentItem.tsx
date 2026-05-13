@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Alert, Linking, Share, ScrollView } from 'react-native';
@@ -25,6 +25,7 @@ import { MenuView } from '@react-native-menu/menu';
 import type { MenuAction } from '@react-native-menu/menu';
 
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
+import { useLikeCommentMutation, useDeleteCommentMutation } from '../../../hooks/useCommentMutations';
 import { ModerationService } from '../../../services/moderation/ModerationService';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { formatNumber } from '../../../utils/formatting/numbers';
@@ -37,7 +38,6 @@ import { NanoIcon } from '../../ui/NanoIcon';
 import { VerificationBadge, BotBadge } from '../badging';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate from '../../ui/RelativeDate';
-import { useCommentStore } from '../../../stores/commentStore';
 import { useUserStore } from '../../../stores/userStore';
 import type { Comment } from '../../../services/api/types';
 
@@ -61,9 +61,6 @@ function getCommentUri(c: Comment) {
 function getCommentCid(c: Comment) {
   return c?.cid;
 }
-function getCommentViewerLike(c: Comment) {
-  return c?.viewer?.like;
-}
 function getCommentLikeCount(c: Comment) {
   return c?.likeCount ?? 0;
 }
@@ -80,20 +77,9 @@ function getCommentEmbed(c: Comment) {
   return viewEmbed ?? recordEmbed;
 }
 
-// Gallery constants — match Bluesky's aspect ratio bounds
-const GALLERY_HEIGHT = 180;
+// Gallery constants — natural aspect ratio display
+const GALLERY_MAX_HEIGHT = 240;
 const GALLERY_ITEM_GAP = 8;
-const GALLERY_MIN_AR = 2 / 3;
-const GALLERY_MAX_AR = 3 / 2;
-
-function galleryImageDims(ar?: { width: number; height: number }): {
-  width: number;
-  height: number;
-} {
-  const raw = ar && ar.height > 0 ? ar.width / ar.height : 1;
-  const clamped = Math.max(GALLERY_MIN_AR, Math.min(raw, GALLERY_MAX_AR));
-  return { width: Math.floor(GALLERY_HEIGHT * clamped), height: GALLERY_HEIGHT };
-}
 
 /** Repo DID for CDN blob URLs — author.did, or parsed from at:// URI when author is minimal. */
 function getCommentRepoDid(comment: Comment): string | undefined {
@@ -146,62 +132,150 @@ interface EmbedImage {
   aspectRatio?: { width: number; height: number };
 }
 
+interface GalleryImageItemProps {
+  img: EmbedImage;
+  idx: number;
+  maxWidth: number;
+  onImagePress?: (uri: string) => void;
+}
+
+const GalleryImageItem: React.FC<GalleryImageItemProps> = ({ img, idx, maxWidth, onImagePress }) => {
+  const [actualDimensions, setActualDimensions] = React.useState<{ width: number; height: number } | null>(null);
+
+  const imageUri = img.fullsize || img.thumb;
+
+  // Calculate display dimensions constrained to available width
+  const displayDims = React.useMemo(() => {
+    const ar = img.aspectRatio;
+    const aspectRatio = ar && ar.height > 0 ? ar.width / ar.height : 4 / 3;
+
+    // Constrain to max width, calculate height from aspect ratio
+    const width = maxWidth;
+    const height = width / aspectRatio;
+
+    // Cap height at max
+    const finalHeight = Math.min(height, GALLERY_MAX_HEIGHT);
+    const finalWidth = finalHeight * aspectRatio;
+
+    return {
+      width: Math.round(Math.min(finalWidth, maxWidth)),
+      height: Math.round(Math.max(finalHeight, 80)),
+    };
+  }, [img.aspectRatio, maxWidth]);
+
+  // Update dimensions when actual image loads (in case API aspect ratio was wrong)
+  const handleLoad = React.useCallback(
+    (event: { source: { width: number; height: number } }) => {
+      const { width: imgWidth, height: imgHeight } = event.source;
+      if (imgWidth > 0 && imgHeight > 0) {
+        const actualAspectRatio = imgWidth / imgHeight;
+        const width = maxWidth;
+        const height = width / actualAspectRatio;
+        const finalHeight = Math.min(height, GALLERY_MAX_HEIGHT);
+        const finalWidth = finalHeight * actualAspectRatio;
+
+        setActualDimensions({
+          width: Math.round(Math.min(finalWidth, maxWidth)),
+          height: Math.round(Math.max(finalHeight, 80)),
+        });
+      }
+    },
+    [maxWidth]
+  );
+
+  const dims = actualDimensions || displayDims;
+
+  return (
+    <NativePressable
+      style={[galleryStyles.item, { width: dims.width, height: dims.height }]}
+      onPress={() => onImagePress?.(imageUri)}
+      accessibilityRole="imagebutton"
+      accessibilityLabel={img.alt || undefined}
+    >
+      <Image
+        source={{ uri: img.thumb || img.fullsize }}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+        priority={idx < 2 ? 'high' : 'normal'}
+        recyclingKey={imageUri}
+        loading={idx === 0 ? 'eager' : 'lazy'}
+        transition={200}
+        onLoad={handleLoad}
+      />
+    </NativePressable>
+  );
+};
+
 const CommentImageGallery: React.FC<{
   images: EmbedImage[];
   onImagePress?: (uri: string) => void;
-  contentFit?: 'cover' | 'contain';
-}> = ({ images, onImagePress, contentFit = 'cover' }) => (
-  <View style={galleryStyles.outer}>
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      scrollEventThrottle={16}
-      decelerationRate="fast"
-      bounces={false}
-      contentContainerStyle={galleryStyles.scrollContent}
-      style={galleryStyles.scroll}
-    >
-      {images.map((img, idx) => {
-        const dims = galleryImageDims(img.aspectRatio);
-        return (
-          <NativePressable
+}> = ({ images, onImagePress }) => {
+  const [containerWidth, setContainerWidth] = React.useState(300);
+
+  const handleLayout = React.useCallback((event: { nativeEvent: { layout: { width: number } } }) => {
+    setContainerWidth(event.nativeEvent.layout.width);
+  }, []);
+
+  // Single image: fills width naturally
+  if (images.length === 1) {
+    return (
+      <View style={galleryStyles.outer} onLayout={handleLayout}>
+        <GalleryImageItem
+          img={images[0]}
+          idx={0}
+          maxWidth={containerWidth}
+          onImagePress={onImagePress}
+        />
+      </View>
+    );
+  }
+
+  // Multiple images: show in horizontal scroll with constrained widths
+  return (
+    <View style={galleryStyles.outer} onLayout={handleLayout}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        decelerationRate="fast"
+        bounces={false}
+        contentContainerStyle={galleryStyles.scrollContent}
+        style={galleryStyles.scroll}
+      >
+        {images.map((img, idx) => (
+          <GalleryImageItem
             key={img.thumb || img.fullsize || String(idx)}
-            style={[galleryStyles.item, dims]}
-            onPress={() => onImagePress?.(img.fullsize || img.thumb)}
-            accessibilityRole="imagebutton"
-            accessibilityLabel={img.alt || undefined}
-          >
-            <Image
-              source={{ uri: img.thumb || img.fullsize }}
-              style={dims}
-              contentFit={contentFit}
-              recyclingKey={img.thumb || img.fullsize}
-              loading={idx === 0 ? 'eager' : 'lazy'}
-            />
-          </NativePressable>
-        );
-      })}
-    </ScrollView>
-  </View>
-);
+            img={img}
+            idx={idx}
+            maxWidth={Math.min(200, containerWidth * 0.6)}
+            onImagePress={onImagePress}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+};
 
 const galleryStyles = StyleSheet.create({
   outer: {
     marginTop: 8,
     marginBottom: 4,
-    height: GALLERY_HEIGHT,
+    width: '100%',
   },
   scroll: {
-    height: GALLERY_HEIGHT,
+    maxHeight: GALLERY_MAX_HEIGHT + 8,
   },
   scrollContent: {
     gap: GALLERY_ITEM_GAP,
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    paddingRight: 16,
+    paddingVertical: 4,
   },
   item: {
     borderRadius: BORDER_RADIUS.MEDIUM,
     overflow: 'hidden',
-    backgroundColor: Colors.neutral[950],
+    backgroundColor: 'transparent',
   },
 });
 
@@ -220,69 +294,14 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const { t } = useTranslation();
   const uri = getCommentUri(comment);
   const cid = getCommentCid(comment);
-  const viewerLike = getCommentViewerLike(comment);
 
-  const updateCommentInteraction = useCommentStore(state => state.updateCommentInteraction);
-  const getCommentInteraction = useCommentStore(state => state.getCommentInteraction);
-  const markCommentAsDeleted = useCommentStore(state => state.markCommentAsDeleted);
   const currentUserDid = useUserStore(state => state.currentUser?.did);
 
-  // Get persisted interaction state from store, with API data as fallback
-  // Only use store if we have a valid URI (prevents undefined keys causing shared state)
-  const initialLikeCount = getCommentLikeCount(comment);
-  const persistedInteraction = uri
-    ? getCommentInteraction(uri, {
-        isLiked: !!viewerLike,
-        likeCount: initialLikeCount,
-        likeUri: viewerLike,
-      })
-    : {
-        isLiked: !!viewerLike,
-        likeCount: initialLikeCount,
-        likeUri: viewerLike,
-      };
+  const { mutate: likeComment, isPending: isLiking } = useLikeCommentMutation();
+  const { mutate: deleteComment } = useDeleteCommentMutation();
 
-  const [isLiked, setIsLiked] = useState<boolean>(persistedInteraction.isLiked);
-  const [likeCount, setLikeCount] = useState<number>(persistedInteraction.likeCount);
-  const [likeUri, setLikeUri] = useState<string | undefined>(persistedInteraction.likeUri);
-  const [isLiking, setIsLiking] = useState(false);
-
-  useEffect(() => {
-    // Sync with store when viewerLike changes from API (fresh data from server)
-    // Skip store operations if URI is undefined (prevents undefined keys causing shared state)
-    if (viewerLike !== undefined && uri) {
-      const apiLikeCount = getCommentLikeCount(comment);
-      const storeState = getCommentInteraction(uri, {
-        isLiked: !!viewerLike,
-        likeCount: apiLikeCount,
-        likeUri: viewerLike,
-      });
-
-      // Update local state and store if API data differs (preserves optimistic updates when they match)
-      if (storeState.likeUri !== viewerLike) {
-        setIsLiked(!!viewerLike);
-        setLikeUri(viewerLike);
-        updateCommentInteraction(uri, {
-          isLiked: !!viewerLike,
-          likeUri: viewerLike,
-          likeCount: apiLikeCount,
-        });
-      }
-      // Always sync like count from API
-      if (storeState.likeCount !== apiLikeCount) {
-        setLikeCount(apiLikeCount);
-        updateCommentInteraction(uri, {
-          likeCount: apiLikeCount,
-        });
-      }
-    } else if (viewerLike !== undefined && !uri) {
-      // Update local state even without URI (for display purposes)
-      const apiLikeCount = getCommentLikeCount(comment);
-      setIsLiked(!!viewerLike);
-      setLikeUri(viewerLike);
-      setLikeCount(apiLikeCount);
-    }
-  }, [viewerLike, uri, updateCommentInteraction, getCommentInteraction, comment]);
+  const likeCount = getCommentLikeCount(comment);
+  const isLiked = !!comment.viewer?.like;
 
   const queryClient = useQueryClient();
 
@@ -393,74 +412,29 @@ const CommentItem: React.FC<CommentItemProps> = ({
     });
   }, [heartScale, heartOpacity]);
 
-  const handleLikeComment = useCallback(async () => {
-    if (isLiking) return;
-    if (!uri || !cid) return;
+  const handleLikeComment = useCallback(() => {
+    if (isLiking || !uri || !cid) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    setIsLiking(true);
-    // Capture previous state before optimistic update for error revert
-    const prevIsLiked = isLiked;
-    const prevLikeCount = likeCount;
-    const prevLikeUri = likeUri;
-
-    // Optimistic update - change state immediately
-    const newIsLiked = !isLiked;
-    const newLikeCount = newIsLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
-
-    // Only animate when liking (not when unliking)
-    if (newIsLiked) {
+    if (!isLiked) {
       animateHeart();
     }
 
-    setIsLiked(newIsLiked);
-    setLikeCount(newLikeCount);
+    const rawLikeUri = isLiked ? (comment.viewer?.like as string | undefined) : undefined;
+    const unlikeUri =
+      rawLikeUri && !rawLikeUri.startsWith('like:optimistic') ? rawLikeUri : undefined;
+    if (isLiked && !unlikeUri) return;
 
-    try {
-      if (newIsLiked) {
-        const likeURI: string = await AtprotoFeedService.likePost(uri, cid);
-        setLikeUri(likeURI);
-        // Persist to store only if URI is valid
-        if (uri) {
-          updateCommentInteraction(uri, {
-            isLiked: true,
-            likeCount: newLikeCount,
-            likeUri: likeURI,
-          });
-        }
-      } else {
-        if (likeUri) {
-          await AtprotoFeedService.deleteLike(likeUri);
-          setLikeUri(undefined);
-          // Persist to store only if URI is valid
-          if (uri) {
-            updateCommentInteraction(uri, {
-              isLiked: false,
-              likeCount: newLikeCount,
-              likeUri: undefined,
-            });
-          }
-        }
+    likeComment(
+      { uri, cid, unlikeUri },
+      {
+        onError: () => {
+          Alert.alert(t('common.error'), t('comments.failedToLike'));
+        },
       }
-    } catch (_error) {
-      // Revert optimistic update on error using captured previous state
-      setIsLiked(prevIsLiked);
-      setLikeCount(prevLikeCount);
-      setLikeUri(prevLikeUri);
-      // Persist to store only if URI is valid
-      if (uri) {
-        updateCommentInteraction(uri, {
-          isLiked: prevIsLiked,
-          likeCount: prevLikeCount,
-          likeUri: prevLikeUri,
-        });
-      }
-      Alert.alert(t('common.error'), t('comments.failedToLike'));
-    } finally {
-      setIsLiking(false);
-    }
-  }, [isLiked, likeCount, likeUri, uri, cid, animateHeart, isLiking, updateCommentInteraction, t]);
+    );
+  }, [isLiking, uri, cid, isLiked, comment.viewer?.like, animateHeart, likeComment, t]);
 
   const navigation = useRouter();
   const feedModalTab = useFeedModalTabSegment();
@@ -628,30 +602,30 @@ const CommentItem: React.FC<CommentItemProps> = ({
       {
         text: t('comments.delete'),
         style: 'destructive',
-        onPress: async () => {
-          try {
-            const success = await AtprotoFeedService.deletePost(uri);
-            if (success) {
-              markCommentAsDeleted(uri);
-              onCommentDeleted?.(isReply);
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.comments.byPost(rootUri || ''),
-                refetchType: 'active',
-              });
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.feed.all,
-                refetchType: 'active',
-              });
-            } else {
-              Alert.alert(t('common.error'), t('comments.failedToDelete', { postType }));
+        onPress: () => {
+          deleteComment(
+            { uri },
+            {
+              onSuccess: () => {
+                onCommentDeleted?.(isReply);
+                queryClient.invalidateQueries({
+                  queryKey: queryKeys.comments.byPost(rootUri || ''),
+                  refetchType: 'active',
+                });
+                queryClient.invalidateQueries({
+                  queryKey: queryKeys.feed.all,
+                  refetchType: 'active',
+                });
+              },
+              onError: () => {
+                Alert.alert(t('common.error'), t('comments.failedToDelete', { postType }));
+              },
             }
-          } catch (_error) {
-            Alert.alert(t('common.error'), t('comments.failedToDelete', { postType }));
-          }
+          );
         },
       },
     ]);
-  }, [uri, isReply, t, postType, markCommentAsDeleted, onCommentDeleted, queryClient, rootUri]);
+  }, [uri, isReply, t, postType, onCommentDeleted, deleteComment, queryClient, rootUri]);
 
   const handlePinToProfile = useCallback(() => {
     try {
@@ -875,7 +849,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
             onImagePress={uri =>
               onImagePress ? onImagePress(uri) : Linking.openURL(uri).catch(() => {})
             }
-            contentFit="contain"
           />
         );
       }
@@ -892,10 +865,32 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
     if (!isImagesEmbed || !Array.isArray(embedObj?.images)) return null;
 
-    const embedImages = (embed as { images: unknown[] }).images.filter(
-      (img: unknown): img is EmbedImage =>
-        typeof img === 'object' && img !== null && ('thumb' in img || 'fullsize' in img)
-    ) as EmbedImage[];
+    // Properly extract images with aspect ratio from Bluesky API response
+    const embedImages: EmbedImage[] = (embed as { images: unknown[] }).images
+      .filter((img: unknown) => typeof img === 'object' && img !== null && ('thumb' in img || 'fullsize' in img))
+      .map((img: unknown) => {
+        const imgObj = img as {
+          thumb?: string;
+          fullsize?: string;
+          alt?: string;
+          aspectRatio?: { width?: number; height?: number } | unknown;
+        };
+        // Extract aspect ratio safely from the API response
+        let ar: { width: number; height: number } | undefined;
+        if (imgObj.aspectRatio && typeof imgObj.aspectRatio === 'object') {
+          const arObj = imgObj.aspectRatio as { width?: number; height?: number };
+          if (typeof arObj.width === 'number' && typeof arObj.height === 'number' && arObj.height > 0) {
+            ar = { width: arObj.width, height: arObj.height };
+          }
+        }
+        return {
+          thumb: imgObj.thumb || '',
+          fullsize: imgObj.fullsize || '',
+          alt: imgObj.alt || '',
+          aspectRatio: ar,
+        };
+      })
+      .filter(img => img.thumb || img.fullsize);
 
     if (embedImages.length === 0) return null;
 
@@ -957,6 +952,22 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   textColor={Colors.neutral[50]}
                 />
               )}
+              <View style={styles.commentActionsContainer}>
+                <NativePressable
+                  onPress={handleLikeComment}
+                  style={styles.likeButton}
+                  disabled={isLiking}
+                >
+                  <Animated.View style={heartAnimatedStyle}>
+                    <NanoIcon
+                      name="comment-heart-fill"
+                      size={20}
+                      color={isLiked ? Colors.coral[500] : Colors.neutral[500]}
+                    />
+                  </Animated.View>
+                </NativePressable>
+                {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
+              </View>
             </View>
             {parent && parentAuthorName && level > 0 && parent.parent && (
               <NativePressable
@@ -1017,22 +1028,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
             </View>
           </View>
         </View>
-        <View style={styles.commentActionsContainer}>
-          <NativePressable
-            onPress={handleLikeComment}
-            style={styles.likeButton}
-            disabled={isLiking}
-          >
-            <Animated.View style={heartAnimatedStyle}>
-              <NanoIcon
-                name="comment-heart-fill"
-                size={20}
-                color={isLiked ? Colors.coral[500] : Colors.neutral[500]}
-              />
-            </Animated.View>
-          </NativePressable>
-          {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
-        </View>
       </Animated.View>
     </View>
   );
@@ -1076,7 +1071,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
     paddingVertical: 6,
     paddingHorizontal: 0,
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   commentItemRow: {
     flexDirection: 'row',
@@ -1174,10 +1169,9 @@ const styles = StyleSheet.create({
   commentActionsContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingRight: 0,
-    paddingTop: 4,
+    marginLeft: 'auto',
+    paddingLeft: 8,
     width: 32,
-    alignSelf: 'flex-start',
   },
   likeButton: {
     width: '100%',

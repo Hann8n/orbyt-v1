@@ -7,6 +7,6 @@ export * from './uiStore';
 export * from './followStore';
 export * from './profileInteractionStore';
 export * from './subscriptionStore';
-export * from './commentStore';
+// commentStore removed - comment interactions now handled via React Query mutations
 export * from './videoPostDraftStore';
 export * from './detailNavTabStore';

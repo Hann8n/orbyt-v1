@@ -13,26 +13,17 @@ import type {
   ExtendedPostView,
   FeedViewPost,
   PostView,
-  ThreadPost,
   NotFoundPost,
   BlockedPost,
-  Comment,
-  CommentsResponse,
-  LikesResponse,
-  Like,
   PostRecord,
   FeedGeneratorResponse,
   FeedGeneratorOutput,
   VideoSearchResponse,
   GetAuthorFeedOutput,
   RawFeedApiOutput,
-  RepostView,
   GeneratorView,
 } from '../types';
 import {
-  isThreadViewPost,
-  isNotFoundPost as checkIsNotFoundPost,
-  isBlockedPost as checkIsBlockedPost,
   isVideoEmbed,
   isVideoEmbedInMedia,
 } from '../types';
@@ -40,81 +31,6 @@ import i18n from '../../../i18n';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
 import { logger } from '../../../utils/logger';
 import { hydrateOrbytChannels } from '../../OrbytChannelsService';
-
-function buildMockComments(postUri: string): Comment[] {
-  const nowIso = new Date().toISOString();
-  const rootReplyUri = `${postUri}/debug-comment-root`;
-  const childReplyUri = `${postUri}/debug-comment-child`;
-  const rootCid = 'debug-root-cid';
-  const childCid = 'debug-child-cid';
-
-  const rootComment: Comment = {
-    uri: rootReplyUri,
-    cid: rootCid,
-    author: {
-      did: 'did:plc:debug-author-root',
-      handle: 'offline.tester',
-      displayName: 'Offline Tester',
-    },
-    record: {
-      $type: 'app.bsky.feed.post',
-      text: 'Offline debug mode: API calls are disabled.',
-      createdAt: nowIso,
-    } as PostRecord,
-    indexedAt: nowIso,
-    likeCount: 2,
-    replyCount: 1,
-    replies: [],
-    parent: null,
-  };
-
-  const childComment: Comment = {
-    uri: childReplyUri,
-    cid: childCid,
-    author: {
-      did: 'did:plc:debug-author-child',
-      handle: 'qa.bot',
-      displayName: 'QA Bot',
-    },
-    record: {
-      $type: 'app.bsky.feed.post',
-      text: 'Nested replies still render in offline mode.',
-      createdAt: nowIso,
-    } as PostRecord,
-    indexedAt: nowIso,
-    likeCount: 0,
-    replyCount: 0,
-    replies: [],
-    parent: rootComment,
-  };
-
-  rootComment.replies = [childComment];
-  return [rootComment];
-}
-
-function buildMockLikes(): Like[] {
-  const nowIso = new Date().toISOString();
-  return [
-    {
-      createdAt: nowIso,
-      indexedAt: nowIso,
-      actor: {
-        did: 'did:plc:debug-like-1',
-        handle: 'offline.like.one',
-        displayName: 'Offline Like One',
-      },
-    } as Like,
-    {
-      createdAt: nowIso,
-      indexedAt: nowIso,
-      actor: {
-        did: 'did:plc:debug-like-2',
-        handle: 'offline.like.two',
-        displayName: 'Offline Like Two',
-      },
-    } as Like,
-  ];
-}
 
 /**
  * Get feed content - optimized for video-only feeds with maximum batch loading
@@ -349,133 +265,6 @@ export async function applyModerationBatch<T extends { post: PostView }>(items: 
   return mapped.filter(i => !i.shouldFilter) as T[];
 }
 
-export async function getComments(
-  postUri: string,
-  cursor: string | null = null,
-  _limit: number = 25
-): Promise<CommentsResponse> {
-  if (!AtprotoCore.isIncomingApiEnabled()) {
-    if (cursor) return { comments: [], cursor: null };
-    return { comments: buildMockComments(postUri), cursor: null };
-  }
-
-  await AtprotoCore.ensureSession();
-  try {
-    // Use Bluesky threading parameters
-    // depth: how many levels of replies to fetch (6 is standard for full threading)
-    // parentHeight: how many parent levels to include (0 = only direct replies to root post)
-    const params: { uri: string; depth: number; parentHeight: number; cursor?: string } = {
-      uri: postUri,
-      depth: 6, // Fetch up to 6 levels of nested replies (Bluesky standard)
-      parentHeight: 0, // Only get direct replies to the root post
-    };
-    if (cursor) params.cursor = cursor;
-
-    const { api } = await AtprotoCore.getApiClient();
-
-    // Use getPostThread (V2 may not be available in all SDK versions)
-    // The threading structure is preserved through parent/replies relationships
-    const response = await api.app.bsky.feed.getPostThread(params);
-
-    // Function to recursively process thread posts with proper typing
-    // Preserves Bluesky's threading structure with parent/child relationships
-    const processThreadViewPost = (
-      post: ThreadPost,
-      parent: Comment | null = null
-    ): Comment | null => {
-      if (!isThreadViewPost(post)) {
-        return null;
-      }
-
-      const result: Comment = {
-        uri: post.post.uri,
-        cid: post.post.cid,
-        author: post.post.author,
-        record: post.post.record as PostRecord,
-        embed: post.post.embed, // View format with thumb/fullsize URLs for link previews
-        indexedAt: post.post.indexedAt,
-        viewer: post.post.viewer,
-        likeCount: post.post.likeCount,
-        replyCount: post.post.replyCount,
-        replies: [],
-        parent: parent || null, // Preserve parent reference for threading
-      };
-
-      // Process replies if they exist, passing current post as parent
-      if (post.replies && Array.isArray(post.replies)) {
-        result.replies = (post.replies as ThreadPost[])
-          .map((reply: ThreadPost) => {
-            // Type guard to ensure it's a valid ThreadPost
-            if (isThreadViewPost(reply)) return processThreadViewPost(reply, result);
-            if (checkIsNotFoundPost(reply)) return null;
-            if (checkIsBlockedPost(reply)) return null;
-            return null;
-          })
-          .filter((reply): reply is Comment => reply !== null);
-      }
-
-      return result;
-    };
-
-    // Get the thread from response
-    const thread = response.data.thread as ThreadPost;
-    let comments: Comment[] = [];
-
-    // Process replies at the root level (top-level comments have no parent)
-    if (isThreadViewPost(thread) && thread.replies) {
-      comments = (thread.replies as ThreadPost[])
-        .map((reply: ThreadPost) => {
-          // Type guard to ensure it's a valid ThreadPost
-          if (isThreadViewPost(reply)) return processThreadViewPost(reply, null);
-          if (checkIsNotFoundPost(reply)) return null;
-          if (checkIsBlockedPost(reply)) return null;
-          return null;
-        })
-        .filter((reply): reply is Comment => reply !== null);
-    }
-
-    return {
-      comments,
-      cursor: (response.data as { cursor?: string | null }).cursor ?? null,
-    };
-  } catch (_error: unknown) {
-    return { comments: [], cursor: null };
-  }
-}
-
-/**
- * Get likes for a post with pagination support
- * @param uri - Post URI
- * @param cursor - Pagination cursor
- * @param limit - Number of likes per page
- * @returns Array of likes and next cursor
- */
-export async function getLikes(
-  uri: string,
-  cursor: string | null = null,
-  limit: number = 25
-): Promise<LikesResponse> {
-  if (!AtprotoCore.isIncomingApiEnabled()) {
-    if (cursor) return { likes: [], cursor: null };
-    return { likes: buildMockLikes().slice(0, limit), cursor: null };
-  }
-
-  await AtprotoCore.ensureSession();
-  try {
-    const params: { uri: string; limit: number; cursor?: string } = { uri, limit };
-    if (cursor) params.cursor = cursor;
-
-    const { api } = await AtprotoCore.getApiClient();
-    const response = await api.app.bsky.feed.getLikes(params);
-    return {
-      likes: response.data.likes || [],
-      cursor: response.data.cursor || null,
-    };
-  } catch (_error: unknown) {
-    return { likes: [], cursor: null };
-  }
-}
-
 /**
  * Get a single post by URI (uses getPosts — lighter than getPostThread for depth-0 lookups).
  * @param uri - Post URI
@@ -488,9 +277,8 @@ export async function getPost(uri: string): Promise<PostView | null> {
     const map = await getPosts([trimmed]);
     const entry = map.get(trimmed);
     if (!entry) return null;
-    if (checkIsNotFoundPost(entry as ThreadPost) || checkIsBlockedPost(entry as ThreadPost)) {
-      return null;
-    }
+    const entryType = (entry as { $type?: string }).$type;
+    if (entryType === 'app.bsky.feed.defs#notFoundPost' || entryType === 'app.bsky.feed.defs#blockedPost') return null;
     return entry as PostView;
   } catch (_error: unknown) {
     return null;
@@ -538,30 +326,6 @@ export async function getPosts(
   }
 
   return result;
-}
-
-/**
- * Get engagement data for a specific post
- * @param uri - Post URI
- * @returns Promise with engagement data
- */
-export async function getPostEngagement(
-  uri: string
-): Promise<{ likes: Like[]; reposts: RepostView[]; replies: Comment[] }> {
-  try {
-    const [likesResponse, commentsResponse] = await Promise.all([
-      getLikes(uri, null, 100),
-      getComments(uri, null, 100),
-    ]);
-
-    return {
-      likes: likesResponse.likes,
-      reposts: [], // Repost data not directly available via API
-      replies: commentsResponse.comments,
-    };
-  } catch (_error: unknown) {
-    return { likes: [], reposts: [], replies: [] };
-  }
 }
 
 export async function getFeedGenerator(uri: string): Promise<FeedGeneratorOutput | null> {

@@ -13,7 +13,6 @@ import {
 import { NativePressable } from '@/components/ui/NativePressable';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { compressImage } from 'expo-image-and-video-compressor';
 import Animated, {
   cancelAnimation,
   useSharedValue,
@@ -21,7 +20,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
-import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { navigateToProfileImageViewer } from '@/utils/navigation/profileImageViewer';
 
@@ -29,7 +28,8 @@ import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import type { TrueSheet as TrueSheetHandle } from '@lodev09/react-native-true-sheet';
 import { AppTrueSheet, useMeasuredFooterHeight } from '../../../utils/components/truesheet';
 
-import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
+import { usePostCommentMutation } from '../../../hooks/useCommentMutations';
+import { AtprotoCore } from '../../../services/api/core';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useProfileByDid } from '../../../services/data/ProfileService';
 import { useUserStore } from '../../../stores/userStore';
@@ -37,7 +37,6 @@ import {
   mergePostInteractionDelta,
   usePostInteractionStore,
 } from '../../../stores/postInteractionStore';
-import { useCommentStore } from '../../../stores/commentStore';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { useModalStore } from '../../../stores/modalStore';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
@@ -60,68 +59,11 @@ import { CommentLikeItem } from './CommentLikeItem';
 import KlipyGifPickerSheet from './KlipyGifPickerSheet';
 import type { Comment, Like } from '../../../services/api/types';
 import type { KlipyItem } from '../../../services/klipy/KlipyService';
-import { BSKY_LEXICON_EMBED_IMAGE_BLOB_MAX_BYTES } from '../../../utils/atproto/blueskyLexiconMediaLimits';
+import {
+  ensureCommentUploadImage,
+  klipyThumbUrlForEmbed,
+} from '../../../utils/comments/mediaHelpers';
 
-function normalizeKlipyAssetUrl(url: string | undefined): string | undefined {
-  if (!url || typeof url !== 'string') return undefined;
-  const t = url.trim();
-  if (!t) return undefined;
-  if (t.startsWith('//')) return `https:${t}`;
-  return t;
-}
-
-function isLikelyRasterImageUrl(url: string): boolean {
-  const clean = url.split('?')[0].toLowerCase();
-  return /\.(gif|webp|png|jpe?g)$/i.test(clean);
-}
-
-async function ensureCommentUploadImage(uri: string): Promise<string> {
-  /** app.bsky.embed.images — validated against AT Protocol lexicon, not a client guess */
-  const maxBytes = BSKY_LEXICON_EMBED_IMAGE_BLOB_MAX_BYTES;
-  const targetMaxBytes = Math.floor(maxBytes * 0.95);
-
-  const readSize = async (targetUri: string): Promise<number> => {
-    const response = await fetch(targetUri);
-    if (!response.ok) throw new Error(`Failed to read image (${response.status})`);
-    const blob = await response.blob();
-    return blob.size;
-  };
-
-  let candidateUri = uri;
-  let size = await readSize(candidateUri);
-  if (size <= maxBytes) return candidateUri;
-
-  const qualitySteps = [0.8, 0.65, 0.5, 0.4];
-  for (const quality of qualitySteps) {
-    candidateUri = await compressImage(candidateUri, {
-      output: 'jpg',
-      quality,
-      maxWidth: 1600,
-      maxHeight: 1600,
-    });
-    size = await readSize(candidateUri);
-    if (size <= targetMaxBytes) return candidateUri;
-  }
-
-  throw new Error('Selected image is too large to upload');
-}
-
-/** Prefer static preview for Bluesky thumb upload; allow protocol-relative URLs and image fullUrl fallback. */
-function klipyThumbUrlForEmbed(item: KlipyItem): string | undefined {
-  const preview = normalizeKlipyAssetUrl(item.previewUrl);
-  const full = normalizeKlipyAssetUrl(item.fullUrl);
-  if (preview && /^https?:\/\//.test(preview)) return preview;
-  if (full && /^https?:\/\//.test(full) && isLikelyRasterImageUrl(full)) return full;
-  return undefined;
-}
-
-/**
- * Types (kept compatible with your current usage)
- */
-
-// CommentRecord interface removed - using Comment type from API instead
-
-// Re-export types from API
 export type { Comment, Like } from '../../../services/api/types';
 
 interface Post {
@@ -149,107 +91,11 @@ interface CommentSectionProps {
 }
 
 const MAX_COMMENT_LENGTH = 300;
-const OPTIMISTIC_COMMENT_PREFIX = 'optimistic-comment:';
 
 const commentKeyExtractor = (item: Comment, index: number): string =>
   item?.uri || item?.cid || `comment-${index}`;
 
 const likeKeyExtractor = (item: Like): string => `${item.actor.did}-${item.createdAt}`;
-
-type CommentsPage = { comments: Comment[]; cursor: string | null };
-
-function insertReplyInTree(
-  comments: Comment[],
-  parentUri: string,
-  reply: Comment
-): { next: Comment[]; inserted: boolean } {
-  let inserted = false;
-
-  const next = comments.map(comment => {
-    if (inserted) return comment;
-
-    if (comment.uri === parentUri) {
-      inserted = true;
-      return {
-        ...comment,
-        replies: [reply, ...(comment.replies ?? [])],
-      };
-    }
-
-    if (comment.replies?.length) {
-      const child = insertReplyInTree(comment.replies, parentUri, reply);
-      if (child.inserted) {
-        inserted = true;
-        return {
-          ...comment,
-          replies: child.next,
-        };
-      }
-    }
-
-    return comment;
-  });
-
-  return { next, inserted };
-}
-
-type FeedLikeItem = { post?: { uri?: string; replyCount?: number } };
-
-function bumpReplyCountInFeedItems(
-  items: FeedLikeItem[] | undefined,
-  targetPostUri: string,
-  delta: number
-): FeedLikeItem[] | undefined {
-  if (!Array.isArray(items)) return items;
-
-  let changed = false;
-  const nextItems = items.map(item => {
-    if (!item?.post?.uri || item.post.uri !== targetPostUri) return item;
-    changed = true;
-    return {
-      ...item,
-      post: {
-        ...item.post,
-        replyCount: Math.max(0, (item.post.replyCount ?? 0) + delta),
-      },
-    };
-  });
-
-  return changed ? nextItems : items;
-}
-
-function bumpReplyCountInFeedCacheData(
-  oldData: unknown,
-  targetPostUri: string,
-  delta: number
-): unknown {
-  if (!oldData || typeof oldData !== 'object') return oldData;
-
-  const data = oldData as {
-    feed?: FeedLikeItem[];
-    pages?: Array<{ feed?: FeedLikeItem[] }>;
-  };
-
-  if (Array.isArray(data.pages)) {
-    let changed = false;
-    const nextPages = data.pages.map(page => {
-      const nextFeed = bumpReplyCountInFeedItems(page.feed, targetPostUri, delta);
-      if (nextFeed !== page.feed) {
-        changed = true;
-        return { ...page, feed: nextFeed };
-      }
-      return page;
-    });
-    return changed ? { ...data, pages: nextPages } : oldData;
-  }
-
-  if (Array.isArray(data.feed)) {
-    const nextFeed = bumpReplyCountInFeedItems(data.feed, targetPostUri, delta);
-    return nextFeed !== data.feed ? { ...data, feed: nextFeed } : oldData;
-  }
-
-  return oldData;
-}
 
 const CommentSection: React.FC<CommentSectionProps> = ({
   post: propPost,
@@ -457,7 +303,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [post?.uri, defaultHeaderInteraction, headerInteractionDelta]
   );
   const updatePostInteraction = usePostInteractionStore(state => state.updatePostInteraction);
-  const deletedComments = useCommentStore(state => state.deletedComments);
 
   const [headerLikeState, setHeaderLikeState] = useState<{
     isLiked: boolean;
@@ -575,8 +420,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }, 300);
   }, [onDismiss, post, presentShareSheet, propOnOpenShareSheet]);
 
-  const queryClient = useQueryClient();
-
   const {
     data: commentsPages,
     isLoading: commentsLoading,
@@ -585,12 +428,45 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     isFetchingNextPage: isFetchingNextCommentsPage,
   } = useInfiniteQuery<{ comments: Comment[]; cursor: string | null }, Error>({
     queryKey: queryKeys.comments.byPost(post?.uri || ''),
-    queryFn: ({ pageParam }) =>
-      AtprotoFeedService.getComments(post?.uri || '', pageParam as string | null),
+    queryFn: async ({ pageParam }) => {
+      if (!AtprotoCore.isIncomingApiEnabled()) return { comments: [], cursor: null };
+      try {
+        const { agent } = await import('../../../services/api/agentBridge').then(m => m.getAtprotoBridge());
+        if (!agent) return { comments: [], cursor: null };
+        const res = await agent.api.app.bsky.feed.getPostThread({
+          uri: post?.uri || '',
+          depth: 6,
+          parentHeight: 0,
+          ...(pageParam ? { cursor: pageParam as string } : {}),
+        });
+        const extractComments = (thread: unknown): Comment[] => {
+          if (!thread || typeof thread !== 'object') return [];
+          const t = thread as { replies?: unknown[] };
+          if (!Array.isArray(t.replies)) return [];
+          return t.replies
+            .map((reply: unknown) => {
+              if (!reply || typeof reply !== 'object') return null;
+              const r = reply as { post?: Comment; replies?: unknown[] };
+              if (!r.post) return null;
+              return {
+                ...r.post,
+                replies: r.replies ? extractComments({ replies: r.replies }) : [],
+              } as Comment;
+            })
+            .filter(Boolean) as Comment[];
+        };
+        return {
+          comments: extractComments(res.data.thread),
+          cursor: (res.data as { cursor?: string | null }).cursor ?? null,
+        };
+      } catch {
+        return { comments: [], cursor: null };
+      }
+    },
     getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
     initialPageParam: null,
     enabled: !!post?.uri,
-    structuralSharing: false, // Disable structural sharing to avoid circular reference issues with nested comment structures
+    structuralSharing: false,
   });
 
   // Track reported comments for animated removal
@@ -607,8 +483,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       commentList.forEach((c: Comment) => {
         if (c && typeof c === 'object') {
           const commentUri = c?.uri;
-          // Filter out deleted and reported comments
-          if (commentUri && (deletedComments.has(commentUri) || reportedPostUris.has(commentUri))) {
+          // Filter out reported comments
+          if (commentUri && reportedPostUris.has(commentUri)) {
             return;
           }
           const flatComment: Comment = {
@@ -626,7 +502,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
     if (comments.length > 0) addComments(comments);
     return flat;
-  }, [commentsPages, deletedComments, reportedPostUris]);
+  }, [commentsPages, reportedPostUris]);
 
   // Prepare layout animation when comments are removed
   useEffect(() => {
@@ -661,8 +537,21 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     isFetchingNextPage: isFetchingNextLikesPage,
   } = useInfiniteQuery<{ likes: Like[]; cursor: string | null }, Error>({
     queryKey: queryKeys.likes.byPost(post?.uri || ''),
-    queryFn: ({ pageParam }) =>
-      AtprotoFeedService.getLikes(post?.uri || '', pageParam as string | null),
+    queryFn: async ({ pageParam }) => {
+      if (!AtprotoCore.isIncomingApiEnabled()) return { likes: [], cursor: null };
+      try {
+        const { agent } = await import('../../../services/api/agentBridge').then(m => m.getAtprotoBridge());
+        if (!agent) return { likes: [], cursor: null };
+        const res = await agent.api.app.bsky.feed.getLikes({
+          uri: post?.uri || '',
+          limit: 25,
+          ...(pageParam ? { cursor: pageParam as string } : {}),
+        });
+        return { likes: res.data.likes || [], cursor: res.data.cursor || null };
+      } catch {
+        return { likes: [], cursor: null };
+      }
+    },
     getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
     initialPageParam: null,
     enabled: !!post?.uri && likesQueryEnabled,
@@ -695,265 +584,90 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   }, [scrollToCommentUri, flattenedComments, commentsLoading]);
 
-  const [isPosting, setIsPosting] = useState(false);
-  const [postedCommentUri, setPostedCommentUri] = useState<string | null>(null);
+  const { mutate: postComment, isPending: isPosting } = usePostCommentMutation();
 
-  const handleSendComment = useCallback(async () => {
+  const handleSendComment = useCallback(() => {
     if (!post?.uri) return;
 
     const text = newCommentText.trim();
     const hasGif = !!selectedGif?.fullUrl;
     const hasImages = selectedImages.length > 0;
-    if ((!text && !hasGif && !hasImages) || isPosting) return;
-
-    setIsPosting(true);
+    if (!text && !hasGif && !hasImages) return;
+    if (isPosting) return;
 
     const rootUri = post.uri;
     const rootCid = post.cid || '';
 
-    const parentUri = replyContext?.parentUri ?? rootUri;
-    const parentCid = replyContext?.parentCid ?? rootCid;
-    const isReply = parentUri !== rootUri;
-    const queryKey = queryKeys.comments.byPost(post.uri);
-    const tempId = `${OPTIMISTIC_COMMENT_PREFIX}${Date.now()}`;
-    const now = new Date().toISOString();
-
-    const optimisticComment: Comment = {
-      uri: tempId,
-      cid: tempId,
-      author: {
-        did: currentUser?.did ?? '',
-        handle: currentUser?.handle ?? '',
-        displayName: currentUserProfile?.displayName,
-        avatar: currentUserProfile?.avatar,
-      } as Comment['author'],
-      record: {
-        $type: 'app.bsky.feed.post',
-        text,
-        createdAt: now,
-      } as Comment['record'],
-      indexedAt: now,
-      likeCount: 0,
-      replyCount: 0,
-      replies: [],
-    };
-
-    const previousCommentsData = queryClient.getQueryData<InfiniteData<CommentsPage>>(queryKey);
-
-    if (!isReply) {
-      const currentCount = usePostInteractionStore.getState().interactions.get(rootUri)?.commentCount ?? totalComments;
-      const next = currentCount + 1;
-      updatePostInteraction(rootUri, { commentCount: next });
-      queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, old =>
-        bumpReplyCountInFeedCacheData(old, rootUri, 1)
-      );
-    }
-
-    queryClient.setQueryData<InfiniteData<CommentsPage>>(queryKey, old => {
-      if (!old?.pages?.length) {
-        return {
-          pages: [{ comments: [optimisticComment], cursor: null }],
-          pageParams: [null],
-        };
-      }
-
-      if (isReply) {
-        const [firstPage, ...restPages] = old.pages;
-        const inserted = insertReplyInTree(firstPage.comments, parentUri, optimisticComment);
-        if (!inserted.inserted) {
-          // Parent may not be in the currently loaded tree yet. Fallback to temporary root insert.
-          return {
-            ...old,
-            pages: [
-              { ...firstPage, comments: [optimisticComment, ...firstPage.comments] },
-              ...restPages,
-            ],
-          };
+    const externalEmbed = hasGif
+      ? {
+          uri: selectedGif!.fullUrl,
+          title:
+            selectedGif!.title ??
+            (selectedGif!.kind === 'sticker'
+              ? 'Sticker'
+              : selectedGif!.kind === 'meme'
+                ? 'Meme'
+                : selectedGif!.kind === 'emoji'
+                  ? 'Emoji'
+                  : 'GIF'),
+          description:
+            selectedGif!.kind === 'sticker'
+              ? 'Klipy Sticker'
+              : selectedGif!.kind === 'meme'
+                ? 'Klipy Meme'
+                : selectedGif!.kind === 'emoji'
+                  ? 'Klipy Emoji'
+                  : 'Klipy GIF',
+          thumb: klipyThumbUrlForEmbed(selectedGif!),
         }
-        return {
-          ...old,
-          pages: [{ ...firstPage, comments: inserted.next }, ...restPages],
-        };
-      }
+      : undefined;
 
-      const [firstPage, ...restPages] = old.pages;
-      return {
-        ...old,
-        pages: [
-          { ...firstPage, comments: [optimisticComment, ...firstPage.comments] },
-          ...restPages,
-        ],
-      };
-    });
-
-    setPostedCommentUri(tempId);
-
-    try {
-      const externalEmbed = hasGif
-        ? {
-            uri: selectedGif!.fullUrl,
-            title:
-              selectedGif!.title ??
-              (selectedGif!.kind === 'sticker'
-                ? 'Sticker'
-                : selectedGif!.kind === 'meme'
-                  ? 'Meme'
-                  : selectedGif!.kind === 'emoji'
-                    ? 'Emoji'
-                    : 'GIF'),
-            description:
-              selectedGif!.kind === 'sticker'
-                ? 'Klipy Sticker'
-                : selectedGif!.kind === 'meme'
-                  ? 'Klipy Meme'
-                  : selectedGif!.kind === 'emoji'
-                    ? 'Klipy Emoji'
-                    : 'Klipy GIF',
-            thumb: klipyThumbUrlForEmbed(selectedGif!),
-          }
-        : undefined;
-
-      const result = await AtprotoFeedService.postComment(
+    postComment(
+      {
         text,
         rootUri,
         rootCid,
-        parentUri,
-        parentCid,
-        hasImages ? selectedImages : undefined,
-        hasGif ? externalEmbed : undefined
-      );
-
-      queryClient.setQueryData<InfiniteData<CommentsPage>>(queryKey, old => {
-        if (!old) return old;
-        const replaceOptimistic = (comments: Comment[]): Comment[] =>
-          comments.map(comment => {
-            const updatedReplies = comment.replies?.length
-              ? replaceOptimistic(comment.replies)
-              : comment.replies;
-            if (comment.uri === tempId) {
-              return {
-                ...comment,
-                uri: result.uri,
-                cid: result.cid,
-                replies: updatedReplies,
-              };
-            }
-            if (updatedReplies !== comment.replies) {
-              return { ...comment, replies: updatedReplies };
-            }
-            return comment;
-          });
-
-        return {
-          ...old,
-          pages: old.pages.map(page => ({
-            ...page,
-            comments: replaceOptimistic(page.comments),
-          })),
-        };
-      });
-
-      setPostedCommentUri(result.uri);
-
-      setNewCommentText('');
-      setSelectedGif(null);
-      setSelectedImages([]);
-      setReplyContext(null);
-
-      // Revalidate in background to sync authoritative ordering/counts from API.
-      void queryClient.invalidateQueries({
-        queryKey,
-      });
-
-      setTimeout(() => inputRef.current?.focus?.(), 100);
-    } catch (error) {
-      if (!isReply) {
-        const currentCount = usePostInteractionStore.getState().interactions.get(rootUri)?.commentCount ?? totalComments;
-        const next = Math.max(0, currentCount - 1);
-        updatePostInteraction(rootUri, { commentCount: next });
-        queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, old =>
-          bumpReplyCountInFeedCacheData(old, rootUri, -1)
-        );
+        parentUri: replyContext?.parentUri,
+        parentCid: replyContext?.parentCid,
+        images: hasImages ? selectedImages : undefined,
+        externalEmbed: hasGif ? externalEmbed : undefined,
+        author: {
+          did: currentUser?.did ?? '',
+          handle: currentUser?.handle ?? '',
+          displayName: currentUserProfile?.displayName,
+          avatar: currentUserProfile?.avatar,
+        },
+      },
+      {
+        onSuccess: () => {
+          setNewCommentText('');
+          setSelectedGif(null);
+          setSelectedImages([]);
+          setReplyContext(null);
+        },
+        onError: error => {
+          const message = error instanceof Error ? error.message.toLowerCase() : '';
+          if (message.includes('1,000,000 byte limit') || message.includes('too large')) {
+            Alert.alert(t('common.error'), 'Image is too large to upload. Try a smaller photo.');
+          } else {
+            Alert.alert(t('common.error'), t('comments.failedToPost'));
+          }
+        },
       }
-      if (previousCommentsData) {
-        queryClient.setQueryData(queryKey, previousCommentsData);
-      } else {
-        queryClient.removeQueries({ queryKey });
-      }
-      const message = error instanceof Error ? error.message.toLowerCase() : '';
-      if (message.includes('1,000,000 byte limit') || message.includes('too large')) {
-        Alert.alert(t('common.error'), 'Image is too large to upload. Try a smaller photo.');
-      } else {
-        Alert.alert(t('common.error'), t('comments.failedToPost'));
-      }
-    } finally {
-      setIsPosting(false);
-    }
+    );
   }, [
     post,
     newCommentText,
     selectedGif,
     selectedImages,
     replyContext,
-    isPosting,
-    queryClient,
-    updatePostInteraction,
-    t,
+    postComment,
     currentUser?.did,
     currentUser?.handle,
-    currentUserProfile?.avatar,
     currentUserProfile?.displayName,
+    currentUserProfile?.avatar,
+    t,
   ]);
-
-  // Scroll to newly posted comment after it appears in the list
-  useEffect(() => {
-    if (
-      !postedCommentUri ||
-      !flattenedComments.length ||
-      commentsLoading ||
-      !commentsListRef.current
-    ) {
-      return;
-    }
-
-    const idx = flattenedComments.findIndex(c => {
-      const uri = c?.uri;
-      return uri === postedCommentUri;
-    });
-
-    if (idx >= 0 && idx < flattenedComments.length) {
-      // Comment found, scroll to it
-      setTimeout(() => {
-        try {
-          commentsListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.5 });
-          setPostedCommentUri(null); // Clear after scrolling
-        } catch {
-          // If scrollToIndex fails, try scrolling to end as fallback
-          try {
-            commentsListRef.current?.scrollToOffset({ offset: 0, animated: true });
-          } catch {
-            // ignore
-          }
-          setPostedCommentUri(null);
-        }
-      }, 500);
-    } else if (!commentsLoading) {
-      // Comment not found yet but loading is done - might need more time or scroll to bottom
-      setTimeout(() => {
-        try {
-          // Scroll to end as fallback
-          const itemCount = flattenedComments.length;
-          if (itemCount > 0) {
-            commentsListRef.current?.scrollToIndex({ index: itemCount - 1, animated: true });
-          }
-        } catch {
-          // ignore
-        }
-        // Clear after a delay even if not found
-        setTimeout(() => setPostedCommentUri(null), 1000);
-      }, 500);
-    }
-  }, [postedCommentUri, flattenedComments, commentsLoading]);
 
   const tabOptions: TabOption[] = useMemo(
     () => [
@@ -971,16 +685,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const handleCommentDeleted = useCallback(
     (wasReply?: boolean) => {
-      if (wasReply) return;
-      if (!post?.uri) return;
-      const currentCount = usePostInteractionStore.getState().interactions.get(post.uri)?.commentCount ?? totalComments;
-      const next = Math.max(0, currentCount - 1);
-      updatePostInteraction(post.uri, { commentCount: next });
-      queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, old =>
-        bumpReplyCountInFeedCacheData(old, post.uri, -1)
-      );
+      if (wasReply || !post?.uri) return;
+      const currentCount =
+        usePostInteractionStore.getState().interactions.get(post.uri)?.commentCount ??
+        totalComments;
+      updatePostInteraction(post.uri, { commentCount: Math.max(0, currentCount - 1) });
     },
-    [post, queryClient, updatePostInteraction]
+    [post?.uri, totalComments, updatePostInteraction]
   );
 
   const handleTabPress = useCallback((tabId: string) => {
@@ -1011,7 +722,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     setIsListScrolled(false);
     setInputSelection({ start: 0, end: 0 });
     setReplyContext(null);
-    setIsPosting(false);
     onDismiss?.();
   };
 

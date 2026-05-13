@@ -12,11 +12,8 @@ import * as feedInteractions from './feedInteractions';
 export class AtprotoFeedService {
   static getFeed = feedQueries.getFeed;
   static applyModerationBatch = feedQueries.applyModerationBatch;
-  static getComments = feedQueries.getComments;
-  static getLikes = feedQueries.getLikes;
   static getPost = feedQueries.getPost;
   static getPosts = feedQueries.getPosts;
-  static getPostEngagement = feedQueries.getPostEngagement;
   static getFeedGenerator = feedQueries.getFeedGenerator;
   static getFeedGeneratorSubscriberCount = feedQueries.getFeedGeneratorSubscriberCount;
   static getFeedGeneratorWithPosts = feedQueries.getFeedGeneratorWithPosts;
@@ -35,7 +32,6 @@ export class AtprotoFeedService {
   static deleteRepost = feedInteractions.deleteRepost;
   static sendFeedInteractions = feedInteractions.sendFeedInteractions;
 
-  static postComment = feedWrites.postComment;
   static createVideoPost = feedWrites.createVideoPost;
   static deletePost = feedWrites.deletePost;
   static mutePostComments = feedWrites.mutePostComments;
