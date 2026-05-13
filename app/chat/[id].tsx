@@ -65,18 +65,17 @@ import { chatReactQueryOptions } from '@/utils/query/chatQueryOptions';
 import { getActiveStreak } from '@/utils/chat/streak';
 import { format, parseISO, isValid, isToday, isYesterday, differenceInMinutes } from 'date-fns';
 import { useProfileByDid, useBlockMutation } from '@/services/data/ProfileService';
-import { useChatLogPolling } from '@/hooks/useChatLogPolling';
+import { useChatMessages, useSendMessage, useChatReactions } from '@/hooks/chat';
 import { ChatService } from '@/services/api/chat/ChatService';
 import { ModerationService } from '@/services/moderation/ModerationService';
 import { useUserStore } from '@/stores/userStore';
-import type { MessageView } from '@/services/api/types';
+import type { MessageView, PostView, ProfileViewBasic } from '@/services/api/types';
 import { openPostInBluesky } from '@/utils/links/bluesky';
 import { buildFeedModalHref, buildFullHeightVideoHref } from '@/utils/navigation/feedModalRoute';
 import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { seedChatEmbedVideoFeed } from '@/utils/chat/seedChatEmbedVideoFeed';
 import { getVideoView } from '@/utils/video/helpers';
 import { hexToRGBA, isColorDark } from '@/utils/formatting/colors';
-import type { PostView, ProfileViewBasic } from '@/services/api/types';
 import type { Label } from '@atproto/api/dist/client/types/com/atproto/label/defs';
 import { RichText } from '@atproto/api';
 import type { Main as RichTextFacet } from '@atproto/api/dist/client/types/app/bsky/richtext/facet';
@@ -1348,14 +1347,6 @@ export default function ChatScreen() {
     close: closeMessageActionsSheet,
     visible: messageActionsSheetVisible,
   } = useMessageActionsSheet();
-  const closePickerRef = useRef(reactionPicker.closePicker);
-  const closeMessageActionsRef = useRef(closeMessageActionsSheet);
-
-  useLayoutEffect(() => {
-    closePickerRef.current = reactionPicker.closePicker;
-    closeMessageActionsRef.current = closeMessageActionsSheet;
-  }, [reactionPicker.closePicker, closeMessageActionsSheet]);
-
   const isInConvo = !!convo;
   const hasLeftConvo = convoFetched && convo === null && !openByDid;
   const noConvoYet = openByDid && convoFetched && !convo;
@@ -1372,15 +1363,23 @@ export default function ChatScreen() {
   const isBlocked = !!((profile as ProfileViewBasic)?.viewer?.blocking || (profile as ProfileViewBasic)?.viewer?.blockingByList);
   const isBlockedByList = !!((profile as ProfileViewBasic)?.viewer?.blockingByList);
 
-  const { data: messagesData, isLoading: messagesLoading } = useQuery({
-    queryKey: queryKeys.chat.messages.byConversation(convoId),
-    queryFn: () => ChatService.getMessages(convoId, null),
-    enabled: !!convoId && isInConvo,
-    refetchOnWindowFocus: true,
-    staleTime: 30_000,
-    gcTime: 5 * 60 * 1000,
-    ...chatReactQueryOptions,
-  });
+  const {
+    messages,
+    isLoading: messagesLoading,
+  } = useChatMessages(isInConvo ? convoId : undefined);
+
+  const sendMessageMutation = useSendMessage(isInConvo ? convoId : undefined);
+
+  const reactionMutation = useChatReactions(
+    isInConvo ? convoId : undefined,
+    currentUserDid ?? undefined,
+    {
+      onError: () => {
+        reactionPicker.closePicker();
+        closeMessageActionsSheet();
+      },
+    }
+  );
 
   // Dismiss keyboard when leaving the route
   useFocusEffect(
@@ -1392,86 +1391,9 @@ export default function ChatScreen() {
     }, [])
   );
 
-  useChatLogPolling(isInConvo ? convoId : undefined, queryClient);
-
-  const sendMessageMutation = useMutation({
-    mutationFn: (text: string) => ChatService.sendMessage(convoId, { text }),
-    onSuccess: () => {
-      setInputText('');
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.chat.messages.byConversation(convoId),
-      });
-      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
-    },
-  });
-
-  const reactionMutation = useMutation({
-    mutationFn: async ({
-      messageId,
-      value,
-      add,
-    }: {
-      messageId: string;
-      value: string;
-      add: boolean;
-    }) =>
-      add
-        ? ChatService.addReaction(convoId, messageId, value)
-        : ChatService.removeReaction(convoId, messageId, value),
-    onMutate: async ({ messageId, value, add }) => {
-      await queryClient.cancelQueries({
-        queryKey: queryKeys.chat.messages.byConversation(convoId),
-      });
-      const prev = queryClient.getQueryData<{ messages: MessageItem[]; cursor: string | null }>(
-        queryKeys.chat.messages.byConversation(convoId)
-      );
-      queryClient.setQueryData(
-        queryKeys.chat.messages.byConversation(convoId),
-        (old: { messages: MessageItem[]; cursor: string | null } | undefined) => {
-          if (!old?.messages) return old;
-          const messages = old.messages.map((msg: MessageItem) => {
-            if (msg.id !== messageId) return msg;
-            const reactions = [...(msg.reactions ?? [])];
-            if (add) {
-              reactions.push({
-                value,
-                sender: { did: currentUserDid ?? '' },
-                createdAt: new Date().toISOString(),
-              });
-            } else {
-              const i = reactions.findIndex(
-                (r: ReactionShape) => r.value === value && r.sender?.did === currentUserDid
-              );
-              if (i >= 0) reactions.splice(i, 1);
-            }
-            return { ...msg, reactions };
-          });
-          return { ...old, messages };
-        }
-      );
-      return { prev };
-    },
-    onError: (_err, _vars, context) => {
-      closePickerRef.current();
-      closeMessageActionsRef.current();
-      if (context?.prev != null) {
-        queryClient.setQueryData(queryKeys.chat.messages.byConversation(convoId), context.prev);
-      }
-    },
-    onSuccess: () => {
-      closePickerRef.current();
-      closeMessageActionsRef.current();
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.chat.conversations.all,
-      });
-    },
-  });
-
   const handleReactionSelect = useCallback(
     (messageId: string, value: string) => {
-      const raw = messagesData?.messages ?? [];
+      const raw = messages ?? [];
       const msg = raw.find((m: { id?: string }) => m.id === messageId) as MessageItem | undefined;
       const reactions = msg?.reactions ?? [];
       const hasReaction = reactions.some(
@@ -1479,12 +1401,12 @@ export default function ChatScreen() {
       );
       reactionMutation.mutate({ messageId, value, add: !hasReaction });
     },
-    [messagesData?.messages, currentUserDid, reactionMutation]
+    [messages, currentUserDid, reactionMutation]
   );
 
   const handleCopyMessage = useCallback(
     async (messageId: string) => {
-      const raw = messagesData?.messages ?? [];
+      const raw = messages ?? [];
       const msg = raw.find((m: { id?: string }) => m.id === messageId) as MessageItem | undefined;
       const text = msg?.text?.trim() ?? '';
       if (!text) return;
@@ -1495,7 +1417,7 @@ export default function ChatScreen() {
         // ignore clipboard failures
       }
     },
-    [messagesData?.messages]
+    [messages]
   );
 
   const deleteMessageForSelfMutation = useMutation({
@@ -1527,13 +1449,13 @@ export default function ChatScreen() {
 
   const actionsTargetMessage = useMemo(() => {
     if (!messageActionsTargetId) return null;
-    const raw = messagesData?.messages ?? [];
+    const raw = messages ?? [];
     return (
       (raw.find((m: { id?: string }) => m.id === messageActionsTargetId) as
         | MessageItem
         | undefined) ?? null
     );
-  }, [messageActionsTargetId, messagesData?.messages]);
+  }, [messageActionsTargetId, messages]);
 
   const handleOpenMessageActions = useCallback(
     (messageId: string) => {
@@ -1557,9 +1479,9 @@ export default function ChatScreen() {
 
   // Newest message id (getMessages returns newest first); pass to updateRead so server marks read up to this message
   const latestMessageId = useMemo(() => {
-    const messages = (messagesData?.messages ?? []) as MessageItem[];
-    return messages[0]?.id;
-  }, [messagesData?.messages]);
+    const rawMessages = (messages ?? []) as MessageItem[];
+    return rawMessages[0]?.id;
+  }, [messages]);
 
   const readSyncRef = useRef<{ convoId: string; latestMessageId: string | undefined }>({
     convoId: '',
@@ -1610,16 +1532,16 @@ export default function ChatScreen() {
 
   // Bluesky getMessages returns newest first; we reverse to oldest-first so last index = newest (bottom with startRenderingFromBottom)
   const listData = useMemo(() => {
-    const raw = (messagesData?.messages ?? []) as MessageItem[];
-    const messages = [...raw].reverse(); // oldest first, newest last
+    const raw = (messages ?? []) as MessageItem[];
+    const reversedMessages = [...raw].reverse(); // oldest first, newest last
     const items: ChatListItem[] = [];
     let prevDateKey = '';
     let prevMsg: MessageItem | undefined;
     let prevSentAt: string | undefined;
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
+    for (let i = 0; i < reversedMessages.length; i++) {
+      const msg = reversedMessages[i];
       const sentAt = msg.sentAt ?? '';
-      const nextMsg = messages[i + 1];
+      const nextMsg = reversedMessages[i + 1];
       const nextSentAt = nextMsg?.sentAt ?? '';
 
       const sameSenderAsPrev =
@@ -1672,16 +1594,16 @@ export default function ChatScreen() {
       prevSentAt = sentAt;
     }
     return items;
-  }, [messagesData]);
+  }, [messages]);
 
   useLayoutEffect(() => {
     if (convoId != null && convoId !== previousConvoIdRef.current) {
       previousConvoIdRef.current = convoId;
       // Animate only when we're actually loading (no cache); if we have data already, skip
       shouldAnimateEnteringRef.current =
-        messagesLoading || (messagesData?.messages?.length ?? 0) === 0;
+        messagesLoading || (messages?.length ?? 0) === 0;
     }
-  }, [convoId, messagesLoading, messagesData?.messages?.length]);
+  }, [convoId, messagesLoading, messages?.length]);
 
   useLayoutEffect(() => {
     if (listData.length === 0) return;
@@ -1979,21 +1901,25 @@ export default function ChatScreen() {
   const handleSend = useCallback(() => {
     const text = inputText.trim();
     if (!text || sendMessageMutation.isPending) return;
-    sendMessageMutation.mutate(text);
+    sendMessageMutation.mutate(text, {
+      onSuccess: () => {
+        setInputText('');
+      },
+    });
   }, [inputText, sendMessageMutation]);
 
   const pickerMessage = useMemo(() => {
     const messageId = reactionPicker.state?.messageId;
     if (!messageId) return null;
-    const raw = messagesData?.messages ?? [];
+    const raw = messages ?? [];
     return (
       (raw.find((m: { id?: string }) => m.id === messageId) as MessageItem | undefined) ?? null
     );
-  }, [reactionPicker.state?.messageId, messagesData?.messages]);
+  }, [reactionPicker.state?.messageId, messages]);
 
   const headerTop = insets.top + 4;
 
-  const rawMessages = messagesData?.messages ?? [];
+  const rawMessages = messages ?? [];
   const latestSentAt =
     rawMessages[0] &&
     typeof rawMessages[0] === 'object' &&
@@ -2295,7 +2221,7 @@ export default function ChatScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
           >
-            {!messagesLoading && messagesData && (messagesData.messages?.length ?? 0) === 0 ? (
+            {!messagesLoading && (messages?.length ?? 0) === 0 ? (
               <View style={styles.empty}>
                 <Text style={styles.emptyText}>{t('chat.noMessagesYet')}</Text>
               </View>

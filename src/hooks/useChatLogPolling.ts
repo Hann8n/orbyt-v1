@@ -1,4 +1,8 @@
 /**
+ * @deprecated Use useChatMessages from '@/hooks/chat' instead.
+ * This hook has been replaced by React Query patterns with built-in refetchInterval.
+ * The new hook eliminates race conditions and reduces custom code.
+ *
  * Chat real-time updates per AT Protocol API.
  *
  * The lexicon defines chat.bsky.convo.getLog as type "query" (HTTP GET), not
