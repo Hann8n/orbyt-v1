@@ -119,7 +119,7 @@ export function SearchBanner({
               horizontal
               renderItem={({ item }) => (
                 <SquircleNativePressable
-                  style={styles.horizontalPill}
+                  style={[styles.basePill, styles.horizontalPill]}
                   onPress={() => onSelectUser?.(item)}
                 >
                   <UI.Avatar uri={item.avatar} size={28} style={styles.pillAvatar} />
@@ -170,7 +170,7 @@ export function SearchBanner({
             onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
             keyboardShouldPersistTaps="handled"
             style={styles.resultsList}
-            contentContainerStyle={styles.resultsListContent}
+            contentContainerStyle={[styles.listContentBase, styles.resultsListContent]}
           />
           <LinearGradient
             colors={['transparent', Colors.neutral[975]]}
@@ -194,7 +194,7 @@ export function SearchBanner({
             horizontal
             renderItem={({ item }) => (
               <SquircleNativePressable
-                style={styles.hashtagPill}
+                style={[styles.basePill, styles.hashtagPill]}
                 onPress={() => onSelectHashtag?.(item)}
               >
                 <Text style={styles.pillText}>
@@ -223,13 +223,13 @@ export function SearchBanner({
               style={styles.verticalHashtagItem}
               onPress={() => onSelectHashtag?.(item)}
             >
-              <Text style={styles.hashtagText}>
-                <Text style={styles.hashtagSymbol}>#</Text>
-                <Text style={styles.hashtagTag}>{item}</Text>
+              <Text style={styles.pillText}>
+                <Text style={styles.pillPrefix}>#</Text>
+                <Text style={styles.pillContent}>{item}</Text>
               </Text>
             </SquircleNativePressable>
           )}
-          contentContainerStyle={styles.hashtagListContent}
+          contentContainerStyle={[styles.listContentBase, styles.hashtagListContent]}
           keyboardShouldPersistTaps="handled"
         />
       </View>
@@ -357,9 +357,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: Colors.neutral[925],
     width: '100%',
-    minHeight: 44,
-    paddingVertical: 4,
-    paddingHorizontal: 0,
     overflow: 'hidden',
     alignItems: 'stretch',
   },
@@ -370,8 +367,10 @@ const styles = StyleSheet.create({
   resultsList: {
     width: '100%',
   },
-  resultsListContent: {
+  listContentBase: {
     paddingHorizontal: 0,
+  },
+  resultsListContent: {
     paddingBottom: 40,
   },
   fadeGradient: {
@@ -382,12 +381,12 @@ const styles = StyleSheet.create({
     height: 60,
   },
   hashtagListContent: {
-    paddingHorizontal: 0,
-    paddingBottom: 16,
+    paddingBottom: 8,
   },
   horizontalListContent: {
     paddingHorizontal: 12,
     gap: 8,
+    paddingVertical: 4,
   },
   horizontalFadeGradient: {
     position: 'absolute',
@@ -396,20 +395,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 60,
   },
-  horizontalPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 3,
-    paddingLeft: 3,
-    paddingRight: 10,
-    borderRadius: BORDER_RADIUS.FULL,
-    marginRight: 6,
-    backgroundColor: Colors.transparent,
-    borderWidth: 1,
-    borderColor: Colors.neutral[800],
-  },
-  hashtagPill: {
+  basePill: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -420,6 +406,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.transparent,
     borderWidth: 1,
     borderColor: Colors.neutral[800],
+  },
+  horizontalPill: {
+    // Uses basePill — add overrides here if needed
+  },
+  hashtagPill: {
+    // Uses basePill
   },
   pillAvatar: {
     flexShrink: 0,
@@ -434,6 +426,8 @@ const styles = StyleSheet.create({
     color: Colors.neutral[50],
     fontSize: Typography.sizes.bodySmall,
     fontFamily: FontFamily.medium,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   pillContent: {
     ...TextStyles.profileHandleSmall,
@@ -449,22 +443,6 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 12,
     borderRadius: BORDER_RADIUS.LARGE,
-    marginBottom: 0,
     backgroundColor: Colors.neutral[975],
-  },
-  hashtagText: {
-    color: Colors.neutral[50],
-    fontSize: Typography.sizes.bodySmall,
-    fontFamily: FontFamily.regular,
-  },
-  hashtagSymbol: {
-    color: Colors.neutral[50],
-    fontSize: Typography.sizes.bodySmall,
-    fontFamily: FontFamily.medium,
-  },
-  hashtagTag: {
-    color: Colors.neutral[50],
-    fontSize: Typography.sizes.bodySmall,
-    fontFamily: FontFamily.bold,
   },
 });

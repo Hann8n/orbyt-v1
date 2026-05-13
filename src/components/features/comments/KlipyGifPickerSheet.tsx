@@ -298,7 +298,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
               placeholder={placeholder}
               placeholderTextColor={Colors.neutral[500]}
               style={styles.searchInput}
-              autoCorrect={false}
+              autoCorrect={true}
               autoCapitalize="none"
               returnKeyType="search"
             />

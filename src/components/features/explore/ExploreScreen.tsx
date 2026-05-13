@@ -565,7 +565,7 @@ const ExploreScreen: React.FC = () => {
                 onFocus={() => setIsSearchFocused(true)}
                 onSubmitEditing={() => {}}
                 autoCapitalize="none"
-                autoCorrect={false}
+                autoCorrect={true}
                 autoComplete="off"
                 textContentType="none"
                 importantForAutofill="no"
