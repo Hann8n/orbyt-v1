@@ -1,13 +1,7 @@
-import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
+import { useInfiniteQuery, InfiniteData, keepPreviousData } from '@tanstack/react-query';
 import { queryKeys } from '../utils/query/queryKeys';
 import { ActorService } from '../services/api/actor/ActorService';
-
-export interface UserProfile {
-  did: string;
-  handle: string;
-  displayName?: string;
-  avatar?: string;
-}
+import type { ProfileViewBasic } from '../services/api/types';
 
 interface UseProfileSearchOptions {
   enabled?: boolean;
@@ -21,9 +15,9 @@ export const useProfileSearch = (
   const { enabled = true, staleTime = 30 * 1000 } = options;
 
   return useInfiniteQuery<
-    { profiles: UserProfile[]; cursor: string | null },
+    { profiles: ProfileViewBasic[]; cursor: string | null },
     Error,
-    InfiniteData<{ profiles: UserProfile[]; cursor: string | null }, string | null>,
+    InfiniteData<{ profiles: ProfileViewBasic[]; cursor: string | null }, string | null>,
     ReturnType<typeof queryKeys.search.profiles>,
     string | null
   >({
@@ -35,5 +29,6 @@ export const useProfileSearch = (
     initialPageParam: null,
     enabled: enabled && !!searchQuery && searchQuery.trim().length > 0,
     staleTime,
+    placeholderData: keepPreviousData,
   });
 };

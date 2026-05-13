@@ -10,8 +10,6 @@ import {
   type StyleProp,
   type ViewStyle,
   type ImageStyle,
-  type NativeSyntheticEvent,
-  type TargetedEvent,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
@@ -26,35 +24,16 @@ import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/consta
 import { androidTextFix } from '../../../utils/styling/platformText';
 import { COMPOSER_STYLES } from '../../../utils/components/truesheet/sheetStyles';
 import { COMPOSER_INPUT_PADDING } from '../../../utils/components/truesheet/utils';
-import { RichTextSearchModal, type RichTextSearchModalProps } from '../../ui/usersearch';
+import { useMentionInput } from '../../ui/MentionInputWithSearch';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileByDid } from '../../../services/data/ProfileService';
 import { FontFamily, Typography } from '../../../utils/components/typography';
-
-interface TextInputSelectionChangeEventData extends TargetedEvent {
-  selection: {
-    start: number;
-    end: number;
-  };
-}
-
-type TextInputSelectionChangeEvent = NativeSyntheticEvent<TextInputSelectionChangeEventData>;
-
-interface MentionInputProps {
-  ref?: React.RefObject<TextInput | null>;
-  value: string;
-  onChangeText: (text: string) => void;
-  selection: { start: number; end: number };
-  onSelectionChange?: (e: TextInputSelectionChangeEvent) => void;
-  autoCorrect?: boolean;
-  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
-}
 
 interface CommentInputFooterProps {
   value: string;
   onChangeText: (text: string) => void;
   inputSelection: { start: number; end: number };
-  onSelectionChange: (e: TextInputSelectionChangeEvent) => void;
+  onSelectionChange?: (e: { nativeEvent: { selection: { start: number; end: number } } }) => void;
   placeholder?: string;
   onSubmit: () => void;
   onPressGif?: () => void;
@@ -100,17 +79,11 @@ interface CommentInputFooterProps {
   maxLength?: number;
   inputRef?: React.RefObject<TextInput | null>;
   currentUserAvatar?: string | null;
-  richTextSearchModalProps?: RichTextSearchModalProps;
-  mentionInputProps?: Partial<MentionInputProps>;
   onFocus?: () => void;
   /**
    * When true, omit the add (+) control entirely (e.g. chat / messages composer).
    */
   hideMediaAddButton?: boolean;
-  /**
-   * Use horizontal pill style for search results (for comment footer)
-   */
-  horizontalPillStyle?: boolean;
 }
 
 const EMPTY_SELECTED_IMAGES = Object.freeze(
@@ -120,6 +93,7 @@ const EMPTY_SELECTED_IMAGES = Object.freeze(
 const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   value,
   onChangeText,
+  inputSelection,
   onSelectionChange,
   placeholder,
   onSubmit,
@@ -133,8 +107,6 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   maxLength = 300,
   inputRef,
   currentUserAvatar,
-  richTextSearchModalProps,
-  mentionInputProps,
   onFocus,
   hideMediaAddButton = false,
   onPressGif,
@@ -146,8 +118,15 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   onClearGif,
   hasAttachment = false,
   onClearAttachment,
-  horizontalPillStyle = false,
 }) => {
+  const { mentionInputProps, banner } = useMentionInput({
+    value,
+    selection: inputSelection,
+    onChangeText,
+    onSelectionChange,
+    inputRef,
+    layoutMode: 'horizontal-pills',
+  });
   const resolvedSelectedImages = selectedImages ?? EMPTY_SELECTED_IMAGES;
   const { t } = useTranslation();
   const resolvedPlaceholder = placeholder ?? t('comments.saySomething');
@@ -165,7 +144,6 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   // Get current user profile for live status
   const currentUserDid = useUserStore(state => state.currentUser?.did ?? null);
   const { data: currentUserProfile } = useProfileByDid(currentUserDid);
-
 
   const hasImages = resolvedSelectedImages.length > 0;
   const hasGifPreview = !!selectedGifPreviewUri;
@@ -218,92 +196,10 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   };
 
   return (
-    <View style={styles.footerContainer}>
-      {richTextSearchModalProps && (
-        <RichTextSearchModal {...richTextSearchModalProps} horizontalPillStyle={horizontalPillStyle} />
-      )}
-      <View style={[styles.inputContainer, { paddingBottom: COMPOSER_INPUT_PADDING.vertical }]}>
-          {attachmentKind === 'none' ? null : (
-            <View style={styles.attachmentRow}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={
-                  (hasImages ? resolvedSelectedImages.length : hasGifAttachment ? 1 : 0) >=
-                  SCROLL_INDICATOR_CONSTANTS.COMPOSER_ATTACHMENTS_MIN_ITEMS
-                }
-                contentContainerStyle={styles.attachmentStrip}
-                keyboardShouldPersistTaps="handled"
-              >
-                {attachmentKind === 'gif' ? (
-                  <SquircleView style={gifAttachmentWrapStyle}>
-                    {hasGifPreview ? (
-                      <Image
-                        source={{ uri: selectedGifPreviewUri ?? undefined }}
-                        style={attachmentThumbImageStyle}
-                        contentFit="cover"
-                      />
-                    ) : (
-                      <View style={styles.gifFallbackThumb} />
-                    )}
-                    {onClearGif ? (
-                      <NativePressable
-                        onPress={onClearGif}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        style={styles.removeThumbButton}
-                        accessibilityRole="button"
-                        accessibilityLabel={t('comments.removeGif')}
-                      >
-                        <Icon name="close" size={18} color={Colors.neutral[50]} />
-                      </NativePressable>
-                    ) : onClearAttachment ? (
-                      <NativePressable
-                        onPress={onClearAttachment}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        style={styles.removeThumbButton}
-                        accessibilityRole="button"
-                        accessibilityLabel={t('comments.removeGif')}
-                      >
-                        <Icon name="close" size={18} color={Colors.neutral[50]} />
-                      </NativePressable>
-                    ) : null}
-                  </SquircleView>
-                ) : null}
-
-                {hasImages
-                  ? resolvedSelectedImages.slice(0, 4).map(img => {
-                      const ar =
-                        img.aspectRatio && img.aspectRatio.height > 0
-                          ? img.aspectRatio.width / img.aspectRatio.height
-                          : 1;
-                      return (
-                        <SquircleView
-                          key={img.uri}
-                          style={[attachmentThumbWrapStyle, { aspectRatio: ar }]}
-                        >
-                          <Image
-                            source={{ uri: img.uri }}
-                            style={attachmentThumbImageStyle}
-                            contentFit="cover"
-                          />
-                          {onRemoveImage ? (
-                            <NativePressable
-                              onPress={() => onRemoveImage(img.uri)}
-                              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                              style={styles.removeThumbButton}
-                              accessibilityRole="button"
-                              accessibilityLabel={t('comments.removeImage')}
-                            >
-                              <Icon name="close" size={18} color={Colors.neutral[50]} />
-                            </NativePressable>
-                          ) : null}
-                        </SquircleView>
-                      );
-                    })
-                  : null}
-              </ScrollView>
-            </View>
-          )}
-
+    <View>
+      {banner}
+      <View style={styles.footerContainer}>
+        <View style={[styles.inputContainer, { paddingBottom: COMPOSER_INPUT_PADDING.vertical }]}>
           <View style={styles.inputRow}>
             {showAvatar ? (
               <View style={styles.avatarContainer}>
@@ -316,110 +212,189 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                 />
               </View>
             ) : null}
-            <SquircleView style={styles.inputWrapper}>
-              <TextInput
-                {...mentionInputProps}
-                ref={inputRef}
-                nativeID="comment-input"
-                value={value}
-                onChangeText={onChangeText}
-                onSelectionChange={onSelectionChange}
-                style={styles.textInput}
-                placeholder={resolvedPlaceholder}
-                placeholderTextColor={Colors.neutral[500]}
-                multiline
-                editable={!isPosting}
-                maxLength={maxLength + 25}
-                keyboardType="default"
-                returnKeyType="default"
-                blurOnSubmit={false}
-                autoComplete="off"
-                textContentType="none"
-                importantForAutofill="no"
-                textAlignVertical="top"
-                caretHidden={false}
-                onFocus={onFocus}
-              />
-            </SquircleView>
-            <View style={styles.sendColumn}>
-              <View style={styles.controlsRow}>
-                {showAddControl ? (
-                  <MenuView
-                    title=""
-                    actions={mediaMenuActions}
-                    onPressAction={handleMediaMenuPressAction}
-                    shouldOpenOnLongPress={false}
-                    themeVariant="dark"
-                    isAnchoredToRight={true}
+            <View style={styles.inputColumn}>
+              {attachmentKind === 'none' ? null : (
+                <View style={styles.attachmentRow}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={
+                      (hasImages ? resolvedSelectedImages.length : hasGifAttachment ? 1 : 0) >=
+                      SCROLL_INDICATOR_CONSTANTS.COMPOSER_ATTACHMENTS_MIN_ITEMS
+                    }
+                    contentContainerStyle={styles.attachmentStrip}
+                    keyboardShouldPersistTaps="handled"
                   >
-                    <NativePressable
-                      style={[styles.addIconButton, isPosting && styles.iconButtonDisabled]}
-                      disabled={isPosting || mediaMenuActions.length === 0}
-                      hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-                      accessible={true}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('common.add')}
-                    >
-                      <Icon name="add_circle" size={30} color={Colors.neutral[300]} />
-                    </NativePressable>
-                  </MenuView>
-                ) : null}
-                {shouldRenderSendButton ? (
-                  <SquircleNativePressable
-                    style={[
-                      styles.sendButton,
-                      !useLiquidGlass && styles.sendButtonFallback,
-                      isSendDisabled && styles.sendButtonDisabled,
-                    ]}
-                    onPress={onSubmit}
-                    disabled={isSendDisabled}
-                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel={resolvedSubmitLabel}
-                  >
-                    {useLiquidGlass ? (
-                      <>
-                        <GlassView
-                          style={styles.glassBackground}
-                          glassEffectStyle="clear"
-                          tintColor="rgba(255, 255, 255, 1)"
-                          isInteractive
-                        />
-                        <View style={styles.sendButtonContent} pointerEvents="none">
-                          <Icon name="up" size={22} color={Colors.black} />
-                        </View>
-                      </>
-                    ) : (
-                      <Icon name="up" size={22} color={Colors.neutral[300]} />
-                    )}
-                  </SquircleNativePressable>
-                ) : replyContext && !hasText ? (
-                  <SquircleNativePressable
-                    style={[styles.sendButton, styles.cancelReplyButton]}
-                    onPress={onCancelReply}
-                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('comments.cancelReply')}
-                  >
-                    <Icon name="close" size={18} color={Colors.neutral[200]} />
-                  </SquircleNativePressable>
-                ) : null}
-              </View>
-              {showCharCount ? (
-                <View style={styles.charCountOverlay} pointerEvents="none">
-                  <Text
-                    style={[styles.charCountText, charCount > maxLength && styles.charCountTextError]}
-                  >
-                    {remainingChars}
-                  </Text>
+                    {attachmentKind === 'gif' ? (
+                      <SquircleView style={gifAttachmentWrapStyle}>
+                        {hasGifPreview ? (
+                          <Image
+                            source={{ uri: selectedGifPreviewUri ?? undefined }}
+                            style={attachmentThumbImageStyle}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <View style={styles.gifFallbackThumb} />
+                        )}
+                        {onClearGif ? (
+                          <NativePressable
+                            onPress={onClearGif}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            style={styles.removeThumbButton}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('comments.removeGif')}
+                          >
+                            <Icon name="close" size={18} color={Colors.neutral[50]} />
+                          </NativePressable>
+                        ) : onClearAttachment ? (
+                          <NativePressable
+                            onPress={onClearAttachment}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            style={styles.removeThumbButton}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('comments.removeGif')}
+                          >
+                            <Icon name="close" size={18} color={Colors.neutral[50]} />
+                          </NativePressable>
+                        ) : null}
+                      </SquircleView>
+                    ) : null}
+                    {hasImages
+                      ? resolvedSelectedImages.slice(0, 4).map(img => {
+                          const ar =
+                            img.aspectRatio && img.aspectRatio.height > 0
+                              ? img.aspectRatio.width / img.aspectRatio.height
+                              : 1;
+                          return (
+                            <SquircleView
+                              key={img.uri}
+                              style={[attachmentThumbWrapStyle, { aspectRatio: ar }]}
+                            >
+                              <Image
+                                source={{ uri: img.uri }}
+                                style={attachmentThumbImageStyle}
+                                contentFit="cover"
+                              />
+                              {onRemoveImage ? (
+                                <NativePressable
+                                  onPress={() => onRemoveImage(img.uri)}
+                                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                  style={styles.removeThumbButton}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={t('comments.removeImage')}
+                                >
+                                  <Icon name="close" size={18} color={Colors.neutral[50]} />
+                                </NativePressable>
+                              ) : null}
+                            </SquircleView>
+                          );
+                        })
+                      : null}
+                  </ScrollView>
                 </View>
-              ) : null}
+              )}
+              <View style={styles.inputBubbleRow}>
+                <SquircleView style={styles.inputWrapper}>
+                  <TextInput
+                    ref={inputRef}
+                    {...mentionInputProps}
+                    nativeID="comment-input"
+                    placeholder={resolvedPlaceholder}
+                    placeholderTextColor={Colors.neutral[500]}
+                    multiline
+                    maxLength={maxLength + 25}
+                    style={styles.textInput}
+                    editable={!isPosting}
+                    onFocus={onFocus}
+                    keyboardType="default"
+                    returnKeyType="default"
+                    autoComplete="off"
+                    textContentType="none"
+                    importantForAutofill="no"
+                    textAlignVertical="top"
+                  />
+                </SquircleView>
+                <View style={styles.sendColumn}>
+                  <View style={styles.controlsRow}>
+                    {showAddControl ? (
+                      <MenuView
+                        title=""
+                        actions={mediaMenuActions}
+                        onPressAction={handleMediaMenuPressAction}
+                        shouldOpenOnLongPress={false}
+                        themeVariant="dark"
+                        isAnchoredToRight={true}
+                      >
+                        <NativePressable
+                          style={[styles.addIconButton, isPosting && styles.iconButtonDisabled]}
+                          disabled={isPosting || mediaMenuActions.length === 0}
+                          hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                          accessible={true}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('common.add')}
+                        >
+                          <Icon name="add_circle" size={30} color={Colors.neutral[300]} />
+                        </NativePressable>
+                      </MenuView>
+                    ) : null}
+                    {shouldRenderSendButton ? (
+                      <SquircleNativePressable
+                        style={[
+                          styles.sendButton,
+                          !useLiquidGlass && styles.sendButtonFallback,
+                          isSendDisabled && styles.sendButtonDisabled,
+                        ]}
+                        onPress={onSubmit}
+                        disabled={isSendDisabled}
+                        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel={resolvedSubmitLabel}
+                      >
+                        {useLiquidGlass ? (
+                          <>
+                            <GlassView
+                              style={styles.glassBackground}
+                              glassEffectStyle="clear"
+                              tintColor="rgba(255, 255, 255, 1)"
+                              isInteractive
+                            />
+                            <View style={styles.sendButtonContent} pointerEvents="none">
+                              <Icon name="up" size={22} color={Colors.black} />
+                            </View>
+                          </>
+                        ) : (
+                          <Icon name="up" size={22} color={Colors.neutral[300]} />
+                        )}
+                      </SquircleNativePressable>
+                    ) : replyContext && !hasText ? (
+                      <SquircleNativePressable
+                        style={[styles.sendButton, styles.cancelReplyButton]}
+                        onPress={onCancelReply}
+                        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('comments.cancelReply')}
+                      >
+                        <Icon name="close" size={18} color={Colors.neutral[200]} />
+                      </SquircleNativePressable>
+                    ) : null}
+                  </View>
+                  {showCharCount ? (
+                    <View style={styles.charCountOverlay} pointerEvents="none">
+                      <Text
+                        style={[styles.charCountText, charCount > maxLength && styles.charCountTextError]}
+                      >
+                        {remainingChars}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
             </View>
           </View>
         </View>
       </View>
+    </View>
   );
 };
 
@@ -431,7 +406,20 @@ const styles = StyleSheet.create({
     borderColor: Colors.neutral[925],
   },
   inputContainer: COMPOSER_STYLES.container,
-  inputRow: COMPOSER_STYLES.row,
+  inputRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: 8,
+  },
+  inputColumn: {
+    flex: 1,
+    flexDirection: 'column' as const,
+  },
+  inputBubbleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-end' as const,
+    gap: 8,
+  },
   avatarContainer: {
     marginRight: 12,
     marginTop: 0,

@@ -38,7 +38,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { AppTrueSheet, SHEET_STYLES } from '@/utils/components/truesheet';
 import CommentInputFooter from '@/components/features/comments/CommentInputFooter';
-import { useRichTextSearchTrigger } from '@/components/ui/usersearch';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '@/theme';
@@ -79,7 +78,8 @@ import { getVideoView } from '@/utils/video/helpers';
 import { hexToRGBA, isColorDark } from '@/utils/formatting/colors';
 import type { PostView, ProfileViewBasic } from '@/services/api/types';
 import type { Label } from '@atproto/api/dist/client/types/com/atproto/label/defs';
-import type { RichTextFacet } from '@/utils/types/richText';
+import { RichText } from '@atproto/api';
+import type { Main as RichTextFacet } from '@atproto/api/dist/client/types/app/bsky/richtext/facet';
 import { formatRelativeDate } from '@/components/ui/RelativeDate';
 import EmojiPicker from 'react-native-emoji-chooser';
 import * as Clipboard from 'expo-clipboard';
@@ -128,113 +128,6 @@ type ChatListItem =
   | { type: 'message'; message: MessageItem; showTime: boolean; groupedWithPrevious: boolean }
   | { type: 'date'; dateKey: string; label: string };
 
-type ChatRichTextPart = {
-  partKey: string;
-  text: string;
-  isSemiBold?: boolean;
-  isSymbol?: boolean;
-  kind?: 'mention' | 'hashtag' | 'link';
-  identifier?: string;
-  href?: string;
-};
-
-function formatChatRichTextParts(
-  text: string,
-  facets?: RichTextFacet[] | null
-): ChatRichTextPart[] {
-  if (!text) return [{ partKey: 'chat-rt-empty', text: '', isSemiBold: false }];
-  if (!facets || facets.length === 0) return [{ partKey: 'chat-rt-all', text, isSemiBold: false }];
-
-  const parts: ChatRichTextPart[] = [];
-  const textBytes = new TextEncoder().encode(text);
-  let lastByteIndex = 0;
-  let partSeq = 0;
-  const sortedFacets = [...facets].sort((a, b) => a.index.byteStart - b.index.byteStart);
-
-  for (const facet of sortedFacets) {
-    const start = Math.max(0, Math.min(textBytes.length, facet.index.byteStart));
-    const end = Math.max(start, Math.min(textBytes.length, facet.index.byteEnd));
-
-    if (start > lastByteIndex) {
-      const beforeText = new TextDecoder().decode(textBytes.slice(lastByteIndex, start));
-      if (beforeText)
-        parts.push({
-          partKey: `chat-rt-${lastByteIndex}-${start}-${partSeq++}`,
-          text: beforeText,
-          isSemiBold: false,
-        });
-    }
-
-    const facetText = new TextDecoder().decode(textBytes.slice(start, end));
-    const features = facet.features ?? [];
-    const mentionFeature = features.find(f => f.$type === 'app.bsky.richtext.facet#mention');
-    const hashtagFeature = features.find(f => f.$type === 'app.bsky.richtext.facet#tag');
-    const linkFeature = features.find(f => f.$type === 'app.bsky.richtext.facet#link');
-
-    const isMention = !!mentionFeature;
-    const isHashtag = !!hashtagFeature;
-    const isLink = !!linkFeature;
-
-    if (isMention || isHashtag) {
-      const symbol = facetText[0];
-      const textAfterSymbol = facetText.slice(1);
-      const base: Omit<ChatRichTextPart, 'text' | 'isSemiBold' | 'partKey'> = {
-        kind: isMention ? 'mention' : 'hashtag',
-        identifier:
-          textAfterSymbol ||
-          (isMention
-            ? mentionFeature?.did || mentionFeature?.uri || ''
-            : hashtagFeature?.tag || ''),
-      };
-
-      if (symbol)
-        parts.push({
-          ...base,
-          partKey: `chat-rt-${start}-sym-${partSeq++}`,
-          text: symbol,
-          isSemiBold: false,
-          isSymbol: true,
-        });
-      if (textAfterSymbol)
-        parts.push({
-          ...base,
-          partKey: `chat-rt-${start}-body-${partSeq++}`,
-          text: textAfterSymbol,
-          isSemiBold: true,
-        });
-    } else if (isLink) {
-      const href = linkFeature?.uri || facetText;
-      parts.push({
-        partKey: `chat-rt-link-${start}-${end}-${partSeq++}`,
-        text: facetText,
-        isSemiBold: false,
-        kind: 'link',
-        href,
-      });
-    } else {
-      parts.push({
-        partKey: `chat-rt-${start}-${end}-${partSeq++}`,
-        text: facetText,
-        isSemiBold: false,
-      });
-    }
-
-    lastByteIndex = end;
-  }
-
-  if (lastByteIndex < textBytes.length) {
-    const remainingText = new TextDecoder().decode(textBytes.slice(lastByteIndex));
-    if (remainingText)
-      parts.push({
-        partKey: `chat-rt-trail-${lastByteIndex}-${partSeq++}`,
-        text: remainingText,
-        isSemiBold: false,
-      });
-  }
-
-  return parts.length > 0 ? parts : [{ partKey: 'chat-rt-fallback', text, isSemiBold: false }];
-}
-
 function ChatMessageRichText({
   text,
   facets,
@@ -243,81 +136,90 @@ function ChatMessageRichText({
   fromMeTextColor,
 }: {
   text: string;
-  facets?: RichTextFacet[] | null;
+  facets?: RichTextFacet[] | null | undefined;
   isFromMe: boolean;
-  /** Profile ring / accent for outgoing link color */
   fromMeAccentColor?: string;
-  /** Profile text color for outgoing messages */
   fromMeTextColor?: string;
 }) {
   const router = useRouter();
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
   const currentTab = useFeedModalTabSegment();
-  const parts = useMemo(() => formatChatRichTextParts(text, facets), [text, facets]);
 
-  const messageTextStyle = useMemo(() => [
-    styles.messageText,
-    isFromMe && styles.messageTextFromMe,
-    isFromMe && fromMeTextColor && { color: fromMeTextColor },
-  ], [isFromMe, fromMeTextColor]);
+  const rt = useMemo(() => new RichText({ text: text || '', facets: facets ?? undefined }), [text, facets]);
+  const segments = useMemo(() => Array.from(rt.segments()), [rt]);
 
-  const getPartStyle = useCallback((part: ChatRichTextPart) => [
-    part.isSymbol && styles.messageTextMedium,
-    part.isSemiBold && styles.messageTextSemiBold,
-    part.kind === 'link' &&
-      (isFromMe
-        ? [styles.messageTextLinkFromMe, { color: fromMeAccentColor ?? Colors.brand.teal }]
-        : styles.messageTextLink),
-  ], [isFromMe, fromMeAccentColor]);
-
-  const handlePartPress = useCallback(
-    (part: ChatRichTextPart) => {
-      if (!part.kind) return;
-
-      if (part.kind === 'mention' && part.identifier) {
-        const clean = part.identifier.trim();
-        if (!clean) return;
-        goToProfile(clean);
-        return;
-      }
-
-      if (part.kind === 'hashtag' && part.identifier) {
-        const clean = part.identifier.replace(/^#/, '').trim();
-        if (!clean) return;
-        router.navigate(
-          buildFeedModalHref(
-            {
-              feedOption: `hashtag:${clean}`,
-              initialIndex: '0',
-              initialPostUri: '',
-            },
-            currentTab
-          )
-        );
-        return;
-      }
-
-      if (part.kind === 'link' && part.href) {
-        const raw = part.href.trim();
-        if (!raw) return;
-        const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-        Linking.openURL(url).catch(() => {});
-      }
-    },
-    [goToProfile, router, currentTab]
+  const messageTextStyle = useMemo(
+    () => [
+      styles.messageText,
+      isFromMe && styles.messageTextFromMe,
+      isFromMe && fromMeTextColor && { color: fromMeTextColor },
+    ],
+    [isFromMe, fromMeTextColor]
   );
 
   return (
     <Text style={messageTextStyle}>
-      {parts.map(part => (
-        <Text
-          key={part.partKey}
-          style={getPartStyle(part)}
-          onPress={part.kind ? () => handlePartPress(part) : undefined}
-        >
-          {part.text}
-        </Text>
-      ))}
+      {segments.map((segment, i) => {
+        const segText = segment.text ?? '';
+        const keyBase = `chat-rt-${i}`;
+
+        if (segment.isLink() && segment.link?.uri) {
+          return (
+            <Text
+              key={`${keyBase}-link`}
+              style={
+                isFromMe
+                  ? [styles.messageTextLinkFromMe, { color: fromMeAccentColor ?? Colors.brand.teal }]
+                  : styles.messageTextLink
+              }
+              onPress={() => {
+                const raw = segment.link!.uri!.trim();
+                if (!raw) return;
+                const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+                Linking.openURL(url).catch(() => {});
+              }}
+            >
+              {segText}
+            </Text>
+          );
+        }
+
+        if (segment.isMention() && segment.mention?.did) {
+          const symbol = segText[0] || '@';
+          const handle = segText.slice(1);
+          return (
+            <Text key={`${keyBase}-mention`} onPress={() => goToProfile(segment.mention!.did!)}>
+              {symbol && <Text style={styles.messageTextMedium}>{symbol}</Text>}
+              {handle && <Text style={styles.messageTextSemiBold}>{handle}</Text>}
+            </Text>
+          );
+        }
+
+        if (segment.isTag() && segment.tag?.tag) {
+          const symbol = segText[0] || '#';
+          const tag = segText.slice(1);
+          return (
+            <Text
+              key={`${keyBase}-tag`}
+              onPress={() => {
+                const clean = tag.replace(/^#/, '').trim();
+                if (!clean) return;
+                router.navigate(
+                  buildFeedModalHref(
+                    { feedOption: `hashtag:${clean}`, initialIndex: '0', initialPostUri: '' },
+                    currentTab
+                  )
+                );
+              }}
+            >
+              {symbol && <Text style={styles.messageTextMedium}>{symbol}</Text>}
+              {tag && <Text style={styles.messageTextSemiBold}>{tag}</Text>}
+            </Text>
+          );
+        }
+
+        return <Text key={`${keyBase}-plain`}>{segText}</Text>;
+      })}
     </Text>
   );
 }
@@ -1364,15 +1266,6 @@ export default function ChatScreen() {
   const currentUserDid = useUserStore(s => s.currentUser?.did);
   const currentUserAvatar = useUserStore(s => s.currentUser?.avatar ?? null);
 
-  const { inputProps: mentionInputProps, richTextSearchModalProps } = useRichTextSearchTrigger({
-    value: inputText,
-    selection: inputSelection,
-    onChangeText: setInputText,
-    onSelectionChange: e => setInputSelection(e.nativeEvent.selection),
-    inputRef,
-    horizontalPillStyle: true,
-  });
-
   const openByDid = isDid(rawId);
   const members = useMemo(
     () => (currentUserDid && openByDid ? [currentUserDid, rawId].sort() : null),
@@ -1825,7 +1718,7 @@ export default function ChatScreen() {
         hasMessageText && !hasVideoEmbed ? (
           <ChatMessageRichText
             text={msg.text}
-            facets={(msg as { facets?: RichTextFacet[] | null }).facets ?? null}
+            facets={msg.facets}
             isFromMe={!!isFromMe}
             fromMeAccentColor={sentMessageAccentColor}
             fromMeTextColor={sentMessageTextColor}
@@ -1887,7 +1780,7 @@ export default function ChatScreen() {
         >
           <ChatMessageRichText
             text={msg.text}
-            facets={(msg as { facets?: RichTextFacet[] | null }).facets ?? null}
+            facets={msg.facets}
             isFromMe={!!isFromMe}
             fromMeAccentColor={sentMessageAccentColor}
             fromMeTextColor={sentMessageTextColor}
@@ -2473,9 +2366,6 @@ export default function ChatScreen() {
               submitAccessibilityLabel={t('a11y.sendMessage')}
               showAvatar
               hideMediaAddButton
-              richTextSearchModalProps={richTextSearchModalProps}
-              mentionInputProps={mentionInputProps}
-              horizontalPillStyle={true}
             />
           </View>
         )}

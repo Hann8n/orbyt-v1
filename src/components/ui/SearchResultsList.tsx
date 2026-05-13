@@ -5,15 +5,15 @@ import AuthorItem from './AuthorItem';
 import { Colors } from './UI';
 import { QUERY_CONSTANTS } from '../../utils/constants';
 import { TextStyles } from '../../utils/components/typography';
-import type { UserProfile } from '../../hooks/useProfileSearch';
+import type { ProfileViewBasic } from '../../services/api/types';
 
 interface SearchResultsListProps {
-  profiles: UserProfile[];
+  profiles: ProfileViewBasic[];
   isLoading: boolean;
   isFetchingNextPage: boolean;
   hasNextPage: boolean;
   error: unknown;
-  onSelectProfile: (profile: UserProfile) => void;
+  onSelectProfile: (profile: ProfileViewBasic) => void;
   onLoadMore: () => void;
   emptyMessage?: string;
   errorMessage?: string;

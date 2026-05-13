@@ -28,7 +28,6 @@ import { queryKeys } from '../../../utils/query/queryKeys';
 import { chatReactQueryOptions } from '../../../utils/query/chatQueryOptions';
 import { BORDER_RADIUS, ICON_SIZES, QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
 import { useProfileByDid } from '../../../services/data/ProfileService';
-import { useRichTextSearchTrigger } from '../usersearch';
 import CommentInputFooter from '../../features/comments/CommentInputFooter';
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { ChatService } from '../../../services/api/chat/ChatService';
@@ -101,15 +100,6 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
 
   const { data: currentUserProfile } = useProfileByDid(currentUserDid);
-  const { inputProps: messageMentionInputProps, richTextSearchModalProps: messageRichTextSearchProps } =
-    useRichTextSearchTrigger({
-      value: sendMessageText,
-      selection: sendMessageInputSelection,
-      onChangeText: setSendMessageText,
-      onSelectionChange: e => setSendMessageInputSelection(e.nativeEvent.selection),
-      inputRef: messageInputRef,
-      horizontalPillStyle: true,
-    });
 
   const { data: conversationsData, isLoading: conversationsLoading } = useInfiniteQuery({
     queryKey: queryKeys.chat.conversations.list(),
@@ -315,9 +305,6 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
       maxLength={MAX_MESSAGE_LENGTH}
       inputRef={messageInputRef}
       currentUserAvatar={currentUserProfile?.avatar}
-      richTextSearchModalProps={messageRichTextSearchProps}
-      mentionInputProps={messageMentionInputProps}
-      horizontalPillStyle={true}
     />
   );
 

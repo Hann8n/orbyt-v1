@@ -64,7 +64,7 @@ import VerticalListSheet, {
   TrueSheet,
 } from '@/components/ui/VerticalListSheet';
 import { SHEET_STYLES } from '@/utils/components/truesheet';
-import { useRichTextSearchTrigger, RichTextSearchModal } from '@/components/ui/usersearch';
+import { MentionInputWithSearch } from '@/components/ui/MentionInputWithSearch';
 
 const VIDEO_WIDTH = 150; // Fixed preview width
 
@@ -404,19 +404,6 @@ const DescriptionInputModal: React.FC<{
   setDescriptionSelection: (selection: { start: number; end: number }) => void;
   onClose: () => void;
   inputRef?: React.RefObject<TextInput | null>;
-  richTextSearchModalProps: {
-    visible: boolean;
-    onSelectUser?: (user: {
-      did: string;
-      handle: string;
-      displayName?: string;
-      avatar?: string;
-    }) => void;
-    onSelectHashtag?: (hashtag: string) => void;
-    searchQuery: string;
-    searchType: 'mention' | 'hashtag';
-    containerStyle?: import('react-native').ViewStyle;
-  };
   insets: { top: number };
 }> = ({
   visible,
@@ -426,7 +413,6 @@ const DescriptionInputModal: React.FC<{
   setDescriptionSelection,
   onClose,
   inputRef,
-  richTextSearchModalProps,
   insets,
 }) => {
   const { t } = useTranslation();
@@ -467,39 +453,30 @@ const DescriptionInputModal: React.FC<{
               style={styles.descriptionModalContent}
               keyboardVerticalOffset={0}
             >
-              <View style={styles.descriptionInputContainer}>
-                <TextInput
-                  ref={inputRef}
-                  nativeID="video-post-description-input"
-                  value={description}
-                  onChangeText={setDescription}
-                  onSelectionChange={e => {
-                    setDescriptionSelection(e.nativeEvent.selection);
-                  }}
-                  selection={selection}
-                  style={styles.descriptionModalInput}
-                  placeholder={t('video.addTextPlaceholder')}
-                  placeholderTextColor={Colors.neutral[600]}
-                  multiline={true}
-                  maxLength={300}
-                  autoFocus={true}
-                  textAlignVertical="top"
-                  blurOnSubmit={false}
-                  returnKeyType="default"
-                  selectionColor={Colors.neutral[200]}
-                  cursorColor={Colors.neutral[200]}
-                  autoComplete="off"
-                  textContentType="none"
-                  importantForAutofill="no"
-                  caretHidden={false}
-                />
-              </View>
-              {richTextSearchModalProps.visible && (
-                <RichTextSearchModal
-                  {...richTextSearchModalProps}
-                  containerStyle={styles.searchModalContainer}
-                />
-              )}
+              <MentionInputWithSearch
+                value={description}
+                onChangeText={setDescription}
+                selection={selection}
+                onSelectionChange={e => {
+                  setDescriptionSelection(e.nativeEvent.selection);
+                }}
+                placeholder={t('video.addTextPlaceholder')}
+                maxLength={300}
+                inputRef={inputRef}
+                multiline
+                layoutMode="vertical-list"
+                searchBannerPosition="below"
+                containerStyle={styles.descriptionInputContainer}
+                inputStyle={styles.descriptionModalInput}
+                searchBannerContainerStyle={styles.searchModalContainer}
+                textInputProps={{
+                  nativeID: 'video-post-description-input',
+                  autoFocus: true,
+                  selectionColor: Colors.neutral[200],
+                  cursorColor: Colors.neutral[200],
+                }}
+                onSubmit={onClose}
+              />
             </KeyboardAvoidingView>
           </View>
         </View>
@@ -603,18 +580,8 @@ const VideoPostScreen: React.FC = () => {
     opacity: headerFadeOpacity.value,
   }));
 
-  // Rich text search hook for description input (for @ mentions and # hashtags)
+  // Rich text search input ref for description modal
   const descriptionInputRef = useRef<TextInput | null>(null);
-
-  const { richTextSearchModalProps } = useRichTextSearchTrigger({
-    value: description,
-    selection: descriptionSelection,
-    onChangeText: setDescription,
-    onSelectionChange: e => {
-      setDescriptionSelection(e.nativeEvent.selection);
-    },
-    inputRef: descriptionInputRef,
-  });
 
   useEffect(() => {
     // Set current user handle in ProfileCache when userStore changes
@@ -1235,7 +1202,6 @@ const VideoPostScreen: React.FC = () => {
         setDescriptionSelection={setDescriptionSelection}
         onClose={() => setShowDescriptionInputModal(false)}
         inputRef={descriptionInputRef}
-        richTextSearchModalProps={richTextSearchModalProps}
         insets={insets}
       />
 
@@ -2009,8 +1975,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   descriptionModalInput: {
-    // Text is transparent - overlay shows formatted rich text (mentions/hashtags)
-    color: Colors.transparent,
+    color: Colors.neutral[50],
     fontFamily: FontFamily.regular,
     fontSize: Typography.sizes.body,
     textAlignVertical: 'top',

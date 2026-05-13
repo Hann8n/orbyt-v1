@@ -1,28 +1,30 @@
-import { useState, useEffect, useRef, useCallback, useDeferredValue } from 'react';
-import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
+import { useState, useEffect, useCallback, useDeferredValue, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
   StyleSheet,
   FlatList,
-  Platform,
+  LayoutAnimation,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SquircleNativePressable } from './Squircle';
 import { LinearGradient } from './LinearGradient';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../utils/query/queryKeys';
 import { AtprotoFeedService } from '../../services/api/feed/FeedService';
 import AuthorItem from './AuthorItem';
 import UI from './UI';
 import { Colors } from './UI';
 import { FontFamily, Typography, TextStyles } from '../../utils/components/typography';
-import { useProfileSearch, type UserProfile } from '../../hooks/useProfileSearch';
+import { useProfileSearch } from '../../hooks/useProfileSearch';
 import { getSearchQuery } from '../../utils/searchQueryExtractors';
+import type { ProfileViewBasic } from '../../services/api/types';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 
-/** Author row styling for `RichTextSearchModal` (video post description @/# search) and matching surfaces. */
+/** Author row styling for `SearchBanner` (video post description @/# search) and matching surfaces. */
 export const RICH_TEXT_SEARCH_AUTHOR_ITEM_STYLE: ViewStyle = {
   paddingVertical: 6,
   paddingHorizontal: 12,
@@ -38,47 +40,18 @@ export const RICH_TEXT_SEARCH_AUTHOR_ITEM_DEFAULTS = {
   showArrow: false,
 };
 
-interface UserSearchModalProps {
-  visible: boolean;
-  onSelect: (user: UserProfile) => void;
-  searchQuery: string;
-}
-
-interface UseUserSearchTriggerProps {
-  value: string;
-  selection: { start: number; end: number };
-  onChangeText: (text: string) => void;
-  onSelectionChange?: (e: { nativeEvent: { selection: { start: number; end: number } } }) => void;
-  onMentionInsert?: (user: UserProfile) => void;
-  inputRef?: React.RefObject<TextInput | null>;
-}
-
-export interface RichTextSearchModalProps {
-  visible: boolean;
-  onSelectUser?: (user: UserProfile) => void;
-  onSelectHashtag?: (hashtag: string) => void;
-  searchQuery: string;
-  searchType: 'mention' | 'hashtag';
-  containerStyle?: StyleProp<ViewStyle>;
-  /** Use horizontal pill style (for comment footer) vs vertical list style (for video post screen) */
-  horizontalPillStyle?: boolean;
-}
-
-// Helper functions are now imported from searchQueryExtractors
-
-// Unified search banner component (handles both mentions and hashtags)
-interface SearchBannerProps {
+export interface SearchBannerProps {
   visible: boolean;
   searchQuery: string;
   searchType: 'mention' | 'hashtag' | null;
-  onSelectUser?: (user: UserProfile) => void;
+  onSelectUser?: (user: ProfileViewBasic) => void;
   onSelectHashtag?: (hashtag: string) => void;
   containerStyle?: StyleProp<ViewStyle>;
-  /** Use horizontal pill style (for comment footer) vs vertical list style (for video post screen) */
   horizontalPillStyle?: boolean;
 }
 
-function SearchBanner({
+/** Renders mention/hashtag suggestion results above a TextInput. */
+export function SearchBanner({
   visible,
   searchQuery,
   searchType,
@@ -88,63 +61,57 @@ function SearchBanner({
   horizontalPillStyle = false,
 }: SearchBannerProps) {
   const deferredSearchQuery = useDeferredValue(searchQuery);
-
-  // Use shared profile search hook for mentions
-  // Use a ref to track previous results and avoid flashing during search
-  const prevUsersRef = useRef<UserProfile[]>([]);
+  const prevVisibleRef = useRef(visible);
 
   const {
     data: userData,
     isFetchingNextPage: isFetchingMoreUsers,
     fetchNextPage: fetchMoreUsers,
     hasNextPage: hasMoreUsers,
-    isFetching: isFetchingUsers,
   } = useProfileSearch(deferredSearchQuery, {
     enabled: searchType === 'mention' && visible,
     staleTime: 30 * 1000,
   });
 
-  const currentUsers = userData?.pages.flatMap(page => page.profiles) || [];
-  // Keep showing previous results while loading new ones to prevent flashing
-  const users = currentUsers.length > 0
-    ? currentUsers
-    : isFetchingUsers
-      ? prevUsersRef.current
-      : [];
-  // Update ref when we have real results
-  if (currentUsers.length > 0) {
-    prevUsersRef.current = currentUsers;
-  }
+  const users = useMemo(
+    () => userData?.pages.flatMap(page => page.profiles) ?? [],
+    [userData]
+  );
 
-  // Hashtag suggestions from API — min 3 chars to avoid expensive searches on every keystroke
-  const prevHashtagsRef = useRef<string[]>([]);
-
-  const { data: hashtagSuggestionsData, isFetching: isFetchingHashtags } = useQuery<string[]>({
+  const { data: hashtagSuggestionsData } = useQuery<string[]>({
     queryKey: queryKeys.search.hashtags(deferredSearchQuery),
     queryFn: () => AtprotoFeedService.searchHashtagSuggestions(deferredSearchQuery, 10),
     enabled: searchType === 'hashtag' && deferredSearchQuery.length >= 3 && visible,
     staleTime: 5 * 60 * 1000,
-    placeholderData: keepPreviousData,
   });
 
-  const currentHashtags = hashtagSuggestionsData ?? [];
-  // Keep showing previous results while loading new ones to prevent flashing
-  const hashtagSuggestions = currentHashtags.length > 0
-    ? currentHashtags
-    : isFetchingHashtags
-      ? prevHashtagsRef.current
-      : [];
-  // Update ref when we have real results
-  if (currentHashtags.length > 0) {
-    prevHashtagsRef.current = currentHashtags;
-  }
+  const hashtagSuggestions = hashtagSuggestionsData ?? [];
 
-  if (!visible) return null;
+  const hasResults =
+    (searchType === 'mention' && users.length > 0) ||
+    (searchType === 'hashtag' && hashtagSuggestions.length > 0);
 
-  return (
-    <View style={[styles.bannerContainer, containerStyle]}>
-      {searchType === 'mention' && users.length > 0 ? (
-        horizontalPillStyle ? (
+  useEffect(() => {
+    if (prevVisibleRef.current !== visible) {
+      LayoutAnimation.configureNext({
+        duration: 150,
+        create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+        update: { type: LayoutAnimation.Types.easeInEaseOut },
+        delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+      });
+      prevVisibleRef.current = visible;
+    }
+  }, [visible]);
+
+  if (!visible || !hasResults) return null;
+
+  const isMention = searchType === 'mention';
+  const isHorizontal = horizontalPillStyle;
+
+  if (isMention) {
+    if (isHorizontal) {
+      return (
+        <View style={[styles.bannerContainer, containerStyle]}>
           <View style={styles.listContainer}>
             <FlatList
               data={users}
@@ -155,12 +122,8 @@ function SearchBanner({
                   style={styles.horizontalPill}
                   onPress={() => onSelectUser?.(item)}
                 >
-                  <UI.Avatar
-                    uri={item.avatar}
-                    size={28}
-                    style={styles.pillAvatar}
-                  />
-                  <Text style={styles.pillContent}>{item.handle}</Text>
+                  <UI.Avatar uri={item.avatar} size={28} style={styles.pillAvatar} />
+                  <Text style={styles.pillContent} numberOfLines={1}>{item.handle}</Text>
                 </SquircleNativePressable>
               )}
               onEndReached={() => {
@@ -170,7 +133,7 @@ function SearchBanner({
               keyboardShouldPersistTaps="handled"
               style={styles.resultsList}
               contentContainerStyle={styles.horizontalListContent}
-              scrollEnabled={true}
+              scrollEnabled
               showsHorizontalScrollIndicator={false}
             />
             <LinearGradient
@@ -180,40 +143,50 @@ function SearchBanner({
               pointerEvents="none"
             />
           </View>
-        ) : (
-          <View style={styles.listContainer}>
-            <FlatList
-              data={users}
-              keyExtractor={item => item.did}
-              renderItem={({ item }) => (
-                <AuthorItem
-                  {...RICH_TEXT_SEARCH_AUTHOR_ITEM_DEFAULTS}
-                  handle={item.handle}
-                  did={item.did}
-                  displayName={item.displayName}
-                  avatar={item.avatar}
-                  onPress={() => onSelectUser?.(item)}
-                  style={RICH_TEXT_SEARCH_AUTHOR_ITEM_STYLE}
-                />
-              )}
-              onEndReached={() => {
-                if (hasMoreUsers && !isFetchingMoreUsers) fetchMoreUsers();
-              }}
-              onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              keyboardShouldPersistTaps="handled"
-              style={styles.resultsList}
-              contentContainerStyle={styles.resultsListContent}
-              scrollEnabled={true}
-            />
-            <LinearGradient
-              colors={['transparent', Colors.neutral[975]]}
-              locations={[0, 1]}
-              style={styles.fadeGradient}
-              pointerEvents="none"
-            />
-          </View>
-        )
-      ) : horizontalPillStyle && hashtagSuggestions.length > 0 ? (
+        </View>
+      );
+    }
+
+    return (
+      <View style={[styles.bannerContainer, containerStyle]}>
+        <View style={styles.listContainer}>
+          <FlashList
+            data={users}
+            keyExtractor={item => item.did}
+            renderItem={({ item }) => (
+              <AuthorItem
+                {...RICH_TEXT_SEARCH_AUTHOR_ITEM_DEFAULTS}
+                handle={item.handle}
+                did={item.did}
+                displayName={item.displayName}
+                avatar={item.avatar}
+                onPress={() => onSelectUser?.(item)}
+                style={RICH_TEXT_SEARCH_AUTHOR_ITEM_STYLE}
+              />
+            )}
+            onEndReached={() => {
+              if (hasMoreUsers && !isFetchingMoreUsers) fetchMoreUsers();
+            }}
+            onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+            keyboardShouldPersistTaps="handled"
+            style={styles.resultsList}
+            contentContainerStyle={styles.resultsListContent}
+          />
+          <LinearGradient
+            colors={['transparent', Colors.neutral[975]]}
+            locations={[0, 1]}
+            style={styles.fadeGradient}
+            pointerEvents="none"
+          />
+        </View>
+      </View>
+    );
+  }
+
+  // Hashtag results
+  if (isHorizontal) {
+    return (
+      <View style={[styles.bannerContainer, containerStyle]}>
         <View style={styles.listContainer}>
           <FlatList
             data={hashtagSuggestions}
@@ -235,79 +208,48 @@ function SearchBanner({
             showsHorizontalScrollIndicator={false}
           />
         </View>
-      ) : hashtagSuggestions.length > 0 ? (
-        <View style={styles.listContainer}>
-          <FlatList
-            data={hashtagSuggestions}
-            keyExtractor={item => item}
-            renderItem={({ item }) => (
-              <SquircleNativePressable
-                style={styles.verticalHashtagItem}
-                onPress={() => onSelectHashtag?.(item)}
-              >
-                <Text style={styles.hashtagText}>
-                  <Text style={styles.hashtagSymbol}>#</Text>
-                  <Text style={styles.hashtagTag}>{item}</Text>
-                </Text>
-              </SquircleNativePressable>
-            )}
-            contentContainerStyle={styles.hashtagListContent}
-            keyboardShouldPersistTaps="handled"
-          />
-        </View>
-      ) : null}
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.bannerContainer, containerStyle]}>
+      <View style={styles.listContainer}>
+        <FlashList
+          data={hashtagSuggestions}
+          keyExtractor={item => item}
+          renderItem={({ item }) => (
+            <SquircleNativePressable
+              style={styles.verticalHashtagItem}
+              onPress={() => onSelectHashtag?.(item)}
+            >
+              <Text style={styles.hashtagText}>
+                <Text style={styles.hashtagSymbol}>#</Text>
+                <Text style={styles.hashtagTag}>{item}</Text>
+              </Text>
+            </SquircleNativePressable>
+          )}
+          contentContainerStyle={styles.hashtagListContent}
+          keyboardShouldPersistTaps="handled"
+        />
+      </View>
     </View>
   );
 }
 
-// Legacy wrapper for backward compatibility
-export function UserSearchModal({
-  visible,
-  onSelect,
-  searchQuery,
-}: UserSearchModalProps) {
-  return (
-    <SearchBanner
-      visible={visible}
-      searchQuery={searchQuery}
-      searchType="mention"
-      onSelectUser={onSelect}
-    />
-  );
-}
-
-// Legacy wrapper for backward compatibility
-export function RichTextSearchModal({
-  visible,
-  onSelectUser,
-  onSelectHashtag,
-  searchQuery,
-  searchType,
-  containerStyle,
-  horizontalPillStyle = false,
-}: RichTextSearchModalProps) {
-  return (
-    <SearchBanner
-      visible={visible}
-      searchQuery={searchQuery}
-      searchType={searchType}
-      onSelectUser={onSelectUser}
-      onSelectHashtag={onSelectHashtag}
-      containerStyle={containerStyle}
-      horizontalPillStyle={horizontalPillStyle}
-    />
-  );
-}
-
-// Unified hook to manage @ mentions and # hashtags in any TextInput
-interface UseSearchTriggerProps extends UseUserSearchTriggerProps {
-  /** Enable hashtag search (#) in addition to mention search (@) */
+interface UseSearchTriggerProps {
+  value: string;
+  selection: { start: number; end: number };
+  onChangeText: (text: string) => void;
+  onSelectionChange?: (e: { nativeEvent: { selection: { start: number; end: number } } }) => void;
+  onMentionInsert?: (user: ProfileViewBasic) => void;
+  inputRef?: React.RefObject<TextInput | null>;
   enableHashtags?: boolean;
-  /** Use horizontal pill style (for comment footer) vs vertical list style (for video post screen) */
   horizontalPillStyle?: boolean;
 }
 
-function useSearchTrigger({
+/** Detects live @mention / #hashtag queries and returns props for a TextInput + SearchBanner. */
+export function useSearchTrigger({
   value,
   selection,
   onChangeText,
@@ -317,79 +259,77 @@ function useSearchTrigger({
   enableHashtags = false,
   horizontalPillStyle = false,
 }: UseSearchTriggerProps) {
-  const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'mention' | 'hashtag'>('mention');
   const [searchRange, setSearchRange] = useState<{ start: number; end: number } | null>(null);
-  const deferredValue = useDeferredValue(value);
+  const suppressNextQueryRef = useRef(false);
 
-  // Watch value/selection for @ mention or # hashtag using shared utility
   useEffect(() => {
-    if (!selection) return undefined;
-    
-    const searchResult = getSearchQuery(deferredValue, selection.start, enableHashtags);
-    
-    // If modal is visible and user types a space, dismiss it.
-    // Use the live `value` (not deferred) so the character at the current cursor is accurate.
-    if (modalVisible && selection.start > 0 && value[selection.start - 1] === ' ') {
+    if (!selection) {
       setSearchQuery('');
       setSearchRange(null);
-      setModalVisible(false);
       return;
     }
 
-    if (searchResult) {
-      setSearchQuery(searchResult.query.query);
-      setSearchRange({ start: searchResult.query.start, end: searchResult.query.end });
-      setSearchType(searchResult.type);
-      setModalVisible(true);
-    } else if (modalVisible) {
+    if (suppressNextQueryRef.current) {
+      suppressNextQueryRef.current = false;
+      return;
+    }
+
+    const result = getSearchQuery(value, selection.start, enableHashtags);
+
+    if (result) {
+      setSearchQuery(result.query.query);
+      setSearchRange({ start: result.query.start, end: result.query.end });
+      setSearchType(result.type);
+    } else {
       setSearchQuery('');
       setSearchRange(null);
-      setModalVisible(false);
     }
-  }, [value, deferredValue, selection, modalVisible, enableHashtags]);
+  }, [value, selection?.start, enableHashtags]);
 
-  // Imperatively place cursor after insertion without holding a controlled `selection` prop.
-  // setNativeProps is a fire-and-forget nudge that doesn't fight native cursor on subsequent keystrokes.
   const placeCursor = useCallback((pos: number) => {
     requestAnimationFrame(() => {
       inputRef?.current?.setNativeProps({ selection: { start: pos, end: pos } });
     });
   }, [inputRef]);
 
-  // Insert selected user at the mention position
-  const handleSelectUser = useCallback((user: UserProfile) => {
-    if (!searchRange || searchType !== 'mention') return;
-    const before = value.slice(0, searchRange.start);
-    const after = value.slice(searchRange.end);
-    const insert = `@${user.handle} `;
-    const newValue = before + insert + after;
-    const newCursorPos = searchRange.start + insert.length;
-    
-    onChangeText(newValue);
-    placeCursor(newCursorPos);
-    setModalVisible(false);
-    setSearchQuery('');
-    setSearchRange(null);
-    onMentionInsert?.(user);
-  }, [searchRange, searchType, value, onChangeText, placeCursor, onMentionInsert]);
+  const handleSelectUser = useCallback(
+    (user: ProfileViewBasic) => {
+      if (!searchRange || searchType !== 'mention') return;
+      const before = value.slice(0, searchRange.start);
+      const after = value.slice(searchRange.end);
+      const insert = `@${user.handle} `;
+      const newValue = before + insert + after;
+      const newCursorPos = searchRange.start + insert.length;
 
-  // Insert selected hashtag at the hashtag position
-  const handleSelectHashtag = useCallback((hashtag: string) => {
-    if (!searchRange || searchType !== 'hashtag') return;
-    const before = value.slice(0, searchRange.start);
-    const after = value.slice(searchRange.end);
-    const insert = `#${hashtag} `;
-    const newValue = before + insert + after;
-    const newCursorPos = searchRange.start + insert.length;
-    
-    onChangeText(newValue);
-    placeCursor(newCursorPos);
-    setModalVisible(false);
-    setSearchQuery('');
-    setSearchRange(null);
-  }, [searchRange, searchType, value, onChangeText, placeCursor]);
+      suppressNextQueryRef.current = true;
+      onChangeText(newValue);
+      placeCursor(newCursorPos);
+      setSearchQuery('');
+      setSearchRange(null);
+      onMentionInsert?.(user);
+    },
+    [searchRange, searchType, value, onChangeText, placeCursor, onMentionInsert]
+  );
+
+  const handleSelectHashtag = useCallback(
+    (hashtag: string) => {
+      if (!searchRange || searchType !== 'hashtag') return;
+      const before = value.slice(0, searchRange.start);
+      const after = value.slice(searchRange.end);
+      const insert = `#${hashtag} `;
+      const newValue = before + insert + after;
+      const newCursorPos = searchRange.start + insert.length;
+
+      suppressNextQueryRef.current = true;
+      onChangeText(newValue);
+      placeCursor(newCursorPos);
+      setSearchQuery('');
+      setSearchRange(null);
+    },
+    [searchRange, searchType, value, onChangeText, placeCursor]
+  );
 
   return {
     inputProps: {
@@ -399,8 +339,8 @@ function useSearchTrigger({
       autoCorrect: false,
       autoCapitalize: 'none' as const,
     },
-    modalProps: {
-      visible: modalVisible,
+    bannerProps: {
+      visible: searchQuery.length > 0 && searchRange !== null,
       searchQuery,
       searchType,
       onSelectUser: handleSelectUser,
@@ -410,106 +350,24 @@ function useSearchTrigger({
   };
 }
 
-// Legacy wrapper for backward compatibility
-export function useUserSearchTrigger(props: UseUserSearchTriggerProps) {
-  const { inputProps, modalProps } = useSearchTrigger({ ...props, enableHashtags: false });
-  return {
-    inputProps,
-    userSearchModalProps: {
-      visible: modalProps.visible,
-      searchQuery: modalProps.searchQuery,
-      onSelect: modalProps.onSelectUser,
-    },
-  };
-}
-
-// Legacy wrapper for backward compatibility
-export function useRichTextSearchTrigger(props: UseUserSearchTriggerProps & { horizontalPillStyle?: boolean }) {
-  const { horizontalPillStyle, ...rest } = props;
-  const { inputProps, modalProps } = useSearchTrigger({ ...rest, enableHashtags: true, horizontalPillStyle });
-  return {
-    inputProps,
-    richTextSearchModalProps: {
-      visible: modalProps.visible,
-      searchQuery: modalProps.searchQuery,
-      searchType: modalProps.searchType,
-      onSelectUser: modalProps.onSelectUser,
-      onSelectHashtag: modalProps.onSelectHashtag,
-      horizontalPillStyle: modalProps.horizontalPillStyle,
-    },
-  };
-}
-
 const styles = StyleSheet.create({
-  overlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: Colors.overlay.black85,
-    zIndex: 1000,
-  },
-  modal: {
-    backgroundColor: Colors.neutral[975],
-    borderTopLeftRadius: BORDER_RADIUS.LARGE,
-    borderTopRightRadius: BORDER_RADIUS.LARGE,
-    maxHeight: '50%',
-    minHeight: 200,
-    ...Platform.select({
-      ios: {
-        shadowColor: Colors.black,
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
   bannerContainer: {
     backgroundColor: Colors.neutral[975],
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: Colors.neutral[925],
     width: '100%',
-    minHeight: 36,
+    minHeight: 44,
     paddingVertical: 4,
     paddingHorizontal: 0,
     overflow: 'hidden',
-    alignItems: 'flex-start',
-  },
-  loadingWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 0,
-    width: '100%',
-  },
-  emptyWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 0,
-    width: '100%',
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    color: Colors.neutral[400],
-    fontSize: Typography.sizes.body,
-    fontFamily: FontFamily.regular,
-    textAlign: 'center',
+    alignItems: 'stretch',
   },
   listContainer: {
-    flex: 1,
     width: '100%',
+    alignSelf: 'stretch',
   },
   resultsList: {
-    flex: 1,
     width: '100%',
   },
   resultsListContent: {
@@ -529,7 +387,6 @@ const styles = StyleSheet.create({
   },
   horizontalListContent: {
     paddingHorizontal: 12,
-    paddingBottom: 4,
     gap: 8,
   },
   horizontalFadeGradient: {
@@ -539,7 +396,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 60,
   },
-  // Shared horizontal pill style for profiles (with nested avatar)
   horizontalPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -553,7 +409,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.neutral[800],
   },
-  // Hashtag pill (normal left padding, no avatar)
   hashtagPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -587,7 +442,6 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
-  // Vertical list hashtag style (unaffected)
   verticalHashtagItem: {
     flexDirection: 'row',
     alignItems: 'center',
