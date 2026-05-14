@@ -103,7 +103,6 @@ interface ListEmptyComponentProps {
   onRetry?: () => void;
 }
 
-const MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED = { disabled: true } as const;
 const SAFE_AREA_BOTTOM_EDGES = { bottom: true } as const;
 
 const ListEmptyComponent = ({
@@ -260,7 +259,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Local ref for the orientation scroll-restore handler — updated alongside the store.
     const activeVisibleIndexRef = useRef(
-      typeof initialScrollIndex === 'number' ? initialScrollIndex : 0
+      typeof initialScrollIndex === 'number' ? initialScrollIndex : feed.length > 0 ? 0 : -1
     );
     const handleActiveVisibleIndexChangeWithRef = useCallback(
       (index: number) => {
@@ -656,7 +655,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
               onViewableItemsChanged={onViewableItemsChanged}
               viewabilityConfig={viewabilityConfig}
-              maintainVisibleContentPosition={MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED}
               scrollEnabled={true}
               showsVerticalScrollIndicator={
                 listData.length >= SCROLL_INDICATOR_CONSTANTS.FEED_LIST_MIN_ITEMS

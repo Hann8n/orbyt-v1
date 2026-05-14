@@ -541,6 +541,8 @@ function VideoCard({
   );
 }
 
+export default VideoCard;
+
 const styles = StyleSheet.create({
   container: {
     width: '100%',
@@ -549,5 +551,3 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.neutral[950],
   },
 });
-
-export default VideoCard;
