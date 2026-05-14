@@ -1,111 +1,84 @@
 /**
  * Narrowed type helpers for the AT Protocol API layer (`@atproto/api` generated types).
  *
- * This file follows AT Protocol's recommended structure and React Native TypeScript best practices:
- * 1. Groups imports by namespace (Feed, Actor, Embed, etc.) for better organization
- * 2. Uses type-only imports to avoid bundling runtime code in React Native
- * 3. Imports from stable paths that match the package's internal structure
- * 4. Maintains type safety while following package conventions
- *
- * Note: We import types directly from defs files rather than namespace objects because:
- * - TypeScript type-only imports are stripped at compile time (safe for React Native)
- * - Direct imports provide better IDE autocomplete and type checking
- * - The paths are stable and match the package's generated structure
+ * All types are re-exported from public `@atproto/api` namespaces.
+ * Use SDK-native type guards (`AppBskyFeedDefs.isNotFoundPost`, etc.) directly.
  */
 import type { Agent, ModerationUI } from '@atproto/api';
-
-// ============================================================================
-// Runtime imports (type guards - these must be functions, not types)
-// ============================================================================
 import {
-  isNotFoundPost as sdkIsNotFoundPost,
-  isBlockedPost as sdkIsBlockedPost,
-  INTERACTIONSEEN,
-} from '@atproto/api/dist/client/types/app/bsky/feed/defs';
+  AppBskyFeedDefs,
+  AppBskyFeedPost,
+  AppBskyFeedGetAuthorFeed,
+  AppBskyFeedGetFeed,
+  AppBskyFeedGetActorLikes,
+  AppBskyFeedGetLikes,
+  AppBskyFeedGetFeedGenerator,
+  AppBskyActorDefs,
+  AppBskyActorGetPreferences,
+  AppBskyGraphDefs,
+  AppBskyEmbedVideo,
+  AppBskyEmbedImages,
+  AppBskyEmbedRecordWithMedia,
+  AppBskyBookmarkDefs,
+  AppBskyNotificationListNotifications,
+  AppBskyNotificationPutActivitySubscription,
+  ChatBskyConvoDefs,
+  ComAtprotoRepoGetRecord,
+  ComAtprotoRepoListRecords,
+} from '@atproto/api';
+import type { OrbytColorData } from '../colors';
 
-// ============================================================================
-// Feed namespace types (app.bsky.feed.*)
-// ============================================================================
-import type {
-  FeedViewPost,
-  PostView,
-  ThreadViewPost,
-  NotFoundPost,
-  BlockedPost,
-  GeneratorView,
-  ViewerState,
-  Interaction,
-} from '@atproto/api/dist/client/types/app/bsky/feed/defs';
-import type { Record as PostRecord } from '@atproto/api/dist/client/types/app/bsky/feed/post';
-import type { OutputSchema as GetAuthorFeedOutput } from '@atproto/api/dist/client/types/app/bsky/feed/getAuthorFeed';
-import type { OutputSchema as GetFeedOutput } from '@atproto/api/dist/client/types/app/bsky/feed/getFeed';
-import type { OutputSchema as GetActorLikesOutput } from '@atproto/api/dist/client/types/app/bsky/feed/getActorLikes';
-import type { OutputSchema as GetLikesOutput } from '@atproto/api/dist/client/types/app/bsky/feed/getLikes';
-import type { OutputSchema as FeedGeneratorOutput } from '@atproto/api/dist/client/types/app/bsky/feed/getFeedGenerator';
+export type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
+export type PostView = AppBskyFeedDefs.PostView;
+export type ThreadViewPost = AppBskyFeedDefs.ThreadViewPost;
+export type NotFoundPost = AppBskyFeedDefs.NotFoundPost;
+export type BlockedPost = AppBskyFeedDefs.BlockedPost;
+export type GeneratorView = AppBskyFeedDefs.GeneratorView;
+export type ViewerState = AppBskyFeedDefs.ViewerState;
+export type Interaction = AppBskyFeedDefs.Interaction;
 
-// ============================================================================
-// Actor namespace types (app.bsky.actor.*)
-// ============================================================================
-import type {
-  ProfileView,
-  ProfileViewBasic,
-  ProfileViewDetailed,
-  Preferences,
-  StatusView,
-} from '@atproto/api/dist/client/types/app/bsky/actor/defs';
-import type { OutputSchema as GetPreferencesOutput } from '@atproto/api/dist/client/types/app/bsky/actor/getPreferences';
+export type ProfileView = AppBskyActorDefs.ProfileView;
+export type ProfileViewBasic = AppBskyActorDefs.ProfileViewBasic;
+export type ProfileViewDetailed = AppBskyActorDefs.ProfileViewDetailed;
+export type Preferences = AppBskyActorDefs.Preferences;
+export type StatusView = AppBskyActorDefs.StatusView;
 
-// ============================================================================
-// Graph namespace types (app.bsky.graph.*)
-// ============================================================================
-import type { ListViewBasic } from '@atproto/api/dist/client/types/app/bsky/graph/defs';
+export type ListViewBasic = AppBskyGraphDefs.ListViewBasic;
 
-// ============================================================================
-// Embed namespace types (app.bsky.embed.*)
-// ============================================================================
-import type { View as VideoView } from '@atproto/api/dist/client/types/app/bsky/embed/video';
-import type { View as ImagesView } from '@atproto/api/dist/client/types/app/bsky/embed/images';
-import type { View as RecordWithMediaView } from '@atproto/api/dist/client/types/app/bsky/embed/recordWithMedia';
+export type VideoView = AppBskyEmbedVideo.View;
+export type ImagesView = AppBskyEmbedImages.View;
+export type RecordWithMediaView = AppBskyEmbedRecordWithMedia.View;
 
-// ============================================================================
-// Bookmark namespace types (app.bsky.bookmark.*)
-// ============================================================================
-import type { BookmarkView } from '@atproto/api/dist/client/types/app/bsky/bookmark/defs';
+export type BookmarkView = AppBskyBookmarkDefs.BookmarkView;
 
-// ============================================================================
-// Notification namespace types (app.bsky.notification.*)
-// ============================================================================
-import type { Notification } from '@atproto/api/dist/client/types/app/bsky/notification/listNotifications';
-import type { OutputSchema as PutActivitySubscriptionOutput } from '@atproto/api/dist/client/types/app/bsky/notification/putActivitySubscription';
+export type Notification = AppBskyNotificationListNotifications.Notification;
 
-// ============================================================================
-// Chat namespace types (chat.bsky.convo.*)
-// ============================================================================
-import type {
-  ConvoView,
-  MessageView,
-  DeletedMessageView,
-  MessageViewSender,
-  ReactionView,
-  ReactionViewSender,
-  MessageAndReactionView,
-} from '@atproto/api/dist/client/types/chat/bsky/convo/defs';
+export type ConvoView = ChatBskyConvoDefs.ConvoView;
+export type MessageView = ChatBskyConvoDefs.MessageView;
+export type DeletedMessageView = ChatBskyConvoDefs.DeletedMessageView;
+export type MessageViewSender = ChatBskyConvoDefs.MessageViewSender;
+export type ReactionView = ChatBskyConvoDefs.ReactionView;
+export type ReactionViewSender = ChatBskyConvoDefs.ReactionViewSender;
+export type MessageAndReactionView = ChatBskyConvoDefs.MessageAndReactionView;
 
-// ============================================================================
-// Repo namespace types (com.atproto.repo.*)
-// ============================================================================
-import type { OutputSchema as GetRecordOutput } from '@atproto/api/dist/client/types/com/atproto/repo/getRecord';
-import type {
-  OutputSchema as ListRecordsOutput,
-  Record as AtprotoRecord,
-} from '@atproto/api/dist/client/types/com/atproto/repo/listRecords';
+export type GetRecordOutput = ComAtprotoRepoGetRecord.OutputSchema;
+export type ListRecordsOutput = ComAtprotoRepoListRecords.OutputSchema;
+export type AtprotoRecord = ComAtprotoRepoListRecords.Record;
 
-// ============================================================================
-// Type aliases for cleaner usage (following React Native TypeScript best practices)
-// ============================================================================
-type Like = GetLikesOutput['likes'][number];
+export type PostRecord = AppBskyFeedPost.Record;
 
-// Extract notification reason type from Notification (excluding string fallback)
+export type FeedGeneratorOutput = AppBskyFeedGetFeedGenerator.OutputSchema;
+export type GetAuthorFeedOutput = AppBskyFeedGetAuthorFeed.OutputSchema;
+export type GetFeedOutput = AppBskyFeedGetFeed.OutputSchema;
+export type GetActorLikesOutput = AppBskyFeedGetActorLikes.OutputSchema;
+
+export type GetPreferencesOutput = AppBskyActorGetPreferences.OutputSchema;
+
+export type PutActivitySubscriptionOutput = AppBskyNotificationPutActivitySubscription.OutputSchema;
+
+type Like = AppBskyFeedGetLikes.OutputSchema['likes'][number];
+export type { Like };
+
 export type NotificationReason = Extract<
   Notification['reason'],
   | 'like'
@@ -122,51 +95,9 @@ export type NotificationReason = Extract<
   | 'subscribed-post'
 >;
 
-// Re-export commonly used SDK types
-export type {
-  FeedViewPost,
-  PostView,
-  ThreadViewPost,
-  NotFoundPost,
-  BlockedPost,
-  GeneratorView,
-  ViewerState,
-  Interaction,
-  ProfileView,
-  ProfileViewBasic,
-  ProfileViewDetailed,
-  StatusView,
-  Preferences as ActorPreferences,
-  Like,
-  Notification,
-  BookmarkView,
-  ConvoView,
-  MessageView,
-  DeletedMessageView,
-  MessageViewSender,
-  ReactionView,
-  ReactionViewSender,
-  MessageAndReactionView,
-  VideoView,
-  ImagesView,
-  RecordWithMediaView,
-  PostRecord,
-  FeedGeneratorOutput,
-  GetAuthorFeedOutput,
-  GetFeedOutput,
-  GetActorLikesOutput,
-  GetRecordOutput,
-  ListRecordsOutput,
-  GetPreferencesOutput,
-  PutActivitySubscriptionOutput,
-  ListViewBasic,
-};
+export const INTERACTIONSEEN = AppBskyFeedDefs.INTERACTIONSEEN;
 
-// Re-export AtprotoRecord type for repo records
-export type { AtprotoRecord };
-
-// Re-export interaction event constants
-export { INTERACTIONSEEN };
+export type { Agent, ModerationUI };
 
 export type ExtendedPostView = PostView & {
   repostedBy?: {
@@ -174,7 +105,6 @@ export type ExtendedPostView = PostView & {
     displayName?: string;
     handle?: string;
   };
-  /** Present on items from `BookmarkService.getBookmarks` only. */
   bookmarkSubject?: { uri: string; cid: string };
 };
 
@@ -189,10 +119,8 @@ export type ExtendedFeedViewPost = FeedViewPost & {
 
 export type ThreadPost = ThreadViewPost | NotFoundPost | BlockedPost;
 
-// Raw app.bsky.feed API outputs (getFeed, getAuthorFeed, getActorLikes); normalized to FeedResponse
 export type RawFeedApiOutput = GetFeedOutput | GetAuthorFeedOutput | GetActorLikesOutput;
 
-// Feed response types: app-normalized shape extending RawFeedApiOutput with ExtendedFeedViewPost
 export interface FeedResponse {
   feed: ExtendedFeedViewPost[];
   cursor: string | null;
@@ -208,7 +136,6 @@ export interface ConversationsResponse {
   cursor?: string | null;
 }
 
-// Author feed filter types
 export type AuthorFilter =
   | 'posts_with_replies'
   | 'posts_no_replies'
@@ -218,32 +145,27 @@ export type AuthorFilter =
 
 export type FeedType = 'author' | 'likes' | 'reposts' | 'authorVideos' | 'custom';
 
-// Query parameter types
 export interface QueryParams {
   actor: string;
   limit?: number;
   cursor?: string;
 }
 
-// API client response type (narrowed Agent)
 export interface ApiClient {
   api: Agent['api'];
   isOAuth: boolean;
 }
 
-// Session types
 export interface Session {
   did: string;
   type: 'oauth' | 'app_password';
 }
 
-// Comment/Reply types
 export interface Comment {
   uri: string;
   cid: string;
   author: ProfileViewBasic;
   record: PostRecord;
-  /** View format embed (thumb/fullsize URLs) from getPostThread; preferred over record.embed for display. */
   embed?: PostView['embed'];
   indexedAt: string;
   viewer?: ViewerState;
@@ -258,31 +180,26 @@ export interface CommentsResponse {
   cursor: string | null;
 }
 
-// Likes response
 export interface LikesResponse {
   likes: Like[];
   cursor: string | null;
 }
 
-// Profile search response
 export interface ProfileSearchResponse {
   profiles: ProfileViewBasic[];
   cursor: string | null;
 }
 
-// Bookmarks response
 export interface BookmarksResponse {
   bookmarks: ExtendedPostView[];
   cursor: string | null;
 }
 
-// Notifications response
 export interface NotificationsResponse {
   notifications: Notification[];
   cursor: string | null;
 }
 
-// Followers/Following response
 export interface FollowersResponse {
   followers: ProfileViewBasic[];
   cursor: string | null;
@@ -293,7 +210,6 @@ export interface FollowingResponse {
   cursor: string | null;
 }
 
-// Video upload types
 export interface UploadLimitsResponse {
   canUpload: boolean;
   remainingDailyVideos?: number;
@@ -302,121 +218,23 @@ export interface UploadLimitsResponse {
   error?: string;
 }
 
-// Feed generator types
 export interface FeedGeneratorResponse {
   generator: FeedGeneratorOutput | null;
   posts: ExtendedFeedViewPost[];
   cursor: string | null;
 }
 
-// Search response types
 export interface VideoSearchResponse {
   videos: ExtendedFeedViewPost[];
   cursor: string | null;
 }
 
-/**
- * Type guard for NotFoundPost.
- * Checks if a thread post indicates the post was not found.
- *
- * @param post - The thread post to check, which may be ThreadViewPost, NotFoundPost, or BlockedPost
- * @returns Type predicate indicating if post is a NotFoundPost
- *
- * @example
- * ```typescript
- * const threadPost = await getThreadPost(uri);
- * if (isNotFoundPost(threadPost)) {
- *   // TypeScript knows threadPost is NotFoundPost here
- *   // handle not found state
- * }
- * ```
- */
-export function isNotFoundPost(post: ThreadPost): post is NotFoundPost {
-  return sdkIsNotFoundPost(post);
-}
-
-/**
- * Type guard for BlockedPost.
- * Checks if a thread post indicates the post is blocked.
- *
- * @param post - The thread post to check, which may be ThreadViewPost, NotFoundPost, or BlockedPost
- * @returns Type predicate indicating if post is a BlockedPost
- *
- * @example
- * ```typescript
- * const threadPost = await getThreadPost(uri);
- * if (isBlockedPost(threadPost)) {
- *   // TypeScript knows threadPost is BlockedPost here
- *   // handle blocked post state
- * }
- * ```
- */
-export function isBlockedPost(post: ThreadPost): post is BlockedPost {
-  return sdkIsBlockedPost(post);
-}
-
-/**
- * Type guard for video embeds.
- * Checks if an embed is of type `app.bsky.embed.video` or `app.bsky.embed.video#view`.
- *
- * @param embed - The embed object from a post, which may be null or undefined
- * @returns Type predicate indicating if embed is a VideoView
- *
- * @example
- * ```typescript
- * const embed = post.embed;
- * if (isVideoEmbed(embed)) {
- *   // TypeScript knows embed is VideoView here
- *   const playlist = embed.playlist;
- * }
- * ```
- */
-export function isVideoEmbed(
-  embed: FeedViewPost['post']['embed'] | null | undefined
-): embed is VideoView & FeedViewPost['post']['embed'] {
-  if (!embed || typeof embed !== 'object') return false;
-  return embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view';
-}
-
-/**
- * Type guard for video embeds within recordWithMedia.
- * Checks if an embed is of type `app.bsky.embed.recordWithMedia#view` and contains a video in the media field.
- *
- * @param embed - The embed object from a post, which may be null or undefined
- * @returns Type predicate indicating if embed is a RecordWithMediaView containing a VideoView
- *
- * @example
- * ```typescript
- * const embed = post.embed;
- * if (isVideoEmbedInMedia(embed)) {
- *   // TypeScript knows embed is RecordWithMediaView with VideoView media here
- *   const videoPlaylist = embed.media.playlist;
- * }
- * ```
- */
-export function isVideoEmbedInMedia(
-  embed: FeedViewPost['post']['embed'] | null | undefined
-): embed is RecordWithMediaView & FeedViewPost['post']['embed'] {
-  if (!embed || typeof embed !== 'object') return false;
-  if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-    const mediaEmbed = (embed as RecordWithMediaView).media;
-    return (
-      mediaEmbed?.$type === 'app.bsky.embed.video' ||
-      mediaEmbed?.$type === 'app.bsky.embed.video#view'
-    );
-  }
-  return false;
-}
-
-// Record value type (used by ATProto records)
-// Records are dynamic objects with string keys and unknown values
 export type RecordValue = {
   [_ in string]: unknown;
 } & {
   $type?: string;
 };
 
-// Profile record types
 export interface ProfileRecord extends RecordValue {
   displayName?: string;
   description?: string;
@@ -433,7 +251,6 @@ export interface OrbytProfileRecord extends RecordValue {
   algorithmicFeedProvider?: string | null;
 }
 
-// Repost type (based on FeedViewPost structure)
 export interface RepostView {
   uri: string;
   cid: string;
@@ -442,7 +259,6 @@ export interface RepostView {
   repostedBy?: ProfileViewBasic;
 }
 
-// Utility types
 export type ApiResponse<T> = {
   data: T;
   success: boolean;
@@ -454,13 +270,10 @@ export type CreateRecordResponse = {
   cid: string;
 };
 
-// Component-friendly type aliases for UI usage
-// These make it easier for components to use API types
 export type Post = ExtendedPostView;
 export type FeedItem = ExtendedFeedViewPost;
 
-// Extended ProfileView that includes orbyt data (colors from api.getorbyt.com, fetched with profile)
 export type ProfileViewWithOrbyt = ProfileView & {
   orbytRecord?: OrbytProfileRecord | null;
-  orbytColors?: import('../colors').OrbytColorData | null;
+  orbytColors?: OrbytColorData | null;
 };

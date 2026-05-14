@@ -3,10 +3,11 @@
  * Handles all bookmark-related API operations
  */
 
+import { AppBskyFeedDefs } from '@atproto/api';
 import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
 import { deduplicateRequest } from '../inFlightDedup';
-import type { BookmarksResponse, ExtendedPostView, PostView } from '../types';
+import type { BookmarksResponse, ExtendedPostView } from '../types';
 
 export class BookmarkService {
   /**
@@ -70,52 +71,20 @@ export class BookmarkService {
       const allBookmarks = response.data?.bookmarks || [];
 
       const bookmarks = allBookmarks.filter(bookmark => {
-        // Check if it's a valid post bookmark
-        // bookmark.item should contain the post view
-        // bookmark.subject is the reference to the original post
         const item = bookmark.item;
-        if (!item || typeof item !== 'object' || !('$type' in item)) {
-          return false;
-        }
-
-        const subjectUri = bookmark.subject?.uri;
-        const itemUri = 'uri' in item ? item.uri : undefined;
-        const uri = subjectUri || itemUri;
-
-        // Check if it's a post (not blocked or not found)
-        const itemType = item.$type;
-        const isBlocked = itemType === 'app.bsky.feed.defs#blockedPost';
-        const isNotFound = itemType === 'app.bsky.feed.defs#notFoundPost';
-        const isPost = itemType === 'app.bsky.feed.defs#postView';
-
-        const isValid =
-          uri &&
+        const uri = bookmark.subject?.uri;
+        return (
+          AppBskyFeedDefs.isPostView(item) &&
           typeof uri === 'string' &&
-          uri.includes('app.bsky.feed.post') &&
-          isPost &&
-          !isBlocked &&
-          !isNotFound;
-
-        return isValid;
+          uri.includes('app.bsky.feed.post')
+        );
       });
 
-      // Transform bookmarks: use bookmark.item for the post data
-      // bookmark.subject is just the reference, bookmark.item has the full post
       const transformedBookmarks = bookmarks
         .map(bookmark => {
-          // bookmark.item contains the full post view
-          // bookmark.subject is the reference (uri, cid) to the original post
           const item = bookmark.item;
-          if (!item || typeof item !== 'object' || !('$type' in item)) {
-            return null;
-          }
-
-          // Type guard to ensure it's a PostView
-          if (item.$type !== 'app.bsky.feed.defs#postView') {
-            return null;
-          }
-
-          const post = item as PostView;
+          if (!AppBskyFeedDefs.isPostView(item)) return null;
+          const post = item;
 
           // Return the post data - we don't need bookmarkUri since delete uses post URI
           // But we can include it for reference if needed

@@ -2,8 +2,6 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
-import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../../../utils/query/queryKeys';
 import { View, Text, StyleSheet, Share, Platform, Alert, ScrollView } from 'react-native';
 import { NativePressable } from '../NativePressable';
 import { SquircleView } from '../Squircle';
@@ -20,14 +18,14 @@ import {
 import Icon from '../Icon';
 import CloseButton from '../CloseButton';
 import CancelButton from '../CancelButton';
-import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
-import { BookmarkService } from '../../../services/api/bookmark/BookmarkService';
 import { ModerationService } from '../../../services/moderation/ModerationService';
 import { Colors } from '../UI';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useBookmarkStore } from '../../../stores/bookmarkStore';
 import { useUserStore } from '../../../stores/userStore';
+import { useBookmarkMutation } from '../../../hooks/useBookmarkMutation';
+import { useDeletePostMutation } from '../../../hooks/useDeletePostMutation';
 import SendToPicker from './SendToPicker';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 
@@ -38,16 +36,15 @@ const ShareSheet: React.FC = () => {
 
   // Always render the TrueSheet component, but only show content when there's data
   const { postUri, postCid, authorDid, authorName, authorHandle } = data || {};
-  const queryClient = useQueryClient();
   const [showConversationPicker, setShowConversationPicker] = useState<boolean>(false);
   const [isSheetPresented, setIsSheetPresented] = useState(false);
-  const { isBookmarked, addBookmark, removeBookmark } = useBookmarkStore(
+  const { isBookmarked } = useBookmarkStore(
     useShallow(state => ({
       isBookmarked: postUri ? state.isBookmarked(postUri) : false,
-      addBookmark: state.addBookmark,
-      removeBookmark: state.removeBookmark,
     }))
   );
+  const { mutate: toggleBookmark } = useBookmarkMutation();
+  const { mutate: deletePost } = useDeletePostMutation();
 
   const footerTop = FOOTER_TOP_PADDING_DEFAULT;
   const footerFallbackHeight = footerTop + 44;
@@ -80,50 +77,7 @@ const ShareSheet: React.FC = () => {
 
   const handleBookmark = () => {
     if (!postUri) return;
-
-    const newIsBookmarked = !isBookmarked;
-
-    if (newIsBookmarked) {
-      addBookmark(postUri, { uri: postUri, cid: postCid || '' });
-    } else {
-      removeBookmark(postUri);
-    }
-
-    (async () => {
-      try {
-        let cid = postCid;
-        if (!cid) {
-          try {
-            const post = await AtprotoFeedService.getPost(postUri);
-            cid = post?.cid || '';
-          } catch {
-            cid = '';
-          }
-        }
-
-        if (!cid) {
-          if (newIsBookmarked) {
-            removeBookmark(postUri);
-          } else {
-            addBookmark(postUri, { uri: postUri, cid: '' });
-          }
-          return;
-        }
-
-        if (newIsBookmarked) {
-          await BookmarkService.createBookmark(postUri, cid);
-        } else {
-          await BookmarkService.deleteBookmark(postUri);
-        }
-      } catch (_error) {
-        // Revert optimistic update on error
-        if (newIsBookmarked) {
-          removeBookmark(postUri);
-        } else {
-          addBookmark(postUri, { uri: postUri, cid: postCid || '' });
-        }
-      }
-    })();
+    toggleBookmark({ uri: postUri, cid: postCid || '', isBookmarked });
   };
 
   const reportContent = async (
@@ -160,32 +114,12 @@ const ShareSheet: React.FC = () => {
         {
           text: t('common.delete'),
           style: 'destructive',
-          onPress: async () => {
+          onPress: () => {
             if (!postUri) return;
-
             dismissSheet();
-
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.feed.all,
-              refetchType: 'active',
+            deletePost(postUri, {
+              onError: () => Alert.alert(t('common.error'), t('alerts.failedToDeletePost')),
             });
-
-            try {
-              const success = await AtprotoFeedService.deletePost(postUri);
-              if (!success) {
-                queryClient.invalidateQueries({
-                  queryKey: queryKeys.feed.all,
-                  refetchType: 'active',
-                });
-                Alert.alert(t('common.error'), t('alerts.failedToDeletePost'));
-              }
-            } catch (_error) {
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.feed.all,
-                refetchType: 'active',
-              });
-              Alert.alert(t('common.error'), t('alerts.failedToDeletePost'));
-            }
           },
         },
       ]);

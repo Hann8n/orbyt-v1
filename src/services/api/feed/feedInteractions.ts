@@ -1,6 +1,7 @@
 /**
  * app.bsky.feed.like, repost, app.bsky.feed.sendInteractions.
  */
+import { XRPCError } from '@atproto/api';
 import { AtprotoCore } from '../core';
 import { getAtprotoBridge } from '../agentBridge';
 import { deduplicateRequest } from '../inFlightDedup';
@@ -197,14 +198,9 @@ export async function sendFeedInteractions(
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const statusCode =
-      error && typeof error === 'object' && 'status' in error
-        ? (error as { status?: unknown }).status
-        : undefined;
-    const errorCode =
-      error && typeof error === 'object' && 'error' in error
-        ? (error as { error?: unknown }).error
-        : undefined;
+    const isXrpc = error instanceof XRPCError;
+    const statusCode = isXrpc ? error.status : undefined;
+    const errorCode = isXrpc ? error.error : undefined;
     const is404 = statusCode === 404;
     const is501 = statusCode === 501;
     const isInvalidResponse =

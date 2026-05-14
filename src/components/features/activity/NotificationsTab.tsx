@@ -68,7 +68,7 @@ import type {
   ProfileView,
   PostRecord,
 } from '../../../services/api/types';
-import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
+import { AppBskyEmbedVideo, AppBskyEmbedRecordWithMedia } from '@atproto/api';
 import { getVideoView } from '../../../utils/video/helpers';
 
 // Import radar.gif for empty notifications state
@@ -149,8 +149,11 @@ const getEmbed = (postData: PostView | null | undefined): PostView['embed'] | un
 const getPostKind = (embed: PostView['embed'] | null | undefined): PostKind => {
   if (!embed || typeof embed !== 'object') return 'text';
 
-  // Use type guards for video embeds
-  if (isVideoEmbed(embed) || isVideoEmbedInMedia(embed)) {
+  // Use SDK-native type guards for video embeds
+  if (AppBskyEmbedVideo.isView(embed)) {
+    return 'video';
+  }
+  if (AppBskyEmbedRecordWithMedia.isView(embed) && AppBskyEmbedVideo.isView(embed.media)) {
     return 'video';
   }
 

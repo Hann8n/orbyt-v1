@@ -8,14 +8,13 @@
 
 import { Platform } from 'react-native';
 import type { VideoSource, BufferOptions, SeekTolerance } from 'expo-video';
+import { AppBskyEmbedVideo, AppBskyEmbedRecordWithMedia } from '@atproto/api';
 import type {
   ExtendedPostView,
   ExtendedFeedViewPost,
   PostView,
   VideoView,
-  RecordWithMediaView,
 } from '../../services/api/types';
-import { isVideoEmbed, isVideoEmbedInMedia } from '../../services/api/types';
 
 /**
  * Feed/preview playback: balance startup speed with smooth multi-player experience.
@@ -122,12 +121,12 @@ export function normalizePostView(post: ExtendedPostView | ExtendedFeedViewPost)
 export function getVideoView(embed: PostView['embed'] | null | undefined): VideoView | null {
   if (!embed) return null;
 
-  if (isVideoEmbed(embed)) {
+  if (AppBskyEmbedVideo.isView(embed)) {
     return embed;
   }
 
-  if (isVideoEmbedInMedia(embed)) {
-    return (embed as RecordWithMediaView).media as VideoView;
+  if (AppBskyEmbedRecordWithMedia.isView(embed) && AppBskyEmbedVideo.isView(embed.media)) {
+    return embed.media;
   }
 
   return null;

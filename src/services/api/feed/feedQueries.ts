@@ -1,7 +1,14 @@
 /**
  * Reads: app.bsky.feed.getFeed, getAuthorFeed, searchPosts, getPosts, generators, mixed feed.
  */
-import { moderatePost } from '@atproto/api';
+import {
+  moderatePost,
+  AppBskyFeedDefs,
+  AppBskyEmbedVideo,
+  AppBskyEmbedRecordWithMedia,
+  AppBskyFeedGetAuthorFeed,
+  AppBskyFeedGetActorLikes,
+} from '@atproto/api';
 import { ModerationService } from '../../moderation/ModerationService';
 import { AtprotoCore } from '../core';
 import type {
@@ -21,11 +28,16 @@ import type {
   RawFeedApiOutput,
   GeneratorView,
 } from '../types';
-import { isVideoEmbed, isVideoEmbedInMedia } from '../types';
 import i18n from '../../../i18n';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
 import { logger } from '../../../utils/logger';
 import { hydrateOrbytChannels } from '../../OrbytChannelsService';
+
+function hasVideoEmbed(embed: PostView['embed'] | null | undefined): boolean {
+  if (!embed) return false;
+  if (AppBskyEmbedVideo.isView(embed)) return true;
+  return AppBskyEmbedRecordWithMedia.isView(embed) && AppBskyEmbedVideo.isView(embed.media);
+}
 
 /**
  * Get feed content - optimized for video-only feeds with maximum batch loading
@@ -69,20 +81,17 @@ export async function getFeed(
         const apiResponse = await api.app.bsky.feed.getAuthorFeed(params);
         responseData = apiResponse.data;
       } catch (authorError: unknown) {
-        // Handle blocked actor gracefully - this is expected behavior, not an error
         if (
-          authorError &&
-          typeof authorError === 'object' &&
-          'name' in authorError &&
-          (authorError.name === 'BlockedActorError' ||
-            (typeof authorError === 'object' &&
-              'message' in authorError &&
-              typeof authorError.message === 'string' &&
-              authorError.message.includes('blocked actor')))
+          authorError instanceof AppBskyFeedGetAuthorFeed.BlockedActorError ||
+          authorError instanceof AppBskyFeedGetAuthorFeed.BlockedByActorError
         ) {
-          // Silently return empty feed for blocked actors
           return { feed: [], cursor: null };
         }
+        logger.warn('getFeed: unexpected author feed error', {
+          component: 'feedQueries',
+          feedType,
+          error: authorError instanceof Error ? authorError.message : String(authorError),
+        });
         return { feed: [], cursor: null };
       }
     } else if (feedType === 'likes') {
@@ -96,7 +105,17 @@ export async function getFeed(
 
         const apiResponse = await api.app.bsky.feed.getActorLikes(params);
         responseData = apiResponse.data;
-      } catch (_likesError: unknown) {
+      } catch (likesError: unknown) {
+        if (
+          likesError instanceof AppBskyFeedGetActorLikes.BlockedActorError ||
+          likesError instanceof AppBskyFeedGetActorLikes.BlockedByActorError
+        ) {
+          return { feed: [], cursor: null };
+        }
+        logger.warn('getFeed: likes fetch error', {
+          component: 'feedQueries',
+          error: likesError instanceof Error ? likesError.message : String(likesError),
+        });
         return { feed: [], cursor: null };
       }
     } else {
@@ -134,6 +153,11 @@ export async function getFeed(
         ) {
           return { feed: [], cursor: null };
         }
+        logger.warn('getFeed: custom feed error', {
+          component: 'feedQueries',
+          feedLink,
+          error: customFeedError instanceof Error ? customFeedError.message : String(customFeedError),
+        });
         return { feed: [], cursor: null };
       }
     }
@@ -166,14 +190,18 @@ export async function getFeed(
         }
 
         // Only include posts with video embeds
-        return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
+        return hasVideoEmbed(embed);
       });
     }
 
     feedData = await applyModerationBatch(feedData);
 
     return { feed: feedData, cursor: responseData.cursor ?? null };
-  } catch (_error: unknown) {
+  } catch (error: unknown) {
+    logger.warn('getFeed: unexpected error', {
+      component: 'feedQueries',
+      error: error instanceof Error ? error.message : String(error),
+    });
     return { feed: [], cursor: null };
   }
 }
@@ -189,13 +217,13 @@ function filterVideoPostsEfficiently(posts: FeedViewPost[]): ExtendedFeedViewPos
     if (!embed) continue;
 
     // Only include posts where embed is of type 'app.bsky.embed.video' or 'app.bsky.embed.video#view'
-    const hasVideo = isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
+    const hasVideo = hasVideoEmbed(embed);
 
     if (hasVideo) {
       // Create extended post with repost information
       const reason = item.reason;
       const repostedBy =
-        reason?.$type === 'app.bsky.feed.defs#reasonRepost' && 'by' in reason && reason.by
+        reason && AppBskyFeedDefs.isReasonRepost(reason)
           ? {
               avatar: reason.by.avatar,
               displayName: reason.by.displayName,
@@ -258,12 +286,7 @@ export async function getPost(uri: string): Promise<PostView | null> {
     const map = await getPosts([trimmed]);
     const entry = map.get(trimmed);
     if (!entry) return null;
-    const entryType = (entry as { $type?: string }).$type;
-    if (
-      entryType === 'app.bsky.feed.defs#notFoundPost' ||
-      entryType === 'app.bsky.feed.defs#blockedPost'
-    )
-      return null;
+    if (AppBskyFeedDefs.isNotFoundPost(entry) || AppBskyFeedDefs.isBlockedPost(entry)) return null;
     return entry as PostView;
   } catch (_error: unknown) {
     return null;
@@ -392,30 +415,20 @@ export async function searchHashtagVideosPaginated(
 
     const response = await api.app.bsky.feed.searchPosts(params);
 
-    const posts = response?.data?.posts || [];
+    const posts = response.data.posts ?? [];
 
-    // Filter for video posts only and normalize structure
-    const videoPosts = posts.filter((post: PostView) => {
-      const embed = post.embed;
-      if (!embed) return false;
-
-      // Check for video embeds
-      return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
-    });
-
-    // Normalize video structure for UI consumption
-    const videos: ExtendedFeedViewPost[] = videoPosts.map((post: PostView) => ({
-      post: {
-        ...post,
-      } as ExtendedPostView,
-      uniqueKey: post.uri,
-    }));
+    const videos: ExtendedFeedViewPost[] = posts
+      .filter((post: PostView) => hasVideoEmbed(post.embed))
+      .map((post: PostView) => ({
+        post: { ...post } as ExtendedPostView,
+        uniqueKey: post.uri,
+      }));
 
     const moderated = await applyModerationBatch(videos);
 
     return {
       videos: moderated,
-      cursor: response?.data?.cursor ?? null,
+      cursor: response.data.cursor ?? null,
     };
   } catch (_error: unknown) {
     return { videos: [], cursor: null };
@@ -452,7 +465,7 @@ export async function searchHashtagSuggestions(
       limit: 50, // Get more posts to extract more hashtags
     });
 
-    const posts = response?.data?.posts || [];
+    const posts = response.data.posts ?? [];
     const hashtagSet = new Set<string>();
 
     // Extract hashtags from post text
@@ -509,28 +522,20 @@ export async function searchVideosPaginated(
     }
     const response = await api.app.bsky.feed.searchPosts(params);
 
-    const posts = response?.data?.posts || [];
+    const posts = response.data.posts ?? [];
 
-    // Filter for video posts only
-    const videoPosts = posts.filter((post: PostView) => {
-      const embed = post.embed;
-      if (!embed) return false;
-      return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
-    });
-
-    // Normalize video structure for UI consumption
-    const videos: ExtendedFeedViewPost[] = videoPosts.map((post: PostView) => ({
-      post: {
-        ...post,
-      } as ExtendedPostView,
-      uniqueKey: post.uri,
-    }));
+    const videos: ExtendedFeedViewPost[] = posts
+      .filter((post: PostView) => hasVideoEmbed(post.embed))
+      .map((post: PostView) => ({
+        post: { ...post } as ExtendedPostView,
+        uniqueKey: post.uri,
+      }));
 
     const moderated = await applyModerationBatch(videos);
 
     return {
       videos: moderated,
-      cursor: response?.data?.cursor ?? null,
+      cursor: response.data.cursor ?? null,
     };
   } catch (_error) {
     return { videos: [], cursor: null };
@@ -568,7 +573,11 @@ export async function getRepostedVideos(
       try {
         const { api } = await AtprotoCore.getApiClient();
         response = await api.app.bsky.feed.getAuthorFeed(params);
-      } catch (_err: unknown) {
+      } catch (err: unknown) {
+        logger.warn('getRepostedVideos: author feed page failed', {
+          component: 'feedQueries',
+          error: err instanceof Error ? err.message : String(err),
+        });
         break;
       }
 
@@ -581,8 +590,7 @@ export async function getRepostedVideos(
 
       // Keep only items that are reposts
       const reposts = feedChunk.filter(
-        (item: ExtendedFeedViewPost) =>
-          item?.reason?.$type && String(item.reason.$type).includes('reasonRepost')
+        (item) => item.reason && AppBskyFeedDefs.isReasonRepost(item.reason)
       );
 
       // Within reposts, keep only those that contain video embeds using our efficient filter
@@ -609,7 +617,11 @@ export async function getRepostedVideos(
     feedData = await applyModerationBatch(feedData);
 
     return { feed: feedData, cursor: nextCursor };
-  } catch (_error: unknown) {
+  } catch (error: unknown) {
+    logger.warn('getRepostedVideos: unexpected error', {
+      component: 'feedQueries',
+      error: error instanceof Error ? error.message : String(error),
+    });
     return { feed: [], cursor: null };
   }
 }
@@ -625,33 +637,12 @@ export async function searchPopularFeeds(
   limit: number = 5
 ): Promise<GeneratorView[]> {
   try {
-    const params = { limit: limit, query: query };
-
     const { api } = await AtprotoCore.getApiClient();
-    const response = await api.app.bsky.unspecced.getPopularFeedGenerators(params);
+    const response = await api.app.bsky.unspecced.getPopularFeedGenerators({ limit, query });
 
-    const allFeeds = response.data.feeds || [];
-
-    // Extract contentMode and filter to only include video-only feeds in a single pass
-    const processedFeeds: (GeneratorView & { contentMode?: string })[] = [];
-
-    for (const feed of allFeeds) {
-      const contentMode =
-        (feed as unknown as { contentMode?: string; view?: { contentMode?: string } })
-          .contentMode ||
-        (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).view
-          ?.contentMode;
-
-      // Only process and include video-only feeds
-      if (contentMode === 'app.bsky.feed.defs#contentModeVideo') {
-        processedFeeds.push({
-          ...feed,
-          contentMode, // Preserve contentMode at top level for easy access
-        } as GeneratorView & { contentMode?: string });
-      }
-    }
-
-    return processedFeeds;
+    return (response.data.feeds || []).filter(
+      feed => feed.contentMode === 'app.bsky.feed.defs#contentModeVideo'
+    );
   } catch (_error: unknown) {
     return [];
   }
@@ -669,28 +660,9 @@ export async function getSuggestedFeeds(limit: number = 10): Promise<GeneratorVi
     const { api } = await AtprotoCore.getApiClient();
     const response = await api.app.bsky.unspecced.getPopularFeedGenerators(params);
 
-    const allFeeds = response.data.feeds || [];
-
-    // Extract contentMode and filter to only include video-only feeds in a single pass
-    const processedFeeds: (GeneratorView & { contentMode?: string })[] = [];
-
-    for (const feed of allFeeds) {
-      const contentMode =
-        (feed as unknown as { contentMode?: string; view?: { contentMode?: string } })
-          .contentMode ||
-        (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).view
-          ?.contentMode;
-
-      // Only process and include video-only feeds
-      if (contentMode === 'app.bsky.feed.defs#contentModeVideo') {
-        processedFeeds.push({
-          ...feed,
-          contentMode, // Preserve contentMode at top level for easy access
-        } as GeneratorView & { contentMode?: string });
-      }
-    }
-
-    return processedFeeds;
+    return (response.data.feeds || []).filter(
+      feed => feed.contentMode === 'app.bsky.feed.defs#contentModeVideo'
+    );
   } catch (_error: unknown) {
     return [];
   }
@@ -703,7 +675,7 @@ export async function getSuggestedFeeds(limit: number = 10): Promise<GeneratorVi
  */
 export async function getStaticChannels(
   limit: number = 10
-): Promise<(GeneratorView & { contentMode?: string })[]> {
+): Promise<GeneratorView[]> {
   try {
     const remoteChannels = await hydrateOrbytChannels();
     const channelUris = remoteChannels.map(channel => channel.uri);

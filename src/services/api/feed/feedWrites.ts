@@ -310,38 +310,18 @@ export async function deletePost(uri: string): Promise<boolean> {
   try {
     await AtprotoCore.ensureSession();
 
-    // Extract the record key (rkey) from the URI
-    // URI format: at://did:plc:xxxx/app.bsky.feed.post/rkey
-    const parts = uri.split('/');
-    if (parts.length < 4) {
-      throw new Error('Invalid post URI format');
-    }
-
-    const did = parts[2];
-    const rkey = parts[4];
-
-    // Get the current user's DID to ensure they own the post
+    const urip = new AtUri(uri);
     const userDid = AtprotoCore.getCurrentUserDid();
-    if (!userDid) {
-      throw new Error('No authenticated user found');
-    }
+    if (!userDid) throw new Error('No authenticated user found');
+    if (urip.hostname !== userDid) throw new Error('Cannot delete a post that you do not own');
 
-    // Ensure the user owns the post
-    if (did !== userDid) {
-      throw new Error('Cannot delete a post that you do not own');
-    }
-
-    // Delete the post
     const { api } = await AtprotoCore.getApiClient();
-
-    await api.app.bsky.feed.post.delete({
-      repo: userDid,
-      rkey: rkey,
-    });
+    await api.app.bsky.feed.post.delete({ repo: urip.hostname, rkey: urip.rkey });
 
     return true;
-  } catch (_error: unknown) {
-    return false;
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to delete post';
+    throw new Error(errorMessage, { cause: error });
   }
 }
 
@@ -361,25 +341,10 @@ export async function mutePostComments(postUri: string): Promise<boolean> {
 
   try {
     await AtprotoCore.ensureSession();
-    // Extract the record key (rkey) from the URI
-    const parts = postUri.split('/');
-    if (parts.length < 4) {
-      throw new Error('Invalid post URI format');
-    }
-
-    const did = parts[2];
-    const rkey = parts[4];
-
-    // Get the current user's DID to ensure they own the post
+    const urip = new AtUri(postUri);
     const userDid = AtprotoCore.getCurrentUserDid();
-    if (!userDid) {
-      throw new Error('No authenticated user found');
-    }
-
-    // Ensure the user owns the post
-    if (did !== userDid) {
-      throw new Error('Cannot mute comments on a post that you do not own');
-    }
+    if (!userDid) throw new Error('No authenticated user found');
+    if (urip.hostname !== userDid) throw new Error('Cannot mute comments on a post that you do not own');
 
     // Create a threadgate with no allow rules (effectively muting all comments)
     const record = {
@@ -394,7 +359,7 @@ export async function mutePostComments(postUri: string): Promise<boolean> {
     await api.com.atproto.repo.createRecord({
       repo: userDid,
       collection: 'app.bsky.feed.threadgate',
-      rkey: rkey,
+      rkey: urip.rkey,
       record,
     });
 

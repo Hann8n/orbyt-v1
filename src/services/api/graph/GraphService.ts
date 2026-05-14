@@ -3,6 +3,7 @@
  * Handles all social graph operations including follow, unfollow, block, mute, and relationship queries
  */
 
+import { AtUri } from '@atproto/api';
 import { AtprotoCore } from '../core';
 import { deduplicateRequest } from '../inFlightDedup';
 import type { ProfileViewBasic, ProfileView, FollowersResponse, FollowingResponse } from '../types';
@@ -25,22 +26,7 @@ export class GraphService {
     const cacheKey = `follow:${did}`;
     return deduplicateRequest(cacheKey, async () => {
       const { api } = await AtprotoCore.getApiClient();
-
-      // Get the current user DID from userStore
-      const { useUserStore } = await import('../../../stores/userStore');
-      const userStore = useUserStore.getState();
-      if (!userStore.currentUser?.did) {
-        throw new Error('No OAuth session available');
-      }
-      const userDid = userStore.currentUser.did;
-
-      const record = {
-        $type: 'app.bsky.graph.follow' as const,
-        subject: did,
-        createdAt: new Date().toISOString(),
-      };
-
-      const response = await api.app.bsky.graph.follow.create({ repo: userDid }, record);
+      const response = await api.follow(did);
       posthog.capture('user_followed', { followed_did: did });
       return response.uri;
     });
@@ -64,14 +50,6 @@ export class GraphService {
     return deduplicateRequest(cacheKey, async () => {
       const { api } = await AtprotoCore.getApiClient();
 
-      // Get the current user DID from userStore
-      const { useUserStore } = await import('../../../stores/userStore');
-      const userStore = useUserStore.getState();
-      if (!userStore.currentUser?.did) {
-        throw new Error('No OAuth session available');
-      }
-      const userDid = userStore.currentUser.did;
-
       try {
         let uri = followUri?.trim();
         const isPlaceholder = !uri || uri === 'at://placeholder';
@@ -87,19 +65,7 @@ export class GraphService {
           return false;
         }
 
-        // Extract the rkey from the follow URI
-        // URI format: at://did:plc:xxxx/app.bsky.graph.follow/rkey
-        const uriParts = uri.split('/');
-        const rkey = uriParts[uriParts.length - 1];
-
-        if (!rkey) {
-          return false;
-        }
-
-        await api.app.bsky.graph.follow.delete({
-          repo: userDid,
-          rkey: rkey,
-        });
+        await api.deleteFollow(uri);
 
         posthog.capture('user_unfollowed', { unfollowed_did: did });
         return true;
@@ -161,19 +127,10 @@ export class GraphService {
       return;
     }
 
-    // Extract the rkey from the block URI
-    // URI format: at://did:plc:xxxx/app.bsky.graph.block/rkey
-    const uriParts = profileResponse.data.viewer.blocking.split('/');
-    const rkey = uriParts[uriParts.length - 1];
-
-    if (!rkey) {
-      throw new Error('Could not extract rkey from block URI');
-    }
-
-    // Delete the block using the record key
+    const blockUrip = new AtUri(profileResponse.data.viewer.blocking);
     await api.app.bsky.graph.block.delete({
-      repo: userDid,
-      rkey: rkey,
+      repo: blockUrip.hostname,
+      rkey: blockUrip.rkey,
     });
   }
 

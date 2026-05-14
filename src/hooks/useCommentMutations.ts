@@ -316,6 +316,26 @@ export function useDeleteCommentMutation() {
   });
 }
 
+export function useRepostCommentMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<{ uri: string }, Error, { uri: string; cid: string }>({
+    mutationFn: async ({ uri, cid }) => {
+      if (AtprotoCore.isOutgoingApiBlocked()) {
+        return { uri: `at://did:plc:offline-debug/app.bsky.feed.repost/mock-${Date.now()}` };
+      }
+      const { agent } = getAtprotoBridge();
+      if (!agent) throw new Error('No authenticated agent');
+      const result = await agent.repost(uri, cid);
+      return { uri: result.uri };
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.comments.all });
+    },
+  });
+}
+
 export function useLikeCommentMutation() {
   const queryClient = useQueryClient();
 

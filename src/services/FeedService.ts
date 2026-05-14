@@ -57,28 +57,20 @@ const FEED_CONFIG = {
   cacheTime: 60 * 60 * 1000, // 60 minutes - increased to reduce unnecessary refetching
 } as const;
 
-/**
- * Minimal state manager - only used for search results display
- * React Query handles all feed caching via useInfiniteQuery
- */
-class SearchFeedState {
-  private searchResults: ExtendedFeedViewPost[] = [];
+// Search results state — module-level, no class boilerplate
+let searchResults: ExtendedFeedViewPost[] = [];
 
-  setSearchResults(feed: ExtendedFeedViewPost[]) {
-    this.searchResults = feed;
-  }
-
-  getSearchResults(): ExtendedFeedViewPost[] {
-    return this.searchResults;
-  }
-
-  clearSearchResults() {
-    this.searchResults = [];
-  }
+function setSearchResults(feed: ExtendedFeedViewPost[]) {
+  searchResults = feed;
 }
 
-// Singleton for search state only
-const searchFeedState = new SearchFeedState();
+function getSearchResults(): ExtendedFeedViewPost[] {
+  return searchResults;
+}
+
+function clearSearchResults() {
+  searchResults = [];
+}
 
 // Core feed fetching logic
 class FeedService {
@@ -475,7 +467,7 @@ class FeedService {
                 author: channel.creator,
                 text: channel.displayName,
                 avatar: channel.avatar,
-                contentMode: (channel as GeneratorView & { contentMode?: string }).contentMode, // Already extracted by AtprotoService
+                contentMode: channel.contentMode,
               } as unknown as ExtendedFeedViewPost['post'],
               uniqueKey: channel.uri,
             });
@@ -532,7 +524,7 @@ class FeedService {
         }
       } else if (feedOptionForAPI === 'search') {
         return {
-          feed: searchFeedState.getSearchResults(),
+          feed: getSearchResults(),
           cursor: null,
         };
       } else if (feedOptionForAPI === 'watched') {
@@ -591,9 +583,9 @@ class FeedService {
   }
 
   // Search results state management (only used for search feeds)
-  setCurrentFeed = searchFeedState.setSearchResults.bind(searchFeedState);
-  getCurrentFeed = searchFeedState.getSearchResults.bind(searchFeedState);
-  clearCurrentFeed = searchFeedState.clearSearchResults.bind(searchFeedState);
+  setCurrentFeed = setSearchResults;
+  getCurrentFeed = getSearchResults;
+  clearCurrentFeed = clearSearchResults;
 }
 
 // Export singleton instance

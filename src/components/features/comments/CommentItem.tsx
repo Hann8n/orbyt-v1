@@ -24,13 +24,12 @@ import { prefetchProfile, useProfileByDid } from '../../../services/data/Profile
 import { MenuView } from '@react-native-menu/menu';
 import type { MenuAction } from '@react-native-menu/menu';
 
-import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import {
   useLikeCommentMutation,
   useDeleteCommentMutation,
+  useRepostCommentMutation,
 } from '../../../hooks/useCommentMutations';
 import { ModerationService } from '../../../services/moderation/ModerationService';
-import { queryKeys } from '../../../utils/query/queryKeys';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { Typography, FontFamily, TextStyles } from '../../../utils/components/typography';
@@ -293,7 +292,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   onDismiss,
   onCommentDeleted,
   onReplyPress,
-  rootUri,
+  rootUri: _rootUri,
   rootCid: _rootCid,
   level = 0,
   onImagePress,
@@ -308,6 +307,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
   const { mutate: likeComment, isPending: isLiking } = useLikeCommentMutation();
   const { mutate: deleteComment } = useDeleteCommentMutation();
+  const { mutate: repostComment } = useRepostCommentMutation();
 
   const likeCount = getCommentLikeCount(comment);
   const isLiked = !!comment.viewer?.like;
@@ -573,19 +573,16 @@ const CommentItem: React.FC<CommentItemProps> = ({
     }
   }, [canCopyOrShareText, commentText]);
 
-  const handleRepost = useCallback(async () => {
+  const handleRepost = useCallback(() => {
     if (!uri || !cid) return;
-    try {
-      await AtprotoFeedService.repostPost(uri, cid);
-      Alert.alert(t('common.success'), t('comments.repostedSuccessfully', { postType }));
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.comments.byPost(rootUri || ''),
-        refetchType: 'active',
-      });
-    } catch (_error) {
-      Alert.alert(t('common.error'), t('comments.failedToRepost', { postType }));
-    }
-  }, [uri, cid, t, postType, queryClient, rootUri]);
+    repostComment(
+      { uri, cid },
+      {
+        onSuccess: () => Alert.alert(t('common.success'), t('comments.repostedSuccessfully', { postType })),
+        onError: () => Alert.alert(t('common.error'), t('comments.failedToRepost', { postType })),
+      }
+    );
+  }, [uri, cid, t, postType, repostComment]);
 
   const confirmDelete = useCallback(() => {
     if (!uri) return;
@@ -599,26 +596,14 @@ const CommentItem: React.FC<CommentItemProps> = ({
           deleteComment(
             { uri },
             {
-              onSuccess: () => {
-                onCommentDeleted?.(isReply);
-                queryClient.invalidateQueries({
-                  queryKey: queryKeys.comments.byPost(rootUri || ''),
-                  refetchType: 'active',
-                });
-                queryClient.invalidateQueries({
-                  queryKey: queryKeys.feed.all,
-                  refetchType: 'active',
-                });
-              },
-              onError: () => {
-                Alert.alert(t('common.error'), t('comments.failedToDelete', { postType }));
-              },
+              onSuccess: () => onCommentDeleted?.(isReply),
+              onError: () => Alert.alert(t('common.error'), t('comments.failedToDelete', { postType })),
             }
           );
         },
       },
     ]);
-  }, [uri, isReply, t, postType, onCommentDeleted, deleteComment, queryClient, rootUri]);
+  }, [uri, isReply, t, postType, onCommentDeleted, deleteComment]);
 
   const handlePinToProfile = useCallback(() => {
     try {

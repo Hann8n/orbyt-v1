@@ -39,10 +39,10 @@
     "test": "jest"
   },
   "dependencies": {
-    "@atproto/api": "^0.19.5",
+    "@atproto/api": "^0.19.18",
     "@atproto/common-web": "^0.4.19",
     "@atproto/lexicon": "^0.6.2",
-    "@atproto/oauth-client": "^0.6.0",
+    "@atproto/oauth-client": "^0.6.1",
     "@atproto/oauth-client-expo": "^0.0.10",
     "@atproto/xrpc": "^0.7.7",
     "@babel/runtime": "^7.28.6",
