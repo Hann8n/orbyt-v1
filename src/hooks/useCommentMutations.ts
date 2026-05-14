@@ -1,7 +1,3 @@
-/**
- * Comment mutation hooks using React Query + @atproto/api SDK directly.
- * Replaces manual async functions + hand-rolled optimistic updates in CommentSection.
- */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { RichText } from '@atproto/api';
 import { logger } from '../utils/logger';

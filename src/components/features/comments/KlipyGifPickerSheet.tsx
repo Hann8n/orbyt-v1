@@ -61,7 +61,6 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
   const [kindFilter, setKindFilter] = useState<KlipyKind>('gif');
   const trimmed = query.trim();
 
-  // Universal search (query all kinds, then filter locally via chips)
   const gifSearch = useKlipySearch('gif', trimmed);
   const stickerSearch = useKlipySearch('sticker', trimmed);
   const memeSearch = useKlipySearch('meme', trimmed);

@@ -54,7 +54,6 @@ interface CommentItemProps {
   onLayoutChange?: () => void;
 }
 
-// Helper functions - API Comment type has properties directly on comment, not nested in post
 function getCommentUri(c: Comment) {
   return c?.uri;
 }
@@ -71,7 +70,6 @@ function getCommentFacets(c: Comment) {
   return (c?.record as { facets?: unknown })?.facets;
 }
 function getCommentEmbed(c: Comment) {
-  // Prefer view embed (has thumb/fullsize URLs) over record embed (blob refs)
   const viewEmbed = (c as { embed?: unknown })?.embed;
   const recordEmbed = (c?.record as { embed?: unknown })?.embed;
   return viewEmbed ?? recordEmbed;
@@ -144,7 +142,6 @@ const GalleryImageItem: React.FC<GalleryImageItemProps> = ({ img, idx, maxWidth,
 
   const imageUri = img.fullsize || img.thumb;
 
-  // Calculate display dimensions constrained to available width
   const displayDims = React.useMemo(() => {
     const ar = img.aspectRatio;
     const aspectRatio = ar && ar.height > 0 ? ar.width / ar.height : 4 / 3;
@@ -163,7 +160,6 @@ const GalleryImageItem: React.FC<GalleryImageItemProps> = ({ img, idx, maxWidth,
     };
   }, [img.aspectRatio, maxWidth]);
 
-  // Update dimensions when actual image loads (in case API aspect ratio was wrong)
   const handleLoad = React.useCallback(
     (event: { source: { width: number; height: number } }) => {
       const { width: imgWidth, height: imgHeight } = event.source;
@@ -231,7 +227,6 @@ const CommentImageGallery: React.FC<{
     );
   }
 
-  // Multiple images: show in horizontal scroll with constrained widths
   return (
     <View style={galleryStyles.outer} onLayout={handleLayout}>
       <ScrollView
@@ -337,8 +332,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
   }, [shouldHighlight, highlightOpacity]);
 
   const highlightStyle = useAnimatedStyle(() => {
-    // neutral.400 (#8891ab) with dynamic opacity for highlight effect
-    // Clamp alpha and avoid scientific notation (Reanimated rejects e.g. "6e-9")
     const alpha = highlightOpacity.value * 0.12;
     const safeAlpha = alpha < 0.0001 ? 0 : Math.min(1, alpha);
     return {
@@ -440,7 +433,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const feedModalTab = useFeedModalTabSegment();
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
-  // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
   const navigateToAuthorProfile = useCallback(
     (
       rawDid?: string | null,
@@ -470,7 +462,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
     [goToProfile, onDismiss, queryClient]
   );
 
-  // Supports: (handle, did, authorData) from chyron/parent press, and (handle, { did }) from TextWithLinks/Atproto RichText.
   const handleAuthorPress = useCallback(
     (
       _handle: string,
@@ -865,7 +856,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
     if (!isImagesEmbed || !Array.isArray(embedObj?.images)) return null;
 
-    // Properly extract images with aspect ratio from Bluesky API response
     const embedImages: EmbedImage[] = (embed as { images: unknown[] }).images
       .filter((img: unknown) => typeof img === 'object' && img !== null && ('thumb' in img || 'fullsize' in img))
       .map((img: unknown) => {

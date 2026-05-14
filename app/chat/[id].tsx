@@ -566,10 +566,6 @@ function ChatMessageRow({
 
   const { beforeEmbed, embed, caption, footer } = segments;
 
-  /**
-   * Keep embeds and links outside long-press zones so taps reach `Pressable` / `Link`.
-   * Message actions (reactions, copy, delete) open from TrueSheet on long-press.
-   */
   const rowBody = (
     <>
       {beforeEmbed != null ? (
@@ -1029,7 +1025,6 @@ function ChatEmbeddedPost({
   const videoMeta = getVideoViewFromRecordEmbeds(record.embeds);
   const isVideo = !!videoMeta;
 
-  // Video embed: 9:16 card → `/(tabs)/…/full-height-video` via Link (seed feed on press; iOS: Link.AppleZoom)
   if (isVideo) {
     const thumbnailUrl = videoMeta!.thumbnail;
     const videoHeight = CHAT_EMBED_VIDEO_WIDTH / CHAT_EMBED_VIDEO_ASPECT;
@@ -1274,8 +1269,6 @@ export default function ChatScreen() {
     isFetched: profileFetched,
   } = useProfileByDid(otherDid || null);
 
-  // Merge basic profile from convo with viewer-specific data from profile query
-  // Prefer convo member data for speed, fall back to profile query
   const profile = useMemo(() => {
     if (!otherUserBasicProfile) return otherUserFullProfile;
     if (!otherUserFullProfile) return otherUserBasicProfile;
@@ -1441,7 +1434,6 @@ export default function ChatScreen() {
     [closeMessageActionsSheet, reactionPicker.openFullPicker]
   );
 
-  // Newest message id (getMessages returns newest first); pass to updateRead so server marks read up to this message
   const latestMessageId = useMemo(() => {
     const rawMessages = (messages ?? []) as MessageItem[];
     return rawMessages[0]?.id;
@@ -1491,7 +1483,6 @@ export default function ChatScreen() {
     };
   }, [convoId, convo, latestMessageId, queryClient]);
 
-  // Messages are newest-first from API; buildChatListData keeps newest-first for FlashList inverted
   const listData = useMemo(
     () => buildChatListData((messages ?? []) as MessageItem[]),
     [messages]
@@ -1805,7 +1796,6 @@ export default function ChatScreen() {
   );
 
   const headerHandleRaw = profile?.handle?.trim() ?? '';
-  // Show handle if available, otherwise show DID (immediate feedback, no waiting for profile fetch)
   const headerHandleTitle =
     headerHandleRaw !== ''
       ? formatHandle(headerHandleRaw)
@@ -2398,9 +2388,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS,
     backgroundColor: Colors.neutral[900],
   },
-  /** Text under a video card: same bubble chrome as other messages (maxWidth, colors),
-   * slightly tighter padding and small top gap so it reads as attached to the video.
-   */
   videoCaptionBubble: {
     marginTop: 4,
     paddingVertical: 8,

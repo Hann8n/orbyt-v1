@@ -47,23 +47,9 @@ interface CommentInputFooterProps {
   onClearGif?: () => void;
   hasAttachment?: boolean;
   onClearAttachment?: () => void;
-  /**
-   * Show/hide the current user's avatar at the start of the input row.
-   * Useful for compact composers (e.g. share-sheet send message).
-   */
   showAvatar?: boolean;
-  /**
-   * When true, show the send button even if the input is empty.
-   * Useful for "optional message" composers (e.g. sending a video embed).
-   */
   showSendWhenEmpty?: boolean;
-  /**
-   * External disable for submit (e.g. no recipient selected).
-   */
   isSubmitDisabled?: boolean;
-  /**
-   * Accessibility label for the submit button.
-   */
   submitAccessibilityLabel?: string;
   onCancelReply?: () => void;
   replyContext?: {
@@ -77,14 +63,7 @@ interface CommentInputFooterProps {
   inputRef?: React.RefObject<TextInput | null>;
   currentUserAvatar?: string | null;
   onFocus?: () => void;
-  /**
-   * When true, omit the add (+) control entirely (e.g. chat / messages composer).
-   */
   hideMediaAddButton?: boolean;
-  /**
-   * Called whenever the multiline input's measured height changes.
-   * Useful for wiring into KeyboardChatScrollView.extraContentPadding.
-   */
   onHeightChange?: (height: number) => void;
 }
 
@@ -178,7 +157,6 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const { data: currentUserProfile } = useProfileByDid(currentUserDid);
 
   const hasImages = resolvedSelectedImages.length > 0;
-  // `selectedGifPreviewUri` can be null depending on the provider; `hasAttachment` is the reliable signal.
   const hasGifAttachment = !hasImages && !!hasAttachment;
   const gifAspectRatio =
     selectedGifAspectRatio && selectedGifAspectRatio > 0 ? selectedGifAspectRatio : 1;

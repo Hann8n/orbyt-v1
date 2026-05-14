@@ -170,7 +170,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const refocusInputAfterAttachment = useCallback(() => {
     const focusInput = () => {
-      // Retry once because native pickers/sheets can briefly steal focus during close animation.
       setTimeout(() => inputRef.current?.focus?.(), 120);
       setTimeout(() => inputRef.current?.focus?.(), 260);
     };
@@ -372,8 +371,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     transform: [{ scale: headerHeartScale.value }],
   }));
 
-  // When switching posts (or dismissing/re-opening the sheet), ensure any in-flight
-  // heart animation doesn't "complete" on the next video.
   useEffect(() => {
     cancelAnimation(headerHeartScale);
     headerHeartScale.value = 1;
@@ -473,8 +470,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
   const previousCommentsLengthRef = useRef<number>(0);
 
-  // Important: keep `flattenedComments` referentially stable.
-  // FlashList can end up in a render/layout update loop if `data` changes identity every render.
   const flattenedComments = useMemo(() => {
     const comments = commentsPages?.pages.flatMap(p => p.comments) ?? [];
 
@@ -725,7 +720,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     onDismiss?.();
   };
 
-  // Control TrueSheet visibility via native global methods + lifecycle state
   useEffect(() => {
     const postUri = post?.uri ?? null;
     if (visible && post && postUri) {

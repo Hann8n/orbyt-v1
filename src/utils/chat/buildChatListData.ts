@@ -27,14 +27,6 @@ function isWithinWindow(sentAtA: string, sentAtB: string): boolean {
   );
 }
 
-/**
- * Transforms a newest-first message array into a ChatListItem[] in newest-first
- * order, suitable for FlashList with `inverted={true}`.
- *
- * In an inverted list index 0 is at the visual bottom and higher indices are
- * above it. Date separators are inserted AFTER the last message of each day so
- * they sit between day groups (e.g. today's messages → "Today" → yesterday's).
- */
 export function buildChatListData(messages: MessageItem[]): ChatListItem[] {
   if (!messages.length) return [];
 
@@ -47,7 +39,6 @@ export function buildChatListData(messages: MessageItem[]): ChatListItem[] {
     const date = sentAt ? parseISO(sentAt) : null;
     const hasValidDate = date && isValid(date);
 
-    // When the day changes, emit a separator for the previous day
     if (hasValidDate) {
       if (!currentDay || !isSameDay(date, currentDay)) {
         if (currentDay) {
@@ -76,9 +67,7 @@ export function buildChatListData(messages: MessageItem[]): ChatListItem[] {
 
     const hasReactions = (msg.reactions ?? []).length > 0;
 
-    // In inverted list the message visually ABOVE is nextMsg (older)
     const groupedWithPrevious = !!sameSenderAsNext && withinWindowNext;
-    // In inverted list the message visually BELOW is prevMsg (newer)
     const showTime = !sameSenderAsPrev || !withinWindowPrev || hasReactions;
 
     items.push({ type: 'message', message: msg, showTime, groupedWithPrevious });
