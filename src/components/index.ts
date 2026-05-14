@@ -1,6 +1,3 @@
-// Export all components from a centralized location
-
-// UI Components
 export { default as Icon } from './ui/Icon';
 export { default as HeaderBanner } from './ui/HeaderBanner';
 export { default as AuthorItem } from './ui/AuthorItem';
@@ -13,17 +10,14 @@ export { ShareSheet } from './ui/share-sheet';
 export { TextWithLinks, TextWithAuthorLinks } from './ui/TextWithLinks';
 export { default as RelativeDate } from './ui/RelativeDate';
 
-// Feature Components
 export { default as ListFeedView } from './features/feed/ListFeedView';
 export { default as GridFeedView } from './features/feed/GridFeedView';
 export { default as FeedPager } from './features/feed/FeedPager';
 export { default as EmptyFeed } from './features/feed/EmptyFeed';
 export { VideoItem as MemoizedVideoItem } from './features/feed/VideoItem';
 
-// Layout Components
 export { default as UniversalHeader } from './layout/header/UniversalHeader';
 export { default as TabNavigation } from './layout/header/TabNavigation';
 export { default as ChannelHeader } from './layout/header/ChannelHeader';
 export { default as ProfileHeader } from './layout/header/ProfileHeader';
-// Re-export Colors from theme
 export { Colors } from '../theme';

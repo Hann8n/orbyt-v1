@@ -5,11 +5,9 @@
  * Use useMeasuredFooterHeight() so list content isn't cut off—no manual magic numbers.
  */
 
-export { KeyboardAwareFooter } from './KeyboardAwareFooter';
 export { useMeasuredFooterHeight } from './useMeasuredFooterHeight';
 export {
   FOOTER_TOP_PADDING_DEFAULT,
-  CONTENT_TO_FOOTER_GAP_REDUCTION,
   COMPOSER_INPUT_PADDING,
   COMPOSER_INPUT_DIMENSIONS,
   getFooterBottomPadding,

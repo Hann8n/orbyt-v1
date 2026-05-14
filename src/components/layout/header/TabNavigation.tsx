@@ -24,14 +24,14 @@ interface TabNavigationProps {
   textColor?: string;
   inactiveTextColor?: string;
   backgroundColor?: string;
-  accentColor?: string; // Add accent color for vibrant tab styling
+  accentColor?: string;
   style?: StyleProp<ViewStyle>;
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   showViewToggle?: boolean;
   reserveViewToggleSpace?: boolean;
-  variant?: 'header' | 'comments'; // New prop to distinguish between header and comments styles
-  dropdown?: boolean; // New prop to show as dropdown instead of tabs
+  variant?: 'header' | 'comments';
+  dropdown?: boolean;
 }
 
 const TabNavigation: React.FC<TabNavigationProps> = ({
@@ -41,14 +41,14 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   textColor = Colors.neutral[50],
   inactiveTextColor,
   backgroundColor = Colors.transparent,
-  accentColor: _accentColor, // Add accent color prop
+  accentColor: _accentColor,
   style,
   viewMode = 'list',
   onViewModeChange,
   showViewToggle = false,
   reserveViewToggleSpace = true,
-  variant = 'header', // Default to header variant
-  dropdown = false, // Default to tabs
+  variant = 'header',
+  dropdown = false,
 }) => {
   const handleViewModeChange = (mode: ViewMode) => {
     if (onViewModeChange) {
@@ -56,17 +56,13 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     }
   };
 
-  // Use the passed textColor for active tabs, fallback to white for better readability
   const activeTabColor = textColor || Colors.neutral[50];
-  // Preserve existing inactive treatment by default, with optional per-screen override.
   const inactiveTabColor =
     inactiveTextColor ??
     (activeTabColor === Colors.neutral[50] ? Colors.neutral[500] : hexToRGBA(textColor, 0.7));
 
-  // Get variant-specific styles
   const variantStyle = variant === 'comments' ? styles.commentsStyle : styles.headerStyle;
 
-  // Get current active tab label
   const activeTabLabel = tabs.find(tab => tab.id === activeTab)?.label || tabs[0]?.label || '';
   const dropdownActions: MenuAction[] = tabs.map(tab => ({
     id: tab.id,
@@ -75,7 +71,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     attributes: { disabled: !!tab.disabled },
   }));
 
-  // Dropdown mode
   if (dropdown) {
     return (
       <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
@@ -107,7 +102,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
           </MenuView>
         </View>
 
-        {/* View toggle area */}
         {(reserveViewToggleSpace || (showViewToggle && onViewModeChange)) && (
           <View style={styles.viewToggleArea}>
             {showViewToggle && onViewModeChange && (
@@ -144,7 +138,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     );
   }
 
-  // Regular tabs mode
   return (
     <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
       <View style={styles.tabsRow}>
@@ -229,13 +222,11 @@ const styles = StyleSheet.create({
   tabsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8, // reduced from 20 to 8
-    // Add layout stability
+    gap: 8,
     flex: 1,
   },
   tabOption: {
     paddingRight: 8,
-    // Add layout stability to prevent jitter
     minHeight: 36,
     justifyContent: 'center',
   },
@@ -257,8 +248,8 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   viewToggleArea: {
-    width: 'auto', // Remove fixed width to eliminate right padding
-    height: 36, // Fixed height to maintain consistent spacing
+    width: 'auto',
+    height: 36,
     justifyContent: 'center',
     alignItems: 'flex-end',
   },
@@ -266,16 +257,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 2, // Fine-tune vertical alignment with tabs
+    marginTop: 2,
   },
   viewToggleButton: {
     padding: 6,
     borderRadius: BORDER_RADIUS.FULL,
   },
-  activeViewToggleButton: {
-    // Removed background color for active view toggle button
-  },
-  // Simple variant styles - just basic spacing differences
+  activeViewToggleButton: {},
   headerStyle: {
     paddingVertical: 12,
     marginTop: 4,

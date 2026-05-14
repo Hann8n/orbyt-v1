@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import {
@@ -6,7 +6,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -17,18 +16,17 @@ import {
   StyleSheet,
   TextInput,
   Platform,
-  ScrollView,
   Alert,
   Pressable,
-  useWindowDimensions,
   Linking,
-  Keyboard,
+  ActivityIndicator,
   type StyleProp,
   type ViewStyle,
+  type ScrollViewProps,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView } from '@/components/ui/Squircle';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { KeyboardStickyView, KeyboardChatScrollView } from 'react-native-keyboard-controller';
 import { Image } from 'expo-image';
 
 import { FlashList } from '@shopify/flash-list';
@@ -63,9 +61,10 @@ import { useAvatarProfileRing } from '@/services/colors';
 import { queryKeys } from '@/utils/query/queryKeys';
 import { chatReactQueryOptions } from '@/utils/query/chatQueryOptions';
 import { getActiveStreak } from '@/utils/chat/streak';
-import { format, parseISO, isValid, isToday, isYesterday, differenceInMinutes } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { useProfileByDid, useBlockMutation } from '@/services/data/ProfileService';
 import { useChatMessages, useSendMessage, useChatReactions } from '@/hooks/chat';
+import { buildChatListData } from '@/utils/chat/buildChatListData';
 import { ChatService } from '@/services/api/chat/ChatService';
 import { ModerationService } from '@/services/moderation/ModerationService';
 import { useUserStore } from '@/stores/userStore';
@@ -83,17 +82,14 @@ import { formatRelativeDate } from '@/components/ui/RelativeDate';
 import EmojiPicker from 'react-native-emoji-chooser';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { useSharedValue } from 'react-native-reanimated';
 
 const EMBED_VIDEO_GRADIENT_SHIM = require('@/assets/embed-video-gradient-shim.png');
 
-/** Chat message item: full MessageView from API (id, rev, text, facets?, embed?, sender, sentAt, reactions?, etc.) */
 type MessageItem = MessageView & { sender?: { did: string } };
 
-/** Reaction shape from chat.bsky.convo messageView */
 type ReactionShape = { value: string; sender?: { did?: string }; createdAt?: string };
 
-/** Group reactions by emoji value: { value, count, includesMe } */
 function groupReactions(
   reactions: ReactionShape[] | undefined,
   currentUserDid: string | undefined
@@ -119,10 +115,6 @@ function groupReactions(
   }));
 }
 
-/** Window in minutes for grouping consecutive messages from same sender */
-const MESSAGE_GROUP_WINDOW_MINUTES = 5;
-
-/** List item: message or date separator */
 type ChatListItem =
   | { type: 'message'; message: MessageItem; showTime: boolean; groupedWithPrevious: boolean }
   | { type: 'date'; dateKey: string; label: string };
@@ -223,20 +215,6 @@ function ChatMessageRichText({
   );
 }
 
-function getDateGroupLabel(sentAt: string): string {
-  const date = parseISO(sentAt);
-  if (!isValid(date)) return '';
-  if (isToday(date)) return i18n.t('chat.today');
-  if (isYesterday(date)) return i18n.t('chat.yesterday');
-  return format(date, 'EEEE, MMM d');
-}
-
-function getDateKey(sentAt: string): string {
-  const date = parseISO(sentAt);
-  if (!isValid(date)) return '';
-  return format(date, 'yyyy-MM-dd');
-}
-
 function formatMessageTime(sentAt?: string): string {
   if (!sentAt) return '';
   const date = parseISO(sentAt);
@@ -248,7 +226,6 @@ function getMessagePreview(msg: MessageItem): string {
   return i18n.t('chat.messageDeleted');
 }
 
-/** Embed view type; API/SDK may also return main lexicon id without `#view` (same shape). */
 const EMBED_RECORD_VIEW = 'app.bsky.embed.record#view';
 const EMBED_RECORD = 'app.bsky.embed.record';
 const RECORD_VIEW_RECORD = 'app.bsky.embed.record#viewRecord';
@@ -256,7 +233,6 @@ const RECORD_VIEW_NOT_FOUND = 'app.bsky.embed.record#viewNotFound';
 const RECORD_VIEW_BLOCKED = 'app.bsky.embed.record#viewBlocked';
 const RECORD_VIEW_DETACHED = 'app.bsky.embed.record#viewDetached';
 
-/** Shape of embed.record for display (viewRecord has uri, cid, author, value, embeds; viewNotFound/viewBlocked/viewDetached have uri + flag) */
 type EmbedRecordShape = {
   $type?: string;
   uri?: string;
@@ -279,7 +255,7 @@ type EmbedRecordShape = {
 };
 
 const CHAT_EMBED_VIDEO_WIDTH = 160;
-const CHAT_EMBED_VIDEO_ASPECT = 9 / 16; // 9:16 card
+const CHAT_EMBED_VIDEO_ASPECT = 9 / 16;
 const CHAT_EMBED_VIDEO_RADIUS = BORDER_RADIUS.SMALL;
 /** Bottom corner toward screen edge — text/caption bubbles only */
 const CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS = BORDER_RADIUS.LARGE;
@@ -291,7 +267,6 @@ type EmbedImage = {
   aspectRatio?: { width: number; height: number };
 };
 
-/** Get video view from record.embeds (post can have video in embeds[] or as recordWithMedia) */
 function getVideoViewFromRecordEmbeds(
   embeds: EmbedRecordShape['embeds']
 ): { thumbnail: string | null; playlist?: string } | null {
@@ -299,7 +274,6 @@ function getVideoViewFromRecordEmbeds(
   for (let i = 0; i < embeds.length; i++) {
     const view = getVideoView(embeds[i] as PostView['embed']);
     if (view) return { thumbnail: view.thumbnail || null, playlist: view.playlist };
-    // recordWithMedia: embeds[i].media could be video
     const item = embeds[i] as {
       $type?: string;
       media?: { $type?: string; thumbnail?: string; playlist?: string };
@@ -313,7 +287,6 @@ function getVideoViewFromRecordEmbeds(
   return null;
 }
 
-/** Get images/GIFs from record.embeds (app.bsky.embed.images#view or recordWithMedia with images) */
 function getImagesFromRecordEmbeds(embeds: EmbedRecordShape['embeds']): EmbedImage[] {
   const result: EmbedImage[] = [];
   if (!embeds?.length) return result;
@@ -363,7 +336,6 @@ function isEmbedRecordView(embed: MessageView['embed'] | null | undefined): bool
   return isRecordEmbed && 'record' in embed && (embed as { record?: unknown }).record != null;
 }
 
-/** Shared author row for both video and non-video embeds (AuthorItem for verification/bot badges). Use authorAlwaysOnRight (e.g. video overlay) to keep avatar left, handle right regardless of isFromMe. */
 function EmbedAuthor({
   author,
   isFromMe,
@@ -402,7 +374,6 @@ function EmbedAuthor({
   );
 }
 
-/** Shared description text for both video and non-video embeds */
 function EmbedDescription({
   text,
   isFromMe,
@@ -427,7 +398,6 @@ function EmbedDescription({
   );
 }
 
-/** Engagement metrics row for non-video embeds (likes, replies, reposts) */
 function EmbedMetrics({
   replyCount,
   repostCount,
@@ -480,7 +450,6 @@ const REACTION_CHIP_SIZE = 22;
 /** Larger chips in picker sheet header and overlay */
 const REACTION_SHEET_CHIP_SIZE = 40;
 
-/** Shared chip appearance (message row, overlay buttons, sheet header) */
 const REACTION_CHIP_STYLE = {
   borderWidth: 0,
   borderColorDefault: Colors.neutral[700],
@@ -492,7 +461,6 @@ const REACTION_CHIP_STYLE = {
   countColorOnColoredBg: Colors.black,
 } as const;
 
-/** Display reactions under a message. Color by reaction sender: my reaction = current user accent (fallback orbyt green); their reaction = other author accent (fallback grey). */
 function MessageReactions({
   reactions,
   currentUserDid,
@@ -584,13 +552,11 @@ type ChatMessageRowSegments = {
 function ChatMessageRow({
   messageId,
   onOpenMessageActions,
-  entering,
   pressableStyle,
   segments,
 }: {
   messageId: string;
   onOpenMessageActions: (messageId: string) => void;
-  entering?: ComponentProps<typeof Animated.View>['entering'];
   pressableStyle: StyleProp<ViewStyle>;
   segments: ChatMessageRowSegments;
 }) {
@@ -641,14 +607,13 @@ function ChatMessageRow({
 
   return (
     <ReactionPickerRowContext.Provider value={openMessageActionsMenu}>
-      <Animated.View entering={entering} style={styles.chatMessageRowAnimated}>
+      <Animated.View style={styles.chatMessageRowAnimated}>
         <View style={pressableStyle}>{rowBody}</View>
       </Animated.View>
     </ReactionPickerRowContext.Provider>
   );
 }
 
-/** Emoji picker theme matching app design system */
 const EMOJI_PICKER_THEME = {
   light: {
     toolbar: {
@@ -736,7 +701,6 @@ const EMOJI_PICKER_THEME = {
   },
 };
 
-/** TrueSheet with full emoji picker; opened when user taps + on overlay. Chip color by reaction sender: my = sent accent (fallback teal), their = other accent (fallback grey). */
 function ReactionPickerSheet({
   visible,
   onDismiss,
@@ -756,7 +720,6 @@ function ReactionPickerSheet({
 }) {
   const { t } = useTranslation();
   const sheetRef = useRef<TrueSheet>(null);
-  const { height: screenHeight } = useWindowDimensions();
   const grouped = useMemo(
     () => groupReactions(currentReactions, currentUserDid),
     [currentReactions, currentUserDid]
@@ -766,9 +729,7 @@ function ReactionPickerSheet({
       onSelect(emoji);
       try {
         await sheetRef.current?.dismiss();
-      } catch {
-        // ignore dismiss errors
-      }
+      } catch {}
       onDismiss();
     },
     [onSelect, onDismiss]
@@ -784,7 +745,7 @@ function ReactionPickerSheet({
     }
   }, [visible]);
 
-  const maxHeight = Math.round(screenHeight * 0.75);
+  const maxHeight = 560;
 
   return (
     <AppTrueSheet
@@ -877,10 +838,6 @@ function ReactionPickerSheet({
   );
 }
 
-/**
- * Long-press message UI: React (opens full emoji sheet), Copy, Delete — same VerticalListSheet
- * chrome as header chat options; icon + label rows via `leftContent`.
- */
 function MessageActionsSheet({
   messageId,
   visible,
@@ -913,9 +870,7 @@ function MessageActionsSheet({
       fn();
       try {
         await TrueSheet.dismiss(CHAT_MESSAGE_ACTIONS_SHEET_NAME);
-      } catch {
-        // ignore
-      }
+      } catch {}
       onDismiss();
     },
     [onDismiss]
@@ -1159,7 +1114,6 @@ function ChatEmbeddedPost({
   const hasImages = embedImages.length > 0;
 
   const getClampedAspectRatio = (ar: number) => Math.max(0.5, Math.min(2.0, ar));
-  // Increased image sizes for better visibility
   const CHAT_EMBED_IMAGE_SIZE = 96;
   const CHAT_EMBED_IMAGE_SINGLE_MAX = 240;
 
@@ -1262,8 +1216,21 @@ export default function ChatScreen() {
   const otherDid = params.did ?? rawId;
   const [inputText, setInputText] = useState('');
   const [inputSelection, setInputSelection] = useState({ start: 0, end: 0 });
+  const composerHeight = useSharedValue(0);
   const currentUserDid = useUserStore(s => s.currentUser?.did);
   const currentUserAvatar = useUserStore(s => s.currentUser?.avatar ?? null);
+
+  const renderScrollComponent = useCallback(
+    (props: ScrollViewProps) => (
+      <KeyboardChatScrollView
+        {...props}
+        inverted
+        extraContentPadding={composerHeight}
+        keyboardLiftBehavior="whenAtEnd"
+      />
+    ),
+    []
+  );
 
   const openByDid = isDid(rawId);
   const members = useMemo(
@@ -1294,7 +1261,6 @@ export default function ChatScreen() {
   const convoFetched = openByDid ? convoByMembersFetched : convoByIdFetched;
   const convoId = openByDid ? (convo?.id ?? '') : rawId;
 
-  // Extract basic profile info from conversation members (same React Query as chat items)
   const otherUserBasicProfile = useMemo(() => {
     if (!convo || !otherDid) return null;
     const members = (convo as unknown as { members?: ProfileViewBasic[] })?.members;
@@ -1302,7 +1268,6 @@ export default function ChatScreen() {
     return members.find((m: ProfileViewBasic) => m.did === otherDid) || null;
   }, [convo, otherDid]);
 
-  // Fetch viewer-specific data (blocking, labels, status) - still needed for full functionality
   const {
     data: otherUserFullProfile,
     isError: profileIsError,
@@ -1366,6 +1331,9 @@ export default function ChatScreen() {
   const {
     messages,
     isLoading: messagesLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
   } = useChatMessages(isInConvo ? convoId : undefined);
 
   const sendMessageMutation = useSendMessage(isInConvo ? convoId : undefined);
@@ -1381,11 +1349,9 @@ export default function ChatScreen() {
     }
   );
 
-  // Dismiss keyboard when leaving the route
   useFocusEffect(
     useCallback(() => {
       return () => {
-        Keyboard.dismiss();
         inputRef.current?.blur();
       };
     }, [])
@@ -1413,9 +1379,7 @@ export default function ChatScreen() {
       try {
         await Clipboard.setStringAsync(text);
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {
-        // ignore clipboard failures
-      }
+      } catch {}
     },
     [messages]
   );
@@ -1424,7 +1388,7 @@ export default function ChatScreen() {
     mutationFn: (messageId: string) => ChatService.deleteMessageForSelf(convoId, messageId),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.chat.messages.byConversation(convoId),
+        queryKey: queryKeys.chat.messages.infinite(convoId),
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
     },
@@ -1489,9 +1453,6 @@ export default function ChatScreen() {
   });
   const updateReadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const previousConvoIdRef = useRef<string | null>(null);
-  const shouldAnimateEnteringRef = useRef(false);
-
   const UPDATE_READ_DEBOUNCE_MS = 1500;
 
   useEffect(() => {
@@ -1530,101 +1491,21 @@ export default function ChatScreen() {
     };
   }, [convoId, convo, latestMessageId, queryClient]);
 
-  // Bluesky getMessages returns newest first; we reverse to oldest-first so last index = newest (bottom with startRenderingFromBottom)
-  const listData = useMemo(() => {
-    const raw = (messages ?? []) as MessageItem[];
-    const reversedMessages = [...raw].reverse(); // oldest first, newest last
-    const items: ChatListItem[] = [];
-    let prevDateKey = '';
-    let prevMsg: MessageItem | undefined;
-    let prevSentAt: string | undefined;
-    for (let i = 0; i < reversedMessages.length; i++) {
-      const msg = reversedMessages[i];
-      const sentAt = msg.sentAt ?? '';
-      const nextMsg = reversedMessages[i + 1];
-      const nextSentAt = nextMsg?.sentAt ?? '';
-
-      const sameSenderAsPrev =
-        prevMsg && prevMsg.sender?.did && msg.sender?.did === prevMsg.sender.did;
-      const withinWindow =
-        sentAt &&
-        prevSentAt &&
-        (() => {
-          const d1 = parseISO(sentAt);
-          const d2 = parseISO(prevSentAt);
-          return (
-            isValid(d1) &&
-            isValid(d2) &&
-            Math.abs(differenceInMinutes(d1, d2)) <= MESSAGE_GROUP_WINDOW_MINUTES
-          );
-        })();
-      const groupedWithPrevious = !!sameSenderAsPrev && !!withinWindow;
-
-      const sameSenderAsNext =
-        nextMsg && nextMsg.sender?.did && msg.sender?.did === nextMsg.sender.did;
-      const nextWithinWindow =
-        sentAt &&
-        nextSentAt &&
-        (() => {
-          const d1 = parseISO(sentAt);
-          const d2 = parseISO(nextSentAt);
-          return (
-            isValid(d1) &&
-            isValid(d2) &&
-            Math.abs(differenceInMinutes(d1, d2)) <= MESSAGE_GROUP_WINDOW_MINUTES
-          );
-        })();
-      const hasReactions = (msg.reactions ?? []).length > 0;
-      const showTime = !sameSenderAsNext || !nextWithinWindow || hasReactions;
-
-      if (sentAt) {
-        const dateKey = getDateKey(sentAt);
-        if (dateKey && dateKey !== prevDateKey) {
-          items.push({ type: 'date', dateKey, label: getDateGroupLabel(sentAt) });
-          prevDateKey = dateKey;
-        }
-      }
-      items.push({
-        type: 'message',
-        message: msg,
-        showTime,
-        groupedWithPrevious,
-      });
-      prevMsg = msg;
-      prevSentAt = sentAt;
-    }
-    return items;
-  }, [messages]);
-
-  useLayoutEffect(() => {
-    if (convoId != null && convoId !== previousConvoIdRef.current) {
-      previousConvoIdRef.current = convoId;
-      // Animate only when we're actually loading (no cache); if we have data already, skip
-      shouldAnimateEnteringRef.current =
-        messagesLoading || (messages?.length ?? 0) === 0;
-    }
-  }, [convoId, messagesLoading, messages?.length]);
-
-  useLayoutEffect(() => {
-    if (listData.length === 0) return;
-    const t = setTimeout(() => {
-      shouldAnimateEnteringRef.current = false;
-    }, 1000);
-    return () => clearTimeout(t);
-  }, [listData.length]);
+  // Messages are newest-first from API; buildChatListData keeps newest-first for FlashList inverted
+  const listData = useMemo(
+    () => buildChatListData((messages ?? []) as MessageItem[]),
+    [messages]
+  );
 
   const renderListItem = useCallback(
-    ({ item, index }: { item: ChatListItem; index: number }) => {
-      const shouldAnimate = shouldAnimateEnteringRef.current;
-      const staggerDelay = Math.min((listData.length - 1 - index) * 45, 720);
-      const entering = shouldAnimate ? FadeIn.duration(200).delay(staggerDelay) : undefined;
+    ({ item }: { item: ChatListItem; index: number }) => {
       if (item.type === 'date') {
         return (
-          <Animated.View entering={entering} style={styles.dateSeparator}>
+          <View style={styles.dateSeparator}>
             <View style={styles.dateSeparatorLine} />
             <Text style={styles.dateSeparatorText}>{item.label}</Text>
             <View style={styles.dateSeparatorLine} />
-          </Animated.View>
+          </View>
         );
       }
       const msg = item.message;
@@ -1745,7 +1626,6 @@ export default function ChatScreen() {
         <ChatMessageRow
           messageId={msg.id}
           onOpenMessageActions={handleOpenMessageActions}
-          entering={entering}
           pressableStyle={[
             styles.messageRow,
             isFromMe ? styles.messageRowFromMe : styles.messageRowFromThem,
@@ -1763,9 +1643,9 @@ export default function ChatScreen() {
       );
     },
     [
-      listData.length,
       currentUserDid,
       sentMessageAccentColor,
+      sentMessageTextColor,
       sentBubbleBlendedStyle,
       otherUserAccentColor,
       handleOpenMessageActions,
@@ -1780,14 +1660,6 @@ export default function ChatScreen() {
   const getItemType = useCallback((item: ChatListItem) => {
     return item.type === 'date' ? 'date' : 'message';
   }, []);
-
-  const maintainVisibleContentPositionConfig = useMemo(
-    () => ({
-      startRenderingFromBottom: true,
-      autoscrollToBottomThreshold: 0.2,
-    }),
-    []
-  );
 
   const handleBack = useCallback(() => router.back(), [router]);
 
@@ -2194,43 +2066,44 @@ export default function ChatScreen() {
         </View>
       </VerticalListSheet>
 
-      <KeyboardAvoidingView style={styles.keyboardView} behavior="padding">
-        {listData.length > 0 ? (
-          <FlashList
-            data={listData}
-            renderItem={renderListItem}
-            keyExtractor={keyExtractor}
-            getItemType={getItemType}
-            drawDistance={400}
-            extraData={{ listLength: listData.length }}
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={ChatFlashListItemSeparator}
-            showsVerticalScrollIndicator={
-              listData.length >= SCROLL_INDICATOR_CONSTANTS.CHAT_MESSAGES_MIN_ITEMS
-            }
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            maintainVisibleContentPosition={maintainVisibleContentPositionConfig}
-          />
-        ) : (
-          <ScrollView
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-          >
-            {!messagesLoading && (messages?.length ?? 0) === 0 ? (
+      <View style={styles.chatBody}>
+        <FlashList
+          data={listData}
+          renderItem={renderListItem}
+          keyExtractor={keyExtractor}
+          getItemType={getItemType}
+          drawDistance={400}
+          extraData={{ listLength: listData.length }}
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          inverted
+          ItemSeparatorComponent={ChatFlashListItemSeparator}
+          showsVerticalScrollIndicator={
+            listData.length >= SCROLL_INDICATOR_CONSTANTS.CHAT_MESSAGES_MIN_ITEMS
+          }
+          keyboardShouldPersistTaps="handled"
+          renderScrollComponent={renderScrollComponent}
+          onEndReached={hasNextPage ? () => { fetchNextPage(); } : undefined}
+          onEndReachedThreshold={0.3}
+          ListEmptyComponent={
+            !messagesLoading && convoId ? (
               <View style={styles.empty}>
                 <Text style={styles.emptyText}>{t('chat.noMessagesYet')}</Text>
               </View>
-            ) : null}
-          </ScrollView>
-        )}
+            ) : null
+          }
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View style={styles.loadingOlderMessages}>
+                <ActivityIndicator size="small" color={Colors.neutral[500]} />
+              </View>
+            ) : null
+          }
+        />
 
-        {needsAccept ? (
-          <View style={styles.acceptBar}>
+        <KeyboardStickyView>
+          {needsAccept ? (
+            <View style={styles.acceptBar}>
             <OptionsButton
               label={acceptConvoMutation.isPending ? t('common.accepting') : t('common.accept')}
               onPress={() => acceptConvoMutation.mutate()}
@@ -2292,10 +2165,14 @@ export default function ChatScreen() {
               submitAccessibilityLabel={t('a11y.sendMessage')}
               showAvatar
               hideMediaAddButton
+              onHeightChange={h => {
+                composerHeight.value = h;
+              }}
             />
           </View>
         )}
-      </KeyboardAvoidingView>
+        </KeyboardStickyView>
+      </View>
     </View>
   );
 }
@@ -2435,17 +2312,19 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     lineHeight: Typography.lineHeights.caption,
   },
-  keyboardView: {
+  chatBody: {
     flex: 1,
+  },
+  loadingOlderMessages: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   list: {
     flex: 1,
   },
   listContent: {
     paddingHorizontal: 12,
-    paddingBottom: 20,
-    flexGrow: 1,
-    justifyContent: 'flex-end',
   },
   listItemSeparator: {
     height: 4,

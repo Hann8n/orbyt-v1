@@ -58,11 +58,6 @@ export type ListItem =
   | OrbytChannelsSection
   | LoadingItem;
 
-export const isProfileResult = (result: SearchResult): result is ProfileResult =>
-  result.type === 'profile';
-export const isChannelResult = (result: SearchResult): result is ChannelResult =>
-  result.type === 'channel';
-
 /** Internal shape when mapping AT Protocol search feed posts */
 export type SearchFeedPost = ExtendedFeedViewPost['post'] & {
   contentMode?: string;

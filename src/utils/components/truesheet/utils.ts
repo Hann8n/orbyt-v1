@@ -30,12 +30,6 @@ export const COMPOSER_INPUT_DIMENSIONS = {
 } as const;
 
 /**
- * Pixels to subtract from content bottom padding so items sit closer to the footer.
- * Reduces excess gap while keeping content visible above the overlay.
- */
-export const CONTENT_TO_FOOTER_GAP_REDUCTION = 12;
-
-/**
  * Normalized footer bottom inset for close/done actions.
  * We clamp to a compact range so the button stays visually consistent across devices.
  */

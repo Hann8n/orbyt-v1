@@ -81,6 +81,11 @@ interface CommentInputFooterProps {
    * When true, omit the add (+) control entirely (e.g. chat / messages composer).
    */
   hideMediaAddButton?: boolean;
+  /**
+   * Called whenever the multiline input's measured height changes.
+   * Useful for wiring into KeyboardChatScrollView.extraContentPadding.
+   */
+  onHeightChange?: (height: number) => void;
 }
 
 const EMPTY_SELECTED_IMAGES = Object.freeze(
@@ -136,6 +141,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   currentUserAvatar,
   onFocus,
   hideMediaAddButton = false,
+  onHeightChange,
   onPressGif,
   onPressPhotos,
   selectedGifPreviewUri = null,
@@ -168,7 +174,6 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
     isPosting || isSubmitDisabled || (!hasContent && !showSendWhenEmpty) || charCount > maxLength;
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
-  // Get current user profile for live status
   const currentUserDid = useUserStore(state => state.currentUser?.did ?? null);
   const { data: currentUserProfile } = useProfileByDid(currentUserDid);
 
@@ -198,21 +203,22 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const handleContentSizeChange = React.useCallback(
     (e: { nativeEvent: { contentSize: { height: number } } }) => {
       const h = e.nativeEvent.contentSize.height;
-      setInputHeight(
-        Math.max(
-          COMPOSER_INPUT_DIMENSIONS.minHeight,
-          Math.min(COMPOSER_INPUT_DIMENSIONS.maxHeight, h)
-        )
+      const next = Math.max(
+        COMPOSER_INPUT_DIMENSIONS.minHeight,
+        Math.min(COMPOSER_INPUT_DIMENSIONS.maxHeight, h)
       );
+      setInputHeight(next);
+      onHeightChange?.(next);
     },
-    []
+    [onHeightChange]
   );
 
   React.useEffect(() => {
     if (!value) {
       setInputHeight(COMPOSER_INPUT_DIMENSIONS.minHeight);
+      onHeightChange?.(COMPOSER_INPUT_DIMENSIONS.minHeight);
     }
-  }, [value]);
+  }, [value, onHeightChange]);
 
   const mediaMenuActions: MenuAction[] = [];
   if (onPressGif) {

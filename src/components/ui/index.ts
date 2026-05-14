@@ -11,7 +11,6 @@ export { ShareSheet, SendToPicker } from './share-sheet';
 export type { SendToPickerProps } from './share-sheet';
 export { default as RelativeDate } from './RelativeDate';
 export { default as AuthorItem } from './AuthorItem';
-export { default as ChannelItem } from './ChannelItem';
 export { default as HeaderBanner } from './HeaderBanner';
 export { default as ListScreen } from './ListScreen';
 export { OptionsButton } from './OptionsButton';

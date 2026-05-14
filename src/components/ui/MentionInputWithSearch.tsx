@@ -14,23 +14,16 @@ import { SearchBanner, useSearchTrigger } from './usersearch';
 import type { ProfileViewBasic } from '../../services/api/types';
 
 interface MentionInputWithSearchProps {
-  // Core input props
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
   maxLength?: number;
   inputRef?: React.RefObject<TextInput | null>;
   multiline?: boolean;
-  
-  // Selection handling
   selection?: { start: number; end: number };
   onSelectionChange?: (e: { nativeEvent: { selection: { start: number; end: number } } }) => void;
-  
-  // Search configuration
   layoutMode?: 'horizontal-pills' | 'vertical-list';
   searchBannerPosition?: 'above' | 'below';
-
-  // Layout customization
   renderLeftAccessory?: () => React.ReactNode;
   renderRightAccessory?: () => React.ReactNode;
   renderAboveInput?: () => React.ReactNode;
@@ -38,14 +31,10 @@ interface MentionInputWithSearchProps {
   inputWrapperStyle?: StyleProp<ViewStyle>;
   inputStyle?: StyleProp<TextStyle>;
   searchBannerContainerStyle?: StyleProp<ViewStyle>;
-
-  // Callbacks
   onSubmit?: () => void;
   onMentionInsert?: (user: ProfileViewBasic) => void;
   onFocus?: () => void;
   onBlur?: () => void;
-
-  // TextInput props to pass through
   textInputProps?: Omit<TextInputProps, 'value' | 'onChangeText' | 'onSelectionChange' | 'placeholder' | 'maxLength' | 'multiline' | 'ref'>;
 }
 
@@ -113,10 +102,8 @@ const MentionInputWithSearch: React.FC<MentionInputWithSearchProps> = ({
     <View style={[styles.container, containerStyle]}>
       {searchBannerPosition === 'above' && banner}
 
-      {/* Above input content (attachments, etc) */}
       {renderAboveInput?.()}
 
-      {/* Input row */}
       <View style={styles.inputRow}>
         {renderLeftAccessory?.()}
 

@@ -7,7 +7,7 @@ export interface SearchQuery {
 /**
  * Extract @mention query from text and cursor position
  */
-export const getMentionQuery = (text: string, cursor: number): SearchQuery | null => {
+const getMentionQuery = (text: string, cursor: number): SearchQuery | null => {
   const beforeCursor = text.slice(0, cursor);
   const match = /(^|\s)@([\w.-]*)$/.exec(beforeCursor);
   if (match) {
@@ -23,7 +23,7 @@ export const getMentionQuery = (text: string, cursor: number): SearchQuery | nul
 /**
  * Extract #hashtag query from text and cursor position
  */
-export const getHashtagQuery = (text: string, cursor: number): SearchQuery | null => {
+const getHashtagQuery = (text: string, cursor: number): SearchQuery | null => {
   const beforeCursor = text.slice(0, cursor);
   const match = /(^|\s)#([\w-]*)$/.exec(beforeCursor);
   if (match) {

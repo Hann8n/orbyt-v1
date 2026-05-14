@@ -18,7 +18,6 @@ import type { Agent, ModerationUI } from '@atproto/api';
 // Runtime imports (type guards - these must be functions, not types)
 // ============================================================================
 import {
-  isThreadViewPost as sdkIsThreadViewPost,
   isNotFoundPost as sdkIsNotFoundPost,
   isBlockedPost as sdkIsBlockedPost,
   INTERACTIONSEEN,
@@ -318,26 +317,6 @@ export interface FeedGeneratorResponse {
 export interface VideoSearchResponse {
   videos: ExtendedFeedViewPost[];
   cursor: string | null;
-}
-
-/**
- * Type guard for ThreadViewPost.
- * Checks if a thread post is a valid ThreadViewPost (not NotFoundPost or BlockedPost).
- *
- * @param post - The thread post to check, which may be ThreadViewPost, NotFoundPost, or BlockedPost
- * @returns Type predicate indicating if post is a ThreadViewPost
- *
- * @example
- * ```typescript
- * const threadPost = await getThreadPost(uri);
- * if (isThreadViewPost(threadPost)) {
- *   // TypeScript knows threadPost is ThreadViewPost here
- *   const author = threadPost.post.author;
- * }
- * ```
- */
-export function isThreadViewPost(post: ThreadPost): post is ThreadViewPost {
-  return sdkIsThreadViewPost(post);
 }
 
 /**
