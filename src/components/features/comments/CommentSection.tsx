@@ -745,7 +745,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       const commentKey = item?.uri || item?.cid || `comment-${index}`;
       return (
         <CommentItem
-          key={commentKey}
           comment={item}
           onDismiss={onDismiss}
           onCommentDeleted={handleCommentDeleted}
@@ -938,7 +937,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               onScroll={handleListScroll}
               onEndReached={onEndReachedComments}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              removeClippedSubviews={true}
               drawDistance={250}
               ListEmptyComponent={CommentsEmptyComponent}
             />
@@ -960,7 +958,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               onScroll={handleListScroll}
               onEndReached={onEndReachedLikes}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              removeClippedSubviews={true}
               drawDistance={250}
               ListEmptyComponent={LikesEmptyComponent}
             />

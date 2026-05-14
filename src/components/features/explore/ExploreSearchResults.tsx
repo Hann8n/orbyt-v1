@@ -275,7 +275,6 @@ const RecentlyVisitedFeedRenderer = React.memo(
 
         return (
           <AuthorItem
-            key={isProfile ? item.did : item.uri}
             handle={handle || ''}
             did={isProfile ? item.did : item.did}
             displayName={displayName}
