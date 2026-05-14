@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
-import { useSegments } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 
 import { useDetailNavTabStore } from '@/stores/detailNavTabStore';
 
-/** Tabs that host the feed + full-height-video stack screens (same component, four routes). */
 export const FEED_MODAL_TAB_SEGMENTS = ['home', 'explore', 'activity', 'profile'] as const;
 
 export type FeedModalTabSegment = (typeof FEED_MODAL_TAB_SEGMENTS)[number];
@@ -12,23 +12,26 @@ function isFeedModalTabSegment(s: string): s is FeedModalTabSegment {
   return (FEED_MODAL_TAB_SEGMENTS as readonly string[]).includes(s);
 }
 
-/**
- * Resolves which tab stack to push onto so the native tab bar stays correct (not root modal).
- * When segments omit `(tabs)` (e.g. chat), falls back to the last focused tab — not always explore.
- *
- * Memoized so downstream callbacks (e.g. handleHashtagPress) don't invalidate when
- * useSegments returns a new array reference on unrelated renders.
- */
 export function useFeedModalTabSegment(): FeedModalTabSegment {
-  const segments = useSegments();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const lastFocusedTab = useDetailNavTabStore(s => s.lastFocusedDetailNavTab);
 
   return useMemo(() => {
-    for (const s of segments) {
-      if (isFeedModalTabSegment(s)) {
-        return s;
-      }
+    const tabNav = navigation.getParent?.();
+    if (!tabNav) {
+      return lastFocusedTab;
     }
+
+    const tabState = tabNav.getState?.();
+    if (!tabState || tabState.type !== 'tab') {
+      return lastFocusedTab;
+    }
+
+    const activeRoute = tabState.routes[tabState.index ?? 0];
+    if (activeRoute && isFeedModalTabSegment(activeRoute.name)) {
+      return activeRoute.name;
+    }
+
     return lastFocusedTab;
-  }, [segments, lastFocusedTab]);
+  }, [navigation, lastFocusedTab]);
 }
