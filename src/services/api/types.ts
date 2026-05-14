@@ -225,10 +225,6 @@ export interface QueryParams {
   cursor?: string;
 }
 
-export interface FeedParams {
-  [key: string]: unknown;
-}
-
 // API client response type (narrowed Agent)
 export interface ApiClient {
   api: Agent['api'];

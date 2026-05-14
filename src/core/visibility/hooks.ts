@@ -16,6 +16,7 @@ interface FeedVisibilityOptions {
 interface FeedVisibilityResult {
   onViewableItemsChanged: ({ viewableItems }: { viewableItems: ViewToken[] }) => void;
   viewabilityConfig: ViewabilityConfig;
+  canPlay: boolean;
 }
 
 const selectViewableToken = (
@@ -83,6 +84,7 @@ export function useFeedVisibility({
   );
 
   return {
+    canPlay,
     onViewableItemsChanged,
     viewabilityConfig: FEED_ROW_VIEWABILITY_CONFIG satisfies ViewabilityConfig,
   };

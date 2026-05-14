@@ -2,6 +2,7 @@
  * app.bsky.feed.like, repost, app.bsky.feed.sendInteractions.
  */
 import { AtprotoCore } from '../core';
+import { getAtprotoBridge } from '../agentBridge';
 import { deduplicateRequest } from '../inFlightDedup';
 import { posthog } from '../../../config/posthog';
 import { logger } from '../../../utils/logger';
@@ -62,18 +63,11 @@ export async function likePost(uri: string, cid: string): Promise<string> {
 
   const cacheKey = `like:${uri}:${cid}`;
   return deduplicateRequest(cacheKey, async () => {
-    const userDid = AtprotoCore.getCurrentUserDid();
-    if (!userDid) throw new Error('No authenticated user');
-
-    const record = {
-      $type: 'app.bsky.feed.like' as const,
-      subject: { uri, cid },
-      createdAt: new Date().toISOString(),
-    };
-    const { api } = await AtprotoCore.getApiClient();
-    const response = await api.app.bsky.feed.like.create({ repo: userDid }, record);
+    const { agent } = getAtprotoBridge();
+    if (!agent) throw new Error('No authenticated user');
+    const result = await agent.like(uri, cid);
     posthog.capture('video_liked', { post_uri: uri });
-    return response.uri;
+    return result.uri;
   });
 }
 
@@ -89,13 +83,9 @@ export async function deleteLike(likeUri: string): Promise<void> {
     return;
   }
 
-  await AtprotoCore.ensureSession();
-  const { api } = await AtprotoCore.getApiClient();
-  const userDid = AtprotoCore.getCurrentUserDid();
-  if (!userDid) throw new Error('No authenticated user');
-  const parts = likeUri.split('/');
-  const rkey = parts[parts.length - 1];
-  await api.app.bsky.feed.like.delete({ repo: userDid, rkey });
+  const { agent } = getAtprotoBridge();
+  if (!agent) throw new Error('No authenticated user');
+  await agent.deleteLike(likeUri);
   posthog.capture('video_unliked', { post_uri: likeUri });
 }
 
@@ -115,18 +105,11 @@ export async function repostPost(uri: string, cid: string): Promise<string> {
 
   const cacheKey = `repost:${uri}:${cid}`;
   return deduplicateRequest(cacheKey, async () => {
-    const userDid = AtprotoCore.getCurrentUserDid();
-    if (!userDid) throw new Error('No authenticated user');
-
-    const record = {
-      $type: 'app.bsky.feed.repost' as const,
-      subject: { uri, cid },
-      createdAt: new Date().toISOString(),
-    };
-    const { api } = await AtprotoCore.getApiClient();
-    const response = await api.app.bsky.feed.repost.create({ repo: userDid }, record);
+    const { agent } = getAtprotoBridge();
+    if (!agent) throw new Error('No authenticated user');
+    const result = await agent.repost(uri, cid);
     posthog.capture('video_reposted', { post_uri: uri });
-    return response.uri;
+    return result.uri;
   });
 }
 
@@ -142,13 +125,9 @@ export async function deleteRepost(repostURI: string): Promise<void> {
     return;
   }
 
-  const { api } = await AtprotoCore.getApiClient();
-  const userDid = AtprotoCore.getCurrentUserDid();
-  if (!userDid) throw new Error('No authenticated user');
-
-  const parts = repostURI.split('/');
-  const rkey = parts[parts.length - 1];
-  await api.app.bsky.feed.repost.delete({ repo: userDid, rkey });
+  const { agent } = getAtprotoBridge();
+  if (!agent) throw new Error('No authenticated user');
+  await agent.deleteRepost(repostURI);
 }
 
 /**
@@ -196,8 +175,6 @@ export async function sendFeedInteractions(
   });
 
   try {
-    await AtprotoCore.ensureSession();
-
     const { api } = await AtprotoCore.getApiClient();
 
     const hasSendInteractionsMethod = typeof api?.app?.bsky?.feed?.sendInteractions === 'function';

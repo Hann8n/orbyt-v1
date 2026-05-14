@@ -16,11 +16,9 @@ export class AtprotoFeedService {
   static getPosts = feedQueries.getPosts;
   static getFeedGenerator = feedQueries.getFeedGenerator;
   static getFeedGeneratorSubscriberCount = feedQueries.getFeedGeneratorSubscriberCount;
-  static getFeedGeneratorWithPosts = feedQueries.getFeedGeneratorWithPosts;
   static searchHashtagVideosPaginated = feedQueries.searchHashtagVideosPaginated;
   static searchHashtagSuggestions = feedQueries.searchHashtagSuggestions;
   static searchVideosPaginated = feedQueries.searchVideosPaginated;
-  static getMixedFeed = feedQueries.getMixedFeed;
   static getRepostedVideos = feedQueries.getRepostedVideos;
   static searchPopularFeeds = feedQueries.searchPopularFeeds;
   static getSuggestedFeeds = feedQueries.getSuggestedFeeds;

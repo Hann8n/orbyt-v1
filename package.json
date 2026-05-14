@@ -170,6 +170,12 @@
     "expo-web-browser": "~55.0.16"
   },
   "expo": {
+    "install": {
+      "exclude": [
+        "@shopify/flash-list",
+        "react-native-keyboard-controller"
+      ]
+    },
     "doctor": {
       "reactNativeDirectoryCheck": {
         "listUnknownPackages": false,
