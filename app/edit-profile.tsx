@@ -800,6 +800,8 @@ const EditProfileScreen: React.FC = () => {
                       uri={editAvatar || profileData?.avatar}
                       type="profile"
                       size={112}
+                      showRing
+                      ringColor={currentColors.textColor}
                       profileColors={{
                         backgroundColor: currentColors.backgroundColor,
                         textColor: currentColors.textColor,
