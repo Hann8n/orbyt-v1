@@ -55,7 +55,7 @@
     "@react-native-menu/menu": "^2.0.0",
     "@react-navigation/native": "^7.1.33",
     "@sentry/react-native": "~7.11.0",
-    "@shopify/flash-list": "2.0.2",
+    "@shopify/flash-list": "2.3.1",
     "@shopify/react-native-skia": "2.4.18",
     "@tanstack/react-query": "^5.90.21",
     "@variant-systems/expo-dynamic-app-icon": "^1.0.2",
