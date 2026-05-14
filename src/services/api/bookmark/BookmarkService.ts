@@ -3,7 +3,9 @@
  * Handles all bookmark-related API operations
  */
 
-import { AppBskyFeedDefs } from '@atproto/api';
+import { AppBskyFeedDefs, AtUri } from '@atproto/api';
+
+const FEED_POST_COLLECTION = 'app.bsky.feed.post';
 import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
 import { deduplicateRequest } from '../inFlightDedup';
@@ -76,7 +78,7 @@ export class BookmarkService {
         return (
           AppBskyFeedDefs.isPostView(item) &&
           typeof uri === 'string' &&
-          uri.includes('app.bsky.feed.post')
+          (() => { try { return new AtUri(uri).collection === FEED_POST_COLLECTION; } catch { return false; } })()
         );
       });
 

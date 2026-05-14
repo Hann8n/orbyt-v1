@@ -2,32 +2,11 @@
  * Writes: comments, video posts, delete post, mute comments (threadgate).
  * Lexicons: app.bsky.feed.post, app.bsky.feed.threadgate, com.atproto.repo.*
  */
-import { RichText, AtUri } from '@atproto/api';
-import { BlobRef } from '@atproto/api';
+import { RichText, AtUri, BlobRef } from '@atproto/api';
 import { Platform } from 'react-native';
 import { AtprotoCore } from '../core';
 import { logger } from '../../../utils/logger';
 import type { PostRecord, CreateRecordResponse } from '../types';
-
-/**
- * Converts upload blob response to BlobRef format required by Bluesky API.
- * Handles both BlobRef instances (from video service) and blob objects (from uploadBlob).
- *
- * @param blob - Blob data, either:
- *               - BlobRef instance (from video service)
- *               - Blob object: `{ ref: { $link: string }, mimeType: string, size: number }`
- * @returns BlobRef compatible with app.bsky.embed.video structure
- */
-function toBlobRef(
-  blob: BlobRef | { ref: { $link: string }; mimeType: string; size: number }
-): import('@atproto/lexicon').BlobRef {
-  // If already a BlobRef instance (from video service), return as-is
-  if (blob instanceof BlobRef) {
-    return blob as unknown as import('@atproto/lexicon').BlobRef;
-  }
-  // Otherwise cast the blob object format
-  return blob as unknown as import('@atproto/lexicon').BlobRef;
-}
 
 /**
  * Create a new post with video content using Bluesky's video service
@@ -46,7 +25,8 @@ export async function createVideoPost(
   feedSlug?: string,
   onProgress?: (progress: number) => void,
   jobId?: string,
-  videoBlob?: BlobRef
+  videoBlob?: BlobRef,
+  aspectRatio?: { width: number; height: number }
 ): Promise<CreateRecordResponse> {
   if (AtprotoCore.isOutgoingApiBlocked()) {
     if (AtprotoCore.shouldFailOfflineWriteMock()) {
@@ -117,8 +97,7 @@ export async function createVideoPost(
       processedVideoBlob = await VideoService.uploadVideoAndWait(videoPath, onProgress);
     }
 
-    // Get video aspect ratio
-    const aspectRatio = await getVideoAspectRatio(videoPath);
+    const resolvedAspectRatio = aspectRatio ?? { width: 9, height: 16 };
 
     // Use official RichText API to detect facets
     const richText = new RichText({ text: text || '' });
@@ -149,8 +128,8 @@ export async function createVideoPost(
       createdAt: new Date().toISOString(),
       embed: {
         $type: 'app.bsky.embed.video',
-        video: toBlobRef(processedVideoBlob),
-        aspectRatio,
+        video: processedVideoBlob,
+        aspectRatio: resolvedAspectRatio,
       },
       tags: tags,
       facets: richText.facets && richText.facets.length > 0 ? richText.facets : undefined,
@@ -218,17 +197,6 @@ export async function createVideoPost(
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     throw new Error(`Video upload failed: ${errorMessage}`, { cause: error });
   }
-}
-
-/**
- * Get video aspect ratio from video file
- * @param _videoPath - Path to the video file
- * @returns Aspect ratio object with width and height
- */
-async function getVideoAspectRatio(_videoPath: string): Promise<{ width: number; height: number }> {
-  // For React Native, we'll use a default aspect ratio
-  // In a real implementation, you might want to use a video metadata library
-  return { width: 9, height: 16 }; // Default to 9:16 (portrait)
 }
 
 /**
