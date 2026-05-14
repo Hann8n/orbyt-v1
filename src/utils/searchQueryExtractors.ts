@@ -50,11 +50,11 @@ export const getSearchQuery = (
       return { type: 'hashtag', query: hashtag };
     }
   }
-  
+
   const mention = getMentionQuery(text, cursor);
   if (mention && mention.query.length > 0) {
     return { type: 'mention', query: mention };
   }
-  
+
   return null;
 };

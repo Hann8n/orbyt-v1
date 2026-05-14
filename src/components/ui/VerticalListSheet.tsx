@@ -3,10 +3,7 @@ import { View, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native'
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 /** Re-export: use TrueSheet.present(name) to show, TrueSheet.dismiss(name) to hide. */
 export { TrueSheet };
-import {
-  AppTrueSheet,
-  type AppTrueSheetVariant,
-} from '../../utils/components/truesheet';
+import { AppTrueSheet, type AppTrueSheetVariant } from '../../utils/components/truesheet';
 import { LAYOUT_INSETS } from '../../utils/constants';
 import { CheckboxCuteFilledDuotoneIcon, CuteRegularSquareBoxEmptyIcon } from './Icon';
 import { Colors } from './UI';

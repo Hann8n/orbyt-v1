@@ -8,10 +8,7 @@ interface UseProfileSearchOptions {
   staleTime?: number;
 }
 
-export const useProfileSearch = (
-  searchQuery: string,
-  options: UseProfileSearchOptions = {}
-) => {
+export const useProfileSearch = (searchQuery: string, options: UseProfileSearchOptions = {}) => {
   const { enabled = true, staleTime = 30 * 1000 } = options;
 
   return useInfiniteQuery<

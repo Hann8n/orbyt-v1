@@ -1,4 +1,12 @@
-import { format, parseISO, isValid, isToday, isYesterday, isSameDay, differenceInMinutes } from 'date-fns';
+import {
+  format,
+  parseISO,
+  isValid,
+  isToday,
+  isYesterday,
+  isSameDay,
+  differenceInMinutes,
+} from 'date-fns';
 import i18n from '@/i18n';
 import type { MessageView } from '@/services/api/types';
 

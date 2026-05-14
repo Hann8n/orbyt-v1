@@ -29,9 +29,7 @@ interface HiddenPost {
 
 const HiddenPostAvatar: React.FC<{
   author: HiddenPost['author'];
-}> = ({ author }) => (
-  <Avatar uri={author.avatar} type="profile" size={32} />
-);
+}> = ({ author }) => <Avatar uri={author.avatar} type="profile" size={32} />;
 
 const HiddenPostsScreen: React.FC = () => {
   const { t } = useTranslation();

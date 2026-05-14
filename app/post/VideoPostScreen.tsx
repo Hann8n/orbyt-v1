@@ -717,7 +717,6 @@ const VideoPostScreen: React.FC = () => {
 
   // removed legacy expo-av handlers (not used with expo-video)
 
-
   const toggleContentWarning = (id: string) => {
     if (selectedContentWarnings.includes(id)) {
       setSelectedContentWarnings(selectedContentWarnings.filter(item => item !== id));

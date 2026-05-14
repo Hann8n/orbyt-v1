@@ -1,10 +1,5 @@
 import { forwardRef } from 'react';
-import {
-  Platform,
-  Pressable,
-  type PressableProps,
-  type View,
-} from 'react-native';
+import { Platform, Pressable, type PressableProps, type View } from 'react-native';
 import { NATIVE_PRESSABLE_ACTIVE_OPACITY } from '@/utils/constants';
 
 export type NativePressableProps = PressableProps & {
@@ -57,7 +52,7 @@ export const NativePressable = forwardRef<View, NativePressableProps>(function N
         // Multiply into any existing opacity so we dim rather than override it
         const flatStyle = Array.isArray(resolvedStyle)
           ? Object.assign({}, ...resolvedStyle.filter(Boolean))
-          : resolvedStyle ?? {};
+          : (resolvedStyle ?? {});
         const baseOpacity = (flatStyle as { opacity?: number }).opacity ?? 1;
         return [resolvedStyle, { opacity: baseOpacity * activeOpacity }];
       }}

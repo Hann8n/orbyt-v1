@@ -26,7 +26,12 @@ import {
 import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { chatReactQueryOptions } from '../../../utils/query/chatQueryOptions';
-import { BORDER_RADIUS, ICON_SIZES, QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
+import {
+  BORDER_RADIUS,
+  ICON_SIZES,
+  QUERY_CONSTANTS,
+  SCROLL_INDICATOR_CONSTANTS,
+} from '../../../utils/constants';
 import { useProfileByDid } from '../../../services/data/ProfileService';
 import CommentInputFooter from '../../features/comments/CommentInputFooter';
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
@@ -259,7 +264,12 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   const header = (
     <View style={styles.searchHeader}>
       <View style={styles.searchRow}>
-        <Icon name="search" size={ICON_SIZES.LARGE} color={Colors.neutral[400]} style={styles.searchIcon} />
+        <Icon
+          name="search"
+          size={ICON_SIZES.LARGE}
+          color={Colors.neutral[400]}
+          style={styles.searchIcon}
+        />
         <TextInput
           ref={searchInputRef}
           value={searchQuery}

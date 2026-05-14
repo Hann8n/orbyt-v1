@@ -300,7 +300,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const gridRef = useRef<ListFeedViewRef>(null);
 
     const scrollOffsetYSV = useSharedValue(0);
-    const homePagerChromeUserHoldSV = useSharedValue(0);
     const endOfFeedEnabledSV = useSharedValue(0);
     const endOfFeedOverscrollOpacitySV = useSharedValue(0);
 
@@ -324,25 +323,19 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     }, [listSurfaceActive, isVisibleSV]);
 
     useAnimatedReaction(
-      () => [scrollOffsetYSV.value, homePagerChromeUserHoldSV.value] as const,
+      () => [scrollOffsetYSV.value, isVisibleSV.value] as const,
       (current, previous) => {
         'worklet';
 
         if (!isVisibleSV.value) return;
 
         const y = Math.max(0, current[0]);
-        const hold = current[1];
-
-        if (hold > 0.5) {
-          tabBarVisibility.value = 1;
-          return;
-        }
-
-        const prevHold = previous === null ? 0 : previous[1];
         const prevY = previous === null ? y : Math.max(0, previous[0]);
+        const prevVisible = previous === null ? 0 : previous[1];
 
-        if (previous === null || prevHold > 0.5) {
-          tabBarVisibility.value = y < chromeVisibleMaxY ? 1 : 0;
+        // Re-evaluate immediately when becoming visible (feed switch / screen focus)
+        if (previous === null || prevVisible < 0.5) {
+          tabBarVisibility.value = 1;
           return;
         }
 
@@ -354,7 +347,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           tabBarVisibility.value = 1;
         }
       },
-      [scrollOffsetYSV, homePagerChromeUserHoldSV, tabBarVisibility, isVisibleSV, chromeVisibleMaxY]
+      [scrollOffsetYSV, tabBarVisibility, isVisibleSV, chromeVisibleMaxY]
     );
 
     const patchHeaderBlockingPlayback = useCallback(
@@ -653,30 +646,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [contentScrollProgressOutput, fadeDist]
     );
 
-    const setHomePagerChromeUserHold = useCallback(
-      (held: boolean) => {
-        homePagerChromeUserHoldSV.value = held ? 1 : 0;
-        tabBarVisibility.value =
-          held || scrollOffsetYSV.value < FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y
-            ? 1
-            : 0;
-      },
-      [homePagerChromeUserHoldSV, scrollOffsetYSV, tabBarVisibility]
-    );
-
     const feedScrollMotion = useMemo<FeedScrollMotionValue>(
       () => ({
         scrollOffsetYSV,
         contentScrollProgressSV,
-        homePagerChromeUserHoldSV,
-        setHomePagerChromeUserHold,
       }),
-      [
-        scrollOffsetYSV,
-        contentScrollProgressSV,
-        homePagerChromeUserHoldSV,
-        setHomePagerChromeUserHold,
-      ]
+      [scrollOffsetYSV, contentScrollProgressSV]
     );
 
     const feedScrollLayout = useMemo<FeedScrollLayoutValue>(

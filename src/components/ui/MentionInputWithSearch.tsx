@@ -35,7 +35,16 @@ interface MentionInputWithSearchProps {
   onMentionInsert?: (user: ProfileViewBasic) => void;
   onFocus?: () => void;
   onBlur?: () => void;
-  textInputProps?: Omit<TextInputProps, 'value' | 'onChangeText' | 'onSelectionChange' | 'placeholder' | 'maxLength' | 'multiline' | 'ref'>;
+  textInputProps?: Omit<
+    TextInputProps,
+    | 'value'
+    | 'onChangeText'
+    | 'onSelectionChange'
+    | 'placeholder'
+    | 'maxLength'
+    | 'multiline'
+    | 'ref'
+  >;
 }
 
 const MentionInputWithSearch: React.FC<MentionInputWithSearchProps> = ({
@@ -64,16 +73,19 @@ const MentionInputWithSearch: React.FC<MentionInputWithSearchProps> = ({
 }) => {
   const internalInputRef = useRef<TextInput | null>(null);
   const inputRef = externalInputRef ?? internalInputRef;
-  
+
   const [inputSelection, setInputSelection] = React.useState({ start: 0, end: 0 });
   const selection = externalSelection ?? inputSelection;
-  
-  const handleSelectionChange = useCallback((e: { nativeEvent: { selection: { start: number; end: number } } }) => {
-    if (!externalSelection) {
-      setInputSelection(e.nativeEvent.selection);
-    }
-    externalOnSelectionChange?.(e);
-  }, [externalSelection, externalOnSelectionChange]);
+
+  const handleSelectionChange = useCallback(
+    (e: { nativeEvent: { selection: { start: number; end: number } } }) => {
+      if (!externalSelection) {
+        setInputSelection(e.nativeEvent.selection);
+      }
+      externalOnSelectionChange?.(e);
+    },
+    [externalSelection, externalOnSelectionChange]
+  );
 
   const { inputProps: mentionInputProps, bannerProps: searchProps } = useSearchTrigger({
     value,

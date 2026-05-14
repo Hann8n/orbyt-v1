@@ -92,7 +92,6 @@ export interface VideoCardProps {
   showOverlay?: boolean;
   feedOption?: string;
   index?: number;
-  onUserPausedChange?: (userPaused: boolean) => void;
   onHashtagPress?: (hashtag: string) => void;
   ref?: Ref<VideoCardRef>;
 }
@@ -108,7 +107,6 @@ function VideoCard({
   showOverlay = true,
   feedOption,
   index,
-  onUserPausedChange,
   onHashtagPress,
   ref,
 }: VideoCardProps) {
@@ -171,7 +169,6 @@ function VideoCard({
     hasError,
     shouldPlayVideo,
     shouldLoadVideo,
-    userPaused,
     togglePlayback,
     seek,
     firstFrameRendered,
@@ -189,11 +186,6 @@ function VideoCard({
     isBlurred,
     onVideoStatus,
   });
-
-  useEffect(() => {
-    if (!isVisible || !onUserPausedChange) return;
-    onUserPausedChange(userPaused);
-  }, [isVisible, userPaused, onUserPausedChange]);
 
   // ── Interaction (likes, reposts, comment count). ───────────────────────────────────────
   const {

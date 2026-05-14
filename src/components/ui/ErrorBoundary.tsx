@@ -15,11 +15,7 @@ import { logger } from '../../utils/logger';
 import { Colors } from './UI';
 import CancelButton from './CancelButton';
 import { getDeviceInfo } from '../../utils/version';
-import {
-  FontFamily,
-  Typography,
-  TextStyles,
-} from '../../utils/components/typography';
+import { FontFamily, Typography, TextStyles } from '../../utils/components/typography';
 
 export interface ErrorBoundaryProps {
   children: ReactNode;

@@ -10,9 +10,7 @@ interface BookmarkState {
   bookmarkedPostUris: Set<string>;
   bookmarkSubjects: Map<string, { uri: string; cid: string }>;
 
-  populate: (
-    uris: Array<{ uri: string; subject?: { uri: string; cid: string } }>
-  ) => void;
+  populate: (uris: Array<{ uri: string; subject?: { uri: string; cid: string } }>) => void;
   isBookmarked: (postUri: string) => boolean;
   addBookmark: (postUri: string, bookmarkSubject?: { uri: string; cid: string }) => void;
   removeBookmark: (postUri: string) => void;
@@ -27,7 +25,7 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
    * Bulk-populate from React Query fetch results. Replaces the store with the
    * authoritative server state so server-side removals are reflected correctly.
    */
-  populate: (entries) => {
+  populate: entries => {
     set(() => {
       const uris = new Set<string>();
       const subjects = new Map<string, { uri: string; cid: string }>();

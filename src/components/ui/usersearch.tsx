@@ -73,10 +73,7 @@ export function SearchBanner({
     staleTime: 30 * 1000,
   });
 
-  const users = useMemo(
-    () => userData?.pages.flatMap(page => page.profiles) ?? [],
-    [userData]
-  );
+  const users = useMemo(() => userData?.pages.flatMap(page => page.profiles) ?? [], [userData]);
 
   const { data: hashtagSuggestionsData } = useQuery<string[]>({
     queryKey: queryKeys.search.hashtags(deferredSearchQuery),
@@ -95,9 +92,15 @@ export function SearchBanner({
     if (prevVisibleRef.current !== visible) {
       LayoutAnimation.configureNext({
         duration: 150,
-        create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+        create: {
+          type: LayoutAnimation.Types.easeInEaseOut,
+          property: LayoutAnimation.Properties.opacity,
+        },
         update: { type: LayoutAnimation.Types.easeInEaseOut },
-        delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+        delete: {
+          type: LayoutAnimation.Types.easeInEaseOut,
+          property: LayoutAnimation.Properties.opacity,
+        },
       });
       prevVisibleRef.current = visible;
     }
@@ -123,7 +126,9 @@ export function SearchBanner({
                   onPress={() => onSelectUser?.(item)}
                 >
                   <UI.Avatar uri={item.avatar} size={28} style={styles.pillAvatar} />
-                  <Text style={styles.pillContent} numberOfLines={1}>{item.handle}</Text>
+                  <Text style={styles.pillContent} numberOfLines={1}>
+                    {item.handle}
+                  </Text>
                 </SquircleNativePressable>
               )}
               onEndReached={() => {
@@ -288,11 +293,14 @@ export function useSearchTrigger({
     }
   }, [value, selection?.start, enableHashtags]);
 
-  const placeCursor = useCallback((pos: number) => {
-    requestAnimationFrame(() => {
-      inputRef?.current?.setNativeProps({ selection: { start: pos, end: pos } });
-    });
-  }, [inputRef]);
+  const placeCursor = useCallback(
+    (pos: number) => {
+      requestAnimationFrame(() => {
+        inputRef?.current?.setNativeProps({ selection: { start: pos, end: pos } });
+      });
+    },
+    [inputRef]
+  );
 
   const handleSelectUser = useCallback(
     (user: ProfileViewBasic) => {

@@ -26,14 +26,8 @@ export function HomeTabStackLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="feed" />
       <Stack.Screen name="full-height-video" />
-      <Stack.Screen
-        name="user/[did]"
-        dangerouslySingular={getUserSingularName}
-      />
-      <Stack.Screen
-        name="channel/[id]"
-        dangerouslySingular={getChannelSingularName}
-      />
+      <Stack.Screen name="user/[did]" dangerouslySingular={getUserSingularName} />
+      <Stack.Screen name="channel/[id]" dangerouslySingular={getChannelSingularName} />
     </Stack>
   );
 }
@@ -48,14 +42,8 @@ export function IndexExploreActivityStackLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="feed" />
       <Stack.Screen name="full-height-video" />
-      <Stack.Screen
-        name="user/[did]"
-        dangerouslySingular={getUserSingularName}
-      />
-      <Stack.Screen
-        name="channel/[id]"
-        dangerouslySingular={getChannelSingularName}
-      />
+      <Stack.Screen name="user/[did]" dangerouslySingular={getUserSingularName} />
+      <Stack.Screen name="channel/[id]" dangerouslySingular={getChannelSingularName} />
     </Stack>
   );
 }
@@ -67,14 +55,8 @@ export function ProfileTabStackLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="feed" />
       <Stack.Screen name="full-height-video" />
-      <Stack.Screen
-        name="[did]"
-        dangerouslySingular={getUserSingularName}
-      />
-      <Stack.Screen
-        name="channel/[id]"
-        dangerouslySingular={getChannelSingularName}
-      />
+      <Stack.Screen name="[did]" dangerouslySingular={getUserSingularName} />
+      <Stack.Screen name="channel/[id]" dangerouslySingular={getChannelSingularName} />
     </Stack>
   );
 }

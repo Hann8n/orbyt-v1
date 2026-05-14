@@ -13,9 +13,7 @@ import { useFollowStore } from '@/stores/followStore';
 
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import type { CachedChannel } from '@/services/data/ChannelService';
-import {
-  type ExploreSearchTabId,
-} from './types';
+import { type ExploreSearchTabId } from './types';
 import { prefetchProfileThenOpen } from './prefetchProfileThenOpen';
 import { exploreScreenStyles as styles } from './ExploreScreenStyles';
 
@@ -65,7 +63,7 @@ const ProfilesFeedRenderer = React.memo(
   ({
     profiles,
     isLoading,
-    onProfilePress,
+    onProfilePress: _onProfilePress,
     onFollow,
     bottomPadding = 0,
     hasNextPage,
@@ -102,33 +100,16 @@ const ProfilesFeedRenderer = React.memo(
 
     const renderProfileItem = useCallback(
       ({ item: profile }: { item: ProfileViewWithOrbyt }) => {
-        const followStoreState = useFollowStore(state => state.follows.get(profile.did));
-        const isFollowing = followStoreState?.isFollowing ?? !!profile.viewer?.following;
         return (
-          <AuthorItem
-            handle={profile.handle || ''}
-            did={profile.did}
-            avatar={profile.avatar}
-            size="large"
-            showArrow={false}
-            showFollowButton={!isFollowing}
-            isFollowing={isFollowing}
-            onFollowPress={() => onFollow?.(profile)}
-            onPress={() => {
-              if (onProfilePress) {
-                onProfilePress(profile);
-              } else {
-                prefetchProfileThenOpen(profile, queryClient, goToProfile);
-              }
-            }}
-            backgroundColor={Colors.transparent}
-            nameFontWeight="Figtree-Bold"
-            handleAsDisplayName
-            style={styles.authorItemStyle}
+          <ExploreSuggestionsProfileRow
+            profile={profile}
+            queryClient={queryClient}
+            goToProfile={goToProfile}
+            onFollow={onFollow ?? (() => {})}
           />
         );
       },
-      [onFollow, onProfilePress, queryClient, goToProfile]
+      [onFollow, queryClient, goToProfile]
     );
 
     if (isLoading) {
@@ -266,12 +247,18 @@ const RecentlyVisitedFeedRenderer = React.memo(
       ({ item }: { item: ProfileViewWithOrbyt | CachedChannel }) => {
         const isProfile = 'handle' in item;
         const slug = !isProfile ? extractFeedSlug(item.uri) : null;
-        const handle = isProfile ? item.handle : (slug || '');
+        const handle = isProfile ? item.handle : slug || '';
         // Channels only: pass displayName. Profiles use handleAsDisplayName.
-        const displayName = isProfile ? undefined : (slug || item.displayName);
+        const displayName = isProfile ? undefined : slug || item.displayName;
         const onPress = isProfile
-          ? () => (onProfilePress ? onProfilePress(item) : prefetchProfileThenOpen(item, queryClient, goToProfile))
-          : () => (onChannelPress ? onChannelPress(item) : navigateToEncodedChannelUri(item.uri, goToChannel));
+          ? () =>
+              onProfilePress
+                ? onProfilePress(item)
+                : prefetchProfileThenOpen(item, queryClient, goToProfile)
+          : () =>
+              onChannelPress
+                ? onChannelPress(item)
+                : navigateToEncodedChannelUri(item.uri, goToChannel);
 
         return (
           <AuthorItem
@@ -309,9 +296,7 @@ const RecentlyVisitedFeedRenderer = React.memo(
       <View style={styles.flexOne}>
         <FlashList
           data={combinedItems}
-          keyExtractor={(item) =>
-            'handle' in item ? `p-${item.did}` : `c-${item.uri}`
-          }
+          keyExtractor={item => ('handle' in item ? `p-${item.did}` : `c-${item.uri}`)}
           renderItem={renderItem}
           contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
           showsVerticalScrollIndicator={

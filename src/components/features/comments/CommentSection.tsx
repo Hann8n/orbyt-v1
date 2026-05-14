@@ -428,7 +428,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     queryFn: async ({ pageParam }) => {
       if (!AtprotoCore.isIncomingApiEnabled()) return { comments: [], cursor: null };
       try {
-        const { agent } = await import('../../../services/api/agentBridge').then(m => m.getAtprotoBridge());
+        const { agent } = await import('../../../services/api/agentBridge').then(m =>
+          m.getAtprotoBridge()
+        );
         if (!agent) return { comments: [], cursor: null };
         const res = await agent.api.app.bsky.feed.getPostThread({
           uri: post?.uri || '',
@@ -535,7 +537,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     queryFn: async ({ pageParam }) => {
       if (!AtprotoCore.isIncomingApiEnabled()) return { likes: [], cursor: null };
       try {
-        const { agent } = await import('../../../services/api/agentBridge').then(m => m.getAtprotoBridge());
+        const { agent } = await import('../../../services/api/agentBridge').then(m =>
+          m.getAtprotoBridge()
+        );
         if (!agent) return { likes: [], cursor: null };
         const res = await agent.api.app.bsky.feed.getLikes({
           uri: post?.uri || '',
@@ -678,16 +682,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [t]
   );
 
-  const handleCommentDeleted = useCallback(
-    (wasReply?: boolean) => {
-      if (wasReply || !post?.uri) return;
-      const currentCount =
-        usePostInteractionStore.getState().interactions.get(post.uri)?.commentCount ??
-        totalComments;
-      updatePostInteraction(post.uri, { commentCount: Math.max(0, currentCount - 1) });
-    },
-    [post?.uri, totalComments, updatePostInteraction]
-  );
+  const handleCommentDeleted = (wasReply?: boolean) => {
+    if (wasReply || !post?.uri) return;
+    const currentCount =
+      usePostInteractionStore.getState().interactions.get(post.uri)?.commentCount ?? totalComments;
+    updatePostInteraction(post.uri, { commentCount: Math.max(0, currentCount - 1) });
+  };
 
   const handleTabPress = useCallback((tabId: string) => {
     const next = tabId as 'comments' | 'likes';
@@ -734,9 +734,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
   const renderCommentItem = useCallback<ListRenderItem<Comment>>(
-    ({ item, index }) => {
+    ({ item }) => {
       const level = item.parent ? 1 : 0;
-      const commentKey = item?.uri || item?.cid || `comment-${index}`;
       return (
         <CommentItem
           comment={item}

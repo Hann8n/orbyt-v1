@@ -15,16 +15,10 @@ import PagerView from 'react-native-pager-view';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useDerivedValue,
-  useAnimatedReaction,
-  withDelay,
   withTiming,
-  Easing,
-  cancelAnimation,
   type SharedValue,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import { NanoIcon } from '../../ui/NanoIcon';
 import { Colors } from '../../../theme';
 import FeedRenderer from './FeedRenderer';
@@ -40,7 +34,6 @@ export type FeedOption = string;
 
 // Default feed options and label keys for home screen (resolved via t() in component)
 const DEFAULT_FEED_OPTIONS: FeedOption[] = ['following', 'your-mix'];
-const FEED_CHANGE_REVEAL_HOLD_MS = 900;
 const FEED_LABEL_KEYS: { [key: string]: string } = {
   following: 'feed.following',
   'your-mix': 'feed.yourMix',
@@ -174,22 +167,8 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const tabBarVisibility = useTabBarVisibility();
-  const feedChangeRevealHoldSV = useSharedValue(0);
-  const feedBarOpacitySV = useSharedValue(1);
-  const feedBarTranslateYSV = useSharedValue(0);
 
   const feedOptions = feedOptionsProp ?? DEFAULT_FEED_OPTIONS;
-
-  const scheduleFeedBarRevealHold = useCallback(() => {
-    cancelAnimation(feedChangeRevealHoldSV);
-    // eslint-disable-next-line react-hooks/immutability -- SharedValue.value in UI sync path
-    feedChangeRevealHoldSV.value = 1;
-
-    feedChangeRevealHoldSV.value = withDelay(
-      FEED_CHANGE_REVEAL_HOLD_MS,
-      withTiming(0, { duration: 0 })
-    );
-  }, [feedChangeRevealHoldSV]);
 
   // Same as PagerView's initialPage – single source of truth for "which page we're on" at mount.
   const initialPageIndex = (() => {
@@ -206,14 +185,13 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   const setPagerPage = useCallback(
     (index: number) => {
       if (index < 0 || !pagerViewRef.current) return;
-      scheduleFeedBarRevealHold();
       if (scrollEnabled) pagerViewRef.current.setPage(index);
       else pagerViewRef.current.setPageWithoutAnimation(index);
-      // eslint-disable-next-line react-hooks/immutability
+      // eslint-disable-next-line react-hooks/immutability, react-compiler/react-compiler
       pageScrollProgress.value = index;
       setCurrentFeedIndex(index);
     },
-    [scrollEnabled, pageScrollProgress, scheduleFeedBarRevealHold]
+    [scrollEnabled, pageScrollProgress]
   );
 
   // Sync controlled currentFeed -> pager page (handles store hydration and programmatic changes)
@@ -229,54 +207,19 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   // Derive current feed option from current index
   const currentFeedOption = feedOptions[currentFeedIndex] || feedOptions[0] || 'following';
 
-  const feedBarVisibleSV = useDerivedValue(() => {
-    'worklet';
-    return Math.max(tabBarVisibility.value, feedChangeRevealHoldSV.value);
-  }, [tabBarVisibility, feedChangeRevealHoldSV]);
-
-  useAnimatedReaction(
-    () => feedBarVisibleSV.value > 0.5,
-    (isVisible, wasVisible) => {
-      'worklet';
-      if (isVisible === wasVisible) return;
-      const nextOpacity = isVisible ? 1 : 0;
-      const nextTranslateY = isVisible ? 0 : -18;
-      feedBarOpacitySV.value = withTiming(nextOpacity, {
-        duration: 200,
-        easing: Easing.out(Easing.ease),
-      });
-      feedBarTranslateYSV.value = withTiming(nextTranslateY, {
-        duration: 200,
-        easing: Easing.out(Easing.ease),
-      });
-    },
-    [feedBarVisibleSV]
-  );
-
   // Animated style for feed bar - runs on UI thread
   const feedBarAnimatedStyle = useAnimatedStyle(() => {
     'worklet';
+    const visible = tabBarVisibility.value > 0.5;
     return {
-      opacity: feedBarOpacitySV.value,
+      opacity: withTiming(visible ? 1 : 0, { duration: 200 }),
       transform: [
         {
-          translateY: feedBarTranslateYSV.value,
+          translateY: withTiming(visible ? 0 : -18, { duration: 200 }),
         },
       ],
     };
-  }, [feedBarOpacitySV, feedBarTranslateYSV]);
-
-  // Ensure controls are visible when pager mounts
-  useEffect(() => {
-    scheduleFeedBarRevealHold();
-  }, [scheduleFeedBarRevealHold]);
-
-  // Home pager can remain mounted; force-show when focused again.
-  useFocusEffect(
-    useCallback(() => {
-      scheduleFeedBarRevealHold();
-    }, [scheduleFeedBarRevealHold])
-  );
+  }, [tabBarVisibility]);
 
   // Handle page change from PagerView - final confirmation after transition completes
   const handlePageSelected = useCallback(
@@ -286,14 +229,12 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
       // eslint-disable-next-line react-hooks/immutability
       pageScrollProgress.value = nextIndex;
       setCurrentFeedIndex(nextIndex);
-      // Feed change should always reveal top controls.
-      scheduleFeedBarRevealHold();
       const newFeedOption = feedOptions[nextIndex];
       if (newFeedOption) {
         onFeedChange?.(newFeedOption);
       }
     },
-    [feedOptions, onFeedChange, pageScrollProgress, scheduleFeedBarRevealHold]
+    [feedOptions, onFeedChange, pageScrollProgress]
   );
 
   // Retry is handled inside FeedRenderer (refetch); pass stable no-op so child can call it

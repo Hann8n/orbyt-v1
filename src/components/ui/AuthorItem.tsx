@@ -181,7 +181,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const actualDisplayName = handleAsDisplayName
     ? formatHandle(handle)
     : trimmedPropName || trimmedCachedName || formatHandle(handle) || t('feed.unknownUser');
-  const followStoreState = useFollowStore(state => (skipServerProfileData && did ? state.follows.get(did) : undefined));
+  const followStoreState = useFollowStore(state =>
+    skipServerProfileData && did ? state.follows.get(did) : undefined
+  );
   const actualIsFollowing = cachedProfile?.viewer?.following
     ? true
     : followStoreState !== undefined

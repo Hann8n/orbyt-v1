@@ -25,7 +25,10 @@ import { MenuView } from '@react-native-menu/menu';
 import type { MenuAction } from '@react-native-menu/menu';
 
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
-import { useLikeCommentMutation, useDeleteCommentMutation } from '../../../hooks/useCommentMutations';
+import {
+  useLikeCommentMutation,
+  useDeleteCommentMutation,
+} from '../../../hooks/useCommentMutations';
 import { ModerationService } from '../../../services/moderation/ModerationService';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { formatNumber } from '../../../utils/formatting/numbers';
@@ -137,8 +140,16 @@ interface GalleryImageItemProps {
   onImagePress?: (uri: string) => void;
 }
 
-const GalleryImageItem: React.FC<GalleryImageItemProps> = ({ img, idx, maxWidth, onImagePress }) => {
-  const [actualDimensions, setActualDimensions] = React.useState<{ width: number; height: number } | null>(null);
+const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
+  img,
+  idx,
+  maxWidth,
+  onImagePress,
+}) => {
+  const [actualDimensions, setActualDimensions] = React.useState<{
+    width: number;
+    height: number;
+  } | null>(null);
 
   const imageUri = img.fullsize || img.thumb;
 
@@ -209,9 +220,12 @@ const CommentImageGallery: React.FC<{
 }> = ({ images, onImagePress }) => {
   const [containerWidth, setContainerWidth] = React.useState(300);
 
-  const handleLayout = React.useCallback((event: { nativeEvent: { layout: { width: number } } }) => {
-    setContainerWidth(event.nativeEvent.layout.width);
-  }, []);
+  const handleLayout = React.useCallback(
+    (event: { nativeEvent: { layout: { width: number } } }) => {
+      setContainerWidth(event.nativeEvent.layout.width);
+    },
+    []
+  );
 
   // Single image: fills width naturally
   if (images.length === 1) {
@@ -339,22 +353,10 @@ const CommentItem: React.FC<CommentItemProps> = ({
     };
   });
 
-  const authorName = useMemo(
-    () => formatHandle(comment?.author?.handle || '') || t('feed.unknownUser'),
-    [comment?.author?.handle, t]
-  );
-
-  const authorHandle = useMemo(
-    () => formatHandle(comment?.author?.handle || ''),
-    [comment?.author?.handle]
-  );
-
-  const authorDid = useMemo(() => comment?.author?.did || null, [comment?.author?.did]);
-
-  const authorAvatar = useMemo(
-    () => comment?.author?.avatar ?? undefined,
-    [comment?.author?.avatar]
-  );
+  const authorName = formatHandle(comment?.author?.handle || '') || t('feed.unknownUser');
+  const authorHandle = formatHandle(comment?.author?.handle || '');
+  const authorDid = comment?.author?.did || null;
+  const authorAvatar = comment?.author?.avatar ?? undefined;
 
   // Get profile data to check if author is blocked
   const { data: authorProfile } = useProfileByDid(authorDid);
@@ -503,7 +505,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
     [navigation, feedModalTab]
   );
 
-  const handleAuthorAvatarPress = useCallback(() => {
+  const handleAuthorAvatarPress = () => {
     const authorData = comment?.author;
     const did = authorData?.did;
 
@@ -520,7 +522,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
           : undefined
       );
     }
-  }, [comment?.author, navigateToAuthorProfile]);
+  };
 
   const handleReplyPress = useCallback(() => {
     if (authorName && uri && cid) {
@@ -857,7 +859,10 @@ const CommentItem: React.FC<CommentItemProps> = ({
     if (!isImagesEmbed || !Array.isArray(embedObj?.images)) return null;
 
     const embedImages: EmbedImage[] = (embed as { images: unknown[] }).images
-      .filter((img: unknown) => typeof img === 'object' && img !== null && ('thumb' in img || 'fullsize' in img))
+      .filter(
+        (img: unknown) =>
+          typeof img === 'object' && img !== null && ('thumb' in img || 'fullsize' in img)
+      )
       .map((img: unknown) => {
         const imgObj = img as {
           thumb?: string;
@@ -869,7 +874,11 @@ const CommentItem: React.FC<CommentItemProps> = ({
         let ar: { width: number; height: number } | undefined;
         if (imgObj.aspectRatio && typeof imgObj.aspectRatio === 'object') {
           const arObj = imgObj.aspectRatio as { width?: number; height?: number };
-          if (typeof arObj.width === 'number' && typeof arObj.height === 'number' && arObj.height > 0) {
+          if (
+            typeof arObj.width === 'number' &&
+            typeof arObj.height === 'number' &&
+            arObj.height > 0
+          ) {
             ar = { width: arObj.width, height: arObj.height };
           }
         }

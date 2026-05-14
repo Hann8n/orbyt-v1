@@ -23,10 +23,7 @@ import type {
   RawFeedApiOutput,
   GeneratorView,
 } from '../types';
-import {
-  isVideoEmbed,
-  isVideoEmbedInMedia,
-} from '../types';
+import { isVideoEmbed, isVideoEmbedInMedia } from '../types';
 import i18n from '../../../i18n';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
 import { logger } from '../../../utils/logger';
@@ -278,7 +275,11 @@ export async function getPost(uri: string): Promise<PostView | null> {
     const entry = map.get(trimmed);
     if (!entry) return null;
     const entryType = (entry as { $type?: string }).$type;
-    if (entryType === 'app.bsky.feed.defs#notFoundPost' || entryType === 'app.bsky.feed.defs#blockedPost') return null;
+    if (
+      entryType === 'app.bsky.feed.defs#notFoundPost' ||
+      entryType === 'app.bsky.feed.defs#blockedPost'
+    )
+      return null;
     return entry as PostView;
   } catch (_error: unknown) {
     return null;

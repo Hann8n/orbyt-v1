@@ -294,7 +294,9 @@ export interface UserState {
 
   _persistAccountUpdate: (
     did: string,
-    updates: Partial<Pick<SavedAccount, 'handle' | 'displayName' | 'avatar' | 'emailConfirmed' | 'lastUsed'>>
+    updates: Partial<
+      Pick<SavedAccount, 'handle' | 'displayName' | 'avatar' | 'emailConfirmed' | 'lastUsed'>
+    >
   ) => Promise<void>;
   _restoreSessionBlocking: (
     did: string,
@@ -780,7 +782,12 @@ export const useUserStore = create<UserState>()(
           skipSettings: boolean = false,
           options?: { preserveAuthStateOnFailure?: boolean }
         ) => {
-          set({ isAuthenticating: true, authError: null, authErrorCode: 'none', authStatus: 'restoring' });
+          set({
+            isAuthenticating: true,
+            authError: null,
+            authErrorCode: 'none',
+            authStatus: 'restoring',
+          });
           loadPersistedColors(did);
 
           let localSession: OAuthSession;
@@ -1905,7 +1912,9 @@ export const useUserStore = create<UserState>()(
 
         _persistAccountUpdate: async (
           did: string,
-          updates: Partial<Pick<SavedAccount, 'handle' | 'displayName' | 'avatar' | 'emailConfirmed' | 'lastUsed'>>
+          updates: Partial<
+            Pick<SavedAccount, 'handle' | 'displayName' | 'avatar' | 'emailConfirmed' | 'lastUsed'>
+          >
         ) => {
           const accounts = get().savedAccounts;
           const idx = accounts.findIndex(a => a.did === did);
@@ -1966,7 +1975,10 @@ export const useUserStore = create<UserState>()(
             }
 
             // Persist emailConfirmed so next launch can use the fast two-phase path
-            await get()._persistAccountUpdate(session.did, { emailConfirmed, lastUsed: Date.now() });
+            await get()._persistAccountUpdate(session.did, {
+              emailConfirmed,
+              lastUsed: Date.now(),
+            });
 
             // Fetch orbyt colors in background (skipped in hydrateOAuthSession above)
             queryClient

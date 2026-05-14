@@ -198,20 +198,11 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         : 0;
     const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
     const scrollOffsetYSV = useSharedValue(0);
-    const homePagerChromeUserHoldSV = useSharedValue(0);
     const fadeDist = useScrollTracking ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
     const contentScrollProgressSV = useDerivedValue(() => {
       'worklet';
       return fadeDist > 0 ? Math.max(0, Math.min(1, scrollOffsetYSV.value / fadeDist)) : 0;
     }, [scrollOffsetYSV, fadeDist]);
-
-    const setHomePagerChromeUserHold = useCallback(
-      (held: boolean) => {
-        // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
-        homePagerChromeUserHoldSV.value = held ? 1 : 0;
-      },
-      [homePagerChromeUserHoldSV]
-    );
 
     const scrollHandler = useAnimatedScrollHandler(
       {
@@ -338,16 +329,8 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       return {
         scrollOffsetYSV,
         contentScrollProgressSV,
-        homePagerChromeUserHoldSV,
-        setHomePagerChromeUserHold,
       };
-    }, [
-      useScrollTracking,
-      scrollOffsetYSV,
-      contentScrollProgressSV,
-      homePagerChromeUserHoldSV,
-      setHomePagerChromeUserHold,
-    ]);
+    }, [useScrollTracking, scrollOffsetYSV, contentScrollProgressSV]);
 
     const feedScrollLayout = useMemo<FeedScrollLayoutValue | null>(() => {
       if (!useScrollTracking) return null;

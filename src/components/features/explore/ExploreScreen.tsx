@@ -80,8 +80,14 @@ const ExploreScreen: React.FC = () => {
   } = useVisitHistory(currentUser?.did ?? null);
 
   // Convert SDK types to arrays for rendering
-  const recentlyVisitedProfiles = useMemo(() => Array.from(recentProfilesByDid.values()), [recentProfilesByDid]);
-  const recentlyVisitedChannels = useMemo(() => Array.from(recentChannelsByUri.values()), [recentChannelsByUri]);
+  const recentlyVisitedProfiles = useMemo(
+    () => Array.from(recentProfilesByDid.values()),
+    [recentProfilesByDid]
+  );
+  const recentlyVisitedChannels = useMemo(
+    () => Array.from(recentChannelsByUri.values()),
+    [recentChannelsByUri]
+  );
 
   const { debouncedQuery, clearPendingDebounce, setDebouncedQuery } =
     useExploreSearchDebounce(searchQuery);

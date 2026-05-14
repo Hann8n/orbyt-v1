@@ -65,9 +65,7 @@ function insertReplyInTree(comments: Comment[], parentUri: string, reply: Commen
 function removeFromTree(comments: Comment[], uri: string): Comment[] {
   return comments
     .filter(c => c.uri !== uri)
-    .map(c =>
-      c.replies?.length ? { ...c, replies: removeFromTree(c.replies, uri) } : c
-    );
+    .map(c => (c.replies?.length ? { ...c, replies: removeFromTree(c.replies, uri) } : c));
 }
 
 /** Apply a mapper function to every comment in the nested tree. */
@@ -79,7 +77,12 @@ function mapTree(comments: Comment[], fn: (c: Comment) => Comment): Comment[] {
 }
 
 /** Replace optimistic tempId with real uri/cid throughout the nested tree. */
-function replaceOptimisticInTree(comments: Comment[], tempId: string, realUri: string, realCid: string): Comment[] {
+function replaceOptimisticInTree(
+  comments: Comment[],
+  tempId: string,
+  realUri: string,
+  realCid: string
+): Comment[] {
   return comments.map(c => {
     const updatedReplies = c.replies?.length
       ? replaceOptimisticInTree(c.replies, tempId, realUri, realCid)
@@ -206,7 +209,10 @@ export function usePostCommentMutation() {
         };
       }
 
-      return agent.post({ ...postRecord, ...(embed ? { embed: embed as Comment['record']['embed'] } : {}) });
+      return agent.post({
+        ...postRecord,
+        ...(embed ? { embed: embed as Comment['record']['embed'] } : {}),
+      });
     },
 
     onMutate: async vars => {
@@ -240,7 +246,9 @@ export function usePostCommentMutation() {
     },
 
     onSuccess: (result, vars, context) => {
-      const ctx = context as { previousData?: InfiniteData<CommentsResponse>; tempId?: string } | undefined;
+      const ctx = context as
+        | { previousData?: InfiniteData<CommentsResponse>; tempId?: string }
+        | undefined;
       const tempId = ctx?.tempId;
       if (!tempId) return;
       const queryKey = queryKeys.comments.byPost(vars.rootUri);
@@ -257,7 +265,9 @@ export function usePostCommentMutation() {
     },
 
     onError: (_err, vars, context) => {
-      const ctx = context as { previousData?: InfiniteData<CommentsResponse>; tempId?: string } | undefined;
+      const ctx = context as
+        | { previousData?: InfiniteData<CommentsResponse>; tempId?: string }
+        | undefined;
       const queryKey = queryKeys.comments.byPost(vars.rootUri);
       if (ctx?.previousData) {
         queryClient.setQueryData(queryKey, ctx.previousData);
@@ -363,7 +373,9 @@ export function useLikeCommentMutation() {
     },
 
     onError: (_err, _vars, context) => {
-      const ctx = context as { previousData?: [unknown, InfiniteData<CommentsResponse> | undefined][] } | undefined;
+      const ctx = context as
+        | { previousData?: [unknown, InfiniteData<CommentsResponse> | undefined][] }
+        | undefined;
       if (ctx?.previousData) {
         for (const [key, data] of ctx.previousData) {
           if (data) queryClient.setQueryData(key as string[], data);

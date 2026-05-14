@@ -1,12 +1,10 @@
-import { useMemo, useCallback, memo } from 'react';
+import { useMemo, memo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Link } from 'expo-router';
 
-import { useFeedScrollMotion } from '../../../context/FeedScrollContext';
 import VideoCard from '../video/VideoCard';
 import type { ExtendedPostView, ExtendedFeedViewPost, PostView } from '../../../services/api/types';
 import { getVideoView } from '../../../utils/video/helpers';
-import { HOME_FEED_PAGER_OPTIONS } from '../../../utils/constants';
 import { Colors } from '../../../theme';
 
 type VideoCardPost = ExtendedPostView | ExtendedFeedViewPost;
@@ -61,14 +59,6 @@ function VideoItemComponent({
     [post, videoView]
   );
 
-  const setHomePagerChromeUserHold = useFeedScrollMotion()?.setHomePagerChromeUserHold;
-  const onHomeFeedPagerChromeUserPaused = useCallback(
-    (userPaused: boolean) => {
-      setHomePagerChromeUserHold?.(userPaused);
-    },
-    [setHomePagerChromeUserHold]
-  );
-
   if (!hasVideo) {
     return <View style={rowStyle} pointerEvents="none" collapsable={false} />;
   }
@@ -82,11 +72,6 @@ function VideoItemComponent({
       height={height}
       feedOption={feedOption}
       index={index}
-      onUserPausedChange={
-        feedOption && HOME_FEED_PAGER_OPTIONS.has(feedOption)
-          ? onHomeFeedPagerChromeUserPaused
-          : undefined
-      }
       onHashtagPress={onHashtagPress}
     />
   );

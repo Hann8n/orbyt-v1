@@ -1,12 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  Platform,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, Platform } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -20,7 +14,10 @@ import { Colors } from '../../../theme';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { androidTextFix } from '../../../utils/styling/platformText';
 import { COMPOSER_STYLES } from '../../../utils/components/truesheet/sheetStyles';
-import { COMPOSER_INPUT_PADDING, COMPOSER_INPUT_DIMENSIONS } from '../../../utils/components/truesheet/utils';
+import {
+  COMPOSER_INPUT_PADDING,
+  COMPOSER_INPUT_DIMENSIONS,
+} from '../../../utils/components/truesheet/utils';
 import { useMentionInput } from '../../ui/MentionInputWithSearch';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileByDid } from '../../../services/data/ProfileService';
@@ -78,7 +75,12 @@ interface AttachmentThumbProps {
   removeLabel: string;
 }
 
-const AttachmentThumb: React.FC<AttachmentThumbProps> = ({ uri, aspectRatio, onRemove, removeLabel }) => (
+const AttachmentThumb: React.FC<AttachmentThumbProps> = ({
+  uri,
+  aspectRatio,
+  onRemove,
+  removeLabel,
+}) => (
   <SquircleView style={[styles.attachmentThumb, { aspectRatio }]}>
     {uri ? (
       <Image source={{ uri }} style={styles.attachmentThumbImage} contentFit="cover" />
@@ -331,7 +333,10 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                   {showCharCount ? (
                     <View style={styles.charCountOverlay} pointerEvents="none">
                       <Text
-                        style={[styles.charCountText, charCount > maxLength && styles.charCountTextError]}
+                        style={[
+                          styles.charCountText,
+                          charCount > maxLength && styles.charCountTextError,
+                        ]}
                       >
                         {remainingChars}
                       </Text>
@@ -352,19 +357,21 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                 removeLabel={t('comments.removeGif')}
               />
             ) : (
-              resolvedSelectedImages.slice(0, 4).map(img => (
-                <AttachmentThumb
-                  key={img.uri}
-                  uri={img.uri}
-                  aspectRatio={
-                    img.aspectRatio && img.aspectRatio.height > 0
-                      ? img.aspectRatio.width / img.aspectRatio.height
-                      : 1
-                  }
-                  onRemove={onRemoveImage ? () => onRemoveImage(img.uri) : null}
-                  removeLabel={t('comments.removeImage')}
-                />
-              ))
+              resolvedSelectedImages
+                .slice(0, 4)
+                .map(img => (
+                  <AttachmentThumb
+                    key={img.uri}
+                    uri={img.uri}
+                    aspectRatio={
+                      img.aspectRatio && img.aspectRatio.height > 0
+                        ? img.aspectRatio.width / img.aspectRatio.height
+                        : 1
+                    }
+                    onRemove={onRemoveImage ? () => onRemoveImage(img.uri) : null}
+                    removeLabel={t('comments.removeImage')}
+                  />
+                ))
             )}
           </View>
         )}

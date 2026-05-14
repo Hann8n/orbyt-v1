@@ -89,8 +89,11 @@ const FilterOption: React.FC<{
   checked: boolean;
   onPress: () => void;
 }> = ({ label, checked, onPress }) => {
-  const checkboxStyle = useMemo(() => [styles.checkbox, checked && styles.checkboxSelected], [checked]);
-  
+  const checkboxStyle = useMemo(
+    () => [styles.checkbox, checked && styles.checkboxSelected],
+    [checked]
+  );
+
   return (
     <SquircleNativePressable onPress={onPress} style={styles.filterOption}>
       <Text style={styles.filterOptionLabel}>{label}</Text>
@@ -134,7 +137,10 @@ export default function NotificationFilterModal() {
 
   const hasFilters = localSelected.length > 0;
 
-  const clearBtnStyle = useMemo(() => [styles.clearBtn, !hasFilters && styles.clearBtnDisabled], [hasFilters]);
+  const clearBtnStyle = useMemo(
+    () => [styles.clearBtn, !hasFilters && styles.clearBtnDisabled],
+    [hasFilters]
+  );
 
   const handleToggleReason = useCallback((reason: NotificationReason) => {
     setLocalSelected(prev =>

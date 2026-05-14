@@ -13,7 +13,6 @@ export const ACTIVITY_LIST_TEXT_LEADING = ACTIVITY_LIST_AVATAR_SIZE + ACTIVITY_L
 /** Preview / secondary line body — shared by Chats and Notifications rows. */
 const ACTIVITY_LIST_PREVIEW_FONT_SIZE = fontSizeFor(16);
 
-
 /** Muted-conversation bell — between `ICON_SIZES.SMALL` and `MEDIUM`. */
 export const ACTIVITY_LIST_MUTED_ICON_SIZE = 18;
 

@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query';
 import { ChatService } from '@/services/api/chat/ChatService';
 import { queryKeys } from '@/utils/query/queryKeys';
 import { QUERY_CONSTANTS } from '@/utils/constants';
@@ -110,9 +115,15 @@ export function useChatReactions(
               if (msg.id !== messageId) return msg;
               const reactions = [...(msg.reactions ?? [])];
               if (add) {
-                reactions.push({ value, sender: { did: currentUserDid ?? '' }, createdAt: new Date().toISOString() });
+                reactions.push({
+                  value,
+                  sender: { did: currentUserDid ?? '' },
+                  createdAt: new Date().toISOString(),
+                });
               } else {
-                const idx = reactions.findIndex(r => r.value === value && r.sender?.did === currentUserDid);
+                const idx = reactions.findIndex(
+                  r => r.value === value && r.sender?.did === currentUserDid
+                );
                 if (idx >= 0) reactions.splice(idx, 1);
               }
               return { ...msg, reactions };

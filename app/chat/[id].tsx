@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView } from '@/components/ui/Squircle';
-import { KeyboardStickyView, KeyboardChatScrollView } from 'react-native-keyboard-controller';
+import { KeyboardStickyView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Image } from 'expo-image';
 
 import { FlashList } from '@shopify/flash-list';
@@ -136,7 +136,10 @@ function ChatMessageRichText({
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
   const currentTab = useFeedModalTabSegment();
 
-  const rt = useMemo(() => new RichText({ text: text || '', facets: facets ?? undefined }), [text, facets]);
+  const rt = useMemo(
+    () => new RichText({ text: text || '', facets: facets ?? undefined }),
+    [text, facets]
+  );
   const segments = useMemo(() => Array.from(rt.segments()), [rt]);
 
   const messageTextStyle = useMemo(
@@ -160,7 +163,10 @@ function ChatMessageRichText({
               key={`${keyBase}-link`}
               style={
                 isFromMe
-                  ? [styles.messageTextLinkFromMe, { color: fromMeAccentColor ?? Colors.brand.teal }]
+                  ? [
+                      styles.messageTextLinkFromMe,
+                      { color: fromMeAccentColor ?? Colors.brand.teal },
+                    ]
                   : styles.messageTextLink
               }
               onPress={() => {
@@ -419,25 +425,19 @@ function EmbedMetrics({
       {(replyCount ?? 0) > 0 && (
         <View style={styles.embedMetricItem}>
           <Icon name="chat" size={12} color={textColor} />
-          <Text style={[styles.embedMetricText, { color: textColor }]}>
-            {replyCount}
-          </Text>
+          <Text style={[styles.embedMetricText, { color: textColor }]}>{replyCount}</Text>
         </View>
       )}
       {(repostCount ?? 0) > 0 && (
         <View style={styles.embedMetricItem}>
           <Icon name="share_forward" size={12} color={textColor} />
-          <Text style={[styles.embedMetricText, { color: textColor }]}>
-            {repostCount}
-          </Text>
+          <Text style={[styles.embedMetricText, { color: textColor }]}>{repostCount}</Text>
         </View>
       )}
       {(likeCount ?? 0) > 0 && (
         <View style={styles.embedMetricItem}>
           <Icon name="heart" size={12} color={textColor} />
-          <Text style={[styles.embedMetricText, { color: textColor }]}>
-            {likeCount}
-          </Text>
+          <Text style={[styles.embedMetricText, { color: textColor }]}>{likeCount}</Text>
         </View>
       )}
     </View>
@@ -577,11 +577,7 @@ function ChatMessageRow({
           {beforeEmbed}
         </NativePressable>
       ) : null}
-      {beforeEmbed != null && embed ? (
-        <View style={styles.embedSpacing}>{embed}</View>
-      ) : (
-        embed
-      )}
+      {beforeEmbed != null && embed ? <View style={styles.embedSpacing}>{embed}</View> : embed}
       {caption != null ? (
         <NativePressable
           delayLongPress={400}
@@ -1216,14 +1212,7 @@ export default function ChatScreen() {
   const currentUserAvatar = useUserStore(s => s.currentUser?.avatar ?? null);
 
   const renderScrollComponent = useCallback(
-    (props: ScrollViewProps) => (
-      <KeyboardChatScrollView
-        {...props}
-        inverted
-        extraContentPadding={composerHeight}
-        keyboardLiftBehavior="whenAtEnd"
-      />
-    ),
+    (props: ScrollViewProps) => <KeyboardAwareScrollView {...props} />,
     []
   );
 
@@ -1318,8 +1307,11 @@ export default function ChatScreen() {
     lastMsgSenderDid != null &&
     lastMsgSenderDid !== currentUserDid;
   const blockMutation = useBlockMutation();
-  const isBlocked = !!((profile as ProfileViewBasic)?.viewer?.blocking || (profile as ProfileViewBasic)?.viewer?.blockingByList);
-  const isBlockedByList = !!((profile as ProfileViewBasic)?.viewer?.blockingByList);
+  const isBlocked = !!(
+    (profile as ProfileViewBasic)?.viewer?.blocking ||
+    (profile as ProfileViewBasic)?.viewer?.blockingByList
+  );
+  const isBlockedByList = !!(profile as ProfileViewBasic)?.viewer?.blockingByList;
 
   const {
     messages,
@@ -1483,10 +1475,7 @@ export default function ChatScreen() {
     };
   }, [convoId, convo, latestMessageId, queryClient]);
 
-  const listData = useMemo(
-    () => buildChatListData((messages ?? []) as MessageItem[]),
-    [messages]
-  );
+  const listData = useMemo(() => buildChatListData((messages ?? []) as MessageItem[]), [messages]);
 
   const renderListItem = useCallback(
     ({ item }: { item: ChatListItem; index: number }) => {
@@ -1518,11 +1507,13 @@ export default function ChatScreen() {
             fromMeTextColor={sentMessageTextColor}
           />
         ) : (!msg.text || msg.text === '') && !hasEmbed ? (
-          <Text style={[
-            styles.messageText,
-            isFromMe && styles.messageTextFromMe,
-            isFromMe && sentMessageTextColor && { color: sentMessageTextColor },
-          ]}>
+          <Text
+            style={[
+              styles.messageText,
+              isFromMe && styles.messageTextFromMe,
+              isFromMe && sentMessageTextColor && { color: sentMessageTextColor },
+            ]}
+          >
             {getMessagePreview(msg)}
           </Text>
         ) : null;
@@ -1544,8 +1535,15 @@ export default function ChatScreen() {
             {beforeEmbedRaw}
             {isFromMe ? (
               <>
-                <View style={[styles.bubbleRightArrow, { backgroundColor: sentBubbleBlendedStyle.backgroundColor }]} />
-                <View style={[styles.bubbleRightArrowOverlap, { backgroundColor: Colors.neutral[975] }]} />
+                <View
+                  style={[
+                    styles.bubbleRightArrow,
+                    { backgroundColor: sentBubbleBlendedStyle.backgroundColor },
+                  ]}
+                />
+                <View
+                  style={[styles.bubbleRightArrowOverlap, { backgroundColor: Colors.neutral[975] }]}
+                />
               </>
             ) : (
               <>
@@ -1581,8 +1579,15 @@ export default function ChatScreen() {
           />
           {isFromMe ? (
             <>
-              <View style={[styles.bubbleRightArrow, { backgroundColor: sentBubbleBlendedStyle.backgroundColor }]} />
-              <View style={[styles.bubbleRightArrowOverlap, { backgroundColor: Colors.neutral[975] }]} />
+              <View
+                style={[
+                  styles.bubbleRightArrow,
+                  { backgroundColor: sentBubbleBlendedStyle.backgroundColor },
+                ]}
+              />
+              <View
+                style={[styles.bubbleRightArrowOverlap, { backgroundColor: Colors.neutral[975] }]}
+              />
             </>
           ) : (
             <>
@@ -1741,9 +1746,7 @@ export default function ChatScreen() {
     if (!did) return;
     if (blockMutation.isPending || isBlockedByList) return;
     const handle =
-      profile?.handle && profile.handle.length > 0
-        ? profile.handle
-        : 'unknown.invalid';
+      profile?.handle && profile.handle.length > 0 ? profile.handle : 'unknown.invalid';
     if (isBlocked) {
       blockMutation.mutate({ did, handle, isBlocked: false });
     } else {
@@ -1887,19 +1890,12 @@ export default function ChatScreen() {
             accessibilityLabel={t('a11y.viewProfile')}
           >
             <View style={sharedItemStyles.avatarContainer}>
-              <Avatar
-                uri={profile?.avatar}
-                type="profile"
-                size={headerAvatarSize}
-              />
+              <Avatar uri={profile?.avatar} type="profile" size={headerAvatarSize} />
             </View>
             <View style={styles.headerTitleColumn}>
               <View style={styles.headerNameRow}>
                 {headerHandleTitle !== '' ? (
-                  <Text
-                    style={sharedItemStyles.accountDisplayName}
-                    numberOfLines={1}
-                  >
+                  <Text style={sharedItemStyles.accountDisplayName} numberOfLines={1}>
                     {headerHandleTitle}
                   </Text>
                 ) : null}
@@ -2066,14 +2062,19 @@ export default function ChatScreen() {
           extraData={{ listLength: listData.length }}
           style={styles.list}
           contentContainerStyle={styles.listContent}
-          inverted
           ItemSeparatorComponent={ChatFlashListItemSeparator}
           showsVerticalScrollIndicator={
             listData.length >= SCROLL_INDICATOR_CONSTANTS.CHAT_MESSAGES_MIN_ITEMS
           }
           keyboardShouldPersistTaps="handled"
           renderScrollComponent={renderScrollComponent}
-          onEndReached={hasNextPage ? () => { fetchNextPage(); } : undefined}
+          onEndReached={
+            hasNextPage
+              ? () => {
+                  fetchNextPage();
+                }
+              : undefined
+          }
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
             !messagesLoading && convoId ? (
@@ -2094,73 +2095,75 @@ export default function ChatScreen() {
         <KeyboardStickyView>
           {needsAccept ? (
             <View style={styles.acceptBar}>
-            <OptionsButton
-              label={acceptConvoMutation.isPending ? t('common.accepting') : t('common.accept')}
-              onPress={() => acceptConvoMutation.mutate()}
-              disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
-              linkType="none"
-              style={styles.acceptBarOptionButton}
-              containerStyle={[
-                styles.acceptBarOptionButtonInner,
-                styles.acceptBarOptionButtonCenter,
-                styles.acceptBarButtonAcceptBg,
-              ]}
-              textStyle={[styles.acceptBarOptionButtonText, styles.acceptBarButtonAcceptText]}
-            />
-            <View style={styles.acceptBarRowActions}>
-              <View style={styles.acceptBarOptionButtonWrap}>
-                <OptionsButton
-                  label={t('chat.reportOrBlock')}
-                  onPress={() => TrueSheet.present('chat-report-or-block')}
-                  disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
-                  destructive
-                  linkType="none"
-                  style={styles.acceptBarOptionButton}
-                  containerStyle={[
-                    styles.acceptBarOptionButtonInner,
-                    styles.acceptBarOptionButtonCenter,
-                  ]}
-                  textStyle={styles.acceptBarOptionButtonText}
-                />
-              </View>
-              <View style={styles.acceptBarOptionButtonWrap}>
-                <OptionsButton
-                  label={leaveConvoMutation.isPending ? t('common.declining') : t('common.decline')}
-                  onPress={() => leaveConvoMutation.mutate()}
-                  disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
-                  linkType="none"
-                  style={styles.acceptBarOptionButton}
-                  containerStyle={[
-                    styles.acceptBarOptionButtonInner,
-                    styles.acceptBarOptionButtonCenter,
-                  ]}
-                  textStyle={styles.acceptBarOptionButtonText}
-                />
+              <OptionsButton
+                label={acceptConvoMutation.isPending ? t('common.accepting') : t('common.accept')}
+                onPress={() => acceptConvoMutation.mutate()}
+                disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
+                linkType="none"
+                style={styles.acceptBarOptionButton}
+                containerStyle={[
+                  styles.acceptBarOptionButtonInner,
+                  styles.acceptBarOptionButtonCenter,
+                  styles.acceptBarButtonAcceptBg,
+                ]}
+                textStyle={[styles.acceptBarOptionButtonText, styles.acceptBarButtonAcceptText]}
+              />
+              <View style={styles.acceptBarRowActions}>
+                <View style={styles.acceptBarOptionButtonWrap}>
+                  <OptionsButton
+                    label={t('chat.reportOrBlock')}
+                    onPress={() => TrueSheet.present('chat-report-or-block')}
+                    disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
+                    destructive
+                    linkType="none"
+                    style={styles.acceptBarOptionButton}
+                    containerStyle={[
+                      styles.acceptBarOptionButtonInner,
+                      styles.acceptBarOptionButtonCenter,
+                    ]}
+                    textStyle={styles.acceptBarOptionButtonText}
+                  />
+                </View>
+                <View style={styles.acceptBarOptionButtonWrap}>
+                  <OptionsButton
+                    label={
+                      leaveConvoMutation.isPending ? t('common.declining') : t('common.decline')
+                    }
+                    onPress={() => leaveConvoMutation.mutate()}
+                    disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
+                    linkType="none"
+                    style={styles.acceptBarOptionButton}
+                    containerStyle={[
+                      styles.acceptBarOptionButtonInner,
+                      styles.acceptBarOptionButtonCenter,
+                    ]}
+                    textStyle={styles.acceptBarOptionButtonText}
+                  />
+                </View>
               </View>
             </View>
-          </View>
-        ) : (
-          <View style={styles.chatComposerFooter}>
-            <CommentInputFooter
-              value={inputText}
-              onChangeText={setInputText}
-              inputSelection={inputSelection}
-              onSelectionChange={e => setInputSelection(e.nativeEvent.selection)}
-              placeholder={t('chat.messagePlaceholder')}
-              onSubmit={handleSend}
-              isPosting={sendMessageMutation.isPending}
-              maxLength={1000}
-              inputRef={inputRef}
-              currentUserAvatar={currentUserAvatar}
-              submitAccessibilityLabel={t('a11y.sendMessage')}
-              showAvatar
-              hideMediaAddButton
-              onHeightChange={h => {
-                composerHeight.value = h;
-              }}
-            />
-          </View>
-        )}
+          ) : (
+            <View style={styles.chatComposerFooter}>
+              <CommentInputFooter
+                value={inputText}
+                onChangeText={setInputText}
+                inputSelection={inputSelection}
+                onSelectionChange={e => setInputSelection(e.nativeEvent.selection)}
+                placeholder={t('chat.messagePlaceholder')}
+                onSubmit={handleSend}
+                isPosting={sendMessageMutation.isPending}
+                maxLength={1000}
+                inputRef={inputRef}
+                currentUserAvatar={currentUserAvatar}
+                submitAccessibilityLabel={t('a11y.sendMessage')}
+                showAvatar
+                hideMediaAddButton
+                onHeightChange={h => {
+                  composerHeight.value = h;
+                }}
+              />
+            </View>
+          )}
         </KeyboardStickyView>
       </View>
     </View>

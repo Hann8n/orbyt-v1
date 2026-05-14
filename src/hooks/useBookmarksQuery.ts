@@ -20,8 +20,7 @@ export function useBookmarksQuery(): void {
 
   const { data, error, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteQuery({
     queryKey: queryKeys.bookmarks.list(),
-    queryFn: ({ pageParam }) =>
-      BookmarkService.getBookmarks(pageParam as string | undefined, 100),
+    queryFn: ({ pageParam }) => BookmarkService.getBookmarks(pageParam as string | undefined, 100),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: lastPage => lastPage.cursor ?? undefined,
     enabled: sessionValid,
@@ -51,9 +50,10 @@ export function useBookmarksQuery(): void {
         .filter(b => b.uri?.includes('app.bsky.feed.post'))
         .map(b => ({
           uri: b.uri,
-          subject: b.bookmarkSubject?.uri && b.bookmarkSubject?.cid
-            ? { uri: b.bookmarkSubject.uri, cid: b.bookmarkSubject.cid }
-            : undefined,
+          subject:
+            b.bookmarkSubject?.uri && b.bookmarkSubject?.cid
+              ? { uri: b.bookmarkSubject.uri, cid: b.bookmarkSubject.cid }
+              : undefined,
         }))
     );
     populate(entries);

@@ -25,7 +25,12 @@ export function mergePostInteractionDelta(
   if (!stored) return defaultState;
   // Only merge interaction state, not counts. Counts always come from feed data
   // to ensure fresh server counts aren't overridden by stale optimistic updates.
-  const { likeCount, commentCount, repostCount, ...interactionOnlyStored } = stored;
+  const {
+    likeCount: _likeCount,
+    commentCount: _commentCount,
+    repostCount: _repostCount,
+    ...interactionOnlyStored
+  } = stored;
   return { ...defaultState, ...interactionOnlyStored };
 }
 
@@ -49,7 +54,12 @@ export const usePostInteractionStore = create<PostInteractionState>((set, get) =
       // Only persist user-specific interaction state, not counts.
       // Counts should always come from feed data to avoid stale counts
       // overriding fresh server data when the feed refetches.
-      const { likeCount, commentCount, repostCount, ...interactionOnlyUpdate } = update;
+      const {
+        likeCount: _likeCount,
+        commentCount: _commentCount,
+        repostCount: _repostCount,
+        ...interactionOnlyUpdate
+      } = update;
       const current = newInteractions.get(postUri) ?? {};
       newInteractions.set(postUri, { ...current, ...interactionOnlyUpdate });
       return { interactions: newInteractions };
