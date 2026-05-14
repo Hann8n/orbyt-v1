@@ -25,7 +25,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView as RNScreensSafeAreaView } from 'react-native-screens/experimental';
 import Animated, {
   useSharedValue,
-  useAnimatedScrollHandler,
   useAnimatedReaction,
   useAnimatedStyle,
   runOnJS,
@@ -69,13 +68,11 @@ import {
   QUERY_CONSTANTS,
   SCROLL_INDICATOR_CONSTANTS,
 } from '../../../utils/constants';
-import { buildListSnapToOffsets } from '@/utils/feed/snapOffsets';
+import { useFeedPlaybackStore } from '@/hooks/useFeedPlaybackStore';
+import { useFeedSnapOffsets } from '@/hooks/useFeedSnapOffsets';
+import { useFeedScrollHandler } from '@/hooks/useFeedScrollHandler';
 import type { FeedListItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
-import {
-  useFeedVisibility,
-  createFeedListPlaybackStore,
-  FeedListPlaybackContext,
-} from '../../../core/visibility';
+import { useFeedVisibility, FeedListPlaybackContext } from '../../../core/visibility';
 import { useTranslation } from 'react-i18next';
 import { TypographyText } from '@/utils/components/typography';
 
@@ -101,6 +98,7 @@ const listKeyExtractor = (item: FeedListItem, index: number): string => getFeedI
 interface ListEmptyComponentProps {
   isLoading: boolean;
   effectiveIsError: boolean;
+  isPaused: boolean;
   feedOption: string;
   secondaryColor?: string;
   profileColors?: { backgroundColor: string; textColor: string };
@@ -108,54 +106,13 @@ interface ListEmptyComponentProps {
   onRetry?: () => void;
 }
 
-const minHeightStyleCache = new Map<number, { minHeight: number }>();
-const measurementHeightStyleCache = new Map<number, { height: number }>();
-const bottomPaddingStyleCache = new Map<number, { paddingBottom: number }>();
-const overscrollHintLayoutStyleCache = new Map<number, { paddingBottom: number; bottom: number }>();
-
-const getMinHeightStyle = (minHeight: number): { minHeight: number } => {
-  const normalized = Math.max(0, Math.round(minHeight));
-  const cached = minHeightStyleCache.get(normalized);
-  if (cached) return cached;
-  const style = { minHeight: normalized };
-  minHeightStyleCache.set(normalized, style);
-  return style;
-};
-
-const getMeasurementHeightStyle = (height: number): { height: number } => {
-  const normalized = Math.max(0, Math.round(height));
-  const cached = measurementHeightStyleCache.get(normalized);
-  if (cached) return cached;
-  const style = { height: normalized };
-  measurementHeightStyleCache.set(normalized, style);
-  return style;
-};
-
-const getBottomPaddingStyle = (paddingBottom: number): { paddingBottom: number } => {
-  const normalized = Math.max(0, Math.round(paddingBottom));
-  const cached = bottomPaddingStyleCache.get(normalized);
-  if (cached) return cached;
-  const style = { paddingBottom: normalized };
-  bottomPaddingStyleCache.set(normalized, style);
-  return style;
-};
-
-const getOverscrollHintLayoutStyle = (
-  bottomInset: number
-): { paddingBottom: number; bottom: number } => {
-  const normalized = Math.max(0, Math.round(bottomInset));
-  const cached = overscrollHintLayoutStyleCache.get(normalized);
-  if (cached) return cached;
-  const style = { paddingBottom: normalized, bottom: END_OF_FEED_HINT_BOTTOM_OFFSET };
-  overscrollHintLayoutStyleCache.set(normalized, style);
-  return style;
-};
 const MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED = { disabled: true } as const;
 const SAFE_AREA_BOTTOM_EDGES = { bottom: true } as const;
 
 const ListEmptyComponent = ({
   isLoading,
   effectiveIsError,
+  isPaused,
   feedOption,
   secondaryColor,
   profileColors,
@@ -170,10 +127,17 @@ const ListEmptyComponent = ({
           styles.centeredLoadingContainer,
           styles.centeredLoadingContainerBackground
         ),
-        getMinHeightStyle(emptyComponentHeight)
+        { minHeight: Math.max(0, Math.round(emptyComponentHeight)) }
       ),
     [emptyComponentHeight]
   );
+
+  const commonProps = {
+    secondaryColor,
+    profileColors,
+    viewableAreaHeight: emptyComponentHeight,
+    feedOption,
+  };
 
   if (isLoading) {
     return (
@@ -183,26 +147,21 @@ const ListEmptyComponent = ({
     );
   }
 
-  const commonProps = {
-    secondaryColor,
-    profileColors,
-    viewableAreaHeight: emptyComponentHeight,
-    feedOption,
-  };
-
   if (effectiveIsError) {
     return <EmptyFeed type="error" onRetry={onRetry} {...commonProps} />;
   }
+
+  if (isPaused) {
+    return <EmptyFeed type="no-connection" onRetry={onRetry} {...commonProps} />;
+  }
+
   return <EmptyFeed type={getEmptyFeedType(feedOption)} {...commonProps} />;
 };
 
 ListEmptyComponent.displayName = 'ListEmptyComponent';
 
-const END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX = 56;
 const CHROME_SHOW_DIRECTION_THRESHOLD_PX = 4;
 const CHROME_HIDE_DIRECTION_THRESHOLD_PX = 18;
-
-const END_OF_FEED_HINT_BOTTOM_OFFSET = 40;
 type EndOfFeedOverscrollHintProps = {
   opacitySV: SharedValue<number>;
   bottomInset: number;
@@ -212,7 +171,10 @@ type EndOfFeedOverscrollHintProps = {
 const EndOfFeedOverscrollHint = memo(
   ({ opacitySV, bottomInset, labelColor }: EndOfFeedOverscrollHintProps) => {
     const { t } = useTranslation();
-    const hintLayoutStyle = useMemo(() => getOverscrollHintLayoutStyle(bottomInset), [bottomInset]);
+    const hintLayoutStyle = useMemo(
+      () => ({ paddingBottom: Math.max(0, Math.round(bottomInset)), bottom: 40 as const }),
+      [bottomInset]
+    );
     const animatedStyle = useAnimatedStyle(() => ({
       opacity: opacitySV.value,
     }));
@@ -258,6 +220,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isLoading,
       isError,
       onRetry,
+      isPaused = false,
       isVisible = true,
       viewMode,
       onViewModeChange: _onViewModeChange,
@@ -299,25 +262,27 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const flashListRef = useRef<FlashListRef<FeedListItem>>(null);
     const gridRef = useRef<ListFeedViewRef>(null);
 
-    const scrollOffsetYSV = useSharedValue(0);
-    const endOfFeedEnabledSV = useSharedValue(0);
-    const endOfFeedOverscrollOpacitySV = useSharedValue(0);
-
-    const seedActiveIndex =
-      typeof initialScrollIndex === 'number' ? initialScrollIndex : feed.length > 0 ? 0 : -1;
-    const activeVisibleIndexRef = useRef(seedActiveIndex);
-    // useState lazy initializer creates the store once on mount — useMemo([seedActiveIndex])
-    // would recreate it when feed.length changes from 0→N, losing accumulated state.
-    const [listPlaybackStore] = useState(() =>
-      createFeedListPlaybackStore({ activeIndex: seedActiveIndex })
-    );
-
     const headerBlockingBaseSuppressedSV = useSharedValue(1);
+
+    const { listPlaybackStore, activeVisibleIndexRef, handleActiveVisibleIndexChange } =
+      useFeedPlaybackStore(initialScrollIndex, feed.length);
 
     const tabBarVisibility = useTabBarVisibility();
     const listSurfaceActive = isVisible && resolvedViewMode === 'list';
     const isVisibleSV = useSharedValue(listSurfaceActive ? 1 : 0);
     const chromeVisibleMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
+
+    const hasHeaderEarly = Boolean(headerComponent);
+    const fadeDistEarly = hasHeaderEarly ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
+
+    const {
+      scrollHandler,
+      scrollOffsetYSV,
+      contentScrollProgressSV,
+      endOfFeedEnabledSV,
+      endOfFeedOverscrollOpacitySV,
+    } = useFeedScrollHandler({ fadeDist: fadeDistEarly, contentScrollProgressOutput });
+
     useEffect(() => {
       isVisibleSV.value = listSurfaceActive ? 1 : 0;
     }, [listSurfaceActive, isVisibleSV]);
@@ -392,34 +357,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ? getVideoCardHeight(screenWidth, screenHeight)
       : Math.max(0, viewableAreaHeight - FEED_VIEW_CONSTANTS.LIST_ITEM_GAP);
 
-    const handleActiveVisibleIndexChange = useCallback(
-      (index: number) => {
-        if (activeVisibleIndexRef.current === index) return;
-        activeVisibleIndexRef.current = index;
-        listPlaybackStore.patch({ activeIndex: index });
-      },
-      [listPlaybackStore]
-    );
-
-    useEffect(() => {
-      if (typeof initialScrollIndex !== 'number') return;
-      if (activeVisibleIndexRef.current === initialScrollIndex) return;
-      activeVisibleIndexRef.current = initialScrollIndex;
-      listPlaybackStore.patch({ activeIndex: initialScrollIndex });
-    }, [initialScrollIndex, listPlaybackStore]);
-
-    useEffect(() => {
-      if (feed.length === 0) {
-        if (activeVisibleIndexRef.current === -1) return;
-        activeVisibleIndexRef.current = -1;
-        listPlaybackStore.patch({ activeIndex: -1 });
-        return;
-      }
-      if (activeVisibleIndexRef.current >= 0) return;
-      activeVisibleIndexRef.current = 0;
-      listPlaybackStore.patch({ activeIndex: 0 });
-    }, [feed.length, listPlaybackStore]);
-
     const { onViewableItemsChanged, viewabilityConfig, canPlay } = useFeedVisibility({
       isActive: listSurfaceActive,
       onActiveVisibleIndexChange: handleActiveVisibleIndexChange,
@@ -480,10 +417,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         if (target === RenderTargetOptions.Measurement || !xd) {
           return (
             <View
-              style={StyleSheet.compose(
-                styles.measurementPlaceholder,
-                getMeasurementHeightStyle(h)
-              )}
+              style={StyleSheet.compose(styles.measurementPlaceholder, {
+                height: Math.max(0, Math.round(h)),
+              })}
             />
           );
         }
@@ -551,55 +487,27 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const snapTopInset =
       useManualIosGlassTabPaddingLayout && !isCompact ? getEffectiveTopInset(insets.top) : 0;
 
-    const snapDisabledCompactLiquidGlass =
-      useManualIosGlassTabPaddingLayout && !hasHeader && isCompact;
-    const snapWaitHeaderLayout = hasHeader && headerHeight <= 0;
-    const listSnapUsesInterval =
-      !snapDisabledCompactLiquidGlass &&
-      !snapWaitHeaderLayout &&
-      !hasHeader &&
-      snapTopInset === 0 &&
-      listData.length > 0;
-
-    const snapToIntervalValue = listSnapUsesInterval ? itemSpacing : undefined;
-
-    const snapToOffsets = useMemo((): number[] | undefined => {
-      return buildListSnapToOffsets({
-        snapDisabledCompactLiquidGlass,
-        snapWaitHeaderLayout,
-        listSnapUsesInterval,
-        hasHeader,
-        headerHeight,
-        cardHeight,
-        itemCount: listData.length,
-        itemSpacing,
-        snapTopInset,
-        isHeaderFeed,
-      });
-    }, [
-      snapDisabledCompactLiquidGlass,
-      snapWaitHeaderLayout,
-      listSnapUsesInterval,
+    const {
+      snapToInterval: snapToIntervalValue,
+      snapToOffsets,
+      snapToAlignment,
+    } = useFeedSnapOffsets({
+      hasTabBar,
+      isIosLiquidGlassAvailable,
+      isCompact,
       hasHeader,
       headerHeight,
       cardHeight,
-      listData.length,
+      itemCount: listData.length,
       itemSpacing,
       snapTopInset,
       isHeaderFeed,
-    ]);
+    });
 
-    const handleHeaderLayout = useCallback(
-      (e: LayoutChangeEvent) => {
-        const h = Math.round(e.nativeEvent.layout.height);
-        if (h > 0 && h !== headerHeight) {
-          requestAnimationFrame(() => {
-            setHeaderHeight(h);
-          });
-        }
-      },
-      [headerHeight]
-    );
+    const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
+      const h = Math.round(e.nativeEvent.layout.height);
+      setHeaderHeight(prev => (h > 0 && h !== prev ? h : prev));
+    }, []);
 
     const handleFeedLayout = useCallback((e: LayoutChangeEvent) => {
       const h = Math.round(e.nativeEvent.layout.height);
@@ -607,44 +515,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         setFeedLayoutHeight(prev => (prev === h ? prev : h));
       }
     }, []);
-
-    const fadeDist = hasHeader ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
-    const contentScrollProgressSV = useSharedValue(0);
-
-    const scrollHandler = useAnimatedScrollHandler(
-      {
-        onScroll: event => {
-          'worklet';
-
-          const y = Math.max(0, event.contentOffset.y);
-          scrollOffsetYSV.value = y;
-
-          if (fadeDist > 0) {
-            contentScrollProgressSV.value = Math.max(0, Math.min(1, y / fadeDist));
-          } else {
-            contentScrollProgressSV.value = 0;
-          }
-
-          if (contentScrollProgressOutput && fadeDist > 0) {
-            contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
-          }
-
-          const contentH = event.contentSize?.height ?? 0;
-          const layoutH = event.layoutMeasurement?.height ?? 0;
-          const maxY = Math.max(0, contentH - layoutH);
-          const overscrollPastEnd = y - maxY;
-          if (endOfFeedEnabledSV.value < 0.5) {
-            endOfFeedOverscrollOpacitySV.value = 0;
-          } else {
-            endOfFeedOverscrollOpacitySV.value = Math.max(
-              0,
-              Math.min(1, overscrollPastEnd / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX)
-            );
-          }
-        },
-      },
-      [contentScrollProgressOutput, fadeDist]
-    );
 
     const feedScrollMotion = useMemo<FeedScrollMotionValue>(
       () => ({
@@ -686,7 +556,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       const bottomPadding =
         insets.bottom +
         (useManualIosGlassTabPaddingLayout ? IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING : 0);
-      return getBottomPaddingStyle(bottomPadding);
+      return { paddingBottom: Math.max(0, Math.round(bottomPadding)) };
     }, [feed.length, useNativeTabBottomSafeArea, insets.bottom, useManualIosGlassTabPaddingLayout]);
     const listContentContainerStyle = useMemo(
       () => StyleSheet.compose(styles.contentContainer, listContentContainerExtraStyle),
@@ -700,6 +570,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         <ListEmptyComponent
           isLoading={isLoading}
           effectiveIsError={effectiveIsError}
+          isPaused={isPaused}
           feedOption={feedOption}
           secondaryColor={secondaryColor}
           profileColors={profileColors}
@@ -710,6 +581,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [
         isLoading,
         effectiveIsError,
+        isPaused,
         feedOption,
         secondaryColor,
         profileColors,
@@ -773,7 +645,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               pagingEnabled={false}
               snapToOffsets={snapToOffsets}
               snapToInterval={snapToIntervalValue}
-              snapToAlignment={snapToIntervalValue != null ? 'start' : undefined}
+              snapToAlignment={snapToAlignment}
               decelerationRate={
                 Platform.OS === 'ios'
                   ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
@@ -854,6 +726,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           onGridItemPress={onGridItemPressProp}
           gridFeedModalZoomConfig={gridFeedModalZoomConfig ?? undefined}
           isError={effectiveIsError}
+          isPaused={isPaused}
           onRetry={onRetry}
           isLoading={isLoading}
           ListComponent={ListComponent}
@@ -875,6 +748,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         onGridItemPressProp,
         gridFeedModalZoomConfig,
         effectiveIsError,
+        isPaused,
         onRetry,
         isLoading,
         ListComponent,

@@ -423,7 +423,6 @@ class FeedService {
           }
         }
 
-        // Fetch sequentially from sources until we have enough posts
         const allPosts: ExtendedFeedViewPost[] = [];
         const seenUris = new Set<string>();
         let currentIndex = sourceIndex;
@@ -434,7 +433,6 @@ class FeedService {
           const result = await this.fetchFromSource(source, currentCursor, limit);
 
           if (result.success) {
-            // Add new posts (deduplicate by URI)
             for (const post of result.feed) {
               const uri = post.post?.uri;
               if (uri && !seenUris.has(uri)) {
@@ -444,14 +442,12 @@ class FeedService {
             }
             currentCursor = result.cursor;
           } else {
-            // Fetch failed - advance to next source
             currentIndex++;
             currentCursor = null;
             continue;
           }
 
           if (!currentCursor) {
-            // Source exhausted - advance to next source
             currentIndex++;
             currentCursor = null;
           } else if (allPosts.length >= limit) {

@@ -69,6 +69,8 @@ export interface ListFeedViewProps {
   pullToRefresh?: ListFeedPullToRefresh;
   /** Navigate to a hashtag feed. */
   onHashtagPress?: (hashtag: string) => void;
+  /** When true, show offline state in empty component instead of loading spinner. */
+  isPaused?: boolean;
 }
 
 /**

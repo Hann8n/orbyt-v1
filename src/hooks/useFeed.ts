@@ -5,16 +5,16 @@
  * Replaces: useFeedQuery.tsx, useInfiniteScroll.tsx
  */
 
-import { useEffect, useRef } from 'react';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useShallow } from 'zustand/react/shallow';
 import { useUserStore } from '../stores/userStore';
 import { useModerationSettings } from './useModerationSettings';
 import { QUERY_CONSTANTS } from '../utils/constants';
 import { queryKeys } from '../utils/query/queryKeys';
-import type { FeedResponse, ExtendedFeedViewPost } from '../services/api/types';
+import type { FeedResponse } from '../services/api/types';
 import ProfileService from '../services/data/ProfileService';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Optimized feed configuration for smooth performance
 export const FEED_CONFIG = {
@@ -86,8 +86,6 @@ export function useFeed(
       agent: state.agent,
     }))
   );
-  const prevModReadyRef = useRef(false);
-
   // User-specific feeds use currentUser; profile/likes/reposts use passed userDid
   const effectiveUserDid =
     feedOption === 'following' || feedOption === 'your-mix' ? currentUser?.did : userDid;
@@ -96,14 +94,6 @@ export function useFeed(
   // Multiple feeds calling this will share the same query instance and network request
   const moderationData = useModerationSettings(effectiveUserDid || undefined);
   const modReady = moderationData.moderationPrefs != null;
-
-  useEffect(() => {
-    if (modReady) {
-      prevModReadyRef.current = true;
-    } else {
-      prevModReadyRef.current = false;
-    }
-  }, [modReady]);
 
   // React Query automatically handles query key changes - when effectiveUserDid changes,
   // it treats it as a new query and fetches fresh data. Old queries are cleaned up via gcTime.
@@ -140,15 +130,22 @@ export function useFeed(
     sourceFingerprintForQuery
   );
 
+  const queryClient = useQueryClient();
+
   const query = useInfiniteQuery({
     queryKey,
     queryFn: async ({ pageParam }: { pageParam: string | null }) => {
       // Fetch feed data - pageParam type inferred from initialPageParam
-      return await feedService.fetchFeed(
+      const response = await feedService.fetchFeed(
         feedOption,
         effectiveUserDid ?? undefined,
         pageParam ?? undefined
       );
+      // Warm profile cache immediately for the new page's authors
+      if (response.feed.length > 0) {
+        void ProfileService.warmProfileCacheFromFeed(response.feed, queryClient);
+      }
+      return response;
     },
     enabled: queryEnabled,
     initialPageParam: null as string | null,
@@ -162,26 +159,11 @@ export function useFeed(
     refetchOnReconnect: queryOptions.refetchOnReconnect ?? false,
     refetchInterval: queryOptions.refetchInterval,
     refetchIntervalInBackground: queryOptions.refetchIntervalInBackground ?? false,
+    // Keep previous pages visible during refetch (eliminates blank flashes)
+    placeholderData: keepPreviousData,
     // Flatten pages into a single feed array; getNextPageParam still receives raw lastPage
     select: data => (data?.pages ?? []).flatMap(p => (p as FeedResponse)?.feed ?? []) as FeedItem[],
   });
-
-  const queryClientForPrefetch = useQueryClient();
-  // Track which pages have already been prefetched to avoid redundant batch calls
-  const prefetchedPageCount = useRef(0);
-
-  useEffect(() => {
-    const pages = query.data;
-    if (!pages?.length) return;
-    // Only process newly arrived pages
-    const rawPages = query.data as unknown as { length: number } | undefined;
-    if (rawPages && prefetchedPageCount.current >= pages.length) return;
-    prefetchedPageCount.current = pages.length;
-    void ProfileService.warmProfileCacheFromFeed(
-      pages as ExtendedFeedViewPost[],
-      queryClientForPrefetch
-    );
-  }, [query.data, queryClientForPrefetch]);
 
   // Determine if this is a profile feed
   const isProfileFeed =

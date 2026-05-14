@@ -19,7 +19,6 @@ import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import ListFeedView from './ListFeedView';
-import EmptyFeed from './EmptyFeed';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { Colors } from '../../../theme';
@@ -330,111 +329,43 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
       prevDataUpdatedAtRef.current = dataUpdatedAt;
     }, [dataUpdatedAt, feed]);
 
-    const commonProps = useMemo(
-      () => ({
-        feed,
-        headerComponent,
-        backgroundColor,
-        secondaryColor,
-        feedOption,
-        userDid,
-        onLoadMore: handleLoadMore,
-        hasNextPage,
-        onRetry: handleRetry,
-        isProfileFeed,
-        isVisible,
-        viewMode,
-        onViewModeChange,
-        contentScrollProgressOutput,
-        hasTabBar: hasTabBarProp,
-        ListComponent,
-        onGridItemPress: handleGridItemPress,
-        gridFeedModalZoomConfig,
-        zoomTargetPostUri: zoomTargetPostUri ?? null,
-        onHashtagPress: handleHashtagPress,
-      }),
-      [
-        feed,
-        headerComponent,
-        backgroundColor,
-        secondaryColor,
-        feedOption,
-        userDid,
-        handleLoadMore,
-        hasNextPage,
-        handleRetry,
-        isProfileFeed,
-        isVisible,
-        viewMode,
-        onViewModeChange,
-        contentScrollProgressOutput,
-        hasTabBarProp,
-        ListComponent,
-        handleGridItemPress,
-        gridFeedModalZoomConfig,
-        zoomTargetPostUri,
-        handleHashtagPress,
-      ]
-    );
-
     // ListFeedView is the single place that chooses list vs grid (no duplicate branch here)
     const feedView = (
       <ListFeedView
         ref={listFeedViewRef}
-        {...commonProps}
+        feed={feed}
+        headerComponent={headerComponent}
+        backgroundColor={backgroundColor}
+        secondaryColor={secondaryColor}
+        feedOption={feedOption}
+        userDid={userDid}
+        onLoadMore={handleLoadMore}
+        hasNextPage={hasNextPage}
+        onRetry={handleRetry}
+        isProfileFeed={isProfileFeed}
+        isVisible={isVisible}
+        viewMode={viewMode}
+        onViewModeChange={onViewModeChange}
+        contentScrollProgressOutput={contentScrollProgressOutput}
+        hasTabBar={hasTabBarProp}
+        ListComponent={ListComponent}
+        onGridItemPress={handleGridItemPress}
+        gridFeedModalZoomConfig={gridFeedModalZoomConfig}
+        zoomTargetPostUri={zoomTargetPostUri}
+        onHashtagPress={handleHashtagPress}
         isFetchingNextPage={isFetchingNextPage}
         isLoading={isSearchFeed ? false : isPending}
         isError={isSearchFeed ? false : finalIsError}
+        isPaused={isSearchFeed ? false : isPaused}
         targetScrollIndex={propTargetScrollIndex}
         pullToRefresh={pullToRefresh}
       />
     );
 
-    const profileColors = secondaryColor
-      ? {
-          backgroundColor: resolvedBackgroundColor,
-          textColor: secondaryColor,
-        }
-      : undefined;
     const containerStyle = useMemo(
       () => StyleSheet.compose(styles.container, { backgroundColor: resolvedBackgroundColor }),
       [resolvedBackgroundColor]
     );
-    const errorContainerStyle = useMemo(
-      () => StyleSheet.compose(styles.errorContainer, { backgroundColor: resolvedBackgroundColor }),
-      [resolvedBackgroundColor]
-    );
-
-    // Early return for error states
-    if (finalIsError && !isSearchFeed) {
-      return (
-        <View style={errorContainerStyle}>
-          <EmptyFeed
-            type="error"
-            secondaryColor={secondaryColor}
-            profileColors={profileColors}
-            onRetry={handleRetry}
-            feedOption={feedOption}
-          />
-        </View>
-      );
-    }
-
-    // Offline state
-    if (isPaused && !isSearchFeed) {
-      return (
-        <View style={errorContainerStyle}>
-          <EmptyFeed
-            type="no-connection"
-            secondaryColor={secondaryColor}
-            profileColors={profileColors}
-            onRetry={handleRetry}
-            feedOption={feedOption}
-          />
-        </View>
-      );
-    }
-
     return (
       <FollowProvider>
         <View style={containerStyle}>{feedView}</View>
@@ -450,13 +381,6 @@ const FeedRenderer = memo(FeedRendererComponent);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.black,
-    paddingHorizontal: 20,
   },
 });
 
