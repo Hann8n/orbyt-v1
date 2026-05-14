@@ -314,7 +314,6 @@ function VideoCard({
   // ── Gestures (tap / double-tap / long-press) — shared values stay inside the hook. ─────
   const { gesture, heartAnimatedStyle } = useVideoCardGesture({
     postUri: postView.uri,
-    cardHeight,
     onSingleTap: togglePlayback,
     onDoubleTap: handleLikeOnly,
     onLongPress: handleOpenComments,
