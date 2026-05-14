@@ -65,7 +65,11 @@ export const fontSizeFor = (base: number): number => Math.round(base * SCALE);
 
 // Update scale dynamically (call when dimensions or font scale changes)
 const updateTypographyScale = (): void => {
-  SCALE = getTypographyScale();
+  const newScale = getTypographyScale();
+  if (newScale === SCALE) return;
+  SCALE = newScale;
+  _cachedSizes = computeSizes();
+  _cachedLineHeights = computeLineHeights();
 };
 
 // Line-height helper with gentle growth at larger sizes
@@ -114,15 +118,18 @@ const computeLineHeights = () =>
     })
   ) as Record<TextVariant, number>;
 
+let _cachedSizes = computeSizes();
+let _cachedLineHeights = computeLineHeights();
+
 export const Typography = {
   get scale(): number {
     return SCALE;
   },
   get sizes(): Record<TextVariant, number> {
-    return computeSizes();
+    return _cachedSizes;
   },
   get lineHeights(): Record<TextVariant, number> {
-    return computeLineHeights();
+    return _cachedLineHeights;
   },
   families: FontFamily,
   // Convenience: default weights per variant
@@ -254,25 +261,14 @@ export const TextStyles = {
 } as const;
 
 // Optional standardized Text component for consistent usage
-import React, { useEffect, useState } from 'react';
-import { Text as RNText, TextProps as RNTextProps, StyleSheet } from 'react-native';
+import React, { useLayoutEffect } from 'react';
+import { Text as RNText, TextProps as RNTextProps, StyleSheet, useWindowDimensions } from 'react-native';
 
-/**
- * Hook to subscribe to font scale and dimension changes.
- * Forces components to re-render when user changes system font size.
- */
 const useResponsiveTypography = () => {
-  const [, forceUpdate] = useState(0);
-
-  useEffect(() => {
-    const subscription = Dimensions.addEventListener('change', () => {
-      updateTypographyScale();
-      forceUpdate(prev => prev + 1);
-    });
-
-    return () => subscription?.remove();
-  }, []);
-
+  const { width, height, fontScale } = useWindowDimensions();
+  useLayoutEffect(() => {
+    updateTypographyScale();
+  }, [width, height, fontScale]);
   return Typography;
 };
 

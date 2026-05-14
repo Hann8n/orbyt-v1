@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView } from '@/components/ui/Squircle';
-import { KeyboardStickyView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { KeyboardStickyView, KeyboardChatScrollView } from 'react-native-keyboard-controller';
 import { Image } from 'expo-image';
 
 import { FlashList } from '@shopify/flash-list';
@@ -1212,7 +1212,14 @@ export default function ChatScreen() {
   const currentUserAvatar = useUserStore(s => s.currentUser?.avatar ?? null);
 
   const renderScrollComponent = useCallback(
-    (props: ScrollViewProps) => <KeyboardAwareScrollView {...props} />,
+    (props: ScrollViewProps) => (
+      <KeyboardChatScrollView
+        {...props}
+        inverted
+        extraContentPadding={composerHeight}
+        keyboardLiftBehavior="whenAtEnd"
+      />
+    ),
     []
   );
 
@@ -2062,6 +2069,7 @@ export default function ChatScreen() {
           extraData={{ listLength: listData.length }}
           style={styles.list}
           contentContainerStyle={styles.listContent}
+          inverted
           ItemSeparatorComponent={ChatFlashListItemSeparator}
           showsVerticalScrollIndicator={
             listData.length >= SCROLL_INDICATOR_CONSTANTS.CHAT_MESSAGES_MIN_ITEMS

@@ -5,7 +5,8 @@
  * Replaces: useFeedQuery.tsx, useInfiniteScroll.tsx
  */
 
-import { useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
+import { useSyncExternalStore } from 'react';
+import { useInfiniteQuery, keepPreviousData, onlineManager } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useShallow } from 'zustand/react/shallow';
 import { useUserStore } from '../stores/userStore';
@@ -15,13 +16,15 @@ import { queryKeys } from '../utils/query/queryKeys';
 import type { FeedResponse } from '../services/api/types';
 import ProfileService from '../services/data/ProfileService';
 import { useQueryClient } from '@tanstack/react-query';
+import type { InfiniteData } from '@tanstack/react-query';
 
-// Optimized feed configuration for smooth performance
+const selectFeedPages = (data: InfiniteData<FeedResponse> | undefined): FeedItem[] =>
+  (data?.pages ?? []).flatMap(p => p?.feed ?? []);
+
 export const FEED_CONFIG = {
-  // Cache and performance settings
-  GC_TIME: 60 * 60 * 1000, // 60 minutes before garbage collection
-  RETRY_DELAY: 1000, // Longer delay to reduce server load
-  MAX_RETRIES: 2, // Reduced retries for faster failure handling
+  GC_TIME: 60 * 60 * 1000,
+  RETRY_DELAY: 1000,
+  MAX_RETRIES: 2,
   /** Align prefetch / infinite-query defaults with app-wide feed staleness. */
   STALE_TIME: QUERY_CONSTANTS.STALE_TIME_LONG,
 } as const;
@@ -59,9 +62,6 @@ interface UseFeedReturn {
   refetch: () => void;
 }
 
-/**
- * Comprehensive feed hook that handles data fetching and infinite scrolling
- */
 export function useFeed(
   feedOption: FeedOption,
   userDid?: string,
@@ -86,7 +86,6 @@ export function useFeed(
       agent: state.agent,
     }))
   );
-  // User-specific feeds use currentUser; profile/likes/reposts use passed userDid
   const effectiveUserDid =
     feedOption === 'following' || feedOption === 'your-mix' ? currentUser?.did : userDid;
 
@@ -121,8 +120,6 @@ export function useFeed(
     modReady &&
     isFeedBootstrapReady;
 
-  // Create optimized infinite query with centralized configuration
-  // When effectiveUserDid or feedOption changes, React Query treats this as a new query and fetches fresh data
   const sourceFingerprintForQuery = isUserSpecificFeed ? feedSourceFingerprint : undefined;
   const queryKey = queryKeys.feed.infinite(
     feedOption,
@@ -135,7 +132,6 @@ export function useFeed(
   const query = useInfiniteQuery({
     queryKey,
     queryFn: async ({ pageParam }: { pageParam: string | null }) => {
-      // Fetch feed data - pageParam type inferred from initialPageParam
       const response = await feedService.fetchFeed(
         feedOption,
         effectiveUserDid ?? undefined,
@@ -162,10 +158,9 @@ export function useFeed(
     // Keep previous pages visible during refetch (eliminates blank flashes)
     placeholderData: keepPreviousData,
     // Flatten pages into a single feed array; getNextPageParam still receives raw lastPage
-    select: data => (data?.pages ?? []).flatMap(p => (p as FeedResponse)?.feed ?? []) as FeedItem[],
+    select: selectFeedPages,
   });
 
-  // Determine if this is a profile feed
   const isProfileFeed =
     (feedOption === 'profile' ||
       feedOption === 'likes' ||
@@ -174,43 +169,43 @@ export function useFeed(
     Boolean(userDid);
 
   return {
-    // Data (select flattens data.pages → FeedItem[])
     feed: (query.data ?? []) as FeedItem[],
     isPending: query.isPending,
     isLoading: query.isLoading,
     isError: query.isError,
     error: (query.error ?? null) as Error | null,
-    isFetching: query.isFetching, // React Query's built-in fetching state (includes refetching)
-    isRefetching: query.isRefetching, // React Query's refetching state (distinguishes refetch from initial load)
+    isFetching: query.isFetching,
+    isRefetching: query.isRefetching,
     isFetchingNextPage: query.isFetchingNextPage,
     hasNextPage: query.hasNextPage ?? false,
     isProfileFeed: Boolean(isProfileFeed),
     isPaused: query.isPaused ?? false,
     dataUpdatedAt: query.dataUpdatedAt ?? 0,
 
-    // Actions
     fetchNextPage: query.fetchNextPage,
     refetch: query.refetch,
   };
 }
 
-/**
- * Hook specifically for search feeds that use the global feed state
- * Streamlined to use the same config constants as useFeed
- */
 export function useSearchFeed(
   hasNextPage?: boolean,
   isFetchingNextPage?: boolean,
-  fetchNextPage?: () => void,
-  _options: UseFeedOptions = {}
+  fetchNextPage?: () => void
 ) {
-  // Get search feed from global state
   const feed = feedService.getCurrentFeed();
+
+  const subscribeOnline = (cb: () => void) => onlineManager.subscribe(cb);
+  const isOnline = useSyncExternalStore(
+    subscribeOnline,
+    () => onlineManager.isOnline(),
+    () => true
+  );
 
   return {
     feed,
     hasNextPage: !!hasNextPage,
     isFetchingNextPage: !!isFetchingNextPage,
     fetchNextPage: fetchNextPage || (() => {}),
+    isPaused: !isOnline,
   };
 }

@@ -1,41 +1,31 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const DEBOUNCE_MS = 500;
 
 export function useExploreSearchDebounce(searchQuery: string) {
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearPending = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect -- standard debounce: clear vs schedule setDebouncedQuery */
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
+    clearPending();
     if (searchQuery === '') {
       setDebouncedQuery('');
-      debounceTimeoutRef.current = null;
       return;
     }
-    debounceTimeoutRef.current = setTimeout(() => {
-      setDebouncedQuery(searchQuery);
-      debounceTimeoutRef.current = null;
-    }, DEBOUNCE_MS);
+    timeoutRef.current = setTimeout(() => setDebouncedQuery(searchQuery), DEBOUNCE_MS);
+    return clearPending;
+  }, [searchQuery, clearPending]);
 
-    return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-        debounceTimeoutRef.current = null;
-      }
-    };
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [searchQuery]);
+  const clearPendingDebounce = useCallback(() => {
+    clearPending();
+  }, [clearPending]);
 
-  const clearPendingDebounce = () => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-      debounceTimeoutRef.current = null;
-    }
-  };
-
-  return { debouncedQuery, debounceTimeoutRef, clearPendingDebounce, setDebouncedQuery };
+  return { debouncedQuery, clearPendingDebounce, setDebouncedQuery };
 }

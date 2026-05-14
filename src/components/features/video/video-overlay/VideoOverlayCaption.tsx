@@ -121,14 +121,6 @@ function VideoOverlayCaptionComponent({
     () => StyleSheet.compose(styles.descriptionText, captionMeasureWidthStyle),
     [captionMeasureWidthStyle]
   );
-  const descriptionCollapsedTextStyle = useMemo(
-    () => StyleSheet.compose(styles.descriptionText, styles.descriptionTextFlexible),
-    []
-  );
-  const descriptionToggleStyle = useMemo(
-    () => StyleSheet.compose(styles.descriptionToggleSurface, styles.descriptionTogglePressable),
-    []
-  );
 
   if (!hasDescription) return null;
 
@@ -271,6 +263,10 @@ const styles = StyleSheet.create({
     textShadowRadius: 0,
   },
 });
+
+// Static compositions — computed once at module load, not per render.
+const descriptionCollapsedTextStyle = StyleSheet.compose(styles.descriptionText, styles.descriptionTextFlexible);
+const descriptionToggleStyle = StyleSheet.compose(styles.descriptionToggleSurface, styles.descriptionTogglePressable);
 
 export const VideoOverlayCaption = memo(VideoOverlayCaptionComponent);
 VideoOverlayCaptionComponent.displayName = 'VideoOverlayCaption';

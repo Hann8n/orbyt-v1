@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useSegments } from 'expo-router';
 
 import { useDetailNavTabStore } from '@/stores/detailNavTabStore';
@@ -14,15 +15,20 @@ function isFeedModalTabSegment(s: string): s is FeedModalTabSegment {
 /**
  * Resolves which tab stack to push onto so the native tab bar stays correct (not root modal).
  * When segments omit `(tabs)` (e.g. chat), falls back to the last focused tab — not always explore.
+ *
+ * Memoized so downstream callbacks (e.g. handleHashtagPress) don't invalidate when
+ * useSegments returns a new array reference on unrelated renders.
  */
 export function useFeedModalTabSegment(): FeedModalTabSegment {
   const segments = useSegments();
   const lastFocusedTab = useDetailNavTabStore(s => s.lastFocusedDetailNavTab);
 
-  for (const s of segments) {
-    if (isFeedModalTabSegment(s)) {
-      return s;
+  return useMemo(() => {
+    for (const s of segments) {
+      if (isFeedModalTabSegment(s)) {
+        return s;
+      }
     }
-  }
-  return lastFocusedTab;
+    return lastFocusedTab;
+  }, [segments, lastFocusedTab]);
 }

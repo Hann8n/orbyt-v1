@@ -98,35 +98,6 @@ function VideoOverlayAuthorComponent({
     [profileColors]
   );
 
-  const avatarContainerStyle = useMemo(
-    () => StyleSheet.compose(styles.avatarContainer, sharedItemStyles.avatarContainer),
-    []
-  );
-  const authorTextContainerStyle = useMemo(
-    () => StyleSheet.compose(styles.authorTextContainer, sharedItemStyles.accountInfoContainer),
-    []
-  );
-  const authorNameTextStyle = useMemo(
-    () => StyleSheet.compose(styles.baseText, styles.authorName),
-    []
-  );
-  const followSeparatorStyle = useMemo(
-    () => StyleSheet.compose(styles.authorName, styles.followSeparator),
-    []
-  );
-  const followTextStyle = useMemo(
-    () =>
-      StyleSheet.compose(StyleSheet.compose(styles.baseText, styles.authorName), styles.followText),
-    []
-  );
-  const sourceTextStyle = useMemo(
-    () => StyleSheet.compose(styles.sourceText, styles.sourceTextOpacity),
-    []
-  );
-  const repostIndicatorTextStyle = useMemo(
-    () => StyleSheet.compose(styles.repostIndicatorText, styles.repostTextOpacity),
-    []
-  );
 
   return (
     <>
@@ -336,6 +307,15 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
 });
+
+// Static compositions — computed once at module load, not per render.
+const avatarContainerStyle = StyleSheet.compose(styles.avatarContainer, sharedItemStyles.avatarContainer);
+const authorTextContainerStyle = StyleSheet.compose(styles.authorTextContainer, sharedItemStyles.accountInfoContainer);
+const authorNameTextStyle = StyleSheet.compose(styles.baseText, styles.authorName);
+const followSeparatorStyle = StyleSheet.compose(styles.authorName, styles.followSeparator);
+const followTextStyle = [styles.baseText, styles.authorName, styles.followText];
+const sourceTextStyle = StyleSheet.compose(styles.sourceText, styles.sourceTextOpacity);
+const repostIndicatorTextStyle = StyleSheet.compose(styles.repostIndicatorText, styles.repostTextOpacity);
 
 export const VideoOverlayAuthor = memo(VideoOverlayAuthorComponent);
 VideoOverlayAuthorComponent.displayName = 'VideoOverlayAuthor';

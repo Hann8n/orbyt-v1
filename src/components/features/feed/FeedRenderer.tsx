@@ -11,7 +11,6 @@ import React, {
   useEffect,
   useImperativeHandle,
   useMemo,
-  memo,
   useRef,
   useState,
 } from 'react';
@@ -34,7 +33,6 @@ import type { ExtendedFeedViewPost as FeedItem } from '../../../services/api/typ
 
 const noopFeedRefetch = () => {};
 
-// Main Feed Renderer Props
 interface FeedRendererProps {
   // Core feed configuration
   feedOption: string;
@@ -89,7 +87,6 @@ interface FeedRendererProps {
   onPullToRefreshExtra?: () => Promise<unknown>;
 }
 
-// Memoized Feed Renderer Component with Performance Optimizations
 const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
   (
     {
@@ -120,7 +117,6 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
   ) => {
     const resolvedBackgroundColor = backgroundColor ?? Colors.black;
 
-    // Feed type detection
     const isSearchFeed = feedOption === 'search';
 
     // Memoized query options - useFeed handles defaults (staleTime, gcTime, etc.)
@@ -138,15 +134,12 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
       };
     }, [queryOptions, isSearchFeed]);
 
-    // Regular feed hook with memoized options
     const feedQuery = useFeed(feedOption, userDid, memoizedQueryOptions);
 
-    // Memoized search feed hook with visibility control
     const searchFeedQuery = useSearchFeed(
       searchHasNextPage,
       searchIsFetchingNextPage,
-      searchFetchNextPage,
-      memoizedQueryOptions
+      searchFetchNextPage
     );
 
     const sourceFeed = isSearchFeed ? searchFeedQuery.feed : feedQuery.feed;
@@ -158,7 +151,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
     const hasNextPage = isSearchFeed ? searchFeedQuery.hasNextPage : feedQuery.hasNextPage;
     const fetchNextPage = isSearchFeed ? searchFeedQuery.fetchNextPage : feedQuery.fetchNextPage;
     const refetch = isSearchFeed ? noopFeedRefetch : feedQuery.refetch;
-    const isPaused = isSearchFeed ? false : feedQuery.isPaused;
+    const isPaused = isSearchFeed ? searchFeedQuery.isPaused : feedQuery.isPaused;
     const isProfileFeed = isSearchFeed ? false : feedQuery.isProfileFeed;
     const dataUpdatedAt = isSearchFeed ? 0 : feedQuery.dataUpdatedAt;
 
@@ -188,9 +181,35 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
     const feedModalTab = useFeedModalTabSegment();
     const router = useRouter();
 
+    // Refs keep callbacks stable so FlashList items don't re-render when
+    // query state / navigation context changes. Values are always current.
+    const routerRef = useRef(router);
+    routerRef.current = router;
+    const feedModalTabRef = useRef(feedModalTab);
+    feedModalTabRef.current = feedModalTab;
+
+    const gridStateRef = useRef({
+      feed,
+      feedOption,
+      userDid,
+      resolvedBackgroundColor,
+      secondaryColor,
+      hasNextPage,
+      isFetchingNextPage,
+    });
+    gridStateRef.current = {
+      feed,
+      feedOption,
+      userDid,
+      resolvedBackgroundColor,
+      secondaryColor,
+      hasNextPage,
+      isFetchingNextPage,
+    };
+
     const handleHashtagPress = useCallback(
       (hashtag: string) => {
-        router.navigate(
+        routerRef.current.navigate(
           buildFeedModalHref(
             {
               feedOption: `hashtag:${hashtag}`,
@@ -199,47 +218,38 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
               initialIndex: '0',
               initialPostUri: '',
             },
-            feedModalTab
+            feedModalTabRef.current
           )
         );
       },
-      [router, feedModalTab]
+      []
     );
 
     const handleGridItemPress = useCallback(
       (index: number) => {
-        if (index >= 0 && index < feed.length) {
-          feedService.setCurrentFeed(feed);
-          const item = feed[index] as FeedItem;
+        const s = gridStateRef.current;
+        if (index >= 0 && index < s.feed.length) {
+          feedService.setCurrentFeed(s.feed);
+          const item = s.feed[index] as FeedItem;
           const initialPostUri = item?.post?.uri ?? '';
-          router.navigate(
+          routerRef.current.navigate(
             buildFeedModalHref(
               {
-                feedOption: feedOption || 'search',
-                userDid,
-                backgroundColor: resolvedBackgroundColor,
-                secondaryColor: secondaryColor || Colors.neutral[50],
+                feedOption: s.feedOption || 'search',
+                userDid: s.userDid,
+                backgroundColor: s.resolvedBackgroundColor,
+                secondaryColor: s.secondaryColor || Colors.neutral[50],
                 initialIndex: index.toString(),
                 initialPostUri,
-                hasNextPage: hasNextPage ? 'true' : 'false',
-                isFetchingNextPage: isFetchingNextPage ? 'true' : 'false',
+                hasNextPage: s.hasNextPage ? 'true' : 'false',
+                isFetchingNextPage: s.isFetchingNextPage ? 'true' : 'false',
               },
-              feedModalTab
+              feedModalTabRef.current
             )
           );
         }
       },
-      [
-        feed,
-        feedOption,
-        userDid,
-        secondaryColor,
-        resolvedBackgroundColor,
-        hasNextPage,
-        isFetchingNextPage,
-        feedModalTab,
-        router,
-      ]
+      []
     );
 
     const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -267,43 +277,35 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
     const gridFeedModalZoomConfig: GridFeedModalZoomConfig = useMemo(() => {
       return {
         onBeforeNavigate: (index: number) => {
-          if (index >= 0 && index < feed.length) {
-            feedService.setCurrentFeed(feed);
+          const s = gridStateRef.current;
+          if (index >= 0 && index < s.feed.length) {
+            feedService.setCurrentFeed(s.feed);
           }
         },
         buildHref: (index: number) => {
-          const item = feed[index] as FeedItem | undefined;
+          const s = gridStateRef.current;
+          const item = s.feed[index] as FeedItem | undefined;
           const initialPostUri = item?.post?.uri ?? '';
           return buildFeedModalHref(
             {
-              feedOption: feedOption || 'search',
-              userDid,
-              backgroundColor: resolvedBackgroundColor,
-              secondaryColor: secondaryColor || Colors.neutral[50],
+              feedOption: s.feedOption || 'search',
+              userDid: s.userDid,
+              backgroundColor: s.resolvedBackgroundColor,
+              secondaryColor: s.secondaryColor || Colors.neutral[50],
               initialIndex: String(index),
               initialPostUri,
-              hasNextPage: hasNextPage ? 'true' : 'false',
-              isFetchingNextPage: isFetchingNextPage ? 'true' : 'false',
+              hasNextPage: s.hasNextPage ? 'true' : 'false',
+              isFetchingNextPage: s.isFetchingNextPage ? 'true' : 'false',
             },
-            feedModalTab
+            feedModalTabRef.current
           );
         },
       };
-    }, [
-      feed,
-      feedOption,
-      userDid,
-      secondaryColor,
-      resolvedBackgroundColor,
-      hasNextPage,
-      isFetchingNextPage,
-      feedModalTab,
-    ]);
+    }, []);
 
     // Single ref: ListFeedView chooses list vs grid internally and forwards scrollToTop
     const listFeedViewRef = useRef<ListFeedViewRef>(null);
 
-    // Forward ref methods (ListFeedView delegates to grid when in grid mode)
     useImperativeHandle(
       ref,
       () => ({
@@ -329,7 +331,6 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
       prevDataUpdatedAtRef.current = dataUpdatedAt;
     }, [dataUpdatedAt, feed]);
 
-    // ListFeedView is the single place that chooses list vs grid (no duplicate branch here)
     const feedView = (
       <ListFeedView
         ref={listFeedViewRef}
@@ -356,7 +357,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
         isFetchingNextPage={isFetchingNextPage}
         isLoading={isSearchFeed ? false : isPending}
         isError={isSearchFeed ? false : finalIsError}
-        isPaused={isSearchFeed ? false : isPaused}
+        isPaused={isPaused}
         targetScrollIndex={propTargetScrollIndex}
         pullToRefresh={pullToRefresh}
       />
@@ -375,9 +376,8 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
 );
 FeedRendererComponent.displayName = 'FeedRenderer';
 
-const FeedRenderer = memo(FeedRendererComponent);
+const FeedRenderer = FeedRendererComponent;
 
-// Optimized StyleSheet creation outside component to prevent recreation
 const styles = StyleSheet.create({
   container: {
     flex: 1,

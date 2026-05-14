@@ -5,16 +5,18 @@ export function useFeedPlaybackStore(initialScrollIndex: number | undefined, fee
   const seedActiveIndex =
     typeof initialScrollIndex === 'number' ? initialScrollIndex : feedLength > 0 ? 0 : -1;
 
-  const activeVisibleIndexRef = useRef(seedActiveIndex);
-
   const [listPlaybackStore] = useState(() =>
     createFeedListPlaybackStore({ activeIndex: seedActiveIndex })
   );
 
+  // Internal-only: guards the feedLength effect from resetting a valid scroll position to 0.
+  // The store's patch() covers all other equality checks.
+  const activeIndexRef = useRef(seedActiveIndex);
+
   const handleActiveVisibleIndexChange = useCallback(
     (index: number) => {
-      if (activeVisibleIndexRef.current === index) return;
-      activeVisibleIndexRef.current = index;
+      if (activeIndexRef.current === index) return;
+      activeIndexRef.current = index;
       listPlaybackStore.patch({ activeIndex: index });
     },
     [listPlaybackStore]
@@ -22,26 +24,26 @@ export function useFeedPlaybackStore(initialScrollIndex: number | undefined, fee
 
   useEffect(() => {
     if (typeof initialScrollIndex !== 'number') return;
-    if (activeVisibleIndexRef.current === initialScrollIndex) return;
-    activeVisibleIndexRef.current = initialScrollIndex;
+    if (activeIndexRef.current === initialScrollIndex) return;
+    activeIndexRef.current = initialScrollIndex;
     listPlaybackStore.patch({ activeIndex: initialScrollIndex });
   }, [initialScrollIndex, listPlaybackStore]);
 
   useEffect(() => {
     if (feedLength === 0) {
-      if (activeVisibleIndexRef.current === -1) return;
-      activeVisibleIndexRef.current = -1;
-      listPlaybackStore.patch({ activeIndex: -1 });
+      if (activeIndexRef.current !== -1) {
+        activeIndexRef.current = -1;
+        listPlaybackStore.patch({ activeIndex: -1 });
+      }
       return;
     }
-    if (activeVisibleIndexRef.current >= 0) return;
-    activeVisibleIndexRef.current = 0;
+    if (activeIndexRef.current >= 0) return;
+    activeIndexRef.current = 0;
     listPlaybackStore.patch({ activeIndex: 0 });
   }, [feedLength, listPlaybackStore]);
 
   return {
     listPlaybackStore,
-    activeVisibleIndexRef,
     handleActiveVisibleIndexChange,
   };
 }

@@ -38,6 +38,7 @@ import {
   usePostInteractionStore,
 } from '../../../stores/postInteractionStore';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useModalStore } from '../../../stores/modalStore';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 import { useLikeInteraction } from '@/hooks/useLikeInteraction';
@@ -108,8 +109,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   postedAt: propPostedAt,
 }) => {
   const { t } = useTranslation();
-  const globalData = useModalStore(state => state.commentSectionData);
-  const dismissCommentSection = useModalStore(state => state.dismissCommentSection);
+  const { globalData, dismissCommentSection } = useModalStore(
+    useShallow(state => ({
+      globalData: state.commentSectionData,
+      dismissCommentSection: state.dismissCommentSection,
+    }))
+  );
 
   const { presentShareSheet } = useGlobalShareSheet();
 
@@ -468,7 +473,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     structuralSharing: false,
   });
 
-  // Track reported comments for animated removal
   const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
   const previousCommentsLengthRef = useRef<number>(0);
 
@@ -480,7 +484,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       commentList.forEach((c: Comment) => {
         if (c && typeof c === 'object') {
           const commentUri = c?.uri;
-          // Filter out reported comments
           if (commentUri && reportedPostUris.has(commentUri)) {
             return;
           }
@@ -501,7 +504,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     return flat;
   }, [commentsPages, reportedPostUris]);
 
-  // Prepare layout animation when comments are removed
   useEffect(() => {
     const currentLength = flattenedComments.length;
     const previousLength = previousCommentsLengthRef.current;

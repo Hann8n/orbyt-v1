@@ -84,3 +84,11 @@ export const FEED_LIST_PLAYBACK_OUTSIDE_BITS =
   ROW_BITS_PLAYBACK | ROW_BITS_CHROME | ROW_BITS_PRELOAD;
 
 export const FeedListPlaybackContext = createContext<FeedListPlaybackStore | null>(null);
+
+/** Drop-in store for VideoCard instances rendered outside a FlashList (e.g. fullscreen player).
+ *  Always returns FEED_LIST_PLAYBACK_OUTSIDE_BITS so the card behaves as fully active. */
+export const NULL_PLAYBACK_STORE: FeedListPlaybackStore = {
+  subscribe: () => () => {},
+  getRowBits: () => FEED_LIST_PLAYBACK_OUTSIDE_BITS,
+  patch: () => {},
+};

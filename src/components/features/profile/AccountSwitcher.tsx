@@ -32,6 +32,13 @@ interface AccountWithProfile extends SavedAccount {
   cachedProfile?: ProfileViewWithOrbyt;
 }
 
+type AccountListItem = {
+  type: 'account';
+  data: AccountWithProfile;
+};
+
+const keyExtractor = (item: AccountListItem) => item.data.id;
+
 const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   visible,
   onDismiss,
@@ -175,11 +182,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     }
   }, [onDismiss, router]);
 
-  type AccountListItem = {
-    type: 'account';
-    data: AccountWithProfile;
-  };
-
   const listData: AccountListItem[] = useMemo(
     () =>
       accounts.map(account => ({
@@ -240,8 +242,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       isSwitchingAccount,
     ]
   );
-
-  const keyExtractor = useCallback((item: AccountListItem) => item.data.id, []);
 
   return (
     <>

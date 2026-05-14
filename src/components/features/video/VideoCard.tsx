@@ -17,6 +17,7 @@ import { useFeedScrollLayout, useFeedScrollMotion } from '../../../context/FeedS
 import {
   FeedListPlaybackContext,
   FEED_LIST_PLAYBACK_OUTSIDE_BITS,
+  NULL_PLAYBACK_STORE,
   ROW_BITS_CHROME,
   ROW_BITS_PLAYBACK,
   ROW_BITS_PRELOAD,
@@ -24,6 +25,7 @@ import {
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { seenVideoService } from '../../../services/SeenVideoService';
 import { prefetchProfile, useFollowMutation } from '../../../services/data/ProfileService';
+import { useShallow } from 'zustand/react/shallow';
 import { useModalStore } from '../../../stores/modalStore';
 import { useUserStore } from '../../../stores/userStore';
 import { Colors } from '../../../theme';
@@ -49,7 +51,6 @@ type Post = ExtendedPostView | ExtendedFeedViewPost;
 
 const MIN_SCRUBBER_DURATION_SECONDS = 7;
 const cardHeightStyleCache = new Map<number, { height: number }>();
-const noopSubscribe = () => () => {};
 
 function logVideoCardPlayerError(action: string, err: unknown): void {
   logger.debug(`VideoCard: ${action} threw`, {
@@ -99,11 +100,11 @@ export interface VideoCardProps {
 function VideoCard({
   post,
   feedItem,
-  isVisible: isVisibleFromProps = true,
+  isVisible: isVisibleProp = true,
   onVideoStatus,
   height,
-  shouldDisablePlayback: shouldDisablePlaybackFromProps = false,
-  renderHeavyChrome: renderHeavyChromeFromProps = true,
+  shouldDisablePlayback: shouldDisablePlaybackProp = false,
+  renderHeavyChrome: renderHeavyChromeProp = true,
   showOverlay = true,
   feedOption,
   index,
@@ -115,7 +116,12 @@ function VideoCard({
 
   const feedContext = feedItem?.feedContext;
   const reqId = feedItem?.reqId;
-  const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
+  const { algorithmicFeedProvider, currentUser } = useUserStore(
+    useShallow(state => ({
+      algorithmicFeedProvider: state.algorithmicFeedProvider,
+      currentUser: state.currentUser,
+    }))
+  );
   const resolvedFeedUri = useMemo(() => {
     if (feedOption?.startsWith('at://')) return feedOption;
     if (algorithmicFeedProvider?.startsWith('at://')) return algorithmicFeedProvider;
@@ -125,35 +131,30 @@ function VideoCard({
   const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
 
   // ── Visibility: read playback bits from the list-level store (single source of truth). ───
+  // NULL_PLAYBACK_STORE is used outside a FlashList (e.g. fullscreen video): it returns
+  // FEED_LIST_PLAYBACK_OUTSIDE_BITS so all bits are set and the card behaves as fully active.
   const listPlayback = useContext(FeedListPlaybackContext);
-  const listPlaybackAttached = Boolean(listPlayback && typeof index === 'number');
+  const listAttached = listPlayback !== null && typeof index === 'number';
+  const store = listPlayback ?? NULL_PLAYBACK_STORE;
   const rowBits = useSyncExternalStore(
-    listPlayback?.subscribe ?? noopSubscribe,
-    listPlaybackAttached
-      ? () => listPlayback!.getRowBits(idx)
-      : () => FEED_LIST_PLAYBACK_OUTSIDE_BITS,
+    store.subscribe,
+    () => store.getRowBits(idx),
     () => FEED_LIST_PLAYBACK_OUTSIDE_BITS
   );
-  const isVisible = listPlaybackAttached ? (rowBits & ROW_BITS_PLAYBACK) !== 0 : isVisibleFromProps;
-  const shouldDisablePlayback = listPlaybackAttached ? false : shouldDisablePlaybackFromProps;
-  const renderHeavyChrome = listPlaybackAttached
-    ? (rowBits & ROW_BITS_CHROME) !== 0
-    : renderHeavyChromeFromProps;
+  const isVisible = listAttached ? (rowBits & ROW_BITS_PLAYBACK) !== 0 : isVisibleProp;
+  const shouldDisablePlayback = listAttached ? false : shouldDisablePlaybackProp;
+  const renderHeavyChrome = listAttached ? (rowBits & ROW_BITS_CHROME) !== 0 : renderHeavyChromeProp;
   // Source-hold window is decided list-side by ROW_BITS_PRELOAD (1 behind + 2 ahead).
-  // Outside a list (e.g. fullscreen video) FEED_LIST_PLAYBACK_OUTSIDE_BITS already has
-  // the bit set, so this collapses to "always hold a source".
+  // Outside a list FEED_LIST_PLAYBACK_OUTSIDE_BITS already has the bit set → always hold.
   const holdSource = (rowBits & ROW_BITS_PRELOAD) !== 0;
 
-  // ── Layout. ────────────────────────────────────────────────────────────────────────────
   const { height: windowHeight } = useWindowDimensions();
   const cardHeight = height ?? windowHeight;
 
-  // ── Moderation. ────────────────────────────────────────────────────────────────────────
   const [userChoseToView, setUserChoseToView] = useRecyclingState(false, [postView.uri]);
   const { cannotShowMedia, isBlurred, warningDescription, handleViewContent } =
     useVideoCardModerationState(postView, feedItem, userChoseToView, setUserChoseToView);
 
-  // ── Media URLs. ────────────────────────────────────────────────────────────────────────
   const videoView = getVideoView(postView.embed);
   const videoUrl = videoView?.playlist || null;
   const posterUrl = videoView?.thumbnail || null;
@@ -162,7 +163,6 @@ function VideoCard({
   // when no thumbnail has loaded yet (FlashList/expo-image recycling).
   const recyclingKey = postView?.uri || postView?.cid || `item-${idx}`;
 
-  // ── Player. ────────────────────────────────────────────────────────────────────────────
   const {
     videoSource,
     player,
@@ -199,14 +199,16 @@ function VideoCard({
     handleRepost,
   } = useVideoCardInteraction({ postView, feedOption });
 
-  // ── Author / profile / follow. ─────────────────────────────────────────────────────────
-  const currentUser = useUserStore(state => state.currentUser);
   const author = useVideoCardAuthor({ postView, currentUser });
 
   // ── Misc handlers (kept here as the integration layer between the four hooks). ─────────
   const followMutation = useFollowMutation();
-  const presentShareSheet = useModalStore(state => state.presentShareSheet);
-  const presentCommentSection = useModalStore(state => state.presentCommentSection);
+  const { presentShareSheet, presentCommentSection } = useModalStore(
+    useShallow(state => ({
+      presentShareSheet: state.presentShareSheet,
+      presentCommentSection: state.presentCommentSection,
+    }))
+  );
   const queryClient = useQueryClient();
 
   const followMutationRef = useRef(followMutation);
@@ -421,8 +423,6 @@ function VideoCard({
     player.duration < MIN_SCRUBBER_DURATION_SECONDS
   );
 
-  // ── Prop bags for the layered children. ────────────────────────────────────────────────
-  // Active row's poster decodes ahead of preload neighbours' posters.
   const posterPriority: 'low' | 'normal' | 'high' = isVisible ? 'high' : 'normal';
   const gestureVideoStackProps = useMemo(
     () => ({

@@ -24,12 +24,6 @@ export interface UseVideoCardPlayerArgs {
   postUri: string;
   feedOption?: string;
   isVisible: boolean;
-  /**
-   * When true, hold an HLS source on this row's `useVideoPlayer` so the
-   * player buffers ahead of swipe. Computed by the list-level playback store
-   * (`ROW_BITS_PRELOAD`) — keeps source juggling out of this hook so the
-   * preload window can be tuned in one place.
-   */
   holdSource: boolean;
   shouldDisablePlayback: boolean;
   cannotShowMedia: boolean;
@@ -39,7 +33,7 @@ export interface UseVideoCardPlayerArgs {
 
 export interface UseVideoCardPlayerResult {
   videoSource: VideoSource | null;
-  player: VideoPlayer | null;
+  player: VideoPlayer;
   hasError: boolean;
   shouldPlayVideo: boolean;
   shouldLoadVideo: boolean;
@@ -48,23 +42,10 @@ export interface UseVideoCardPlayerResult {
   seek: (position: number) => void;
   firstFrameRendered: boolean;
   handleFirstFrameRender: () => void;
-  /** Live ref for handlers that need to read the latest user-paused flag without re-running. */
   userPausedRef: React.RefObject<boolean>;
-  /** Live ref for the player's reported play state. */
   setUserPaused: (next: boolean) => void;
 }
 
-/**
- * Owns the per-card video player lifecycle: source juggling for the visible/preload window,
- * player creation, status events, error retry, play/pause sync, and the poster-vs-first-frame
- * gate. Carved out of VideoCard.tsx so the parent can stay small and so the player code can
- * be tested / iterated on independently.
- *
- * `activeSource` is held only while `holdSource` is true (set by the list-level playback
- * store's `ROW_BITS_PRELOAD` — currently active row + 1 behind + 2 ahead). Far rows get
- * `null` so AVPlayer doesn't open concurrent HLS manifests on Android (NSURLErrorDomain
- * -1008/-12884).
- */
 export function useVideoCardPlayer({
   videoUrl,
   postUri,
@@ -77,7 +58,6 @@ export function useVideoCardPlayer({
   onVideoStatus,
 }: UseVideoCardPlayerArgs): UseVideoCardPlayerResult {
   const videoSource = useMemo(() => createVideoSource(videoUrl), [videoUrl]);
-  const activeSource = holdSource ? videoSource : null;
 
   const configureVideoPlayer = useCallback((player: VideoPlayer) => {
     player.loop = true;
@@ -85,11 +65,45 @@ export function useVideoCardPlayer({
     player.seekTolerance = DEFAULT_SEEK_TOLERANCE_SCRUBBER;
   }, []);
 
-  const player = useVideoPlayer(activeSource, configureVideoPlayer);
+  const player = useVideoPlayer(null, configureVideoPlayer);
 
   const playerStatusEvent = useEvent(player, 'statusChange', { status: 'idle' });
   const playerStatus = playerStatusEvent?.status ?? 'idle';
   const hasError = playerStatus === 'error';
+
+  const lastReplacedSourceRef = useRef<VideoSource | null>(null);
+  const hasRetriedErrorRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasError) {
+      hasRetriedErrorRef.current = false;
+    }
+  }, [hasError]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const shouldLoad = holdSource || (hasError && isVisible);
+    const source = shouldLoad && videoSource ? videoSource : null;
+
+    const sourceChanged = source !== lastReplacedSourceRef.current;
+    const shouldRetryError = hasError && !hasRetriedErrorRef.current;
+
+    if (!sourceChanged && !shouldRetryError) {
+      return;
+    }
+
+    lastReplacedSourceRef.current = source;
+    if (hasError) {
+      hasRetriedErrorRef.current = true;
+    }
+
+    player.replaceAsync(source).catch(err => {
+      if (!cancelled) logVideoCardPlayerError('replaceAsync', err);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [holdSource, videoSource, player, hasError, isVisible]);
 
   const [videoState, setVideoState] = useRecyclingState({ userPaused: false }, [
     postUri,
@@ -124,11 +138,8 @@ export function useVideoCardPlayer({
 
   const seek = useCallback(
     (position: number) => {
-      if (!player) return;
       try {
         const positionInSeconds = position > 1000 ? position / 1000 : position;
-        // expo-video player is an imperative SDK handle; assigning currentTime is the
-        // documented seek API. Not a React-managed value.
         // eslint-disable-next-line react-compiler/react-compiler
         player.currentTime = positionInSeconds;
       } catch (err) {
@@ -147,14 +158,6 @@ export function useVideoCardPlayer({
     setFirstFrameRendered(true);
   }, [setFirstFrameRendered]);
 
-  // Reset poster readiness when the card leaves the viewport so the poster
-  // shows again while the preloaded stream renders its first frame on return.
-  useEffect(() => {
-    if (!isVisible) setFirstFrameRendered(false);
-  }, [isVisible, setFirstFrameRendered]);
-
-  // When a card becomes visible after being inactive, clear any sticky user-paused state
-  // (we only want explicit pauses to persist within a single visit).
   const wasActiveRef = useRef(false);
   useEffect(() => {
     const becameActive = isVisible && !wasActiveRef.current;
@@ -165,19 +168,10 @@ export function useVideoCardPlayer({
   }, [isVisible, hasError, videoState.userPaused, setVideoState]);
 
   useEffect(() => {
-    if (!player) return;
     if (playerStatus === 'readyToPlay') onVideoStatus?.(postUri, 'loaded');
     else if (playerStatus === 'loading') onVideoStatus?.(postUri, 'loading');
     else if (playerStatus === 'error') onVideoStatus?.(postUri, 'error');
-  }, [playerStatus, player, postUri, onVideoStatus]);
-
-  // Visibility cycling re-runs this effect, so each foreground return gets one retry attempt.
-  useEffect(() => {
-    if (!hasError || !isVisible || !videoSource || !player) return;
-    player.replaceAsync(videoSource).catch(err => {
-      logVideoCardPlayerError('replaceAsync retry', err);
-    });
-  }, [hasError, isVisible, videoSource, player]);
+  }, [playerStatus, postUri, onVideoStatus]);
 
   const shouldPlayVideo = computeShouldPlayVideo({
     cannotShowMedia,
@@ -190,7 +184,6 @@ export function useVideoCardPlayer({
   });
 
   useEffect(() => {
-    if (!player) return;
     try {
       if (shouldPlayVideo) player.play();
       else player.pause();

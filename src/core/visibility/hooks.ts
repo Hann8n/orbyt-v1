@@ -8,12 +8,14 @@ interface FeedVisibilityOptions {
   isActive: boolean;
   /** Emits the most visible row index from native list viewability callbacks. */
   onActiveVisibleIndexChange?: (index: number) => void;
+  /** Fired synchronously (layout effect) whenever canPlay changes. Caller can patch the
+   *  playback store directly rather than reading canPlay as a return value. */
+  onCanPlayChange?: (canPlay: boolean) => void;
 }
 
 interface FeedVisibilityResult {
   onViewableItemsChanged: ({ viewableItems }: { viewableItems: ViewToken[] }) => void;
   viewabilityConfig: ViewabilityConfig;
-  canPlay: boolean;
 }
 
 const selectViewableToken = (
@@ -34,6 +36,7 @@ const selectViewableToken = (
 export function useFeedVisibility({
   isActive,
   onActiveVisibleIndexChange,
+  onCanPlayChange,
 }: FeedVisibilityOptions): FeedVisibilityResult {
   const isForeground = useSyncExternalStore(
     notify => {
@@ -44,6 +47,15 @@ export function useFeedVisibility({
     () => true
   );
   const canPlay = isActive && isForeground;
+
+  const onCanPlayChangeRef = useRef(onCanPlayChange);
+  useEffect(() => {
+    onCanPlayChangeRef.current = onCanPlayChange;
+  }, [onCanPlayChange]);
+
+  useEffect(() => {
+    onCanPlayChangeRef.current?.(canPlay);
+  }, [canPlay]);
 
   const onActiveVisibleIndexChangeRef = useRef(onActiveVisibleIndexChange);
   useEffect(() => {
@@ -73,7 +85,6 @@ export function useFeedVisibility({
   return {
     onViewableItemsChanged,
     viewabilityConfig: FEED_ROW_VIEWABILITY_CONFIG satisfies ViewabilityConfig,
-    canPlay,
   };
 }
 
