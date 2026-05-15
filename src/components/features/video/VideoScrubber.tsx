@@ -1,6 +1,6 @@
 import { useCallback, useEffect, memo, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Text, StyleSheet, Platform } from 'react-native';
-import { Gesture, GestureDetector, type NativeGesture } from 'react-native-gesture-handler';
+import { GestureDetector, Gesture, type NativeGesture } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
   clamp,
@@ -18,8 +18,9 @@ import { type VideoPlayer } from 'expo-video';
 import { formatTime } from '../../../utils/formatting/time';
 import { Colors } from '../../../theme';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import { useUIStore } from '../../../stores/uiStore';
-import { FontFamily, Typography } from '../../../utils/components/typography';
+import { useUIStore } from '@/stores/uiStore';
+import { FontFamily, Typography } from '@/utils/components/typography';
+import { OVERLAY_Z_INDEX } from '../../../utils/constants/overlay';
 
 interface VideoScrubberProps {
   active: boolean;
@@ -342,7 +343,7 @@ function VideoScrubberActive({
     const seekingAnim = seekingAnimationSV.get();
     const containerOpacity = overlayOpacitySV.value;
     return {
-      opacity: seekingAnim > 0 ? Math.max(containerOpacity, 0.95) : Math.max(containerOpacity, 0.1),
+      opacity: seekingAnim > 0 ? Math.max(containerOpacity, 0.95) : containerOpacity,
     };
   });
 
@@ -462,7 +463,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 20,
+    zIndex: OVERLAY_Z_INDEX.SCRUBBER_TIME,
     left: 0,
     right: 0,
     bottom: SCRUBBER_TOTAL_HEIGHT + 5,
@@ -495,7 +496,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     width: '100%',
-    zIndex: 10,
+    zIndex: OVERLAY_Z_INDEX.SCRUBBER,
   },
   trackContainer: {
     width: '100%',

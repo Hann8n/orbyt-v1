@@ -9,9 +9,9 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { useSharedValue, useAnimatedStyle, withTiming, useDerivedValue, interpolate } from 'react-native-reanimated';
+import { useFeedScrollMotion } from '../../../context/FeedScrollContext';
 
-import { useFeedScrollLayout, useFeedScrollMotion } from '../../../context/FeedScrollContext';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { seenVideoService } from '../../../services/SeenVideoService';
 import { prefetchProfile, useFollowMutation } from '../../../services/data/ProfileService';
@@ -27,7 +27,6 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import VideoCardMediaGestureLayer from './video-card/VideoCardMediaGestureLayer';
 import VideoCardOverlayLayers from './video-card/VideoCardOverlayLayers';
-import { useVideoCardOverlayOpacity } from './video-card/useVideoCardOverlayOpacity';
 import { useFeedInteractionQueue } from './video-card/hooks/useFeedInteractionQueue';
 import { useVideoCardModerationState } from './video-card/hooks/useVideoCardModerationState';
 import { useVideoCardAuthor } from './video-card/hooks/useVideoCardAuthor';
@@ -368,18 +367,20 @@ function VideoCard({
   );
 
   const seekingAnimationSV = useSharedValue(0);
+
   const feedScrollMotion = useFeedScrollMotion();
-  const feedScrollLayout = useFeedScrollLayout();
-  const scrollOffsetYSV = feedScrollMotion?.scrollOffsetYSV;
-  const overlayScrollOffsetYSV = renderHeavyChrome ? scrollOffsetYSV : undefined;
-  const uiOverlayOpacitySV = useVideoCardOverlayOpacity({
-    seekingAnimationSV,
-    scrollOffsetYSV: overlayScrollOffsetYSV,
-    headerH: feedScrollLayout?.headerHeight ?? 0,
-    viewportH: feedScrollLayout?.viewportHeight ?? cardHeight,
-    itemSp: feedScrollLayout?.itemSpacing ?? cardHeight,
-    idx,
-    cardHeight,
+  const scrollOffsetYSV = feedScrollMotion?.scrollOffsetYSV ?? null;
+  const scrollFadeParamsSV = feedScrollMotion?.scrollFadeParamsSV ?? null;
+
+  const overlayOpacitySV = useDerivedValue(() => {
+    const seekOpacity = interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp');
+    if (!scrollOffsetYSV || !scrollFadeParamsSV) return seekOpacity;
+    const { spacing, snapOrigin, firstVideoIdx } = scrollFadeParamsSV.value;
+    if (spacing === 0) return seekOpacity;
+    const cardTop = snapOrigin + (idx - firstVideoIdx) * spacing;
+    const distance = Math.abs(scrollOffsetYSV.value - cardTop);
+    const scrollOpacity = 1 - Math.max(0, Math.min(1, (distance - spacing * 0.15) / (spacing * 0.3)));
+    return Math.min(seekOpacity, scrollOpacity);
   });
 
   const shouldHideScrubberForShortVideo = !!(
@@ -393,7 +394,7 @@ function VideoCard({
   const overlayProps = useMemo<VideoOverlayUIProps>(
     () => ({
       post: postView,
-      overlayOpacitySV: uiOverlayOpacitySV,
+      overlayOpacitySV: overlayOpacitySV,
       sourceFeed: resolvedFeedUri,
       onOverlayCollapsedChange: handleOverlayCollapsedChange,
       onLike: handleLike,
@@ -420,7 +421,7 @@ function VideoCard({
     }),
     [
       postView,
-      uiOverlayOpacitySV,
+      overlayOpacitySV,
       resolvedFeedUri,
       handleOverlayCollapsedChange,
       handleLike,
@@ -474,7 +475,7 @@ function VideoCard({
         isActive={isVisible}
         player={player}
         seekingAnimationSV={seekingAnimationSV}
-        overlayOpacitySV={uiOverlayOpacitySV}
+        overlayOpacitySV={overlayOpacitySV}
         showOverlay={showOverlay}
         overlayProps={overlayProps}
         showContentWarning={cannotShowMedia || isBlurred}

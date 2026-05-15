@@ -146,10 +146,25 @@ export type FeedOption =
   | string;
 
 /**
+ * Header item type for feed lists - tracked by FlashList viewability
+ */
+export interface FeedHeaderItem {
+  type: 'header';
+  component: React.ReactNode;
+}
+
+/**
+ * Type guard to check if a feed item is a header item
+ */
+export function isFeedHeaderItem(item: FeedListItem): item is FeedHeaderItem {
+  return (item as FeedHeaderItem).type === 'header';
+}
+
+/**
  * Feed list items for FlashList / feed views
  * @usage src/components/features/feed/ListFeedView.tsx
  */
-export type FeedListItem = ExtendedFeedViewPost;
+export type FeedListItem = ExtendedFeedViewPost | FeedHeaderItem;
 
 // ============================================================================
 // Error Types

@@ -9,6 +9,7 @@ import { VideoOverlayAuthor } from './video-overlay/VideoOverlayAuthor';
 import { VideoOverlayCaption } from './video-overlay/VideoOverlayCaption';
 import type { ProfileColorScheme } from '../../../utils/formatting/colors';
 import type { ExtendedPostView } from '../../../services/api/types';
+import { OVERLAY_Z_INDEX } from '../../../utils/constants/overlay';
 
 const TOP_GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
 const BOTTOM_GRADIENT_SHIM = require('../../../assets/video-gradient.png');
@@ -223,7 +224,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'flex-end',
     // Above scrubber (z 10) so overlay hitboxes (avatar, handle, actions) are tappable.
-    zIndex: 12,
+    zIndex: OVERLAY_Z_INDEX.OVERLAY_CONTAINER,
   },
   overlayContentContainer: {
     position: 'absolute',
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 6,
     padding: 14,
-    zIndex: 2,
+    zIndex: OVERLAY_Z_INDEX.OVERLAY_CONTENT,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',

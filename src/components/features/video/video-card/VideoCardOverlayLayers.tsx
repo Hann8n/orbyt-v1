@@ -5,6 +5,7 @@ import type { VideoPlayer } from 'expo-video';
 import { VideoScrubber } from '../VideoScrubber';
 import VideoOverlayUI, { type VideoOverlayUIProps } from '../VideoOverlayUI';
 import VideoCardContentWarningLayer from './VideoCardContentWarningLayer';
+import { OVERLAY_Z_INDEX } from '../../../../utils/constants/overlay';
 
 export interface VideoCardOverlayLayersProps {
   /** When false, skip scrubber + social overlay (list rows far from the active page). Content warning still mounts. */
@@ -104,11 +105,11 @@ const arePropsEqual = (
 const styles = StyleSheet.create({
   videoScrubberLayer: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 10,
+    zIndex: OVERLAY_Z_INDEX.SCRUBBER,
   },
   videoOverlayLayer: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 14,
+    zIndex: OVERLAY_Z_INDEX.OVERLAY_CONTENT,
   },
 });
 

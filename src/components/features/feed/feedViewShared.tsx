@@ -4,6 +4,7 @@ import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import { FEED_TYPES } from '../../../utils/constants';
 import type { FeedListItem } from '../../../types';
+import { isFeedHeaderItem } from '../../../types';
 import { blendColors, hexToRGBA } from '../../../utils/formatting/colors';
 
 export const FEED_VIEW_CONSTANTS = {
@@ -41,8 +42,12 @@ export const getPullToRefreshTintColor = (
     ? blendColors(profileTextColor, Colors.neutral[50], 0.3)
     : secondaryColor || Colors.neutral[50];
 
-export const getFeedItemKey = (item: FeedListItem | ExtendedFeedViewPost, index = 0): string =>
-  item.post?.uri ?? item.post?.cid ?? `feed-${index}`;
+export const getFeedItemKey = (item: FeedListItem | ExtendedFeedViewPost, index = 0): string => {
+  if (isFeedHeaderItem(item)) {
+    return `header-${index}`;
+  }
+  return item.post?.uri ?? item.post?.cid ?? `feed-${index}`;
+};
 
 export const getEmptyFeedType = (feedOption: string): 'no-following' | 'no-videos' =>
   feedOption === FEED_TYPES.FOLLOWING ? 'no-following' : 'no-videos';

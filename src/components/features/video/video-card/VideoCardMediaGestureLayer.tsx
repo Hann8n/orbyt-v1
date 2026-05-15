@@ -17,6 +17,7 @@ import { NanoIcon } from '../../../ui/NanoIcon';
 import { Colors } from '../../../../theme';
 import { Typography } from '../../../../utils/components/typography';
 import { hexToRGBA } from '../../../../utils/formatting/colors';
+import { OVERLAY_Z_INDEX } from '../../../../utils/constants/overlay';
 
 type GestureDetectorGestureProp = ComponentProps<typeof GestureDetector>['gesture'];
 
@@ -120,7 +121,7 @@ const styles = StyleSheet.create({
   videoContainerPressable: {
     width: '100%',
     height: '100%',
-    zIndex: 1,
+    zIndex: OVERLAY_Z_INDEX.GESTURE_LAYER,
   },
   videoContainer: {
     width: '100%',
@@ -143,19 +144,19 @@ const styles = StyleSheet.create({
     backgroundColor: hexToRGBA(Colors.black, 0.7),
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 5,
+    zIndex: OVERLAY_Z_INDEX.LOADING_OVERLAY,
   },
   textExpandedDimmingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: Colors.black,
-    zIndex: 5,
+    zIndex: OVERLAY_Z_INDEX.LOADING_OVERLAY,
     pointerEvents: 'none',
   },
   heartAnimationContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 15,
+    zIndex: OVERLAY_Z_INDEX.HEART_ANIMATION,
   },
 });
 
