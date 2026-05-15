@@ -4,7 +4,6 @@
 import { XRPCError } from '@atproto/api';
 import { AtprotoCore } from '../core';
 import { getAtprotoBridge } from '../agentBridge';
-import { deduplicateRequest } from '../inFlightDedup';
 import { posthog } from '../../../config/posthog';
 import { logger } from '../../../utils/logger';
 import type { Interaction } from '../types';
@@ -62,14 +61,11 @@ export async function likePost(uri: string, cid: string): Promise<string> {
     return `at://did:plc:offline-debug/app.bsky.feed.like/mock-like-${Date.now()}`;
   }
 
-  const cacheKey = `like:${uri}:${cid}`;
-  return deduplicateRequest(cacheKey, async () => {
-    const { agent } = getAtprotoBridge();
-    if (!agent) throw new Error('No authenticated user');
-    const result = await agent.like(uri, cid);
-    posthog.capture('video_liked', { post_uri: uri });
-    return result.uri;
-  });
+  const { agent } = getAtprotoBridge();
+  if (!agent) throw new Error('No authenticated user');
+  const result = await agent.like(uri, cid);
+  posthog.capture('video_liked', { post_uri: uri });
+  return result.uri;
 }
 
 /**
@@ -104,14 +100,11 @@ export async function repostPost(uri: string, cid: string): Promise<string> {
     return `at://did:plc:offline-debug/app.bsky.feed.repost/mock-repost-${Date.now()}`;
   }
 
-  const cacheKey = `repost:${uri}:${cid}`;
-  return deduplicateRequest(cacheKey, async () => {
-    const { agent } = getAtprotoBridge();
-    if (!agent) throw new Error('No authenticated user');
-    const result = await agent.repost(uri, cid);
-    posthog.capture('video_reposted', { post_uri: uri });
-    return result.uri;
-  });
+  const { agent } = getAtprotoBridge();
+  if (!agent) throw new Error('No authenticated user');
+  const result = await agent.repost(uri, cid);
+  posthog.capture('video_reposted', { post_uri: uri });
+  return result.uri;
 }
 
 /**

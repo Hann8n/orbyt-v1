@@ -168,8 +168,6 @@ function VideoCard({
     display: displayInteraction,
     isLikePending,
     isRepostPending,
-    displayRef: displayInteractionRef,
-    pendingRef: overlayPendingRef,
     handleLike,
     handleLikeOnly,
     handleRepost,
@@ -273,14 +271,9 @@ function VideoCard({
     };
     presentCommentSection({
       post: commentPost,
-      totalLikes: displayInteractionRef.current.likeCount,
-      totalComments: displayInteractionRef.current.commentCount,
-      isLiked: displayInteractionRef.current.isLiked,
       postedAt: (postView.record as AppBskyFeedPost.Record)?.createdAt || postView.indexedAt,
-      onToggleLike: handleLike,
-      isLikePending: overlayPendingRef.current.isLikePending,
     });
-  }, [postView, presentCommentSection, handleLike, displayInteractionRef, overlayPendingRef]);
+  }, [postView, presentCommentSection]);
 
   const { gesture, heartAnimatedStyle } = useVideoCardGesture({
     postUri: postView.uri,

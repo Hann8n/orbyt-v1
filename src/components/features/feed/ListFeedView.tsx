@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView as RNScreensSafeAreaView } from 'react-native-screens/experimental';
 import Animated, {
   useSharedValue,
+  useDerivedValue,
   useAnimatedScrollHandler,
   useAnimatedReaction,
   useAnimatedStyle,
@@ -536,42 +537,35 @@ function ListFeedViewComponent({
     };
 
     const fadeDist = hasHeader ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
-    const contentScrollProgressSV = useSharedValue(0);
-
-    const scrollHandler = useAnimatedScrollHandler(
-      {
-        onScroll: event => {
-          'worklet';
-
-          const y = Math.max(0, event.contentOffset.y);
-          scrollOffsetYSV.value = y;
-
-          if (fadeDist > 0) {
-            contentScrollProgressSV.value = Math.max(0, Math.min(1, y / fadeDist));
-          } else {
-            contentScrollProgressSV.value = 0;
-          }
-
-          if (contentScrollProgressOutput && fadeDist > 0) {
-            contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
-          }
-
-          const contentH = event.contentSize?.height ?? 0;
-          const layoutH = event.layoutMeasurement?.height ?? 0;
-          const maxY = Math.max(0, contentH - layoutH);
-          const overscrollPastEnd = y - maxY;
-          if (endOfFeedEnabledSV.value < 0.5) {
-            endOfFeedOverscrollOpacitySV.value = 0;
-          } else {
-            endOfFeedOverscrollOpacitySV.value = Math.max(
-              0,
-              Math.min(1, overscrollPastEnd / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX)
-            );
-          }
-        },
-      },
-      [contentScrollProgressOutput, fadeDist]
+    const contentScrollProgressSV = useDerivedValue(() =>
+      fadeDist > 0 ? Math.max(0, Math.min(1, scrollOffsetYSV.value / fadeDist)) : 0
     );
+
+    const scrollHandler = useAnimatedScrollHandler({
+      onScroll: event => {
+        'worklet';
+
+        const y = Math.max(0, event.contentOffset.y);
+        scrollOffsetYSV.value = y;
+
+        if (contentScrollProgressOutput && fadeDist > 0) {
+          contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
+        }
+
+        const contentH = event.contentSize?.height ?? 0;
+        const layoutH = event.layoutMeasurement?.height ?? 0;
+        const maxY = Math.max(0, contentH - layoutH);
+        const overscrollPastEnd = y - maxY;
+        if (endOfFeedEnabledSV.value < 0.5) {
+          endOfFeedOverscrollOpacitySV.value = 0;
+        } else {
+          endOfFeedOverscrollOpacitySV.value = Math.max(
+            0,
+            Math.min(1, overscrollPastEnd / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX)
+          );
+        }
+      },
+    });
 
     useEffect(() => {
       const headerSnapAdjust = isHeaderFeed ? snapTopInset : 0;

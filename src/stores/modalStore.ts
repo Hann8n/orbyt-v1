@@ -19,12 +19,7 @@ export interface CommentSectionPost {
 
 export interface CommentSectionData {
   post: CommentSectionPost | undefined;
-  totalLikes?: number;
-  totalComments?: number;
-  isLiked?: boolean;
   postedAt?: string;
-  onToggleLike?: () => void;
-  isLikePending?: boolean;
   scrollToCommentUri?: string;
 }
 

@@ -1,18 +1,25 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
-import { useRecyclingState } from '@shopify/flash-list';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { InfiniteData, QueryKey } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { useShallow } from 'zustand/react/shallow';
 
 import { AtprotoFeedService } from '../../../../../services/api/feed/FeedService';
-import {
-  mergePostInteractionDelta,
-  usePostInteractionStore,
-  type PostInteraction,
-} from '../../../../../stores/postInteractionStore';
-import { useLikeInteraction } from '@/hooks/useLikeInteraction';
-import type { ExtendedPostView } from '../../../../../services/api/types';
+import { useLikeMutation, patchFeedPost } from '@/hooks/useLikeMutation';
+import { queryKeys } from '../../../../../utils/query/queryKeys';
+import type { ExtendedPostView, FeedResponse } from '../../../../../services/api/types';
 
-export type VideoCardInteractionDisplay = PostInteraction;
+type FeedSnapshot = [QueryKey, InfiniteData<FeedResponse> | undefined];
+
+export type VideoCardInteractionDisplay = {
+  isLiked: boolean;
+  likeCount: number;
+  commentCount: number;
+  repostCount: number;
+  isReposted: boolean;
+  isBookmarked: boolean;
+  likeUri?: string;
+  repostUri?: string;
+};
 
 export interface UseVideoCardInteractionArgs {
   postView: ExtendedPostView;
@@ -20,34 +27,21 @@ export interface UseVideoCardInteractionArgs {
 }
 
 export interface UseVideoCardInteractionResult {
-  /** Final displayable interaction (persisted store + any pending optimistic delta). */
   display: VideoCardInteractionDisplay;
-  /** Local optimistic flags (used by overlay buttons to know if a request is in flight). */
   isLikePending: boolean;
   isRepostPending: boolean;
-  /** Live ref of `display`; safe to read from gesture/runOnJS callbacks. */
-  displayRef: React.RefObject<VideoCardInteractionDisplay>;
-  /** Live ref of `{ isLikePending, isRepostPending }`. */
-  pendingRef: React.RefObject<{ isLikePending: boolean; isRepostPending: boolean }>;
-  /** Toggle like (with double-tap haptic). Updates store + optimistic state. */
   handleLike: () => Promise<void>;
-  /** Like-only (used by double-tap heart) — never unlikes. */
   handleLikeOnly: () => Promise<void>;
-  /** Toggle repost. */
   handleRepost: () => Promise<void>;
 }
 
-/**
- * Encapsulates the per-card interaction state machine: persisted counts from
- * `usePostInteractionStore` merged with local optimistic flags + the like/repost
- * mutations. Carved out of VideoCard.tsx so a like/repost on row N never re-renders
- * rows N±1 just because the parent's `displayInteraction` memo invalidated.
- */
 export function useVideoCardInteraction({
   postView,
-  feedOption,
 }: UseVideoCardInteractionArgs): UseVideoCardInteractionResult {
-  const defaultInteraction = useMemo(
+  const queryClient = useQueryClient();
+
+  // Source of truth is the feed query cache — patched optimistically by mutations.
+  const display = useMemo<VideoCardInteractionDisplay>(
     () => ({
       isLiked: !!postView.viewer?.like,
       likeCount: postView.likeCount ?? 0,
@@ -67,157 +61,103 @@ export function useVideoCardInteraction({
     ]
   );
 
-  const { postInteractionDelta, updatePostInteraction } = usePostInteractionStore(
-    useShallow(state => ({
-      postInteractionDelta: state.interactions.get(postView.uri),
-      updatePostInteraction: state.updatePostInteraction,
-    }))
-  );
-  const persistedInteraction = useMemo(
-    () => mergePostInteractionDelta(defaultInteraction, postInteractionDelta),
-    [defaultInteraction, postInteractionDelta]
-  );
-
-  const [overlayState, setOverlayState] = useRecyclingState(
-    {
-      isLikePending: false,
-      isRepostPending: false,
-      ...persistedInteraction,
-    },
-    [postView.uri, feedOption]
-  );
-
-  // Depend on specific fields — not the full overlayState object — so an unrelated
-  // setOverlayState (e.g. isRepostPending: false) doesn't invalidate this memo.
-  const display = useMemo<VideoCardInteractionDisplay>(() => {
-    let d = persistedInteraction;
-    if (overlayState.isLikePending) {
-      d = {
-        ...d,
-        isLiked: overlayState.isLiked,
-        likeCount: overlayState.likeCount,
-        likeUri: overlayState.likeUri,
-      };
-    }
-    if (overlayState.isRepostPending) {
-      d = {
-        ...d,
-        isReposted: overlayState.isReposted,
-        repostCount: overlayState.repostCount,
-        repostUri: overlayState.repostUri,
-      };
-    }
-    return d;
-  }, [
-    persistedInteraction,
-    overlayState.isLikePending,
-    overlayState.isLiked,
-    overlayState.likeCount,
-    overlayState.likeUri,
-    overlayState.isRepostPending,
-    overlayState.isReposted,
-    overlayState.repostCount,
-    overlayState.repostUri,
-  ]);
-
   const displayRef = useRef(display);
-  const pendingRef = useRef({
-    isLikePending: overlayState.isLikePending,
-    isRepostPending: overlayState.isRepostPending,
+  const pendingRef = useRef({ isLikePending: false, isRepostPending: false });
+
+  const likeMutation = useLikeMutation();
+
+  const repostMutation = useMutation<
+    string | undefined,
+    Error,
+    { postUri: string; postCid: string; isReposted: boolean; repostUri?: string; repostCount: number },
+    { snapshots: FeedSnapshot[] }
+  >({
+    mutationFn: async ({ postUri, postCid, isReposted, repostUri }) => {
+      if (!isReposted) return AtprotoFeedService.repostPost(postUri, postCid);
+      if (!repostUri) throw new Error('No repost URI');
+      await AtprotoFeedService.deleteRepost(repostUri);
+      return undefined;
+    },
+    onMutate: ({ postUri, isReposted, repostCount }) => {
+      const newIsReposted = !isReposted;
+      const newCount = newIsReposted ? repostCount + 1 : Math.max(0, repostCount - 1);
+      const snapshots = queryClient.getQueriesData<InfiniteData<FeedResponse>>({
+        queryKey: queryKeys.feed.all,
+      }) as FeedSnapshot[];
+      queryClient.setQueriesData<InfiniteData<FeedResponse>>(
+        { queryKey: queryKeys.feed.all },
+        old => patchFeedPost(old, postUri, post => ({
+          ...post,
+          repostCount: newCount,
+          viewer: { ...post.viewer, repost: newIsReposted ? 'optimistic' : undefined },
+        }))
+      );
+      return { snapshots };
+    },
+    onSuccess: (repostUri, { postUri, isReposted }) => {
+      const newIsReposted = !isReposted;
+      queryClient.setQueriesData<InfiniteData<FeedResponse>>(
+        { queryKey: queryKeys.feed.all },
+        old => patchFeedPost(old, postUri, post => ({
+          ...post,
+          viewer: { ...post.viewer, repost: newIsReposted ? repostUri : undefined },
+        }))
+      );
+    },
+    onError: (_, __, context) => {
+      for (const [key, data] of context?.snapshots ?? []) queryClient.setQueryData(key, data);
+    },
   });
 
   useLayoutEffect(() => {
     displayRef.current = display;
-    pendingRef.current.isLikePending = overlayState.isLikePending;
-    pendingRef.current.isRepostPending = overlayState.isRepostPending;
-  }, [display, overlayState.isLikePending, overlayState.isRepostPending]);
-
-  const likeStateForHook = useMemo(
-    () => ({
-      isLiked: display.isLiked,
-      likeCount: display.likeCount,
-      likeUri: display.likeUri,
-      isLikePending: overlayState.isLikePending,
-      isReposted: display.isReposted,
-      isBookmarked: display.isBookmarked,
-      commentCount: display.commentCount,
-      repostCount: display.repostCount,
-      isRepostPending: overlayState.isRepostPending,
-    }),
-    [display, overlayState.isLikePending, overlayState.isRepostPending]
-  );
-
-  const { toggleLike: toggleLikeInteraction, likeOnly: likeOnlyInteraction } = useLikeInteraction({
-    state: likeStateForHook,
-    setState: setOverlayState,
-    postUri: postView.uri,
-    postCid: postView.cid,
-    updatePostInteraction,
-  });
+    pendingRef.current.isLikePending = likeMutation.isPending;
+    pendingRef.current.isRepostPending = repostMutation.isPending;
+  }, [display, likeMutation.isPending, repostMutation.isPending]);
 
   const handleLike = useCallback(async () => {
+    if (likeMutation.isPending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await toggleLikeInteraction();
-  }, [toggleLikeInteraction]);
+    const { isLiked, likeUri, likeCount } = displayRef.current;
+    await likeMutation.mutateAsync({
+      postUri: postView.uri,
+      postCid: postView.cid,
+      isLiked,
+      likeUri,
+      likeCount,
+    });
+  }, [likeMutation, postView.uri, postView.cid]);
 
   const handleLikeOnly = useCallback(async () => {
+    if (displayRef.current.isLiked || likeMutation.isPending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await likeOnlyInteraction();
-  }, [likeOnlyInteraction]);
+    const { likeUri, likeCount } = displayRef.current;
+    await likeMutation.mutateAsync({
+      postUri: postView.uri,
+      postCid: postView.cid,
+      isLiked: false,
+      likeUri,
+      likeCount,
+    });
+  }, [likeMutation, postView.uri, postView.cid]);
 
   const handleRepost = useCallback(async () => {
-    if (pendingRef.current.isRepostPending) return;
+    if (repostMutation.isPending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    const wasReposted = displayRef.current.isReposted;
-    const newIsReposted = !wasReposted;
-    const newRepostCount = newIsReposted
-      ? displayRef.current.repostCount + 1
-      : Math.max(0, displayRef.current.repostCount - 1);
-
-    setOverlayState(prev => ({
-      ...prev,
-      isRepostPending: true,
-      isReposted: newIsReposted,
-      repostCount: newRepostCount,
-    }));
-
-    try {
-      if (!wasReposted) {
-        const repostUri = await AtprotoFeedService.repostPost(postView.uri, postView.cid);
-        setOverlayState(prev => ({ ...prev, repostUri }));
-        updatePostInteraction(postView.uri, {
-          isReposted: true,
-          repostCount: newRepostCount,
-          repostUri,
-        });
-      } else {
-        if (!displayRef.current.repostUri) throw new Error('No repost URI found');
-        await AtprotoFeedService.deleteRepost(displayRef.current.repostUri);
-        setOverlayState(prev => ({ ...prev, repostUri: undefined }));
-        updatePostInteraction(postView.uri, {
-          isReposted: false,
-          repostCount: newRepostCount,
-          repostUri: undefined,
-        });
-      }
-    } catch (_error) {
-      setOverlayState(prev => ({
-        ...prev,
-        isReposted: displayRef.current.isReposted,
-        repostCount: displayRef.current.repostCount,
-      }));
-    } finally {
-      setOverlayState(prev => ({ ...prev, isRepostPending: false }));
-    }
-  }, [postView.uri, postView.cid, setOverlayState, updatePostInteraction]);
+    const { isReposted, repostUri, repostCount } = displayRef.current;
+    await repostMutation.mutateAsync({
+      postUri: postView.uri,
+      postCid: postView.cid,
+      isReposted,
+      repostUri,
+      repostCount,
+    });
+  }, [repostMutation, postView.uri, postView.cid]);
 
   return {
     display,
-    isLikePending: overlayState.isLikePending,
-    isRepostPending: overlayState.isRepostPending,
-    displayRef,
-    pendingRef,
+    isLikePending: likeMutation.isPending,
+    isRepostPending: repostMutation.isPending,
     handleLike,
     handleLikeOnly,
     handleRepost,

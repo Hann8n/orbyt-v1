@@ -22,7 +22,8 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
@@ -34,15 +35,12 @@ import { AtprotoCore } from '../../../services/api/core';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useProfileByDid } from '../../../services/data/ProfileService';
 import { useUserStore } from '../../../stores/userStore';
-import {
-  mergePostInteractionDelta,
-  usePostInteractionStore,
-} from '../../../stores/postInteractionStore';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useModalStore } from '../../../stores/modalStore';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
-import { useLikeInteraction } from '@/hooks/useLikeInteraction';
+import { useLikeMutation, patchFeedPost } from '@/hooks/useLikeMutation';
+import type { FeedResponse } from '../../../services/api/types';
 
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { Colors } from '../../../theme';
@@ -59,8 +57,31 @@ import CommentInputFooter from './CommentInputFooter';
 import CommentItem from './CommentItem';
 import { CommentLikeItem } from './CommentLikeItem';
 import KlipyGifPickerSheet from './KlipyGifPickerSheet';
-import type { Comment, Like } from '../../../services/api/types';
+import type { Comment, Like, ExtendedPostView, FeedResponse as FeedResp } from '../../../services/api/types';
 import type { KlipyItem } from '../../../services/klipy/KlipyService';
+
+type HeaderLikeState = { isLiked: boolean; likeCount: number; likeUri?: string };
+
+function readPostFromFeedCache(queryClient: QueryClient, postUri: string): HeaderLikeState {
+  const caches = queryClient.getQueriesData<InfiniteData<FeedResp>>({
+    queryKey: queryKeys.feed.all,
+  }) as Array<[unknown, InfiniteData<FeedResp> | undefined]>;
+  for (const [, data] of caches) {
+    for (const page of data?.pages ?? []) {
+      for (const item of page.feed) {
+        if ((item.post as ExtendedPostView).uri === postUri) {
+          const p = item.post as ExtendedPostView;
+          return {
+            isLiked: !!p.viewer?.like,
+            likeCount: p.likeCount ?? 0,
+            likeUri: p.viewer?.like,
+          };
+        }
+      }
+    }
+  }
+  return { isLiked: false, likeCount: 0, likeUri: undefined };
+}
 import {
   ensureCommentUploadImage,
   klipyThumbUrlForEmbed,
@@ -83,13 +104,8 @@ interface CommentSectionProps {
   post?: Post;
   onDismiss?: () => void;
   visible?: boolean;
-  totalLikes?: number;
-  totalComments?: number;
-  isLiked?: boolean;
   onOpenShareSheet?: () => void;
   postedAt?: string;
-  onToggleLike?: () => void;
-  isLikePending?: boolean;
 }
 
 const MAX_COMMENT_LENGTH = 300;
@@ -103,9 +119,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   post: propPost,
   onDismiss: propOnDismiss,
   visible: propVisible,
-  totalLikes: propTotalLikes = 0,
-  totalComments: propTotalComments = 0,
-  isLiked: propIsLiked,
   onOpenShareSheet: propOnOpenShareSheet,
   postedAt: propPostedAt,
 }) => {
@@ -123,9 +136,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const onDismiss = propOnDismiss || dismissCommentSection;
   const visible = propVisible !== undefined ? propVisible : !!globalData;
 
-  const totalLikes = globalData?.totalLikes ?? propTotalLikes;
-  const totalComments = globalData?.totalComments ?? propTotalComments;
-  const isLiked = globalData?.isLiked ?? propIsLiked;
   const postedAt = globalData?.postedAt ?? propPostedAt;
   const scrollToCommentUri = globalData?.scrollToCommentUri;
 
@@ -290,92 +300,19 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const { currentUser } = useUserStore();
   const { data: currentUserProfile } = useProfileByDid(currentUser?.did ?? null);
 
-  const defaultHeaderInteraction = useMemo(
-    () => ({
-      isLiked: !!isLiked,
-      likeCount: totalLikes,
-      commentCount: totalComments,
-      likeUri: undefined as string | undefined,
-      isReposted: false,
-      isBookmarked: false,
-      repostCount: 0,
-    }),
-    [isLiked, totalLikes, totalComments]
-  );
-  const headerInteractionDelta = usePostInteractionStore(state =>
-    post?.uri ? state.interactions.get(post.uri) : undefined
-  );
-  const persistedHeaderInteraction = useMemo(
-    () =>
-      post?.uri
-        ? mergePostInteractionDelta(defaultHeaderInteraction, headerInteractionDelta)
-        : null,
-    [post?.uri, defaultHeaderInteraction, headerInteractionDelta]
-  );
-  const updatePostInteraction = usePostInteractionStore(state => state.updatePostInteraction);
+  const queryClient = useQueryClient();
+  const likeMutation = useLikeMutation();
 
-  const [headerLikeState, setHeaderLikeState] = useState<{
-    isLiked: boolean;
-    likeCount: number;
-    likeUri?: string | undefined;
-    isLikePending: boolean;
-  }>(() => ({
-    isLiked: post?.uri ? (persistedHeaderInteraction?.isLiked ?? !!isLiked) : !!isLiked,
-    likeCount: post?.uri ? (persistedHeaderInteraction?.likeCount ?? totalLikes) : totalLikes,
-    likeUri: post?.uri ? persistedHeaderInteraction?.likeUri : undefined,
-    isLikePending: false,
-  }));
-  const [headerVisualLiked, setHeaderVisualLiked] = useState<boolean>(() => {
-    if (!post?.uri) return !!isLiked;
-    return persistedHeaderInteraction?.isLiked ?? !!isLiked;
-  });
+  const [headerLikeState, setHeaderLikeState] = useState<HeaderLikeState>(() =>
+    post?.uri ? readPostFromFeedCache(queryClient, post.uri) : { isLiked: false, likeCount: 0, likeUri: undefined }
+  );
+
+  // Reset local like state when a different post is presented.
   useEffect(() => {
-    if (!post?.uri) {
-      const fallbackLiked = !!isLiked;
-      setHeaderLikeState(prev => ({
-        ...prev,
-        isLiked: fallbackLiked,
-        likeCount: totalLikes,
-        likeUri: undefined,
-        isLikePending: false,
-      }));
-      setHeaderVisualLiked(prev => (prev === fallbackLiked ? prev : fallbackLiked));
-      return;
-    }
-
-    if (persistedHeaderInteraction) {
-      const storeState = persistedHeaderInteraction;
-      setHeaderLikeState(prev => ({
-        ...prev,
-        isLiked: storeState.isLiked,
-        likeCount: storeState.likeCount,
-        likeUri: storeState.likeUri,
-      }));
-      setHeaderVisualLiked(prev => (prev === storeState.isLiked ? prev : storeState.isLiked));
-      return;
-    }
-
-    const fallbackLiked = !!isLiked;
-    setHeaderLikeState(prev => ({
-      ...prev,
-      isLiked: fallbackLiked,
-      likeCount: totalLikes,
-      likeUri: undefined,
-    }));
-    setHeaderVisualLiked(prev => (prev === fallbackLiked ? prev : fallbackLiked));
-    updatePostInteraction(post.uri, {
-      isLiked: fallbackLiked,
-      likeCount: totalLikes,
-      commentCount: totalComments,
-    });
-  }, [
-    isLiked,
-    totalLikes,
-    totalComments,
-    post?.uri,
-    persistedHeaderInteraction,
-    updatePostInteraction,
-  ]);
+    if (!post?.uri) return;
+    setHeaderLikeState(readPostFromFeedCache(queryClient, post.uri));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post?.uri]);
 
   const headerHeartScale = useSharedValue(1);
   const headerHeartStyle = useAnimatedStyle(() => ({
@@ -385,30 +322,41 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   useEffect(() => {
     cancelAnimation(headerHeartScale);
     headerHeartScale.value = 1;
-    setHeaderLikeState(prev => ({ ...prev, isLikePending: false }));
   }, [post?.uri, headerHeartScale]);
 
-  const { toggleLike: handleHeaderToggleLikeInternal } = useLikeInteraction({
-    state: headerLikeState,
-    setState: setHeaderLikeState,
-    postUri: post?.uri,
-    postCid: post?.cid,
-    updatePostInteraction,
-  });
-
   const handleHeaderToggleLike = useCallback(() => {
+    if (!post?.uri || !post?.cid || likeMutation.isPending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const nextLiked = !headerLikeState.isLiked;
-    setHeaderVisualLiked(nextLiked);
-    if (nextLiked) {
+
+    const { isLiked: currentIsLiked, likeUri: currentLikeUri, likeCount: currentLikeCount } =
+      headerLikeState;
+    const newIsLiked = !currentIsLiked;
+    const newCount = newIsLiked
+      ? currentLikeCount + 1
+      : Math.max(0, currentLikeCount - 1);
+
+    if (newIsLiked) {
       headerHeartScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
         headerHeartScale.value = withSpring(1);
       });
     } else {
       headerHeartScale.value = withSpring(1);
     }
-    handleHeaderToggleLikeInternal();
-  }, [handleHeaderToggleLikeInternal, headerHeartScale, headerLikeState.isLiked]);
+
+    setHeaderLikeState({ isLiked: newIsLiked, likeCount: newCount, likeUri: newIsLiked ? 'optimistic' : undefined });
+
+    likeMutation.mutate(
+      { postUri: post.uri, postCid: post.cid, isLiked: currentIsLiked, likeUri: currentLikeUri, likeCount: currentLikeCount },
+      {
+        onSuccess: resolvedLikeUri => {
+          setHeaderLikeState(prev => ({ ...prev, likeUri: newIsLiked ? resolvedLikeUri : undefined }));
+        },
+        onError: () => {
+          setHeaderLikeState({ isLiked: currentIsLiked, likeCount: currentLikeCount, likeUri: currentLikeUri });
+        },
+      }
+    );
+  }, [likeMutation, post?.uri, post?.cid, headerLikeState, headerHeartScale]);
 
   const handleHeaderSharePress = useCallback(() => {
     onDismiss?.();
@@ -692,9 +640,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const handleCommentDeleted = (wasReply?: boolean) => {
     if (wasReply || !post?.uri) return;
-    const currentCount =
-      usePostInteractionStore.getState().interactions.get(post.uri)?.commentCount ?? totalComments;
-    updatePostInteraction(post.uri, { commentCount: Math.max(0, currentCount - 1) });
+    const uri = post.uri;
+    queryClient.setQueriesData<InfiniteData<FeedResponse>>(
+      { queryKey: queryKeys.feed.all },
+      old => patchFeedPost(old, uri, p => ({
+        ...p,
+        replyCount: Math.max(0, (p.replyCount ?? 1) - 1),
+      }))
+    );
   };
 
   const handleTabPress = useCallback((tabId: string) => {
@@ -716,7 +669,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     setPresentedPostUri(null);
     cancelAnimation(headerHeartScale);
     headerHeartScale.value = 1;
-    setHeaderLikeState(prev => ({ ...prev, isLikePending: false }));
     setNewCommentText('');
     setSelectedGif(null);
     setSelectedImages([]);
@@ -892,7 +844,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
         <NativePressable
           onPress={handleHeaderToggleLike}
-          disabled={headerLikeState.isLikePending}
+          disabled={likeMutation.isPending}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.actionButton}
         >
@@ -900,7 +852,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             <NanoIcon
               name="heart-fill"
               size={26}
-              color={headerVisualLiked ? Colors.coral[500] : Colors.neutral[500]}
+              color={headerLikeState.isLiked ? Colors.coral[500] : Colors.neutral[500]}
             />
           </Animated.View>
         </NativePressable>
