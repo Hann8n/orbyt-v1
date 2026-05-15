@@ -209,7 +209,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
 
     const handleHashtagPress = useCallback(
       (hashtag: string) => {
-        routerRef.current.navigate(
+        routerRef.current.push(
           buildFeedModalHref(
             {
               feedOption: `hashtag:${hashtag}`,
@@ -232,7 +232,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
           feedService.setCurrentFeed(s.feed);
           const item = s.feed[index] as FeedItem;
           const initialPostUri = item?.post?.uri ?? '';
-          routerRef.current.navigate(
+          routerRef.current.push(
             buildFeedModalHref(
               {
                 feedOption: s.feedOption || 'search',

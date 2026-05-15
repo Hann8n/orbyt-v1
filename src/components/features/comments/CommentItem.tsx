@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Alert, Linking, Share, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Alert, Linking, Share, ScrollView, useWindowDimensions } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
@@ -77,9 +77,11 @@ function getCommentEmbed(c: Comment) {
   return viewEmbed ?? recordEmbed;
 }
 
-// Gallery constants — natural aspect ratio display
-const GALLERY_MAX_HEIGHT = 240;
+const GALLERY_MAX_HEIGHT = 280;
+const CAROUSEL_FIXED_HEIGHT = 200;
 const GALLERY_ITEM_GAP = 8;
+// Must match CommentSection listContent paddingHorizontal — carousel breaks out with negative margin
+const LIST_PADDING_H = 20;
 
 /** Repo DID for CDN blob URLs — author.did, or parsed from at:// URI when author is minimal. */
 function getCommentRepoDid(comment: Comment): string | undefined {
@@ -137,6 +139,7 @@ interface GalleryImageItemProps {
   idx: number;
   maxWidth: number;
   onImagePress?: (uri: string) => void;
+  isCarousel?: boolean;
 }
 
 const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
@@ -144,52 +147,28 @@ const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
   idx,
   maxWidth,
   onImagePress,
+  isCarousel = false,
 }) => {
-  const [actualDimensions, setActualDimensions] = React.useState<{
-    width: number;
-    height: number;
-  } | null>(null);
-
   const imageUri = img.fullsize || img.thumb;
 
-  const displayDims = React.useMemo(() => {
-    const ar = img.aspectRatio;
-    const aspectRatio = ar && ar.height > 0 ? ar.width / ar.height : 4 / 3;
+  const dims = React.useMemo(() => {
+    const arObj = img.aspectRatio;
+    const ar = arObj && arObj.height > 0 ? arObj.width / arObj.height : 4 / 3;
 
-    // Constrain to max width, calculate height from aspect ratio
-    const width = maxWidth;
-    const height = width / aspectRatio;
+    if (isCarousel) {
+      return {
+        width: Math.min(Math.round(CAROUSEL_FIXED_HEIGHT * ar), Math.round(maxWidth * 0.75)),
+        height: CAROUSEL_FIXED_HEIGHT,
+      };
+    }
 
-    // Cap height at max
-    const finalHeight = Math.min(height, GALLERY_MAX_HEIGHT);
-    const finalWidth = finalHeight * aspectRatio;
-
+    const h = Math.min(maxWidth / ar, GALLERY_MAX_HEIGHT);
+    const finalH = Math.max(h, 80);
     return {
-      width: Math.round(Math.min(finalWidth, maxWidth)),
-      height: Math.round(Math.max(finalHeight, 80)),
+      width: Math.round(Math.min(finalH * ar, maxWidth)),
+      height: Math.round(finalH),
     };
-  }, [img.aspectRatio, maxWidth]);
-
-  const handleLoad = React.useCallback(
-    (event: { source: { width: number; height: number } }) => {
-      const { width: imgWidth, height: imgHeight } = event.source;
-      if (imgWidth > 0 && imgHeight > 0) {
-        const actualAspectRatio = imgWidth / imgHeight;
-        const width = maxWidth;
-        const height = width / actualAspectRatio;
-        const finalHeight = Math.min(height, GALLERY_MAX_HEIGHT);
-        const finalWidth = finalHeight * actualAspectRatio;
-
-        setActualDimensions({
-          width: Math.round(Math.min(finalWidth, maxWidth)),
-          height: Math.round(Math.max(finalHeight, 80)),
-        });
-      }
-    },
-    [maxWidth]
-  );
-
-  const dims = actualDimensions || displayDims;
+  }, [img.aspectRatio, maxWidth, isCarousel]);
 
   return (
     <NativePressable
@@ -207,7 +186,6 @@ const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
         recyclingKey={imageUri}
         loading={idx === 0 ? 'eager' : 'lazy'}
         transition={200}
-        onLoad={handleLoad}
       />
     </NativePressable>
   );
@@ -216,17 +194,19 @@ const GalleryImageItem: React.FC<GalleryImageItemProps> = ({
 const CommentImageGallery: React.FC<{
   images: EmbedImage[];
   onImagePress?: (uri: string) => void;
-}> = ({ images, onImagePress }) => {
-  const [containerWidth, setContainerWidth] = React.useState(300);
+  availableWidth: number;
+}> = ({ images, onImagePress, availableWidth }) => {
+  const { width: screenWidth } = useWindowDimensions();
+  const [containerWidth, setContainerWidth] = React.useState(availableWidth);
 
   const handleLayout = React.useCallback(
     (event: { nativeEvent: { layout: { width: number } } }) => {
-      setContainerWidth(event.nativeEvent.layout.width);
+      const w = event.nativeEvent.layout.width;
+      if (w > 0) setContainerWidth(w);
     },
     []
   );
 
-  // Single image: fills width naturally
   if (images.length === 1) {
     return (
       <View style={galleryStyles.outer} onLayout={handleLayout}>
@@ -235,29 +215,31 @@ const CommentImageGallery: React.FC<{
           idx={0}
           maxWidth={containerWidth}
           onImagePress={onImagePress}
+          isCarousel={false}
         />
       </View>
     );
   }
 
   return (
-    <View style={galleryStyles.outer} onLayout={handleLayout}>
+    <View style={[galleryStyles.outer, galleryStyles.carouselOuter]}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
         decelerationRate="fast"
         bounces={false}
-        contentContainerStyle={galleryStyles.scrollContent}
-        style={galleryStyles.scroll}
+        contentContainerStyle={galleryStyles.carouselContent}
+        style={galleryStyles.carouselScroll}
       >
         {images.map((img, idx) => (
           <GalleryImageItem
             key={img.thumb || img.fullsize || String(idx)}
             img={img}
             idx={idx}
-            maxWidth={Math.min(200, containerWidth * 0.6)}
+            maxWidth={screenWidth}
             onImagePress={onImagePress}
+            isCarousel={true}
           />
         ))}
       </ScrollView>
@@ -271,19 +253,23 @@ const galleryStyles = StyleSheet.create({
     marginBottom: 4,
     width: '100%',
   },
-  scroll: {
-    maxHeight: GALLERY_MAX_HEIGHT + 8,
+  carouselOuter: {
+    // Break right edge out of the list's paddingHorizontal so scroll reaches screen edge
+    marginRight: -LIST_PADDING_H,
   },
-  scrollContent: {
+  carouselScroll: {
+    maxHeight: CAROUSEL_FIXED_HEIGHT + 8,
+  },
+  carouselContent: {
     gap: GALLERY_ITEM_GAP,
     alignItems: 'flex-start',
-    paddingRight: 16,
+    paddingRight: LIST_PADDING_H,
     paddingVertical: 4,
   },
   item: {
     borderRadius: BORDER_RADIUS.MEDIUM,
     overflow: 'hidden',
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.neutral[900],
   },
 });
 
@@ -300,6 +286,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   onLayoutChange: _onLayoutChange,
 }) => {
   const { t } = useTranslation();
+  const { width: screenWidth } = useWindowDimensions();
   const uri = getCommentUri(comment);
   const cid = getCommentCid(comment);
 
@@ -793,7 +780,13 @@ const CommentItem: React.FC<CommentItemProps> = ({
     ]
   );
 
-  const renderImages = (_hasText: boolean) => {
+  const avatarAndMargin = level > 0 ? 42 : 52;
+  const imgAvailableWidth = Math.max(
+    100,
+    screenWidth - LIST_PADDING_H * 2 - avatarAndMargin - 36 - level * 14
+  );
+
+  const renderImages = () => {
     const embed = getCommentEmbed(comment);
 
     const isExternalEmbed = (
@@ -827,6 +820,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
             onImagePress={uri =>
               onImagePress ? onImagePress(uri) : Linking.openURL(uri).catch(() => {})
             }
+            availableWidth={imgAvailableWidth}
           />
         );
       }
@@ -855,7 +849,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
           alt?: string;
           aspectRatio?: { width?: number; height?: number } | unknown;
         };
-        // Extract aspect ratio safely from the API response
         let ar: { width: number; height: number } | undefined;
         if (imgObj.aspectRatio && typeof imgObj.aspectRatio === 'object') {
           const arObj = imgObj.aspectRatio as { width?: number; height?: number };
@@ -878,7 +871,13 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
     if (embedImages.length === 0) return null;
 
-    return <CommentImageGallery images={embedImages} onImagePress={onImagePress} />;
+    return (
+      <CommentImageGallery
+        images={embedImages}
+        onImagePress={onImagePress}
+        availableWidth={imgAvailableWidth}
+      />
+    );
   };
 
   return (
@@ -906,6 +905,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
             />
           </NativePressable>
           <View style={styles.commentItemBody}>
+            <View style={styles.commentItemContent}>
             <View style={styles.commentItemAuthorRow}>
               <NativePressable
                 onPress={() => {
@@ -936,22 +936,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   textColor={Colors.neutral[50]}
                 />
               )}
-              <View style={styles.commentActionsContainer}>
-                <NativePressable
-                  onPress={handleLikeComment}
-                  style={styles.likeButton}
-                  disabled={isLiking}
-                >
-                  <Animated.View style={heartAnimatedStyle}>
-                    <NanoIcon
-                      name="comment-heart-fill"
-                      size={20}
-                      color={isLiked ? Colors.coral[500] : Colors.neutral[500]}
-                    />
-                  </Animated.View>
-                </NativePressable>
-                {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
-              </View>
             </View>
             {parent && parentAuthorName && level > 0 && parent.parent && (
               <NativePressable
@@ -987,7 +971,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 }
               />
             ) : null}
-            {renderImages(!!commentText)}
+            {renderImages()}
             <View style={styles.commentMetaContainer}>
               <RelativeDate dateString={comment?.indexedAt} style={styles.commentTimestamp} />
               <NativePressable onPress={handleReplyPress} style={styles.replyButton}>
@@ -1009,6 +993,23 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   <NanoIcon name="more-fill" size={16} color={Colors.neutral[300]} />
                 </NativePressable>
               </MenuView>
+            </View>
+            </View>
+            <View style={styles.commentActionsColumn}>
+              <NativePressable
+                onPress={handleLikeComment}
+                style={styles.likeButton}
+                disabled={isLiking}
+              >
+                <Animated.View style={heartAnimatedStyle}>
+                  <NanoIcon
+                    name="comment-heart-fill"
+                    size={20}
+                    color={isLiked ? Colors.coral[500] : Colors.neutral[500]}
+                  />
+                </Animated.View>
+              </NativePressable>
+              {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
             </View>
           </View>
         </View>
@@ -1077,7 +1078,12 @@ const styles = StyleSheet.create({
   commentItemBody: {
     flex: 1,
     minWidth: 0,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  commentItemContent: {
+    flex: 1,
+    minWidth: 0,
   },
   commentItemAuthorRow: {
     flexDirection: 'row',
@@ -1150,16 +1156,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  commentActionsContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 'auto',
+  commentActionsColumn: {
+    width: 36,
     paddingLeft: 8,
-    width: 32,
+    alignItems: 'center',
   },
   likeButton: {
-    width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   likeCount: {
     ...TextStyles.captionSmall,
