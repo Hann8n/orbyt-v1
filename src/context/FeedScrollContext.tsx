@@ -42,6 +42,3 @@ export function useFeedScrollMotion(): FeedScrollMotionValue | null {
   return useContext(FeedScrollMotionContext);
 }
 
-export function useFeedScrollLayout(): FeedScrollLayoutValue | null {
-  return useContext(FeedScrollLayoutContext);
-}
