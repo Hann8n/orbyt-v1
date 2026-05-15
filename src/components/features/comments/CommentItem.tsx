@@ -1011,22 +1011,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   );
 };
 
-function areEqualCommentItem(prevProps: CommentItemProps, nextProps: CommentItemProps) {
-  return (
-    prevProps.comment === nextProps.comment &&
-    prevProps.onDismiss === nextProps.onDismiss &&
-    prevProps.onCommentDeleted === nextProps.onCommentDeleted &&
-    prevProps.onReplyPress === nextProps.onReplyPress &&
-    prevProps.rootUri === nextProps.rootUri &&
-    prevProps.rootCid === nextProps.rootCid &&
-    prevProps.level === nextProps.level &&
-    prevProps.onImagePress === nextProps.onImagePress &&
-    prevProps.highlightUri === nextProps.highlightUri &&
-    prevProps.onLayoutChange === nextProps.onLayoutChange
-  );
-}
-
-const MemoizedCommentItem = React.memo(CommentItem, areEqualCommentItem);
+const MemoizedCommentItem = React.memo(CommentItem);
 
 const styles = StyleSheet.create({
   commentThreadContainer: {

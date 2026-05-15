@@ -6,7 +6,6 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import Animated, {
   useAnimatedStyle,
-  useDerivedValue,
   withTiming,
   SharedValue,
   useAnimatedReaction,
@@ -128,17 +127,14 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
   const shouldShowExpanded = useMemo(() => isComplete || showContent, [isComplete, showContent]);
 
   // All hooks must be called before early return
-  const animatedProgress = useDerivedValue(() => {
-    'worklet';
-    return withTiming(progress, { duration: 300 });
-  }, [progress]);
+  const animatedProgress = useSharedValue(progress);
+  useEffect(() => {
+    animatedProgress.value = withTiming(progress, { duration: 300 });
+  }, [progress, animatedProgress]);
 
-  const progressStyle = useAnimatedStyle(
-    () => ({
-      width: `${animatedProgress.value}%`,
-    }),
-    []
-  );
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${animatedProgress.value}%`,
+  }));
 
   const isCompleteShared = useSharedValue(isComplete);
 
@@ -254,10 +250,4 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
   );
 };
 
-export const VideoUploadBanner = React.memo(VideoUploadBannerComponent, (prevProps, nextProps) => {
-  return (
-    prevProps.topInset === nextProps.topInset &&
-    prevProps.applySafeArea === nextProps.applySafeArea &&
-    prevProps.scrollY === nextProps.scrollY
-  );
-});
+export const VideoUploadBanner = React.memo(VideoUploadBannerComponent);

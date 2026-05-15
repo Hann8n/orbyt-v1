@@ -4,7 +4,6 @@ import {
   useCallback,
   useMemo,
   useRef,
-  forwardRef,
   useImperativeHandle,
   memo,
   type ComponentType,
@@ -12,9 +11,7 @@ import {
 } from 'react';
 import {
   View,
-  Dimensions,
   StyleSheet,
-  ScaledSize,
   LayoutChangeEvent,
   Platform,
   ActivityIndicator,
@@ -95,6 +92,8 @@ const getListItemType = (item: FeedListItem): string => {
 };
 
 const listKeyExtractor = (item: FeedListItem, index: number): string => getFeedItemKey(item, index);
+
+const isFeedListHeaderItem = (item: unknown): boolean => isFeedHeaderItem(item as FeedListItem);
 
 interface ListEmptyComponentProps {
   isLoading: boolean;
@@ -241,36 +240,33 @@ const EndOfFeedOverscrollHint = memo(
 );
 EndOfFeedOverscrollHint.displayName = 'EndOfFeedOverscrollHint';
 
-const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
-  (
-    {
-      feed,
-      headerComponent,
-      backgroundColor,
-      secondaryColor,
-      feedOption,
-      userDid,
-      onLoadMore,
-      isFetchingNextPage,
-      hasNextPage,
-      isLoading,
-      isError,
-      onRetry,
-      isVisible = true,
-      viewMode,
-      onViewModeChange: _onViewModeChange,
-      hasTabBar: hasTabBarProp,
-      contentScrollProgressOutput,
-      forceError = false,
-      ListComponent,
-      onGridItemPress: onGridItemPressProp,
-      zoomTargetPostUri,
-      gridFeedModalZoomConfig,
-      pullToRefresh,
-      onHashtagPress,
-    },
-    ref
-  ) => {
+function ListFeedViewComponent({
+  feed,
+  headerComponent,
+  backgroundColor,
+  secondaryColor,
+  feedOption,
+  userDid,
+  onLoadMore,
+  isFetchingNextPage,
+  hasNextPage,
+  isLoading,
+  isError,
+  onRetry,
+  isVisible = true,
+  viewMode,
+  onViewModeChange: _onViewModeChange,
+  hasTabBar: hasTabBarProp,
+  contentScrollProgressOutput,
+  forceError = false,
+  ListComponent,
+  onGridItemPress: onGridItemPressProp,
+  zoomTargetPostUri,
+  gridFeedModalZoomConfig,
+  pullToRefresh,
+  onHashtagPress,
+  ref,
+}: ListFeedViewProps & { ref?: Ref<ListFeedViewRef> }) {
     const resolvedViewMode = viewMode ?? 'list';
 
     const insets = useSafeAreaInsets();
@@ -301,32 +297,26 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const hasHeader = Boolean(headerComponent);
     const chromeVisibleMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
 
+    useEffect(() => {
+      if (listSurfaceActive) tabBarVisibility.value = 1;
+    }, [listSurfaceActive, tabBarVisibility]);
+
     useAnimatedReaction(
-      () => [scrollOffsetYSV.value, listSurfaceActive] as const,
-      (current, previous) => {
+      () => scrollOffsetYSV.value,
+      (y, prevY) => {
         'worklet';
-
         if (!listSurfaceActive) return;
-
-        const y = Math.max(0, current[0]);
-        const prevY = previous === null ? y : Math.max(0, previous[0]);
-        const prevVisible = previous === null ? false : previous[1];
-
-        // Re-evaluate immediately when becoming visible (feed switch / screen focus)
-        if (previous === null || !prevVisible) {
+        const cy = Math.max(0, y);
+        const py = prevY === null ? cy : Math.max(0, prevY);
+        if (cy < chromeVisibleMaxY) {
           tabBarVisibility.value = 1;
-          return;
-        }
-
-        if (y < chromeVisibleMaxY) {
-          tabBarVisibility.value = 1;
-        } else if (y > prevY + CHROME_HIDE_DIRECTION_THRESHOLD_PX) {
+        } else if (cy > py + CHROME_HIDE_DIRECTION_THRESHOLD_PX) {
           tabBarVisibility.value = 0;
-        } else if (y < prevY - CHROME_SHOW_DIRECTION_THRESHOLD_PX) {
+        } else if (cy < py - CHROME_SHOW_DIRECTION_THRESHOLD_PX) {
           tabBarVisibility.value = 1;
         }
       },
-      [scrollOffsetYSV, tabBarVisibility, chromeVisibleMaxY]
+      [scrollOffsetYSV, tabBarVisibility, listSurfaceActive, chromeVisibleMaxY]
     );
 
     const { screenWidth, screenHeight, isCompact } = useDeviceLayout();
@@ -383,12 +373,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       setActiveIndex(headerOffset);
     }, [feed.length, headerComponent]);
 
-    const isHeaderItem = useCallback(
-      (item: unknown) =>
-        typeof item === 'object' && item !== null && 'type' in item && (item as { type: string }).type === 'header',
-      []
-    );
-
     const {
       canPlay,
       onViewableItemsChanged,
@@ -396,7 +380,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     } = useFeedVisibility({
       isActive: listSurfaceActive,
       onActiveVisibleIndexChange: handleActiveVisibleIndexChange,
-      isHeaderItem,
+      isHeaderItem: isFeedListHeaderItem,
     });
 
     const profileColors = getProfileColors(backgroundColor, secondaryColor);
@@ -491,40 +475,21 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [headerHeight]
     );
 
-    const handleOrientationChange = useCallback(
-      (_event: { window: ScaledSize }) => {
-        const idx = activeVisibleIndexRef.current;
-        if (
-          flashListRef.current &&
-          feed.length > 0 &&
-          listSurfaceActive &&
-          idx >= 0 &&
-          resolvedViewMode === 'list'
-        ) {
-          try {
-            flashListRef.current.scrollToIndex({
-              index: idx,
-              animated: false,
-              viewPosition: 0.5,
-            });
-          } catch (_error) {
-            // Handle scroll errors gracefully
-          }
-        }
-      },
-      [feed.length, listSurfaceActive, resolvedViewMode]
-    );
-
+    const isMountedRef = useRef(false);
     useEffect(() => {
-      const subscription = Dimensions.addEventListener('change', handleOrientationChange);
-      return () => subscription?.remove();
-    }, [handleOrientationChange]);
+      if (!isMountedRef.current) {
+        isMountedRef.current = true;
+        return;
+      }
+      const idx = activeVisibleIndexRef.current;
+      if (!flashListRef.current || feed.length === 0 || !listSurfaceActive || idx < 0 || resolvedViewMode !== 'list') return;
+      try {
+        flashListRef.current.scrollToIndex({ index: idx, animated: false, viewPosition: 0.5 });
+      } catch (_error) {}
+    }, [screenWidth, feed.length, listSurfaceActive, resolvedViewMode]);
 
     const itemSpacing = cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
 
-    const overrideItemLayout = useCallback((layout: { span?: number; size?: number }) => {
-      layout.size = cardHeight;
-    }, [cardHeight]);
 
     const listViewportForEmpty = feedLayoutHeight > 0 ? feedLayoutHeight : viewableAreaHeight;
     const emptyStateHeaderDeduction = ListComponent
@@ -712,10 +677,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     const listHeaderElement = useMemo(() => null, []);
 
-    const listFooterElement = useMemo(
-      () => (feed.length > 0 ? <View style={styles.itemSeparator} /> : null),
-      [feed.length]
-    );
+    const listFooterElement = useMemo(() => {
+      if (feed.length === 0 && headerComponent) {
+        return listEmptyElement;
+      }
+      return feed.length > 0 ? <View style={styles.itemSeparator} /> : null;
+    }, [feed.length, headerComponent, listEmptyElement]);
 
     const listBody = useMemo(
       () => (
@@ -734,7 +701,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               data={listData}
               renderItem={renderItem}
               extraData={listRenderExtraData}
-              overrideItemLayout={overrideItemLayout}
               drawDistance={FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE}
               keyExtractor={listKeyExtractor}
               getItemType={getListItemType}
@@ -794,7 +760,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         listEmptyElement,
         listFooterElement,
         listContentContainerStyle,
-        overrideItemLayout,
       ]
     );
 
@@ -868,8 +833,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     ) : (
       stack
     );
-  }
-);
+}
 
 const styles = StyleSheet.create({
   tabSceneSafeArea: {

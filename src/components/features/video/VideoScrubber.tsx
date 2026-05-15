@@ -447,16 +447,7 @@ function VideoScrubberShell(props: VideoScrubberProps) {
   return <VideoScrubberActive {...props} />;
 }
 
-export const VideoScrubber = memo(VideoScrubberShell, (prevProps, nextProps) => {
-  return (
-    prevProps.active === nextProps.active &&
-    prevProps.player === nextProps.player &&
-    prevProps.seekingAnimationSV === nextProps.seekingAnimationSV &&
-    prevProps.scrollGesture === nextProps.scrollGesture &&
-    prevProps.overlayOpacitySV === nextProps.overlayOpacitySV &&
-    prevProps.children === nextProps.children
-  );
-});
+export const VideoScrubber = memo(VideoScrubberShell);
 
 const styles = StyleSheet.create({
   timeContainer: {

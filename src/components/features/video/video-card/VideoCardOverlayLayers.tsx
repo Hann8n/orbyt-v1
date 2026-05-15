@@ -73,34 +73,6 @@ function VideoCardOverlayLayers({
   );
 }
 
-const arePropsEqual = (
-  prev: VideoCardOverlayLayersProps,
-  next: VideoCardOverlayLayersProps
-): boolean => {
-  if (prev.renderHeavyChrome !== next.renderHeavyChrome) return false;
-  if (prev.showOverlay !== next.showOverlay) return false;
-  if (prev.shouldRenderScrubber !== next.shouldRenderScrubber) return false;
-  if (prev.scrubberActive !== next.scrubberActive) return false;
-  if (prev.isActive !== next.isActive) return false;
-  if (prev.showContentWarning !== next.showContentWarning) return false;
-  if (prev.cannotShowMedia !== next.cannotShowMedia) return false;
-  if (prev.isBlurred !== next.isBlurred) return false;
-  if (prev.warningDescription !== next.warningDescription) return false;
-  if (prev.onViewContent !== next.onViewContent) return false;
-
-  // Skip heavy comparisons entirely for rows where heavy chrome is not mounted.
-  if (!next.renderHeavyChrome) {
-    return true;
-  }
-
-  if (next.shouldRenderScrubber) {
-    if (prev.player !== next.player) return false;
-    if (prev.seekingAnimationSV !== next.seekingAnimationSV) return false;
-    if (prev.overlayOpacitySV !== next.overlayOpacitySV) return false;
-  }
-
-  return true;
-};
 
 const styles = StyleSheet.create({
   videoScrubberLayer: {
@@ -113,4 +85,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default memo(VideoCardOverlayLayers, arePropsEqual);
+export default memo(VideoCardOverlayLayers);
