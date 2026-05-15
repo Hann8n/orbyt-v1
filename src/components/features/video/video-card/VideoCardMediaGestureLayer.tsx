@@ -64,19 +64,6 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
     <GestureDetector gesture={videoGesture}>
       <View style={styles.videoContainerPressable} collapsable={false}>
         <View style={styles.videoContainer}>
-          {!!posterUrl && !cannotShowMedia && !firstFrameRendered && (
-            <Image
-              source={{ uri: posterUrl }}
-              contentFit="contain"
-              style={styles.poster}
-              recyclingKey={recyclingKey}
-              cachePolicy="memory-disk"
-              priority={posterPriority}
-              allowDownscaling
-              accessible={false}
-            />
-          )}
-
           {!!videoSource && !cannotShowMedia && !isBlurred && player && (
             <ExpoVideoView
               player={player}
@@ -88,6 +75,20 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
               allowsVideoFrameAnalysis={false}
               onFirstFrameRender={onFirstFrameRender}
               pointerEvents="none"
+            />
+          )}
+
+          {!!posterUrl && !cannotShowMedia && !firstFrameRendered && (
+            <Image
+              source={{ uri: posterUrl }}
+              contentFit="contain"
+              style={styles.poster}
+              pointerEvents="none"
+              recyclingKey={recyclingKey}
+              cachePolicy="memory-disk"
+              priority={posterPriority}
+              allowDownscaling
+              accessible={false}
             />
           )}
 
@@ -130,6 +131,7 @@ const styles = StyleSheet.create({
   },
   poster: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.black,
   },
   loadingText: {
     color: Colors.neutral[50],

@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
   thumbnail: {
     width: '100%',
     height: '100%',
-    backgroundColor: Colors.neutral[950],
+    backgroundColor: Colors.black,
   },
 });
 
