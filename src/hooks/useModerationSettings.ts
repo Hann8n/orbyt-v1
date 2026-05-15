@@ -11,7 +11,7 @@ export function useModerationSettings(userDid?: string) {
 
   const effectiveDid = userDid || currentUser?.did;
 
-  const query = useQuery({
+  const { data } = useQuery({
     queryKey: effectiveDid ? queryKeys.moderation.byUser(effectiveDid) : ['moderation', 'no-user'],
     queryFn: async () => {
       const result = await ModerationService.getModerationPrefsAndLabelDefs(agent ?? undefined);
@@ -21,17 +21,14 @@ export function useModerationSettings(userDid?: string) {
     staleTime: QUERY_CONSTANTS.STALE_TIME_LONG,
     gcTime: QUERY_CONSTANTS.GC_TIME,
     retry: 1,
+    select: raw => ({
+      moderationPrefs: raw?.moderationPrefs ?? null,
+      labelDefs: raw?.labelDefs ?? null,
+    }),
   });
-
-  const data = query.data;
 
   return {
     moderationPrefs: data?.moderationPrefs ?? null,
     labelDefs: data?.labelDefs ?? null,
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
-    isFetching: query.isFetching,
-    refetch: query.refetch,
   };
 }

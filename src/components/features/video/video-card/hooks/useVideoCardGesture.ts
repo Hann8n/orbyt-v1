@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
 import { Gesture } from 'react-native-gesture-handler';
+import { scheduleOnRN } from 'react-native-worklets';
 import {
   cancelAnimation,
   Easing,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-
 
 export interface UseVideoCardGestureArgs {
   postUri: string;
@@ -58,7 +57,9 @@ export function useVideoCardGesture({
   }, [postUri, heartScale, heartOpacity]);
 
   // Heartbeat pattern: quick beat, slight dip, second beat, then fade out.
+  // Worklet — runs on the UI thread directly from gesture callbacks, no thread hop needed.
   const animateHeart = useCallback(() => {
+    'worklet';
     heartScale.value = 0;
     heartOpacity.value = 0;
 
@@ -79,16 +80,16 @@ export function useVideoCardGesture({
   }, [heartScale, heartOpacity]);
 
   // RNGH gesture: exclusive between double-tap and single-tap (double-tap takes priority),
-  // then race with long-press. Recognition runs on the UI thread; runOnJS bridges to JS
-  // only when a gesture is confirmed (no overhead during idle scroll).
+  // then race with long-press. Recognition runs on the UI thread; scheduleOnRN bridges to
+  // the JS thread only when a gesture is confirmed (no overhead during idle scroll).
   const gesture = useMemo(() => {
     const doubleTap = Gesture.Tap()
       .numberOfTaps(2)
       .onEnd((_event, success) => {
         'worklet';
         if (!success) return;
-        runOnJS(animateHeart)();
-        runOnJS(onDoubleTap)();
+        animateHeart();
+        scheduleOnRN(onDoubleTap);
       });
 
     const singleTap = Gesture.Tap()
@@ -96,7 +97,7 @@ export function useVideoCardGesture({
       .onEnd((_event, success) => {
         'worklet';
         if (!success) return;
-        runOnJS(onSingleTap)();
+        scheduleOnRN(onSingleTap);
       });
 
     const longPress = Gesture.LongPress()
@@ -104,8 +105,8 @@ export function useVideoCardGesture({
       .onEnd((_event, success) => {
         'worklet';
         if (!success) return;
-        runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Medium);
-        runOnJS(onLongPress)();
+        scheduleOnRN(Haptics.impactAsync, Haptics.ImpactFeedbackStyle.Medium);
+        scheduleOnRN(onLongPress);
       });
 
     return Gesture.Race(Gesture.Exclusive(doubleTap, singleTap), longPress);

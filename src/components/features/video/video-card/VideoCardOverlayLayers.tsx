@@ -5,6 +5,7 @@ import type { VideoPlayer } from 'expo-video';
 import { VideoScrubber } from '../VideoScrubber';
 import VideoOverlayUI, { type VideoOverlayUIProps } from '../VideoOverlayUI';
 import VideoCardContentWarningLayer from './VideoCardContentWarningLayer';
+import { OVERLAY_Z_INDEX } from '../../../../utils/constants/overlay';
 
 export interface VideoCardOverlayLayersProps {
   /** When false, skip scrubber + social overlay (list rows far from the active page). Content warning still mounts. */
@@ -72,89 +73,16 @@ function VideoCardOverlayLayers({
   );
 }
 
-const areOverlayPropsEqual = (prev: VideoOverlayUIProps, next: VideoOverlayUIProps): boolean => {
-  if (prev.post?.uri !== next.post?.uri) return false;
-
-  if (prev.isLiked !== next.isLiked) return false;
-  if (prev.isReposted !== next.isReposted) return false;
-  if (prev.likeCount !== next.likeCount) return false;
-  if (prev.commentCount !== next.commentCount) return false;
-  if (prev.repostCount !== next.repostCount) return false;
-  if (prev.isLikePending !== next.isLikePending) return false;
-  if (prev.isRepostPending !== next.isRepostPending) return false;
-
-  if (prev.isFollowing !== next.isFollowing) return false;
-  if (prev.hasProfile !== next.hasProfile) return false;
-  if (prev.isCurrentUserProfile !== next.isCurrentUserProfile) return false;
-  if (prev.channelSlug !== next.channelSlug) return false;
-
-  if (prev.sourceFeed !== next.sourceFeed) return false;
-  if (prev.overlayOpacitySV !== next.overlayOpacitySV) return false;
-
-  if (prev.onLike !== next.onLike) return false;
-  if (prev.onRepost !== next.onRepost) return false;
-  if (prev.onOverlayCollapsedChange !== next.onOverlayCollapsedChange) return false;
-  if (prev.onChannelPress !== next.onChannelPress) return false;
-  if (prev.onAuthorPress !== next.onAuthorPress) return false;
-  if (prev.onRepostAuthorPress !== next.onRepostAuthorPress) return false;
-  if (prev.onOpenComments !== next.onOpenComments) return false;
-  if (prev.onSharePress !== next.onSharePress) return false;
-  if (prev.onFollowPress !== next.onFollowPress) return false;
-  if (prev.onHashtagPress !== next.onHashtagPress) return false;
-
-  const prevOverlay = prev.authorProfileOverlay;
-  const nextOverlay = next.authorProfileOverlay;
-  if ((prevOverlay?.isAuthorBlocked ?? false) !== (nextOverlay?.isAuthorBlocked ?? false))
-    return false;
-  if ((prevOverlay?.authorDid ?? null) !== (nextOverlay?.authorDid ?? null)) return false;
-  if (prevOverlay?.authorProfileStatus !== nextOverlay?.authorProfileStatus) return false;
-  if (prevOverlay?.profileColors !== nextOverlay?.profileColors) return false;
-
-  return true;
-};
-
-const arePropsEqual = (
-  prev: VideoCardOverlayLayersProps,
-  next: VideoCardOverlayLayersProps
-): boolean => {
-  if (prev.renderHeavyChrome !== next.renderHeavyChrome) return false;
-  if (prev.showOverlay !== next.showOverlay) return false;
-  if (prev.shouldRenderScrubber !== next.shouldRenderScrubber) return false;
-  if (prev.scrubberActive !== next.scrubberActive) return false;
-  if (prev.isActive !== next.isActive) return false;
-  if (prev.showContentWarning !== next.showContentWarning) return false;
-  if (prev.cannotShowMedia !== next.cannotShowMedia) return false;
-  if (prev.isBlurred !== next.isBlurred) return false;
-  if (prev.warningDescription !== next.warningDescription) return false;
-  if (prev.onViewContent !== next.onViewContent) return false;
-
-  // Skip heavy comparisons entirely for rows where heavy chrome is not mounted.
-  if (!next.renderHeavyChrome) {
-    return true;
-  }
-
-  if (next.shouldRenderScrubber) {
-    if (prev.player !== next.player) return false;
-    if (prev.seekingAnimationSV !== next.seekingAnimationSV) return false;
-    if (prev.overlayOpacitySV !== next.overlayOpacitySV) return false;
-  }
-
-  if (next.showOverlay && !areOverlayPropsEqual(prev.overlayProps, next.overlayProps)) {
-    return false;
-  }
-
-  return true;
-};
 
 const styles = StyleSheet.create({
   videoScrubberLayer: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 10,
+    zIndex: OVERLAY_Z_INDEX.SCRUBBER,
   },
   videoOverlayLayer: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 14,
+    zIndex: OVERLAY_Z_INDEX.OVERLAY_CONTENT,
   },
 });
 
-export default memo(VideoCardOverlayLayers, arePropsEqual);
+export default memo(VideoCardOverlayLayers);

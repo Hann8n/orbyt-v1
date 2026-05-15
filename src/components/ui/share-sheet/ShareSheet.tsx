@@ -1,8 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
-import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../../../utils/query/queryKeys';
 import { View, Text, StyleSheet, Share, Platform, Alert, ScrollView } from 'react-native';
 import { NativePressable } from '../NativePressable';
 import { SquircleView } from '../Squircle';
@@ -19,14 +18,14 @@ import {
 import Icon from '../Icon';
 import CloseButton from '../CloseButton';
 import CancelButton from '../CancelButton';
-import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
-import { BookmarkService } from '../../../services/api/bookmark/BookmarkService';
 import { ModerationService } from '../../../services/moderation/ModerationService';
 import { Colors } from '../UI';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useBookmarkStore } from '../../../stores/bookmarkStore';
 import { useUserStore } from '../../../stores/userStore';
+import { useBookmarkMutation } from '../../../hooks/useBookmarkMutation';
+import { useDeletePostMutation } from '../../../hooks/useDeletePostMutation';
 import SendToPicker from './SendToPicker';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 
@@ -37,21 +36,20 @@ const ShareSheet: React.FC = () => {
 
   // Always render the TrueSheet component, but only show content when there's data
   const { postUri, postCid, authorDid, authorName, authorHandle } = data || {};
-  const queryClient = useQueryClient();
-  const [isCurrentUser, setIsCurrentUser] = useState<boolean>(false);
   const [showConversationPicker, setShowConversationPicker] = useState<boolean>(false);
-  const [currentUserDid, setCurrentUserDid] = useState<string>('');
   const [isSheetPresented, setIsSheetPresented] = useState(false);
-  // Bookmark store
-  const isBookmarked = useBookmarkStore(state => (postUri ? state.isBookmarked(postUri) : false));
-  const addBookmark = useBookmarkStore(state => state.addBookmark);
-  const removeBookmark = useBookmarkStore(state => state.removeBookmark);
+  const { isBookmarked } = useBookmarkStore(
+    useShallow(state => ({
+      isBookmarked: postUri ? state.isBookmarked(postUri) : false,
+    }))
+  );
+  const { mutate: toggleBookmark } = useBookmarkMutation();
+  const { mutate: deletePost } = useDeletePostMutation();
 
   const footerTop = FOOTER_TOP_PADDING_DEFAULT;
   const footerFallbackHeight = footerTop + 44;
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
 
-  // Present/dismiss sheet based on data presence (TrueSheet v3+)
   useEffect(() => {
     if (data) {
       if (!isSheetPresented) {
@@ -62,100 +60,38 @@ const ShareSheet: React.FC = () => {
     }
   }, [data, isSheetPresented]);
 
-  // Get current user from store instead of API call
   const currentUser = useUserStore(state => state.currentUser);
-  // Check if the current user is the author - use store instead of API call
-  useEffect(() => {
-    if (authorDid) {
-      const did = currentUser?.did || '';
-      setCurrentUserDid(did);
-      setIsCurrentUser(did === authorDid);
-    }
-  }, [authorDid, currentUser?.did]);
+  const currentUserDid = currentUser?.did ?? '';
+  const isCurrentUser = !!authorDid && currentUserDid === authorDid;
 
-  // Handle dismiss from TrueSheet - fires when sheet is dismissed by any means
   const handleDismiss = useCallback(() => {
     setIsSheetPresented(false);
     dismissShareSheet(true);
     setShowConversationPicker(false);
   }, [dismissShareSheet, setIsSheetPresented, setShowConversationPicker]);
 
-  // Programmatic dismiss function for buttons
   const dismissSheet = useCallback(() => {
     // Let TrueSheet handle dismissal; onDidDismiss (handleDismiss) clears store state
     TrueSheet.dismiss('share-sheet').catch(() => {});
   }, []);
 
-  // Bookmark handler - instant optimistic update
   const handleBookmark = () => {
     if (!postUri) return;
-
-    const newIsBookmarked = !isBookmarked;
-
-    // Instant optimistic update - no waiting
-    if (newIsBookmarked) {
-      // Use postCid if available, otherwise use empty string (will be fetched in background)
-      addBookmark(postUri, { uri: postUri, cid: postCid || '' });
-    } else {
-      removeBookmark(postUri);
-    }
-
-    // Perform API call in background without blocking
-    (async () => {
-      try {
-        // Get CID if missing (only for API call)
-        let cid = postCid;
-        if (!cid) {
-          try {
-            const post = await AtprotoFeedService.getPost(postUri);
-            cid = post?.cid || '';
-          } catch {
-            cid = '';
-          }
-        }
-
-        if (!cid) {
-          // If we still don't have CID, try to revert
-          if (newIsBookmarked) {
-            removeBookmark(postUri);
-          } else {
-            addBookmark(postUri, { uri: postUri, cid: '' });
-          }
-          return;
-        }
-
-        if (newIsBookmarked) {
-          await BookmarkService.createBookmark(postUri, cid);
-        } else {
-          await BookmarkService.deleteBookmark(postUri);
-        }
-      } catch (_error) {
-        // Revert optimistic update on error
-        if (newIsBookmarked) {
-          removeBookmark(postUri);
-        } else {
-          addBookmark(postUri, { uri: postUri, cid: postCid || '' });
-        }
-      }
-    })();
+    toggleBookmark({ uri: postUri, cid: postCid || '', isBookmarked });
   };
 
-  // Helper function to report content
   const reportContent = async (
     reasonType: 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other'
   ) => {
     if (!postUri) return;
 
-    // Optimistic update - mark as reported immediately and dismiss
     const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
     const store = useReportedPostsStore.getState();
     store.reportPost(postUri);
     dismissSheet();
 
-    // Show success message immediately
     Alert.alert(t('common.thankYou'), t('alerts.contentReported'));
 
-    // Perform report in background
     try {
       const success = await ModerationService.reportContent(postUri, reasonType);
       if (!success) {
@@ -168,9 +104,7 @@ const ShareSheet: React.FC = () => {
     }
   };
 
-  // Report or delete post handler
   const handleReportOrDelete = () => {
-    // For current user, show delete option
     if (isCurrentUser) {
       Alert.alert(t('alerts.deletePost'), t('alerts.deletePostConfirm'), [
         {
@@ -180,42 +114,16 @@ const ShareSheet: React.FC = () => {
         {
           text: t('common.delete'),
           style: 'destructive',
-          onPress: async () => {
+          onPress: () => {
             if (!postUri) return;
-
-            // Optimistic update - dismiss sheet immediately
             dismissSheet();
-
-            // Invalidate queries immediately for responsive UI
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.feed.all,
-              refetchType: 'active',
+            deletePost(postUri, {
+              onError: () => Alert.alert(t('common.error'), t('alerts.failedToDeletePost')),
             });
-
-            // Perform deletion in background
-            try {
-              const success = await AtprotoFeedService.deletePost(postUri);
-              if (!success) {
-                // Re-invalidate on error to ensure UI is correct
-                queryClient.invalidateQueries({
-                  queryKey: queryKeys.feed.all,
-                  refetchType: 'active',
-                });
-                Alert.alert(t('common.error'), t('alerts.failedToDeletePost'));
-              }
-            } catch (_error) {
-              // Re-invalidate on error to ensure UI is correct
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.feed.all,
-                refetchType: 'active',
-              });
-              Alert.alert(t('common.error'), t('alerts.failedToDeletePost'));
-            }
           },
         },
       ]);
     } else {
-      // For other users' content, show report option
       Alert.alert(t('alerts.reportContent'), t('alerts.reportContentPrompt'), [
         {
           text: t('common.cancel'),
@@ -249,7 +157,6 @@ const ShareSheet: React.FC = () => {
     }
   };
 
-  // Share link handler
   const handleShare = async () => {
     if (!postUri) return;
     try {
@@ -258,7 +165,6 @@ const ShareSheet: React.FC = () => {
       const rkey = parts.length >= 3 ? parts[2] : '';
       if (!rkey) return;
 
-      // Use DID if handle ends with .invalid, otherwise use handle
       const identifier =
         authorHandle && !authorHandle.endsWith('.invalid') ? authorHandle : authorDid;
       if (!identifier) return;
@@ -288,7 +194,6 @@ const ShareSheet: React.FC = () => {
     dismissSheet();
   }, [dismissSheet]);
 
-  // Neon accent colors for share-sheet (electric glow)
   const NEON = {
     purple: '#c084fc',
     green: '#22c55e',
@@ -296,7 +201,6 @@ const ShareSheet: React.FC = () => {
     coral: '#ff3366',
   };
 
-  // Get menu options based on current state
   const getMenuOptions = () => {
     const options = [
       {
@@ -338,7 +242,6 @@ const ShareSheet: React.FC = () => {
 
   const menuOptions = getMenuOptions();
 
-  // Header component for TrueSheet header prop
   const headerTitleText =
     authorName || authorHandle
       ? t('share.postBy', { author: authorHandle ? formatHandle(authorHandle) : authorName })
@@ -353,7 +256,6 @@ const ShareSheet: React.FC = () => {
     </View>
   );
 
-  // Don't render content if no data
   if (!data) {
     return (
       <AppTrueSheet
@@ -430,7 +332,6 @@ const ShareSheet: React.FC = () => {
         </View>
       </AppTrueSheet>
 
-      {/* Send-to picker: isolated child sheet with its own footer */}
       {data && (
         <SendToPicker
           visible={showConversationPicker}

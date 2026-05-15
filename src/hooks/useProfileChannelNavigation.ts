@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 
 import { useDetailNavTabStore } from '@/stores/detailNavTabStore';
@@ -6,63 +6,49 @@ import {
   buildChannelDetailHref,
   buildProfileDetailHref,
   isRootModalStackContext,
-  type BuildDetailHrefOptions,
   type DetailNavTab,
 } from '@/utils/navigation/detailRoutes';
 
-type UseProfileChannelNavigationOptions = {
-  /** Overrides last focused tab when not under `(tabs)` (e.g. tests). */
-  fallbackTab?: DetailNavTab;
-};
+const TAB_SEGMENTS: readonly DetailNavTab[] = ['home', 'explore', 'activity', 'profile'];
 
-/**
- * Tab-aware profile/channel navigation: pushes on the active tab’s stack (or last focused tab when
- * outside tabs, e.g. settings modal — see `DetailNavTabSegmentSync` in `app/(tabs)/_layout.tsx`).
- */
-export function useProfileChannelNavigation(options?: UseProfileChannelNavigationOptions) {
+export function useProfileChannelNavigation(options?: { fallbackTab?: DetailNavTab }) {
   const router = useRouter();
   const segments = useSegments();
   const lastFocusedDetailNavTab = useDetailNavTabStore(s => s.lastFocusedDetailNavTab);
-  const fallbackTab = options?.fallbackTab ?? lastFocusedDetailNavTab;
-
-  const hrefOpts: BuildDetailHrefOptions = useMemo(
-    () => ({
-      segments,
-      fallbackTab,
-    }),
-    [segments, fallbackTab]
-  );
+  const currentTab =
+    (segments.find(s => (TAB_SEGMENTS as readonly string[]).includes(s)) as DetailNavTab) ??
+    options?.fallbackTab ??
+    lastFocusedDetailNavTab;
 
   const navigateToProfile = useCallback(
     (did: string) => {
-      const href = buildProfileDetailHref(did, hrefOpts);
+      const href = buildProfileDetailHref(did, currentTab);
       if (isRootModalStackContext(segments)) {
         router.dismissTo(href);
       } else {
         router.navigate(href);
       }
     },
-    [router, hrefOpts, segments]
+    [router, currentTab, segments]
   );
 
   const navigateToChannel = useCallback(
     (encodedChannelId: string) => {
-      const href = buildChannelDetailHref(encodedChannelId, hrefOpts);
+      const href = buildChannelDetailHref(encodedChannelId, currentTab);
       if (isRootModalStackContext(segments)) {
         router.dismissTo(href);
       } else {
         router.navigate(href);
       }
     },
-    [router, hrefOpts, segments]
+    [router, currentTab, segments]
   );
 
   return {
     navigateToProfile,
     navigateToChannel,
-    hrefOpts,
-    buildProfileHref: (did: string) => buildProfileDetailHref(did, hrefOpts),
-    buildChannelHref: (encodedChannelId: string) =>
-      buildChannelDetailHref(encodedChannelId, hrefOpts),
+    currentTab,
+    buildProfileHref: (did: string) => buildProfileDetailHref(did, currentTab),
+    buildChannelHref: (encodedChannelId: string) => buildChannelDetailHref(encodedChannelId, currentTab),
   };
 }

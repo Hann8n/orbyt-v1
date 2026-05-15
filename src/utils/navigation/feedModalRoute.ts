@@ -1,6 +1,6 @@
 import type { Href } from 'expo-router';
 
-import type { FeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
+import type { DetailNavTab } from '@/utils/navigation/detailRoutes';
 
 /**
  * Serializable search params for tab-stack feed routes (`/(tabs)/{tab}/feed`).
@@ -9,13 +9,7 @@ import type { FeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment
 export type FeedModalSearchParams = {
   feedOption: string;
   userDid?: string;
-  initialIndex: string;
   initialPostUri: string;
-  hasNextPage?: string;
-  isFetchingNextPage?: string;
-  feed?: string;
-  backgroundColor?: string;
-  secondaryColor?: string;
 };
 
 /** Params for full-height video routes (`/(tabs)/{tab}/full-height-video`, seeded via `feedService.setCurrentFeed`). */
@@ -26,7 +20,7 @@ export type FullHeightVideoModalParams = {
 /** Typed `href` for the full-height video screen (push on current tab’s stack when possible). */
 export function buildFullHeightVideoHref(
   params: FullHeightVideoModalParams,
-  tab: FeedModalTabSegment = 'explore'
+  tab: DetailNavTab = 'explore'
 ): Href {
   return {
     pathname: `/(tabs)/${tab}/full-height-video`,
@@ -37,30 +31,14 @@ export function buildFullHeightVideoHref(
 /** Typed `href` for the feed stack screen inside a tab. */
 export function buildFeedModalHref(
   params: FeedModalSearchParams,
-  tab: FeedModalTabSegment = 'explore'
+  tab: DetailNavTab = 'explore'
 ): Href {
   const routeParams: Record<string, string> = {
     feedOption: params.feedOption,
-    initialIndex: params.initialIndex,
     initialPostUri: params.initialPostUri,
   };
   if (params.userDid) {
     routeParams.userDid = params.userDid;
-  }
-  if (params.hasNextPage !== undefined) {
-    routeParams.hasNextPage = params.hasNextPage;
-  }
-  if (params.isFetchingNextPage !== undefined) {
-    routeParams.isFetchingNextPage = params.isFetchingNextPage;
-  }
-  if (params.feed) {
-    routeParams.feed = params.feed;
-  }
-  if (params.backgroundColor) {
-    routeParams.backgroundColor = params.backgroundColor;
-  }
-  if (params.secondaryColor) {
-    routeParams.secondaryColor = params.secondaryColor;
   }
   return {
     pathname: `/(tabs)/${tab}/feed`,

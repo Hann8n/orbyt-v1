@@ -1,13 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text } from 'react-native';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import VerticalListSheet, { VerticalListCheckboxButton } from '../../ui/VerticalListSheet';
 import { SHEET_STYLES } from '../../../utils/components/truesheet';
 import { ChatService } from '../../../services/api/chat/ChatService';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileByDid } from '../../../services/data/ProfileService';
 import { queryKeys } from '../../../utils/query/queryKeys';
-import { useQueryClient } from '@tanstack/react-query';
 import { useSheetPresentation } from '../../../hooks';
 
 type AllowIncoming = 'all' | 'none' | 'following';
@@ -35,16 +35,19 @@ export default function ChatSettingsSheet({ visible, onDismiss }: ChatSettingsSh
 
   useSheetPresentation(visible, 'chat-settings-sheet');
 
+  const { mutate: updateDeclaration } = useMutation({
+    mutationFn: (value: AllowIncoming) => ChatService.updateChatDeclaration(did!, value),
+    onSuccess: () => {
+      if (did) queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(did) });
+    },
+  });
+
   const handleSelect = useCallback(
     (value: AllowIncoming) => {
       setLocalAllowIncoming(value);
-      if (did) {
-        ChatService.updateChatDeclaration(did, value).then(() => {
-          queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(did) });
-        });
-      }
+      if (did) updateDeclaration(value);
     },
-    [did, queryClient]
+    [did, updateDeclaration]
   );
 
   return (

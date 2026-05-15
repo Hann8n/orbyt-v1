@@ -63,7 +63,6 @@ export function useExploreSuggestionsQueries(
       const response = await AtprotoFeedService.getFeed(
         null,
         EXPLORE_SPOTLIGHT_FEED_URI,
-        {},
         true,
         10,
         'custom'

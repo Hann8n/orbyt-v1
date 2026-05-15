@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 
@@ -6,8 +6,15 @@ import { FEED_ROW_VIEWABILITY_CONFIG } from './feedRowVisibility';
 
 interface FeedVisibilityOptions {
   isActive: boolean;
+  /** When true, blocks playback regardless of other conditions (e.g., header visible). */
+  headerBlocking?: boolean;
   /** Emits the most visible row index from native list viewability callbacks. */
   onActiveVisibleIndexChange?: (index: number) => void;
+  /** Fired synchronously (layout effect) whenever canPlay changes. Caller can patch the
+   *  playback store directly rather than reading canPlay as a return value. */
+  onCanPlayChange?: (canPlay: boolean) => void;
+  /** Check if an item is a header item (SDK-native header visibility tracking). */
+  isHeaderItem?: (item: unknown) => boolean;
 }
 
 interface FeedVisibilityResult {
@@ -33,7 +40,10 @@ const selectViewableToken = (
  */
 export function useFeedVisibility({
   isActive,
+  headerBlocking = false,
   onActiveVisibleIndexChange,
+  onCanPlayChange,
+  isHeaderItem,
 }: FeedVisibilityOptions): FeedVisibilityResult {
   const isForeground = useSyncExternalStore(
     notify => {
@@ -43,7 +53,19 @@ export function useFeedVisibility({
     () => AppState.currentState === 'active',
     () => true
   );
-  const canPlay = isActive && isForeground;
+
+  const [headerVisible, setHeaderVisible] = useState(false);
+
+  const canPlay = isActive && isForeground && !headerBlocking && !headerVisible;
+
+  const onCanPlayChangeRef = useRef(onCanPlayChange);
+  useEffect(() => {
+    onCanPlayChangeRef.current = onCanPlayChange;
+  }, [onCanPlayChange]);
+
+  useEffect(() => {
+    onCanPlayChangeRef.current?.(canPlay);
+  }, [canPlay]);
 
   const onActiveVisibleIndexChangeRef = useRef(onActiveVisibleIndexChange);
   useEffect(() => {
@@ -54,6 +76,12 @@ export function useFeedVisibility({
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      // SDK-native header visibility tracking: check if header is in viewable items
+      const headerInViewable = isHeaderItem
+        ? viewableItems.some(item => item.isViewable && isHeaderItem(item.item))
+        : false;
+      setHeaderVisible(headerInViewable);
+
       const token = selectViewableToken(viewableItems);
       const nextIndex = typeof token?.index === 'number' ? token.index : -1;
 
@@ -67,13 +95,13 @@ export function useFeedVisibility({
         onActiveVisibleIndexChangeRef.current?.(nextIndex);
       }
     },
-    []
+    [isHeaderItem]
   );
 
   return {
+    canPlay,
     onViewableItemsChanged,
     viewabilityConfig: FEED_ROW_VIEWABILITY_CONFIG satisfies ViewabilityConfig,
-    canPlay,
   };
 }
 

@@ -2,16 +2,14 @@ import { memo, useMemo } from 'react';
 import { Image } from 'expo-image';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
+import { AppBskyActorDefs } from '@atproto/api';
 
 import { VideoOverlayActions } from './video-overlay/VideoOverlayActions';
 import { VideoOverlayAuthor } from './video-overlay/VideoOverlayAuthor';
 import { VideoOverlayCaption } from './video-overlay/VideoOverlayCaption';
 import type { ProfileColorScheme } from '../../../utils/formatting/colors';
-import type {
-  ExtendedPostView,
-  ProfileViewWithOrbyt,
-  StatusView,
-} from '../../../services/api/types';
+import type { ExtendedPostView } from '../../../services/api/types';
+import { OVERLAY_Z_INDEX } from '../../../utils/constants/overlay';
 
 const TOP_GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
 const BOTTOM_GRADIENT_SHIM = require('../../../assets/video-gradient.png');
@@ -53,10 +51,10 @@ export interface VideoOverlayUIProps {
     isAuthorBlocked: boolean;
     profileColors: ProfileColorScheme | null | undefined;
     authorDid: string | null | undefined;
-    authorProfileStatus: StatusView | null | undefined;
-    /** Verification slice from the by-DID profile cache. Threaded inline so
+    authorProfileStatus: AppBskyActorDefs.StatusView | null | undefined;
+    /** Verification slice from the feed's author.viewer — threaded inline so
      *  VerificationBadge can skip its own per-card `useProfile(handle)` query. */
-    verification: ProfileViewWithOrbyt['verification'];
+    verification: AppBskyActorDefs.VerificationState | undefined;
   };
 }
 
@@ -226,7 +224,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'flex-end',
     // Above scrubber (z 10) so overlay hitboxes (avatar, handle, actions) are tappable.
-    zIndex: 12,
+    zIndex: OVERLAY_Z_INDEX.OVERLAY_CONTAINER,
   },
   overlayContentContainer: {
     position: 'absolute',
@@ -234,7 +232,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 6,
     padding: 14,
-    zIndex: 2,
+    zIndex: OVERLAY_Z_INDEX.OVERLAY_CONTENT,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
@@ -248,48 +246,4 @@ const styles = StyleSheet.create({
   },
 });
 
-// Outer memo barrier on the wrapper. Children own their own memo boundaries; this comparator
-// only needs to gate identity changes that the children would all read.
-const arePropsEqual = (prev: VideoOverlayUIProps, next: VideoOverlayUIProps): boolean => {
-  if (prev.post?.uri !== next.post?.uri) return false;
-
-  if (prev.isLiked !== next.isLiked) return false;
-  if (prev.isReposted !== next.isReposted) return false;
-  if (prev.likeCount !== next.likeCount) return false;
-  if (prev.commentCount !== next.commentCount) return false;
-  if (prev.repostCount !== next.repostCount) return false;
-  if (prev.isLikePending !== next.isLikePending) return false;
-  if (prev.isRepostPending !== next.isRepostPending) return false;
-
-  if (prev.isFollowing !== next.isFollowing) return false;
-  if (prev.hasProfile !== next.hasProfile) return false;
-  if (prev.isCurrentUserProfile !== next.isCurrentUserProfile) return false;
-  if (prev.channelSlug !== next.channelSlug) return false;
-
-  if (prev.sourceFeed !== next.sourceFeed) return false;
-  if (prev.overlayOpacitySV !== next.overlayOpacitySV) return false;
-
-  if (prev.onLike !== next.onLike) return false;
-  if (prev.onRepost !== next.onRepost) return false;
-  if (prev.onOverlayCollapsedChange !== next.onOverlayCollapsedChange) return false;
-  if (prev.onChannelPress !== next.onChannelPress) return false;
-  if (prev.onAuthorPress !== next.onAuthorPress) return false;
-  if (prev.onRepostAuthorPress !== next.onRepostAuthorPress) return false;
-  if (prev.onOpenComments !== next.onOpenComments) return false;
-  if (prev.onSharePress !== next.onSharePress) return false;
-  if (prev.onFollowPress !== next.onFollowPress) return false;
-  if (prev.onHashtagPress !== next.onHashtagPress) return false;
-
-  const prevOverlay = prev.authorProfileOverlay;
-  const nextOverlay = next.authorProfileOverlay;
-  if ((prevOverlay?.isAuthorBlocked ?? false) !== (nextOverlay?.isAuthorBlocked ?? false))
-    return false;
-  if ((prevOverlay?.authorDid ?? null) !== (nextOverlay?.authorDid ?? null)) return false;
-  if (prevOverlay?.authorProfileStatus !== nextOverlay?.authorProfileStatus) return false;
-  if (prevOverlay?.profileColors !== nextOverlay?.profileColors) return false;
-  if (prevOverlay?.verification !== nextOverlay?.verification) return false;
-
-  return true;
-};
-
-export default memo(VideoOverlayUI, arePropsEqual);
+export default memo(VideoOverlayUI);

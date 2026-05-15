@@ -139,6 +139,7 @@ interface GridFeedViewProps {
   onGridItemPress?: (index: number) => void;
   gridFeedModalZoomConfig?: GridFeedModalZoomConfig | null;
   isError?: boolean;
+  isPaused?: boolean;
   onRetry?: () => void;
   isLoading?: boolean;
   ListComponent?: React.ComponentType<unknown> | null;
@@ -162,6 +163,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       onGridItemPress,
       gridFeedModalZoomConfig,
       isError = false,
+      isPaused = false,
       onRetry,
       isLoading = false,
       ListComponent,
@@ -436,6 +438,14 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
               viewableAreaHeight={emptyComponentHeight}
               feedOption={feedOption}
             />
+          ) : isPaused ? (
+            <EmptyFeed
+              type="no-connection"
+              secondaryColor={secondaryColor}
+              profileColors={profileColors}
+              viewableAreaHeight={emptyComponentHeight}
+              feedOption={feedOption}
+            />
           ) : (
             <EmptyFeed
               type={getEmptyFeedType(feedOption)}
@@ -500,7 +510,7 @@ const styles = StyleSheet.create({
   thumbnail: {
     width: '100%',
     height: '100%',
-    backgroundColor: Colors.neutral[950],
+    backgroundColor: Colors.black,
   },
 });
 

@@ -57,7 +57,6 @@ export interface ListFeedViewProps {
   contentScrollProgressOutput?: SharedValue<number>;
   forceError?: boolean;
   ListComponent?: React.ComponentType<unknown> | null;
-  targetScrollIndex?: number | null;
   dataUpdatedAt?: number;
   /** When provided, grid item tap calls this (e.g. open feed modal); required for grid tap to do anything. */
   onGridItemPress?: (index: number) => void;
@@ -69,6 +68,8 @@ export interface ListFeedViewProps {
   pullToRefresh?: ListFeedPullToRefresh;
   /** Navigate to a hashtag feed. */
   onHashtagPress?: (hashtag: string) => void;
+  /** When true, show offline state in empty component instead of loading spinner. */
+  isPaused?: boolean;
 }
 
 /**
@@ -145,10 +146,25 @@ export type FeedOption =
   | string;
 
 /**
+ * Header item type for feed lists - tracked by FlashList viewability
+ */
+export interface FeedHeaderItem {
+  type: 'header';
+  component: React.ReactNode;
+}
+
+/**
+ * Type guard to check if a feed item is a header item
+ */
+export function isFeedHeaderItem(item: FeedListItem): item is FeedHeaderItem {
+  return (item as FeedHeaderItem).type === 'header';
+}
+
+/**
  * Feed list items for FlashList / feed views
  * @usage src/components/features/feed/ListFeedView.tsx
  */
-export type FeedListItem = ExtendedFeedViewPost;
+export type FeedListItem = ExtendedFeedViewPost | FeedHeaderItem;
 
 // ============================================================================
 // Error Types

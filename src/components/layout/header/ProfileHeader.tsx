@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Alert, StatusBar, StyleProp, ViewStyle } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { useIsFocused } from '@react-navigation/native';
-import { useAnimatedReaction, runOnJS, type SharedValue } from 'react-native-reanimated';
+import { useAnimatedReaction, type SharedValue } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import type { MenuAction } from '@react-native-menu/menu';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
@@ -123,7 +124,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     (useProfile, prev) => {
       'worklet';
       if (prev === null || useProfile !== prev) {
-        runOnJS(setUseProfileStatusBar)(useProfile);
+        scheduleOnRN(setUseProfileStatusBar, useProfile);
       }
     },
     [contentScrollProgressSV]
@@ -167,14 +168,12 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     (flags?.isBlocked ?? false);
   const blockingByList = profileData?.viewer?.blockingByList;
 
-  // Handler to open the blocking list in Bluesky app
   const handleListPress = useCallback(async () => {
     if (blockingByList?.uri) {
       await openListInBluesky(blockingByList.uri);
     }
   }, [blockingByList]);
 
-  // Create header content with custom description component
   const headerContent = useMemo((): HeaderContent => {
     if (!profileData) {
       return {
@@ -183,14 +182,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       };
     }
 
-    // Compose subtitle lines: handle only (joined date shown in beta tester alert when applicable)
     const subtitle: string | undefined = profileData.handle ? profileData.handle : undefined;
-    // Show blocking indicator if blocked by list
     const subtitleSecondary: string | undefined = blockingByList
       ? t('profile.blockedBy', { name: blockingByList.name })
       : undefined;
 
-    // Parse description to generate rich text facets
     const richText = profileData.description
       ? (() => {
           const rt = new RichText({ text: profileData.description });
@@ -206,7 +202,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       subtitleSecondary,
       onSubtitleSecondaryPress: blockingByList ? handleListPress : undefined,
       subtitleAction,
-      // Hide description when blocked
       description: isBlocked ? undefined : richText?.text,
       facets: isBlocked ? undefined : richText?.facets,
       badge: profileData.handle ? (
@@ -262,7 +257,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     t,
   ]);
 
-  // Get colors for description and tab navigation
   const dynamicColors = useMemo(
     () => ({
       backgroundColor: profileColors.backgroundColor,
@@ -283,7 +277,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     ? dynamicColors.backgroundColor
     : 'transparent';
 
-  // Notify parent of color changes
   useEffect(() => {
     onColorsChange?.(dynamicColors);
   }, [dynamicColors, onColorsChange]);
@@ -310,7 +303,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         style={headerStyle}
         showShadowGradient={false}
       >
-        {/* Hide tabs when blocked */}
         {!isBlocked && children}
       </UniversalHeader>
     </>

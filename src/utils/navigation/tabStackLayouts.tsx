@@ -10,11 +10,11 @@ const tabStackScreenOptions = {
 };
 
 /** Regular functions to avoid inline arrow functions */
-const getUserSingularName = (_name: string, params: any) =>
-  (params?.did as string | undefined) ?? 'unknown-user';
+const getUserSingularName = (_name: string, _params: Record<string, unknown>) =>
+  (_params?.did as string | undefined) ?? 'unknown-user';
 
-const getChannelSingularName = (_name: string, params: any) =>
-  (params?.id as string | undefined) ?? 'unknown-channel';
+const getChannelSingularName = (_name: string, _params: Record<string, unknown>) =>
+  (_params?.id as string | undefined) ?? 'unknown-channel';
 
 /**
  * Home tab lives under `(tabs)/home` so the tab segment name (`home`) never collides with the stack’s

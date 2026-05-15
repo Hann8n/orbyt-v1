@@ -39,6 +39,7 @@ export interface KlipyGifPickerSheetProps {
 }
 
 const GRID_COLUMNS = 3;
+const keyExtractor = (it: KlipyItem): string => `${it.kind}:${String(it.id)}`;
 
 const AdWebViewTile: React.FC<{ html: string }> = memo(({ html }) => (
   <WebView
@@ -120,7 +121,6 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
 
     const activeSources = sources.filter(s => s.kind === kindFilter);
 
-    // Fetch next page for any active sources that can paginate.
     for (const s of activeSources) {
       if (s.q.hasNextPage && !s.q.isFetchingNextPage) {
         s.q.fetchNextPage();
@@ -261,7 +261,6 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
     [onSelect, handleAdPress, showContextMenu, t]
   );
 
-  const keyExtractor = useCallback((it: KlipyItem) => `${it.kind}:${String(it.id)}`, []);
 
   const placeholder = t('comments.klipySearchPlaceholder');
 

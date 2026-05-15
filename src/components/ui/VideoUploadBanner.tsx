@@ -6,13 +6,12 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import Animated, {
   useAnimatedStyle,
-  useDerivedValue,
   withTiming,
   SharedValue,
   useAnimatedReaction,
-  runOnJS,
   useSharedValue,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Colors } from './UI';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { useVideoUpload } from '../../hooks/useVideoUpload';
@@ -128,17 +127,14 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
   const shouldShowExpanded = useMemo(() => isComplete || showContent, [isComplete, showContent]);
 
   // All hooks must be called before early return
-  const animatedProgress = useDerivedValue(() => {
-    'worklet';
-    return withTiming(progress, { duration: 300 });
-  }, [progress]);
+  const animatedProgress = useSharedValue(progress);
+  useEffect(() => {
+    animatedProgress.value = withTiming(progress, { duration: 300 });
+  }, [progress, animatedProgress]);
 
-  const progressStyle = useAnimatedStyle(
-    () => ({
-      width: `${animatedProgress.value}%`,
-    }),
-    []
-  );
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${animatedProgress.value}%`,
+  }));
 
   const isCompleteShared = useSharedValue(isComplete);
 
@@ -151,15 +147,11 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
     reset();
   }, [reset]);
 
-  // Sync shared values and handle auto-dismiss
   useEffect(() => {
-    // Update shared value directly (allowed in useEffect)
     isCompleteShared.value = isComplete;
     hasDismissedRef.current = false;
 
     if (isComplete) {
-      // Update state asynchronously to avoid cascading renders
-      // Use requestAnimationFrame for better performance
       requestAnimationFrame(() => {
         setShowContent(true);
       });
@@ -175,7 +167,6 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
     };
   }, [isComplete, handleDismiss, isCompleteShared]);
 
-  // Handle scroll-based visibility (only if scrollY is provided)
   useAnimatedReaction(
     () => {
       const scrollValue = scrollY?.value ?? 0;
@@ -191,27 +182,23 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
     },
     (current, previous) => {
       'worklet';
-      if (!scrollY) return; // Skip if no scrollY
+      if (!scrollY) return;
 
       if (current.atTop !== previous?.atTop) {
-        runOnJS(setIsAtTop)(current.atTop);
+        scheduleOnRN(setIsAtTop, current.atTop);
       }
 
-      // Auto-dismiss completed uploads on threshold transition only
       if (current.shouldDismiss && !previous?.shouldDismiss) {
-        runOnJS(handleDismiss)();
+        scheduleOnRN(handleDismiss);
       } else if (!current.isComplete && current.shouldShow !== previous?.shouldShow) {
-        // For active uploads, show content when at top, hide when scrolled
-        runOnJS(setShowContent)(current.shouldShow);
+        scheduleOnRN(setShowContent, current.shouldShow);
       }
     },
     [scrollY, handleDismiss]
   );
 
-  // Always show content when scrollY is not provided (no scroll-based hiding)
   useEffect(() => {
     if (!scrollY && !isComplete) {
-      // Update state asynchronously to avoid cascading renders
       requestAnimationFrame(() => {
         setShowContent(true);
         setIsAtTop(true);
@@ -224,7 +211,6 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
     reset();
   }, [router, reset]);
 
-  // Memoize dynamic styles before early return (hooks must be called in same order)
   const bannerDynamicStyle = useMemo(
     () => ({
       paddingTop: applySafeArea ? topInset : 0,
@@ -235,7 +221,6 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
     [applySafeArea, topInset, isAtTop, shouldShowExpanded, collapsedHeight]
   );
 
-  // Early return after all hooks to avoid React hooks violation
   if (status === 'idle') {
     return null;
   }
@@ -265,10 +250,4 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
   );
 };
 
-export const VideoUploadBanner = React.memo(VideoUploadBannerComponent, (prevProps, nextProps) => {
-  return (
-    prevProps.topInset === nextProps.topInset &&
-    prevProps.applySafeArea === nextProps.applySafeArea &&
-    prevProps.scrollY === nextProps.scrollY
-  );
-});
+export const VideoUploadBanner = React.memo(VideoUploadBannerComponent);

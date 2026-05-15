@@ -1,47 +1,38 @@
 import {
   useCallback,
-  useContext,
   useEffect,
   useLayoutEffect,
   useImperativeHandle,
   useMemo,
   useRef,
-  useSyncExternalStore,
   type Ref,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { useSharedValue, useAnimatedStyle, withTiming, useDerivedValue, interpolate } from 'react-native-reanimated';
+import { useFeedScrollMotion } from '../../../context/FeedScrollContext';
 
-import { useFeedScrollLayout, useFeedScrollMotion } from '../../../context/FeedScrollContext';
-import {
-  FeedListPlaybackContext,
-  FEED_LIST_PLAYBACK_OUTSIDE_BITS,
-  ROW_BITS_CHROME,
-  ROW_BITS_PLAYBACK,
-  ROW_BITS_PRELOAD,
-} from '../../../core/visibility';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { seenVideoService } from '../../../services/SeenVideoService';
 import { prefetchProfile, useFollowMutation } from '../../../services/data/ProfileService';
+import { useShallow } from 'zustand/react/shallow';
 import { useModalStore } from '../../../stores/modalStore';
 import { useUserStore } from '../../../stores/userStore';
 import { Colors } from '../../../theme';
-import { logger } from '../../../utils/logger';
 import { getVideoView, normalizePostView } from '../../../utils/video/helpers';
 import { INTERACTIONSEEN } from '../../../services/api/types';
 import type { ExtendedFeedViewPost, ExtendedPostView } from '../../../services/api/types';
+import { AppBskyFeedPost } from '@atproto/api';
 import { useQueryClient } from '@tanstack/react-query';
 
-import VideoCardMediaLayer from './video-card/VideoCardMediaLayer';
+import VideoCardMediaGestureLayer from './video-card/VideoCardMediaGestureLayer';
 import VideoCardOverlayLayers from './video-card/VideoCardOverlayLayers';
-import { useVideoCardOverlayOpacity } from './video-card/useVideoCardOverlayOpacity';
 import { useFeedInteractionQueue } from './video-card/hooks/useFeedInteractionQueue';
 import { useVideoCardModerationState } from './video-card/hooks/useVideoCardModerationState';
 import { useVideoCardAuthor } from './video-card/hooks/useVideoCardAuthor';
 import { useVideoCardGesture } from './video-card/hooks/useVideoCardGesture';
 import { useVideoCardInteraction } from './video-card/hooks/useVideoCardInteraction';
-import { useVideoCardPlayer } from './video-card/hooks/useVideoCardPlayer';
+import { useVideoCardPlayer, logVideoCardPlayerError } from './video-card/hooks/useVideoCardPlayer';
 import { useRecyclingState } from '@shopify/flash-list';
 import type { VideoOverlayUIProps } from './VideoOverlayUI';
 
@@ -49,15 +40,6 @@ type Post = ExtendedPostView | ExtendedFeedViewPost;
 
 const MIN_SCRUBBER_DURATION_SECONDS = 7;
 const cardHeightStyleCache = new Map<number, { height: number }>();
-const noopSubscribe = () => () => {};
-
-function logVideoCardPlayerError(action: string, err: unknown): void {
-  logger.debug(`VideoCard: ${action} threw`, {
-    component: 'VideoCard',
-    action,
-    error: err instanceof Error ? err.message : String(err),
-  });
-}
 
 const getCardHeightStyle = (cardHeight: number): { height: number } => {
   const normalized = Math.max(0, Math.round(cardHeight));
@@ -86,7 +68,7 @@ export interface VideoCardProps {
   isVisible?: boolean;
   onVideoStatus?: (uri: string, status: string) => void;
   height?: number;
-  shouldDisablePlayback?: boolean;
+  canPlay?: boolean;
   /** When false, skip scrubber + `VideoOverlayUI` (list rows far from active). */
   renderHeavyChrome?: boolean;
   showOverlay?: boolean;
@@ -94,28 +76,35 @@ export interface VideoCardProps {
   index?: number;
   onHashtagPress?: (hashtag: string) => void;
   ref?: Ref<VideoCardRef>;
+  /** Active index in the list for computing relative visibility */
+  activeIndex?: number;
 }
 
 function VideoCard({
   post,
   feedItem,
-  isVisible: isVisibleFromProps = true,
+  isVisible: isVisibleProp = true,
   onVideoStatus,
   height,
-  shouldDisablePlayback: shouldDisablePlaybackFromProps = false,
-  renderHeavyChrome: renderHeavyChromeFromProps = true,
+  canPlay = true,
+  renderHeavyChrome: renderHeavyChromeProp = true,
   showOverlay = true,
   feedOption,
   index,
+  activeIndex,
   onHashtagPress,
   ref,
 }: VideoCardProps) {
   const { t } = useTranslation();
-  const idx = index ?? 0;
 
   const feedContext = feedItem?.feedContext;
   const reqId = feedItem?.reqId;
-  const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
+  const { algorithmicFeedProvider, currentUser } = useUserStore(
+    useShallow(state => ({
+      algorithmicFeedProvider: state.algorithmicFeedProvider,
+      currentUser: state.currentUser,
+    }))
+  );
   const resolvedFeedUri = useMemo(() => {
     if (feedOption?.startsWith('at://')) return feedOption;
     if (algorithmicFeedProvider?.startsWith('at://')) return algorithmicFeedProvider;
@@ -124,36 +113,25 @@ function VideoCard({
 
   const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
 
-  // ── Visibility: read playback bits from the list-level store (single source of truth). ───
-  const listPlayback = useContext(FeedListPlaybackContext);
-  const listPlaybackAttached = Boolean(listPlayback && typeof index === 'number');
-  const rowBits = useSyncExternalStore(
-    listPlayback?.subscribe ?? noopSubscribe,
-    listPlaybackAttached
-      ? () => listPlayback!.getRowBits(idx)
-      : () => FEED_LIST_PLAYBACK_OUTSIDE_BITS,
-    () => FEED_LIST_PLAYBACK_OUTSIDE_BITS
-  );
-  const isVisible = listPlaybackAttached ? (rowBits & ROW_BITS_PLAYBACK) !== 0 : isVisibleFromProps;
-  const shouldDisablePlayback = listPlaybackAttached ? false : shouldDisablePlaybackFromProps;
-  const renderHeavyChrome = listPlaybackAttached
-    ? (rowBits & ROW_BITS_CHROME) !== 0
-    : renderHeavyChromeFromProps;
-  // Source-hold window is decided list-side by ROW_BITS_PRELOAD (1 behind + 2 ahead).
-  // Outside a list (e.g. fullscreen video) FEED_LIST_PLAYBACK_OUTSIDE_BITS already has
-  // the bit set, so this collapses to "always hold a source".
-  const holdSource = (rowBits & ROW_BITS_PRELOAD) !== 0;
+  const idx = index ?? 0;
+  const isVisible =
+    activeIndex !== undefined ? activeIndex === idx && isVisibleProp : isVisibleProp;
+  const renderHeavyChrome =
+    activeIndex !== undefined
+      ? activeIndex >= 0 && Math.abs(activeIndex - idx) <= 1
+      : renderHeavyChromeProp;
+  const holdSource =
+    activeIndex !== undefined
+      ? activeIndex >= 0 && idx >= activeIndex - 1 && idx <= activeIndex + 2
+      : true;
 
-  // ── Layout. ────────────────────────────────────────────────────────────────────────────
   const { height: windowHeight } = useWindowDimensions();
   const cardHeight = height ?? windowHeight;
 
-  // ── Moderation. ────────────────────────────────────────────────────────────────────────
   const [userChoseToView, setUserChoseToView] = useRecyclingState(false, [postView.uri]);
   const { cannotShowMedia, isBlurred, warningDescription, handleViewContent } =
     useVideoCardModerationState(postView, feedItem, userChoseToView, setUserChoseToView);
 
-  // ── Media URLs. ────────────────────────────────────────────────────────────────────────
   const videoView = getVideoView(postView.embed);
   const videoUrl = videoView?.playlist || null;
   const posterUrl = videoView?.thumbnail || null;
@@ -162,7 +140,6 @@ function VideoCard({
   // when no thumbnail has loaded yet (FlashList/expo-image recycling).
   const recyclingKey = postView?.uri || postView?.cid || `item-${idx}`;
 
-  // ── Player. ────────────────────────────────────────────────────────────────────────────
   const {
     videoSource,
     player,
@@ -181,13 +158,12 @@ function VideoCard({
     feedOption,
     isVisible,
     holdSource,
-    shouldDisablePlayback,
+    canPlay,
     cannotShowMedia,
     isBlurred,
     onVideoStatus,
   });
 
-  // ── Interaction (likes, reposts, comment count). ───────────────────────────────────────
   const {
     display: displayInteraction,
     isLikePending,
@@ -199,14 +175,15 @@ function VideoCard({
     handleRepost,
   } = useVideoCardInteraction({ postView, feedOption });
 
-  // ── Author / profile / follow. ─────────────────────────────────────────────────────────
-  const currentUser = useUserStore(state => state.currentUser);
   const author = useVideoCardAuthor({ postView, currentUser });
 
-  // ── Misc handlers (kept here as the integration layer between the four hooks). ─────────
   const followMutation = useFollowMutation();
-  const presentShareSheet = useModalStore(state => state.presentShareSheet);
-  const presentCommentSection = useModalStore(state => state.presentCommentSection);
+  const { presentShareSheet, presentCommentSection } = useModalStore(
+    useShallow(state => ({
+      presentShareSheet: state.presentShareSheet,
+      presentCommentSection: state.presentCommentSection,
+    }))
+  );
   const queryClient = useQueryClient();
 
   const followMutationRef = useRef(followMutation);
@@ -279,10 +256,10 @@ function VideoCard({
   }, [postView, resolvedFeedUri, presentShareSheet]);
 
   const handleFollowPress = useCallback(() => {
-    const author = postView.author;
-    if (!author?.handle) return;
+    const target = postView.author;
+    if (!target?.handle) return;
     followMutationRef.current.mutate(
-      { did: author.did, handle: author.handle, isFollowing: true },
+      { did: target.did, handle: target.handle, isFollowing: true },
       {}
     );
   }, [postView.author]);
@@ -292,26 +269,19 @@ function VideoCard({
       uri: postView.uri,
       cid: postView.cid,
       indexedAt: postView.indexedAt,
-      author: postView.author
-        ? {
-            did: postView.author.did,
-            handle: postView.author.handle,
-            displayName: postView.author.displayName,
-          }
-        : undefined,
+      author: postView.author,
     };
     presentCommentSection({
       post: commentPost,
       totalLikes: displayInteractionRef.current.likeCount,
       totalComments: displayInteractionRef.current.commentCount,
       isLiked: displayInteractionRef.current.isLiked,
-      postedAt: (postView.record as { createdAt?: string })?.createdAt || postView.indexedAt,
+      postedAt: (postView.record as AppBskyFeedPost.Record)?.createdAt || postView.indexedAt,
       onToggleLike: handleLike,
       isLikePending: overlayPendingRef.current.isLikePending,
     });
   }, [postView, presentCommentSection, handleLike, displayInteractionRef, overlayPendingRef]);
 
-  // ── Gestures (tap / double-tap / long-press) — shared values stay inside the hook. ─────
   const { gesture, heartAnimatedStyle } = useVideoCardGesture({
     postUri: postView.uri,
     onSingleTap: togglePlayback,
@@ -319,7 +289,6 @@ function VideoCard({
     onLongPress: handleOpenComments,
   });
 
-  // ── Imperative handle (exposed for non-feed consumers; unused by VideoItem). ───────────
   useImperativeHandle(
     ref,
     () => ({
@@ -369,7 +338,6 @@ function VideoCard({
     [player, shouldPlayVideo, togglePlayback, seek, setUserPaused, userPausedRef]
   );
 
-  // ── Feed interaction queue (mark seen, debounced flush). ───────────────────────────────
   const { queueSeenInteractionOnce } = useFeedInteractionQueue({
     postUri: postView.uri,
     feedContext,
@@ -384,7 +352,6 @@ function VideoCard({
     }
   }, [isVisible, queueSeenInteractionOnce, postView.uri]);
 
-  // ── Caption-expand dim. Driven on the UI thread to avoid card re-renders. ──────────────
   const textDimOpacitySV = useSharedValue(0);
   useEffect(() => {
     textDimOpacitySV.value = 0;
@@ -399,20 +366,21 @@ function VideoCard({
     [textDimOpacitySV, isVisible]
   );
 
-  // ── Scrubber + overlay opacity (composed shared values). ───────────────────────────────
   const seekingAnimationSV = useSharedValue(0);
+
   const feedScrollMotion = useFeedScrollMotion();
-  const feedScrollLayout = useFeedScrollLayout();
-  const scrollOffsetYSV = feedScrollMotion?.scrollOffsetYSV;
-  const overlayScrollOffsetYSV = renderHeavyChrome ? scrollOffsetYSV : undefined;
-  const uiOverlayOpacitySV = useVideoCardOverlayOpacity({
-    seekingAnimationSV,
-    scrollOffsetYSV: overlayScrollOffsetYSV,
-    headerH: feedScrollLayout?.headerHeight ?? 0,
-    viewportH: feedScrollLayout?.viewportHeight ?? cardHeight,
-    itemSp: feedScrollLayout?.itemSpacing ?? cardHeight,
-    idx,
-    cardHeight,
+  const scrollOffsetYSV = feedScrollMotion?.scrollOffsetYSV ?? null;
+  const scrollFadeParamsSV = feedScrollMotion?.scrollFadeParamsSV ?? null;
+
+  const overlayOpacitySV = useDerivedValue(() => {
+    const seekOpacity = interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp');
+    if (!scrollOffsetYSV || !scrollFadeParamsSV) return seekOpacity;
+    const { spacing, snapOrigin, firstVideoIdx } = scrollFadeParamsSV.value;
+    if (spacing === 0) return seekOpacity;
+    const cardTop = snapOrigin + (idx - firstVideoIdx) * spacing;
+    const distance = Math.abs(scrollOffsetYSV.value - cardTop);
+    const scrollOpacity = 1 - Math.max(0, Math.min(1, (distance - spacing * 0.15) / (spacing * 0.3)));
+    return Math.min(seekOpacity, scrollOpacity);
   });
 
   const shouldHideScrubberForShortVideo = !!(
@@ -421,49 +389,12 @@ function VideoCard({
     player.duration < MIN_SCRUBBER_DURATION_SECONDS
   );
 
-  // ── Prop bags for the layered children. ────────────────────────────────────────────────
-  // Active row's poster decodes ahead of preload neighbours' posters.
   const posterPriority: 'low' | 'normal' | 'high' = isVisible ? 'high' : 'normal';
-  const gestureVideoStackProps = useMemo(
-    () => ({
-      videoGesture: gesture,
-      posterUrl,
-      cannotShowMedia,
-      firstFrameRendered,
-      recyclingKey,
-      videoSource,
-      isBlurred,
-      player,
-      shouldLoadVideo,
-      loadingLabel: t('video.noHlsStream'),
-      onFirstFrameRender: handleFirstFrameRender,
-      surfaceType: Platform.OS === 'android' ? ('textureView' as const) : undefined,
-      textDimAnimatedStyle,
-      heartAnimatedStyle,
-      posterPriority,
-    }),
-    [
-      gesture,
-      posterUrl,
-      cannotShowMedia,
-      firstFrameRendered,
-      recyclingKey,
-      videoSource,
-      isBlurred,
-      player,
-      shouldLoadVideo,
-      t,
-      handleFirstFrameRender,
-      textDimAnimatedStyle,
-      heartAnimatedStyle,
-      posterPriority,
-    ]
-  );
 
   const overlayProps = useMemo<VideoOverlayUIProps>(
     () => ({
       post: postView,
-      overlayOpacitySV: uiOverlayOpacitySV,
+      overlayOpacitySV: overlayOpacitySV,
       sourceFeed: resolvedFeedUri,
       onOverlayCollapsedChange: handleOverlayCollapsedChange,
       onLike: handleLike,
@@ -490,7 +421,7 @@ function VideoCard({
     }),
     [
       postView,
-      uiOverlayOpacitySV,
+      overlayOpacitySV,
       resolvedFeedUri,
       handleOverlayCollapsedChange,
       handleLike,
@@ -519,7 +450,23 @@ function VideoCard({
 
   return (
     <View style={StyleSheet.compose(styles.container, getCardHeightStyle(cardHeight))}>
-      <VideoCardMediaLayer gestureStack={gestureVideoStackProps} />
+      <VideoCardMediaGestureLayer
+        videoGesture={gesture}
+        posterUrl={posterUrl}
+        cannotShowMedia={cannotShowMedia}
+        firstFrameRendered={firstFrameRendered}
+        recyclingKey={recyclingKey}
+        videoSource={videoSource}
+        isBlurred={isBlurred}
+        player={player}
+        shouldLoadVideo={shouldLoadVideo}
+        loadingLabel={t('video.noHlsStream')}
+        onFirstFrameRender={handleFirstFrameRender}
+        surfaceType={Platform.OS === 'android' ? ('textureView' as const) : undefined}
+        textDimAnimatedStyle={textDimAnimatedStyle}
+        heartAnimatedStyle={heartAnimatedStyle}
+        posterPriority={posterPriority}
+      />
 
       <VideoCardOverlayLayers
         renderHeavyChrome={renderHeavyChrome}
@@ -528,7 +475,7 @@ function VideoCard({
         isActive={isVisible}
         player={player}
         seekingAnimationSV={seekingAnimationSV}
-        overlayOpacitySV={uiOverlayOpacitySV}
+        overlayOpacitySV={overlayOpacitySV}
         showOverlay={showOverlay}
         overlayProps={overlayProps}
         showContentWarning={cannotShowMedia || isBlurred}
@@ -541,13 +488,13 @@ function VideoCard({
   );
 }
 
+export default VideoCard;
+
 const styles = StyleSheet.create({
   container: {
     width: '100%',
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: Colors.neutral[950],
+    backgroundColor: Colors.black,
   },
 });
-
-export default VideoCard;

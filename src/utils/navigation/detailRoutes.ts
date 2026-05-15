@@ -1,3 +1,4 @@
+import { useSegments } from 'expo-router';
 import type { Href } from 'expo-router';
 
 export type DetailNavTab = 'home' | 'explore' | 'activity' | 'profile';
@@ -14,35 +15,9 @@ export function isRootModalStackContext(segments: readonly string[]): boolean {
   return root === 'settings' || root === 'edit-profile' || root === 'profile-image-viewer';
 }
 
-/**
- * Tab segment immediately under `(tabs)` — stable even when stacked on e.g. `user/[did]`.
- */
-function getDetailNavTabFromSegments(
-  segments: readonly string[],
-  fallback: DetailNavTab = 'home'
-): DetailNavTab {
-  const tabsIdx = segments.indexOf('(tabs)');
-  if (tabsIdx < 0) {
-    return fallback;
-  }
-  const candidate = segments[tabsIdx + 1];
-  if (TAB_SEGMENTS.includes(candidate as DetailNavTab)) {
-    return candidate as DetailNavTab;
-  }
-  return fallback;
-}
-
 /** When the focused route is under `(tabs)`, returns that tab; otherwise `null` (e.g. root modal). */
 export function getDetailNavTabIfInsideTabs(segments: readonly string[]): DetailNavTab | null {
-  const tabsIdx = segments.indexOf('(tabs)');
-  if (tabsIdx < 0) {
-    return null;
-  }
-  const candidate = segments[tabsIdx + 1];
-  if (TAB_SEGMENTS.includes(candidate as DetailNavTab)) {
-    return candidate as DetailNavTab;
-  }
-  return null;
+  return (segments.find(s => (TAB_SEGMENTS as readonly string[]).includes(s)) as DetailNavTab) ?? null;
 }
 
 function profilePathnameForTab(
@@ -91,27 +66,15 @@ function channelPathnameForTab(
   }
 }
 
-export type BuildDetailHrefOptions = {
-  segments: readonly string[];
-  /** Used when not inside `(tabs)` (e.g. settings). */
-  fallbackTab?: DetailNavTab;
-};
-
-export function buildProfileDetailHref(did: string, opts: BuildDetailHrefOptions): Href {
-  const tab = getDetailNavTabFromSegments(opts.segments, opts.fallbackTab ?? 'home');
-  return {
-    pathname: profilePathnameForTab(tab),
-    params: { did },
-  };
+export function buildProfileDetailHref(did: string, tab: DetailNavTab): Href {
+  return { pathname: profilePathnameForTab(tab), params: { did } };
 }
 
-export function buildChannelDetailHref(
-  encodedChannelId: string,
-  opts: BuildDetailHrefOptions
-): Href {
-  const tab = getDetailNavTabFromSegments(opts.segments, opts.fallbackTab ?? 'home');
-  return {
-    pathname: channelPathnameForTab(tab),
-    params: { id: encodedChannelId },
-  };
+export function buildChannelDetailHref(encodedChannelId: string, tab: DetailNavTab): Href {
+  return { pathname: channelPathnameForTab(tab), params: { id: encodedChannelId } };
+}
+
+export function useCurrentDetailNavTab(): DetailNavTab {
+  const segments = useSegments();
+  return (segments.find(s => (TAB_SEGMENTS as readonly string[]).includes(s)) as DetailNavTab) ?? 'home';
 }

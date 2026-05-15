@@ -1,11 +1,9 @@
 import {
   useState,
   useEffect,
-  useLayoutEffect,
   useCallback,
   useMemo,
   useRef,
-  forwardRef,
   useImperativeHandle,
   memo,
   type ComponentType,
@@ -13,9 +11,7 @@ import {
 } from 'react';
 import {
   View,
-  Dimensions,
   StyleSheet,
-  ScaledSize,
   LayoutChangeEvent,
   Platform,
   ActivityIndicator,
@@ -28,7 +24,6 @@ import Animated, {
   useAnimatedScrollHandler,
   useAnimatedReaction,
   useAnimatedStyle,
-  runOnJS,
   type SharedValue,
 } from 'react-native-reanimated';
 import {
@@ -39,6 +34,7 @@ import {
   RenderTargetOptions,
 } from '@shopify/flash-list';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
+import type { ScrollFadeParams } from '../../../context/FeedScrollContext';
 import type {
   FeedScrollLayoutValue,
   FeedScrollMotionValue,
@@ -71,11 +67,9 @@ import {
 } from '../../../utils/constants';
 import { buildListSnapToOffsets } from '@/utils/feed/snapOffsets';
 import type { FeedListItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
-import {
-  useFeedVisibility,
-  createFeedListPlaybackStore,
-  FeedListPlaybackContext,
-} from '../../../core/visibility';
+import { ExtendedFeedViewPost } from '../../../services/api/types';
+import { isFeedHeaderItem } from '../../../types';
+import { useFeedVisibility } from '../../../core/visibility/hooks';
 import { useTranslation } from 'react-i18next';
 import { TypographyText } from '@/utils/components/typography';
 
@@ -92,11 +86,14 @@ const ItemSeparatorComponent = ({
 }) => <View style={styles.itemSeparator} />;
 
 const getListItemType = (item: FeedListItem): string => {
+  if (isFeedHeaderItem(item)) return 'header';
   if (item.post?.embed?.$type === 'app.bsky.embed.record#view') return 'video';
   return 'default';
 };
 
 const listKeyExtractor = (item: FeedListItem, index: number): string => getFeedItemKey(item, index);
+
+const isFeedListHeaderItem = (item: unknown): boolean => isFeedHeaderItem(item as FeedListItem);
 
 interface ListEmptyComponentProps {
   isLoading: boolean;
@@ -243,129 +240,83 @@ const EndOfFeedOverscrollHint = memo(
 );
 EndOfFeedOverscrollHint.displayName = 'EndOfFeedOverscrollHint';
 
-const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
-  (
-    {
-      feed,
-      headerComponent,
-      backgroundColor,
-      secondaryColor,
-      feedOption,
-      userDid,
-      onLoadMore,
-      isFetchingNextPage,
-      hasNextPage,
-      isLoading,
-      isError,
-      onRetry,
-      isVisible = true,
-      viewMode,
-      onViewModeChange: _onViewModeChange,
-      hasTabBar: hasTabBarProp,
-      contentScrollProgressOutput,
-      forceError = false,
-      ListComponent,
-      targetScrollIndex,
-      onGridItemPress: onGridItemPressProp,
-      zoomTargetPostUri,
-      gridFeedModalZoomConfig,
-      pullToRefresh,
-      onHashtagPress,
-    },
-    ref
-  ) => {
+function ListFeedViewComponent({
+  feed,
+  headerComponent,
+  backgroundColor,
+  secondaryColor,
+  feedOption,
+  userDid,
+  onLoadMore,
+  isFetchingNextPage,
+  hasNextPage,
+  isLoading,
+  isError,
+  onRetry,
+  isVisible = true,
+  viewMode,
+  onViewModeChange: _onViewModeChange,
+  hasTabBar: hasTabBarProp,
+  contentScrollProgressOutput,
+  forceError = false,
+  ListComponent,
+  onGridItemPress: onGridItemPressProp,
+  zoomTargetPostUri,
+  gridFeedModalZoomConfig,
+  pullToRefresh,
+  onHashtagPress,
+  ref,
+}: ListFeedViewProps & { ref?: Ref<ListFeedViewRef> }) {
     const resolvedViewMode = viewMode ?? 'list';
 
-    const initialScrollIndex = useMemo((): number | undefined => {
-      if (
-        targetScrollIndex !== null &&
-        targetScrollIndex !== undefined &&
-        resolvedViewMode === 'list' &&
-        feed.length > 0
-      ) {
-        return Math.max(0, Math.min(targetScrollIndex, feed.length - 1));
-      }
-      return undefined;
-    }, [targetScrollIndex, resolvedViewMode, feed.length]);
-
-    // Hooks
     const insets = useSafeAreaInsets();
 
-    // Layout state
     const [headerHeight, setHeaderHeight] = useState(0);
     const [feedLayoutHeight, setFeedLayoutHeight] = useState(0);
 
-    // Refs
     const flashListRef = useRef<FlashListRef<FeedListItem>>(null);
     const gridRef = useRef<ListFeedViewRef>(null);
 
     const scrollOffsetYSV = useSharedValue(0);
     const endOfFeedEnabledSV = useSharedValue(0);
     const endOfFeedOverscrollOpacitySV = useSharedValue(0);
+    const scrollFadeParamsSV = useSharedValue<ScrollFadeParams>({ spacing: 0, snapOrigin: 0, firstVideoIdx: 0 });
 
-    const seedActiveIndex =
-      typeof initialScrollIndex === 'number' ? initialScrollIndex : feed.length > 0 ? 0 : -1;
+    const seedActiveIndex = (() => {
+      if (zoomTargetPostUri && feed.length > 0) {
+        const idx = feed.findIndex(item => !isFeedHeaderItem(item) && item.post?.uri === zoomTargetPostUri);
+        if (idx >= 0) return idx + (headerComponent ? 1 : 0);
+      }
+      return feed.length > 0 ? (headerComponent ? 1 : 0) : -1;
+    })();
     const activeVisibleIndexRef = useRef(seedActiveIndex);
-    // useState lazy initializer creates the store once on mount — useMemo([seedActiveIndex])
-    // would recreate it when feed.length changes from 0→N, losing accumulated state.
-    const [listPlaybackStore] = useState(() =>
-      createFeedListPlaybackStore({ activeIndex: seedActiveIndex })
-    );
-
-    const headerBlockingBaseSuppressedSV = useSharedValue(1);
+    const [activeIndex, setActiveIndex] = useState(seedActiveIndex);
 
     const tabBarVisibility = useTabBarVisibility();
     const listSurfaceActive = isVisible && resolvedViewMode === 'list';
-    const isVisibleSV = useSharedValue(listSurfaceActive ? 1 : 0);
+    const hasHeader = Boolean(headerComponent);
     const chromeVisibleMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
+
     useEffect(() => {
-      isVisibleSV.value = listSurfaceActive ? 1 : 0;
-    }, [listSurfaceActive, isVisibleSV]);
+      if (listSurfaceActive) tabBarVisibility.value = 1;
+    }, [listSurfaceActive, tabBarVisibility]);
 
     useAnimatedReaction(
-      () => [scrollOffsetYSV.value, isVisibleSV.value] as const,
-      (current, previous) => {
+      () => scrollOffsetYSV.value,
+      (y, prevY) => {
         'worklet';
-
-        if (!isVisibleSV.value) return;
-
-        const y = Math.max(0, current[0]);
-        const prevY = previous === null ? y : Math.max(0, previous[0]);
-        const prevVisible = previous === null ? 0 : previous[1];
-
-        // Re-evaluate immediately when becoming visible (feed switch / screen focus)
-        if (previous === null || prevVisible < 0.5) {
+        if (!listSurfaceActive) return;
+        const cy = Math.max(0, y);
+        const py = prevY === null ? cy : Math.max(0, prevY);
+        if (cy < chromeVisibleMaxY) {
           tabBarVisibility.value = 1;
-          return;
-        }
-
-        if (y < chromeVisibleMaxY) {
-          tabBarVisibility.value = 1;
-        } else if (y > prevY + CHROME_HIDE_DIRECTION_THRESHOLD_PX) {
+        } else if (cy > py + CHROME_HIDE_DIRECTION_THRESHOLD_PX) {
           tabBarVisibility.value = 0;
-        } else if (y < prevY - CHROME_SHOW_DIRECTION_THRESHOLD_PX) {
+        } else if (cy < py - CHROME_SHOW_DIRECTION_THRESHOLD_PX) {
           tabBarVisibility.value = 1;
         }
       },
-      [scrollOffsetYSV, tabBarVisibility, isVisibleSV, chromeVisibleMaxY]
-    );
-
-    const patchHeaderBlockingPlayback = useCallback(
-      (blocked: boolean) => listPlaybackStore.patch({ headerBlockingPlayback: blocked }),
-      [listPlaybackStore]
-    );
-
-    useAnimatedReaction(
-      () => {
-        if (headerBlockingBaseSuppressedSV.value > 0.5) return 0;
-        return scrollOffsetYSV.value < FEED_VIEW_CONSTANTS.HEADER_BLOCKING_THRESHOLD ? 1 : 0;
-      },
-      (blocked, prev) => {
-        if (prev === null || blocked !== prev) {
-          runOnJS(patchHeaderBlockingPlayback)(blocked === 1);
-        }
-      },
-      [scrollOffsetYSV, headerBlockingBaseSuppressedSV, patchHeaderBlockingPlayback]
+      [scrollOffsetYSV, tabBarVisibility, listSurfaceActive, chromeVisibleMaxY]
     );
 
     const { screenWidth, screenHeight, isCompact } = useDeviceLayout();
@@ -375,7 +326,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const useNativeTabBottomSafeArea =
       hasTabBar && Platform.OS === 'ios' && !isIosLiquidGlassAvailable;
 
-    const viewableAreaHeight = (() => {
+    const viewableAreaHeight = useMemo(() => {
       if (!hasTabBar) {
         const maxViewport = Math.max(0, screenHeight - insets.bottom);
         return feedLayoutHeight > 0 ? Math.min(feedLayoutHeight, maxViewport) : maxViewport;
@@ -383,61 +334,54 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       if (useManualIosGlassTabPaddingLayout) {
         return getViewportDimensions(insets, { useFullWindowHeight: !hasTabBar }).height;
       }
-      if (feedLayoutHeight > 0) {
-        return feedLayoutHeight;
-      }
-      return Math.max(0, screenHeight - insets.top - insets.bottom);
-    })();
+      return Math.max(0, screenHeight - getEffectiveTopInset(insets.top) - insets.bottom);
+    }, [hasTabBar, screenHeight, insets.bottom, feedLayoutHeight, useManualIosGlassTabPaddingLayout, insets.top]);
     const cardHeight = useManualIosGlassTabPaddingLayout
       ? getVideoCardHeight(screenWidth, screenHeight)
       : Math.max(0, viewableAreaHeight - FEED_VIEW_CONSTANTS.LIST_ITEM_GAP);
 
-    const handleActiveVisibleIndexChange = useCallback(
-      (index: number) => {
-        if (activeVisibleIndexRef.current === index) return;
-        activeVisibleIndexRef.current = index;
-        listPlaybackStore.patch({ activeIndex: index });
-      },
-      [listPlaybackStore]
-    );
+    const handleActiveVisibleIndexChange = useCallback((index: number) => {
+      if (activeVisibleIndexRef.current === index) return;
+      activeVisibleIndexRef.current = index;
+      setActiveIndex(index);
+    }, []);
 
+    const didScrollToTargetRef = useRef(false);
     useEffect(() => {
-      if (typeof initialScrollIndex !== 'number') return;
-      if (activeVisibleIndexRef.current === initialScrollIndex) return;
-      activeVisibleIndexRef.current = initialScrollIndex;
-      listPlaybackStore.patch({ activeIndex: initialScrollIndex });
-    }, [initialScrollIndex, listPlaybackStore]);
+      if (didScrollToTargetRef.current || !zoomTargetPostUri || feed.length === 0) return;
+      const idx = feed.findIndex(item => !isFeedHeaderItem(item) && item.post?.uri === zoomTargetPostUri);
+      if (idx < 0 || !flashListRef.current) return;
+      const adjustedIdx = idx + (headerComponent ? 1 : 0);
+      didScrollToTargetRef.current = true;
+      if (activeVisibleIndexRef.current !== adjustedIdx) {
+        activeVisibleIndexRef.current = adjustedIdx;
+        setActiveIndex(adjustedIdx);
+      }
+      flashListRef.current.scrollToItem({ item: feed[idx], animated: false, viewPosition: 0 });
+    }, [zoomTargetPostUri, feed, headerComponent]);
 
     useEffect(() => {
       if (feed.length === 0) {
         if (activeVisibleIndexRef.current === -1) return;
         activeVisibleIndexRef.current = -1;
-        listPlaybackStore.patch({ activeIndex: -1 });
+        setActiveIndex(-1);
         return;
       }
       if (activeVisibleIndexRef.current >= 0) return;
-      activeVisibleIndexRef.current = 0;
-      listPlaybackStore.patch({ activeIndex: 0 });
-    }, [feed.length, listPlaybackStore]);
+      const headerOffset = headerComponent ? 1 : 0;
+      activeVisibleIndexRef.current = headerOffset;
+      setActiveIndex(headerOffset);
+    }, [feed.length, headerComponent]);
 
-    const { onViewableItemsChanged, viewabilityConfig, canPlay } = useFeedVisibility({
+    const {
+      canPlay,
+      onViewableItemsChanged,
+      viewabilityConfig,
+    } = useFeedVisibility({
       isActive: listSurfaceActive,
       onActiveVisibleIndexChange: handleActiveVisibleIndexChange,
+      isHeaderItem: isFeedListHeaderItem,
     });
-
-    useLayoutEffect(() => {
-      listPlaybackStore.patch({ canPlay });
-      const suppressed = !headerComponent || !isVisible || resolvedViewMode !== 'list';
-      headerBlockingBaseSuppressedSV.value = suppressed ? 1 : 0;
-      if (suppressed) listPlaybackStore.patch({ headerBlockingPlayback: false });
-    }, [
-      canPlay,
-      headerComponent,
-      isVisible,
-      resolvedViewMode,
-      listPlaybackStore,
-      headerBlockingBaseSuppressedSV,
-    ]);
 
     const profileColors = getProfileColors(backgroundColor, secondaryColor);
     const endOfFeedHintColor = useMemo(
@@ -445,7 +389,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [profileColors?.textColor, secondaryColor]
     );
 
-    const listData = feed;
+    const listData = useMemo(() => {
+      if (headerComponent) {
+        return [{ type: 'header' as const, component: headerComponent }, ...feed] as FeedListItem[];
+      }
+      return feed;
+    }, [headerComponent, feed]);
 
     const effectiveIsError = forceError || isError;
 
@@ -463,14 +412,17 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       }
     }, [showEndOfFeed, endOfFeedEnabledSV, endOfFeedOverscrollOpacitySV]);
 
+
     const listRenderExtraData = useMemo(
       () => ({
         cardHeight,
         feedOption,
         zoomTargetPostUri: zoomTargetPostUri ?? null,
         onHashtagPress,
+        activeIndex,
+        canPlay,
       }),
-      [cardHeight, feedOption, zoomTargetPostUri, onHashtagPress]
+      [cardHeight, feedOption, zoomTargetPostUri, onHashtagPress, activeIndex, canPlay]
     );
 
     const renderItem = useCallback(
@@ -488,8 +440,21 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           );
         }
 
+        // Handle header items
+        if (isFeedHeaderItem(item)) {
+          return <View onLayout={(e) => {
+            const h = Math.round(e.nativeEvent.layout.height);
+            if (h > 0 && h !== headerHeight) {
+              requestAnimationFrame(() => {
+                setHeaderHeight(h);
+              });
+            }
+          }}>{item.component}</View>;
+        }
+
         const isAppleZoomTarget =
           Boolean(xd.zoomTargetPostUri) &&
+          !isFeedHeaderItem(item) &&
           item.post?.uri === xd.zoomTargetPostUri &&
           Platform.OS === 'ios';
         return (
@@ -501,44 +466,18 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             index={index}
             isAppleZoomTarget={isAppleZoomTarget}
             onHashtagPress={xd.onHashtagPress}
+            activeIndex={xd.activeIndex}
+            canPlay={xd.canPlay}
           />
         );
       },
 
-      []
+      [headerHeight]
     );
 
-    const handleOrientationChange = useCallback(
-      (_event: { window: ScaledSize }) => {
-        const idx = activeVisibleIndexRef.current;
-        if (
-          flashListRef.current &&
-          feed.length > 0 &&
-          listSurfaceActive &&
-          idx >= 0 &&
-          resolvedViewMode === 'list'
-        ) {
-          try {
-            flashListRef.current.scrollToIndex({
-              index: idx,
-              animated: false,
-              viewPosition: 0.5,
-            });
-          } catch (_error) {
-            // Handle scroll errors gracefully
-          }
-        }
-      },
-      [feed.length, listSurfaceActive, resolvedViewMode]
-    );
-
-    useEffect(() => {
-      const subscription = Dimensions.addEventListener('change', handleOrientationChange);
-      return () => subscription?.remove();
-    }, [handleOrientationChange]);
 
     const itemSpacing = cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
-    const hasHeader = Boolean(headerComponent);
+
 
     const listViewportForEmpty = feedLayoutHeight > 0 ? feedLayoutHeight : viewableAreaHeight;
     const emptyStateHeaderDeduction = ListComponent
@@ -589,24 +528,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isHeaderFeed,
     ]);
 
-    const handleHeaderLayout = useCallback(
-      (e: LayoutChangeEvent) => {
-        const h = Math.round(e.nativeEvent.layout.height);
-        if (h > 0 && h !== headerHeight) {
-          requestAnimationFrame(() => {
-            setHeaderHeight(h);
-          });
-        }
-      },
-      [headerHeight]
-    );
-
-    const handleFeedLayout = useCallback((e: LayoutChangeEvent) => {
+    const handleFeedLayout = (e: LayoutChangeEvent) => {
       const h = Math.round(e.nativeEvent.layout.height);
       if (h > 0) {
         setFeedLayoutHeight(prev => (prev === h ? prev : h));
       }
-    }, []);
+    };
 
     const fadeDist = hasHeader ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
     const contentScrollProgressSV = useSharedValue(0);
@@ -646,12 +573,18 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [contentScrollProgressOutput, fadeDist]
     );
 
+    useEffect(() => {
+      const headerSnapAdjust = isHeaderFeed ? snapTopInset : 0;
+      scrollFadeParamsSV.value = {
+        spacing: itemSpacing,
+        snapOrigin: hasHeader ? headerHeight - headerSnapAdjust : -snapTopInset,
+        firstVideoIdx: hasHeader ? 1 : 0,
+      };
+    }, [itemSpacing, hasHeader, headerHeight, isHeaderFeed, snapTopInset]);
+
     const feedScrollMotion = useMemo<FeedScrollMotionValue>(
-      () => ({
-        scrollOffsetYSV,
-        contentScrollProgressSV,
-      }),
-      [scrollOffsetYSV, contentScrollProgressSV]
+      () => ({ scrollOffsetYSV, contentScrollProgressSV, scrollFadeParamsSV }),
+      [scrollOffsetYSV, contentScrollProgressSV, scrollFadeParamsSV]
     );
 
     const feedScrollLayout = useMemo<FeedScrollLayoutValue>(
@@ -730,22 +663,14 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       );
     }, [pullToRefresh, profileColors?.textColor, secondaryColor, insets.top]);
 
-    const listHeaderElement = useMemo(() => {
-      if (!headerComponent) return null;
-      const separatorStyle =
-        feed.length > 0 ? styles.listHeaderBottomSeparator : styles.listHeaderBottomSeparatorEmpty;
-      return (
-        <View onLayout={handleHeaderLayout}>
-          {headerComponent}
-          <View style={separatorStyle} />
-        </View>
-      );
-    }, [headerComponent, handleHeaderLayout, feed.length]);
+    const listHeaderElement = useMemo(() => null, []);
 
-    const listFooterElement = useMemo(
-      () => (feed.length > 0 ? <View style={styles.itemSeparator} /> : null),
-      [feed.length]
-    );
+    const listFooterElement = useMemo(() => {
+      if (feed.length === 0 && headerComponent) {
+        return listEmptyElement;
+      }
+      return feed.length > 0 ? <View style={styles.itemSeparator} /> : null;
+    }, [feed.length, headerComponent, listEmptyElement]);
 
     const listBody = useMemo(
       () => (
@@ -768,7 +693,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               keyExtractor={listKeyExtractor}
               getItemType={getListItemType}
               refreshControl={refreshControlElement}
-              initialScrollIndex={initialScrollIndex}
               ListHeaderComponent={listHeaderElement}
               pagingEnabled={false}
               snapToOffsets={snapToOffsets}
@@ -814,7 +738,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         renderItem,
         listRenderExtraData,
         refreshControlElement,
-        initialScrollIndex,
         listHeaderElement,
         snapToOffsets,
         snapToIntervalValue,
@@ -830,20 +753,18 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     const listSurfaceNode = useMemo(
       () => (
-        <FeedListPlaybackContext.Provider value={listPlaybackStore}>
-          <FeedScrollProvider motion={feedScrollMotion} layout={feedScrollLayout}>
-            {listBody}
-          </FeedScrollProvider>
-        </FeedListPlaybackContext.Provider>
+        <FeedScrollProvider motion={feedScrollMotion} layout={feedScrollLayout}>
+          {listBody}
+        </FeedScrollProvider>
       ),
-      [listPlaybackStore, feedScrollMotion, feedScrollLayout, listBody]
+      [feedScrollMotion, feedScrollLayout, listBody]
     );
 
     const gridSurfaceNode = useMemo(
       () => (
         <GridFeedView
           ref={gridRef}
-          feed={feed}
+          feed={feed.filter(item => !isFeedHeaderItem(item)) as ExtendedFeedViewPost[]}
           headerComponent={headerComponent}
           backgroundColor={backgroundColor}
           secondaryColor={secondaryColor}
@@ -900,8 +821,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     ) : (
       stack
     );
-  }
-);
+}
 
 const styles = StyleSheet.create({
   tabSceneSafeArea: {
@@ -944,9 +864,7 @@ const styles = StyleSheet.create({
     height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
     backgroundColor: Colors.transparent,
   },
-  measurementPlaceholder: {
-    // Used by FlashList for measurement passes
-  },
+  measurementPlaceholder: {},
   endOfFeedOverscrollHint: {
     position: 'absolute',
     left: 0,

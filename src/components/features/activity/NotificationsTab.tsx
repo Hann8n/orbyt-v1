@@ -35,7 +35,6 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
 import ProfileService, {
   prefetchProfile,
-  useProfileByDid,
 } from '../../../services/data/ProfileService';
 import { Colors } from '../../../theme';
 import { Avatar } from '../../../components/ui/UI';
@@ -68,7 +67,7 @@ import type {
   ProfileView,
   PostRecord,
 } from '../../../services/api/types';
-import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
+import { AppBskyEmbedVideo, AppBskyEmbedRecordWithMedia } from '@atproto/api';
 import { getVideoView } from '../../../utils/video/helpers';
 
 // Import radar.gif for empty notifications state
@@ -149,8 +148,11 @@ const getEmbed = (postData: PostView | null | undefined): PostView['embed'] | un
 const getPostKind = (embed: PostView['embed'] | null | undefined): PostKind => {
   if (!embed || typeof embed !== 'object') return 'text';
 
-  // Use type guards for video embeds
-  if (isVideoEmbed(embed) || isVideoEmbedInMedia(embed)) {
+  // Use SDK-native type guards for video embeds
+  if (AppBskyEmbedVideo.isView(embed)) {
+    return 'video';
+  }
+  if (AppBskyEmbedRecordWithMedia.isView(embed) && AppBskyEmbedVideo.isView(embed.media)) {
     return 'video';
   }
 
@@ -454,7 +456,8 @@ const NotificationItem = React.memo<NotificationItemProps>(
     const currentUser = useUserStore(s => s.currentUser);
     const { reason, author, indexedAt, uri } = item;
     const { presentCommentSection } = useGlobalCommentSection();
-    const { data: authorProfile } = useProfileByDid(author?.did);
+    // Notification author is ProfileView — status is already embedded by the AppView.
+    const authorStatus = author?.status;
     const isPostAction = POST_ACTION_TYPES.includes(reason as PostActionReason);
     const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : undefined;
     const embed = postData ? getEmbed(postData) : null;
@@ -708,7 +711,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
               type="profile"
               size={55}
               style={activityListSharedStyles.avatarFill}
-              status={authorProfile?.status}
+              status={authorStatus}
             />
           </SquircleNativePressable>
           <NativePressable

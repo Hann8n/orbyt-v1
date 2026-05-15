@@ -4190,16 +4190,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@shopify/flash-list@npm:2.0.2":
-  version: 2.0.2
-  resolution: "@shopify/flash-list@npm:2.0.2"
-  dependencies:
-    tslib: "npm:2.8.1"
+"@shopify/flash-list@npm:2.3.1":
+  version: 2.3.1
+  resolution: "@shopify/flash-list@npm:2.3.1"
   peerDependencies:
     "@babel/runtime": "*"
     react: "*"
     react-native: "*"
-  checksum: 10c0/c4e88348ce66e8f51c6213a42574a097d54cebf2125dc3fd8c077f3f7b83e25209c67bcb9a9102a3178c146cf5c23a978febd9a5ed5328ba1d7c663b5a8149d2
+  checksum: 10c0/abe921b93aeb6bf35efb4cd16163ca0126eec1513a40f1b88e370eb646e8bece5daa245e889300aa7ace2a4a81a9ffbd765c1ce2c3f2346611e94cc66c97c6e3
   languageName: node
   linkType: hard
 
@@ -11443,7 +11441,7 @@ __metadata:
     "@react-native-menu/menu": "npm:^2.0.0"
     "@react-navigation/native": "npm:^7.1.33"
     "@sentry/react-native": "npm:~7.11.0"
-    "@shopify/flash-list": "npm:2.0.2"
+    "@shopify/flash-list": "npm:2.3.1"
     "@shopify/react-native-skia": "npm:2.4.18"
     "@tanstack/react-query": "npm:^5.90.21"
     "@types/jest": "npm:29.5.14"
@@ -11518,7 +11516,7 @@ __metadata:
     react-native-fast-video-merge: "file:packages/react-native-fast-video-merge"
     react-native-gesture-handler: "npm:~2.30.0"
     react-native-image-colors: "npm:^2.5.0"
-    react-native-keyboard-controller: "npm:1.20.7"
+    react-native-keyboard-controller: "npm:1.21.7"
     react-native-mmkv: "npm:3.3.3"
     react-native-nano-icons: "npm:^0.1.8"
     react-native-nitro-image: "npm:^0.13.1"
@@ -12420,16 +12418,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-keyboard-controller@npm:1.20.7":
-  version: 1.20.7
-  resolution: "react-native-keyboard-controller@npm:1.20.7"
+"react-native-keyboard-controller@npm:1.21.7":
+  version: 1.21.7
+  resolution: "react-native-keyboard-controller@npm:1.21.7"
   dependencies:
     react-native-is-edge-to-edge: "npm:^1.2.1"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-reanimated: ">=3.0.0"
-  checksum: 10c0/f3a1682552ed90f086f4442ba2eebfb2080451e4c9d686345ba92b8fbeca3498172e6b302a413406fabe9ab06cc19c67dbec22a7703b72342f89d39fce136db3
+  checksum: 10c0/47c1e8692538cb97a2933012367f6f17dc8d42d1d0c66fdb35de586709eb08b35e04f1f3c3390d495cbe10f1fc9d2c332a67efa7cd6d729bd74abb8292c0b3cd
   languageName: node
   linkType: hard
 
@@ -14284,7 +14282,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tslib@npm:2.8.1, tslib@npm:^2.0.0, tslib@npm:^2.1.0, tslib@npm:^2.4.0, tslib@npm:^2.8.1":
+"tslib@npm:^2.0.0, tslib@npm:^2.1.0, tslib@npm:^2.4.0, tslib@npm:^2.8.1":
   version: 2.8.1
   resolution: "tslib@npm:2.8.1"
   checksum: 10c0/9c4759110a19c53f992d9aae23aac5ced636e99887b51b9e61def52611732872ff7668757d4e4c61f19691e36f4da981cd9485e869b4a7408d689f6bf1f14e62

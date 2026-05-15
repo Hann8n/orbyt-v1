@@ -1,12 +1,12 @@
 import { memo } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { SquircleNativePressable } from '@/components/ui/Squircle';
+import { StyleSheet, Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { BORDER_RADIUS } from '../../../../utils/constants';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Colors } from '../../../../theme';
 import { FontFamily, Typography } from '../../../../utils/components/typography';
+import { BORDER_RADIUS } from '../../../../utils/constants';
+import { OVERLAY_Z_INDEX } from '../../../../utils/constants/overlay';
 
 export interface VideoCardContentWarningLayerProps {
   cannotShowMedia: boolean;
@@ -40,14 +40,6 @@ const VideoCardContentWarningLayer = memo(function VideoCardContentWarningLayer(
         </View>
         {isBlurred && (
           <SquircleNativePressable onPress={onViewContent} style={styles.viewButton}>
-            {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
-              <GlassView
-                style={styles.glassBackground}
-                glassEffectStyle="clear"
-                tintColor={Colors.neutral[50]}
-                isInteractive
-              />
-            ) : null}
             <View style={styles.buttonContent} pointerEvents="none">
               <Text style={styles.viewButtonText}>{t('video.seeVideo')}</Text>
             </View>
@@ -61,13 +53,13 @@ const VideoCardContentWarningLayer = memo(function VideoCardContentWarningLayer(
 const styles = StyleSheet.create({
   contentWarningBlur: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 20,
+    zIndex: OVERLAY_Z_INDEX.CONTENT_WARNING,
   },
   contentWarningOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 21,
+    zIndex: OVERLAY_Z_INDEX.CONTENT_WARNING_MESSAGE,
     paddingBottom: 60,
   },
   blurMessage: {
@@ -98,13 +90,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     minWidth: 120,
   },
-  glassBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.FULL,
-  },
   buttonContent: {
     position: 'relative',
-    zIndex: 1,
+    zIndex: OVERLAY_Z_INDEX.MEDIA_BASE,
     paddingVertical: 12,
     paddingHorizontal: 24,
     justifyContent: 'center',

@@ -9,7 +9,9 @@ import {
   LayoutAnimation,
   ActivityIndicator,
   InteractionManager,
+  Modal,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { NativePressable } from '@/components/ui/NativePressable';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -22,7 +24,6 @@ import Animated, {
 import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
-import { navigateToProfileImageViewer } from '@/utils/navigation/profileImageViewer';
 
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import type { TrueSheet as TrueSheetHandle } from '@lodev09/react-native-true-sheet';
@@ -38,6 +39,7 @@ import {
   usePostInteractionStore,
 } from '../../../stores/postInteractionStore';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useModalStore } from '../../../stores/modalStore';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 import { useLikeInteraction } from '@/hooks/useLikeInteraction';
@@ -108,8 +110,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   postedAt: propPostedAt,
 }) => {
   const { t } = useTranslation();
-  const globalData = useModalStore(state => state.commentSectionData);
-  const dismissCommentSection = useModalStore(state => state.dismissCommentSection);
+  const { globalData, dismissCommentSection } = useModalStore(
+    useShallow(state => ({
+      globalData: state.commentSectionData,
+      dismissCommentSection: state.dismissCommentSection,
+    }))
+  );
 
   const { presentShareSheet } = useGlobalShareSheet();
 
@@ -148,6 +154,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     end: 0,
   });
   const inputRef = useRef<TextInput>(null);
+
+  const [viewingImageUri, setViewingImageUri] = useState<string | null>(null);
+  const handleImagePress = useCallback((uri: string) => {
+    if (uri) setViewingImageUri(uri);
+  }, []);
 
   const [replyContext, setReplyContext] = useState<{
     authorName: string;
@@ -468,7 +479,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     structuralSharing: false,
   });
 
-  // Track reported comments for animated removal
   const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
   const previousCommentsLengthRef = useRef<number>(0);
 
@@ -480,7 +490,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       commentList.forEach((c: Comment) => {
         if (c && typeof c === 'object') {
           const commentUri = c?.uri;
-          // Filter out reported comments
           if (commentUri && reportedPostUris.has(commentUri)) {
             return;
           }
@@ -501,7 +510,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     return flat;
   }, [commentsPages, reportedPostUris]);
 
-  // Prepare layout animation when comments are removed
   useEffect(() => {
     const currentLength = flattenedComments.length;
     const previousLength = previousCommentsLengthRef.current;
@@ -741,14 +749,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           comment={item}
           onDismiss={onDismiss}
           onCommentDeleted={handleCommentDeleted}
-          onImagePress={navigateToProfileImageViewer}
+          onImagePress={handleImagePress}
           onReplyPress={handleReplyPress}
           highlightUri={scrollToCommentUri}
           level={level}
         />
       );
     },
-    [scrollToCommentUri, onDismiss, handleCommentDeleted, handleReplyPress]
+    [scrollToCommentUri, onDismiss, handleCommentDeleted, handleReplyPress, handleImagePress]
   );
 
   const renderLikeItem = useCallback<ListRenderItem<Like>>(
@@ -963,6 +971,37 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onSelect={handleSelectGif}
         onClose={handleGifPickerClosed}
       />
+
+      <Modal
+        visible={!!viewingImageUri}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setViewingImageUri(null)}
+        hardwareAccelerated
+      >
+        <View
+          style={styles.imageViewerRoot}
+          accessibilityViewIsModal
+          accessibilityLabel="Image viewer"
+        >
+          <NativePressable
+            style={styles.imageViewerDismiss}
+            onPress={() => setViewingImageUri(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Close image viewer"
+          >
+            {viewingImageUri ? (
+              <Image
+                source={{ uri: viewingImageUri }}
+                style={styles.imageViewerImage}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+            ) : null}
+          </NativePressable>
+        </View>
+      </Modal>
     </>
   );
 };
@@ -1080,6 +1119,19 @@ const styles = StyleSheet.create({
     color: Colors.neutral[300],
     fontSize: Typography.sizes.caption,
     fontFamily: FontFamily.medium,
+  },
+  imageViewerRoot: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+  },
+  imageViewerDismiss: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageViewerImage: {
+    width: '95%',
+    height: '80%',
   },
 });
 

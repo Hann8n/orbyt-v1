@@ -27,7 +27,7 @@ import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { ChatBskyConvoDefs } from '@atproto/api';
 import { ChatService, type ListConvosFilter } from '../../../services/api/chat/ChatService';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -58,7 +58,8 @@ import { itemSizeConfig } from '@/components/ui/ItemStyles';
 
 type ConvoView = ChatBskyConvoDefs.ConvoView;
 
-// Type for embed record viewRecord
+const keyExtractor = (item: ConvoView) => item.id;
+
 interface EmbedRecordViewRecord {
   $type?: string;
   author?: ProfileViewBasic;
@@ -412,7 +413,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
 
   const effectiveFilter = useMemo(() => segmentToFilter(segment), [segment]);
 
-  const acceptConvoMutation = useMutation({
+  const { mutate: acceptConvo } = useMutation({
     mutationFn: (convoId: string) => ChatService.acceptConvo(convoId),
     onSuccess: (_, convoId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
@@ -420,13 +421,16 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
     },
   });
 
-  const leaveConvoMutation = useMutation({
+  const { mutate: leaveConvo } = useMutation({
     mutationFn: (convoId: string) => ChatService.leaveConvo(convoId),
     onSuccess: (_, convoId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
     },
   });
+
+  const [pendingAcceptId, setPendingAcceptId] = useState<string | null>(null);
+  const [pendingDeclineId, setPendingDeclineId] = useState<string | null>(null);
 
   useImperativeHandle(
     ref,
@@ -462,7 +466,12 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
     placeholderData: prev => prev,
     ...chatReactQueryOptions,
   });
-  // Refetch when chatFilter changes (query key already includes it)
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const conversations: ConvoView[] = useMemo(
     () => data?.pages?.flatMap(p => p?.conversations ?? []) ?? [],
@@ -520,12 +529,6 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
     previousFirstConvoIdRef.current = firstId;
   }, [conversations]);
 
-  useFocusEffect(
-    useCallback(() => {
-      refetch();
-    }, [refetch])
-  );
-
   const handleRefresh = useCallback(() => {
     setIsUserRefreshing(true);
     refetch().finally(() => setIsUserRefreshing(false));
@@ -533,16 +536,22 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
 
   const handleAcceptConvo = useCallback(
     (convoId: string) => {
-      acceptConvoMutation.mutate(convoId);
+      setPendingAcceptId(convoId);
+      acceptConvo(convoId, {
+        onSettled: () => setPendingAcceptId(null),
+      });
     },
-    [acceptConvoMutation]
+    [acceptConvo]
   );
 
   const handleDeclineConvo = useCallback(
     (convoId: string) => {
-      leaveConvoMutation.mutate(convoId);
+      setPendingDeclineId(convoId);
+      leaveConvo(convoId, {
+        onSettled: () => setPendingDeclineId(null),
+      });
     },
-    [leaveConvoMutation]
+    [leaveConvo]
   );
 
   const renderItem = useCallback(
@@ -552,14 +561,13 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
         navigation={navigation}
         onAccept={handleAcceptConvo}
         onDecline={handleDeclineConvo}
-        isAccepting={acceptConvoMutation.isPending && acceptConvoMutation.variables === item.id}
-        isDeclining={leaveConvoMutation.isPending && leaveConvoMutation.variables === item.id}
+        isAccepting={pendingAcceptId === item.id}
+        isDeclining={pendingDeclineId === item.id}
       />
     ),
-    [navigation, acceptConvoMutation, leaveConvoMutation, handleAcceptConvo, handleDeclineConvo]
+    [navigation, handleAcceptConvo, handleDeclineConvo, pendingAcceptId, pendingDeclineId]
   );
 
-  const keyExtractor = useCallback((item: ConvoView) => item.id, []);
 
   const getItemType = useCallback((item: ConvoView) => {
     return item.status === 'request' ? 'request' : 'conversation';

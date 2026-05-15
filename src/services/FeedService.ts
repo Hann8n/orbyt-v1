@@ -13,7 +13,6 @@ import type {
   FeedResponse,
   ProfileViewBasic,
   GeneratorView,
-  FeedParams,
 } from './api/types';
 import { isOrbytChannel, channelToHashtag, getChannelByUri } from '../utils/channels/orbyt';
 import type { FeedOption } from '../types';
@@ -58,28 +57,20 @@ const FEED_CONFIG = {
   cacheTime: 60 * 60 * 1000, // 60 minutes - increased to reduce unnecessary refetching
 } as const;
 
-/**
- * Minimal state manager - only used for search results display
- * React Query handles all feed caching via useInfiniteQuery
- */
-class SearchFeedState {
-  private searchResults: ExtendedFeedViewPost[] = [];
+// Search results state — module-level, no class boilerplate
+let searchResults: ExtendedFeedViewPost[] = [];
 
-  setSearchResults(feed: ExtendedFeedViewPost[]) {
-    this.searchResults = feed;
-  }
-
-  getSearchResults(): ExtendedFeedViewPost[] {
-    return this.searchResults;
-  }
-
-  clearSearchResults() {
-    this.searchResults = [];
-  }
+function setSearchResults(feed: ExtendedFeedViewPost[]) {
+  searchResults = feed;
 }
 
-// Singleton for search state only
-const searchFeedState = new SearchFeedState();
+function getSearchResults(): ExtendedFeedViewPost[] {
+  return searchResults;
+}
+
+function clearSearchResults() {
+  searchResults = [];
+}
 
 // Core feed fetching logic
 class FeedService {
@@ -167,32 +158,6 @@ class FeedService {
   }
 
   /**
-   * Fetch and filter from a single source (used when only one source is active)
-   */
-  private async fetchSingleSource(
-    source: FeedSource,
-    cursor: string | null,
-    limit: number,
-    currentUserDid: string | null
-  ): Promise<APIResponse> {
-    // Fetch more than limit to compensate for seen video filtering
-    const fetchLimit = Math.min(limit * 1.5, 75);
-
-    const result = await this.fetchFromSource(source, cursor, Math.ceil(fetchLimit));
-
-    // Filter seen videos (only for your-mix)
-    const filteredResults = seenVideoService.filterSeen(result.feed, currentUserDid);
-
-    // Apply limit after filtering
-    const limitedResults = filteredResults.slice(0, limit);
-
-    return {
-      feed: limitedResults,
-      cursor: result.cursor,
-    };
-  }
-
-  /**
    * Fetch from a single feed source
    * React Query handles retries - no timeout needed
    */
@@ -219,7 +184,7 @@ class FeedService {
         const response = await AtprotoFeedService.getFeed(
           cursor,
           source.uri,
-          {} as FeedParams,
+
           false, // Algorithmic feeds already return video-only content
           limit,
           'custom'
@@ -234,7 +199,7 @@ class FeedService {
         const response = await AtprotoFeedService.getFeed(
           cursor,
           source.uri,
-          {} as FeedParams,
+
           true, // Filter videos for regular feed generators
           limit,
           'custom'
@@ -312,28 +277,27 @@ class FeedService {
     // React Query handles caching - no need for manual cache management
     try {
       const limit = FEED_CONFIG.defaultLimit;
-      let response;
 
       // Normalize feed option only for API calls (converts local URIs to hashtags)
       const feedOptionForAPI = this.normalizeFeedOptionForAPI(feedOption);
 
       // Handle different feed types (using normalized feed option for API calls)
       if (feedOptionForAPI === 'likes' && userDid) {
-        response = await AtprotoFeedService.getFeed(
+        return await AtprotoFeedService.getFeed(
           cursor ?? null,
           userDid ?? null,
-          {} as FeedParams,
+
           true,
           limit,
           'likes'
         );
       } else if (feedOptionForAPI === 'reposts' && userDid) {
-        response = await AtprotoFeedService.getRepostedVideos(userDid, cursor ?? null, limit);
+        return await AtprotoFeedService.getRepostedVideos(userDid, cursor ?? null, limit);
       } else if (feedOptionForAPI === 'profile' && userDid) {
-        response = await AtprotoFeedService.getFeed(
+        return await AtprotoFeedService.getFeed(
           cursor ?? null,
           userDid ?? null,
-          {} as FeedParams,
+
           true,
           limit,
           'authorVideos'
@@ -360,70 +324,54 @@ class FeedService {
         if (!feedLink) {
           return { feed: [], cursor: null };
         }
-        response = await AtprotoFeedService.getFeed(
+        return await AtprotoFeedService.getFeed(
           cursor ?? null,
           feedLink,
-          {} as FeedParams,
+
           false,
           limit,
           'custom'
         );
       } else if (feedOptionForAPI === 'your-mix') {
-        // Get feed sources (pre-computed, no dynamic imports)
         const feedSources = this.getYourMixSources();
 
-        // If no feed sources, return empty
         if (feedSources.length === 0) {
           return { feed: [], cursor: null };
         }
 
-        // Get current user for seen video filtering
-        const currentUser = useUserStore.getState().currentUser;
-        const currentUserDid = currentUser?.did ?? null;
+        const currentUserDid = useUserStore.getState().currentUser?.did ?? null;
 
-        // If only one source, use direct fetch
-        if (feedSources.length === 1) {
-          const singleSource = feedSources[0];
-          // Parse simple cursor format or use null
-          let sourceCursor: string | null = null;
-          if (cursor) {
-            try {
-              const parsed = JSON.parse(cursor);
-              if (typeof parsed === 'object' && parsed !== null && parsed[singleSource.uri]) {
-                sourceCursor = parsed[singleSource.uri];
-              }
-            } catch {
-              // Invalid cursor, start fresh
-            }
+        // First page: fetch only the algo source (or first source) for fast initial load.
+        // Subsequent pages use the full mixing loop below.
+        if (!cursor) {
+          const bootSource = feedSources.find(s => s.type === 'algorithmic') ?? feedSources[0];
+          const bootIndex = feedSources.indexOf(bootSource);
+          const result = await this.fetchFromSource(bootSource, null, limit);
+          const filtered = seenVideoService.filterSeen(result.feed, currentUserDid).slice(0, limit);
+
+          let nextCursor: string | null = null;
+          if (result.cursor) {
+            nextCursor = JSON.stringify({ index: bootIndex, cursor: result.cursor });
+          } else if (bootIndex + 1 < feedSources.length) {
+            nextCursor = JSON.stringify({ index: bootIndex + 1, cursor: null });
           }
-          const resp = await this.fetchSingleSource(
-            singleSource,
-            sourceCursor,
-            limit,
-            currentUserDid
-          );
-          return {
-            feed: resp.feed,
-            cursor: resp.cursor ? JSON.stringify({ [singleSource.uri]: resp.cursor }) : null,
-          };
+
+          return { feed: filtered, cursor: nextCursor };
         }
 
         // Parse cursor to get source index and cursor
         let sourceIndex = 0;
         let sourceCursor: string | null = null;
-        if (cursor) {
-          try {
-            const parsed = JSON.parse(cursor);
-            if (typeof parsed === 'object' && parsed !== null) {
-              sourceIndex = parsed.index ?? 0;
-              sourceCursor = parsed.cursor ?? null;
-            }
-          } catch {
-            // Invalid cursor, start fresh
+        try {
+          const parsed = JSON.parse(cursor);
+          if (typeof parsed === 'object' && parsed !== null) {
+            sourceIndex = parsed.index ?? 0;
+            sourceCursor = parsed.cursor ?? null;
           }
+        } catch {
+          // Invalid cursor, start fresh
         }
 
-        // Fetch sequentially from sources until we have enough posts
         const allPosts: ExtendedFeedViewPost[] = [];
         const seenUris = new Set<string>();
         let currentIndex = sourceIndex;
@@ -434,7 +382,6 @@ class FeedService {
           const result = await this.fetchFromSource(source, currentCursor, limit);
 
           if (result.success) {
-            // Add new posts (deduplicate by URI)
             for (const post of result.feed) {
               const uri = post.post?.uri;
               if (uri && !seenUris.has(uri)) {
@@ -444,14 +391,12 @@ class FeedService {
             }
             currentCursor = result.cursor;
           } else {
-            // Fetch failed - advance to next source
             currentIndex++;
             currentCursor = null;
             continue;
           }
 
           if (!currentCursor) {
-            // Source exhausted - advance to next source
             currentIndex++;
             currentCursor = null;
           } else if (allPosts.length >= limit) {
@@ -478,16 +423,7 @@ class FeedService {
             ? JSON.stringify({ index: currentIndex, cursor: currentCursor })
             : null;
 
-        response = {
-          feed: limitedPosts,
-          cursor: newCursor,
-        };
-      } else if (
-        feedOptionForAPI === 'profile' ||
-        feedOptionForAPI === 'likes' ||
-        feedOptionForAPI === 'reposts'
-      ) {
-        return { feed: [], cursor: null };
+        return { feed: limitedPosts, cursor: newCursor };
       } else if (feedOptionForAPI.startsWith('search:')) {
         const searchQuery = feedOptionForAPI.substring(7);
         if (!searchQuery || searchQuery.trim() === '') {
@@ -531,7 +467,7 @@ class FeedService {
                 author: channel.creator,
                 text: channel.displayName,
                 avatar: channel.avatar,
-                contentMode: (channel as GeneratorView & { contentMode?: string }).contentMode, // Already extracted by AtprotoService
+                contentMode: channel.contentMode,
               } as unknown as ExtendedFeedViewPost['post'],
               uniqueKey: channel.uri,
             });
@@ -588,7 +524,7 @@ class FeedService {
         }
       } else if (feedOptionForAPI === 'search') {
         return {
-          feed: searchFeedState.getSearchResults(),
+          feed: getSearchResults(),
           cursor: null,
         };
       } else if (feedOptionForAPI === 'watched') {
@@ -627,17 +563,15 @@ class FeedService {
         // Other feeds may skip filtering if they're video-only generators
         const shouldFilter = feedOptionForAPI === 'reposts' || feedOptionForAPI === 'likes';
 
-        response = await AtprotoFeedService.getFeed(
+        return await AtprotoFeedService.getFeed(
           cursor ?? null,
           feedLink,
-          {} as FeedParams,
-          shouldFilter, // Apply filtering for reposts and likes
+
+          shouldFilter,
           limit,
           'custom'
         );
       }
-
-      return response || { feed: [], cursor: null };
     } catch (error) {
       logger.error('Failed to fetch feed', error, {
         component: 'FeedService',
@@ -648,24 +582,10 @@ class FeedService {
     }
   }
 
-  // Removed custom infinite scroll - using FlashList's onEndReached instead
-
-  // Query configuration helper (hooks must be called in useFeed hook, not here)
-  // This method is kept for backwards compatibility but should not use hooks
-  createInfiniteQuery(
-    _feedOption: FeedOption,
-    _userDid?: string,
-    _queryOptions: Record<string, unknown> = {}
-  ) {
-    throw new Error(
-      'createInfiniteQuery should not be called directly. Use the useFeed hook instead.'
-    );
-  }
-
   // Search results state management (only used for search feeds)
-  setCurrentFeed = searchFeedState.setSearchResults.bind(searchFeedState);
-  getCurrentFeed = searchFeedState.getSearchResults.bind(searchFeedState);
-  clearCurrentFeed = searchFeedState.clearSearchResults.bind(searchFeedState);
+  setCurrentFeed = setSearchResults;
+  getCurrentFeed = getSearchResults;
+  clearCurrentFeed = clearSearchResults;
 }
 
 // Export singleton instance

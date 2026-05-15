@@ -121,14 +121,6 @@ function VideoOverlayCaptionComponent({
     () => StyleSheet.compose(styles.descriptionText, captionMeasureWidthStyle),
     [captionMeasureWidthStyle]
   );
-  const descriptionCollapsedTextStyle = useMemo(
-    () => StyleSheet.compose(styles.descriptionText, styles.descriptionTextFlexible),
-    []
-  );
-  const descriptionToggleStyle = useMemo(
-    () => StyleSheet.compose(styles.descriptionToggleSurface, styles.descriptionTogglePressable),
-    []
-  );
 
   if (!hasDescription) return null;
 
@@ -152,7 +144,13 @@ function VideoOverlayCaptionComponent({
 
         <View style={styles.descriptionCaptionColumn}>
           {descriptionOverflows === true && isOverlayCollapsed ? (
-            <View style={styles.descriptionInlineToggleRow}>
+            <SquircleNativePressable
+              onPress={toggleCollapsed}
+              hitSlop={HIT_SLOP_6_4}
+              accessibilityRole="button"
+              accessibilityLabel={t('feed.showMore')}
+              style={styles.descriptionTextFlexible}
+            >
               <TextWithAuthorLinks
                 text={record?.text ?? ''}
                 style={descriptionCollapsedTextStyle}
@@ -162,16 +160,7 @@ function VideoOverlayCaptionComponent({
                 onHashtagPress={onHashtagPress}
                 facets={facets}
               />
-              <SquircleNativePressable
-                onPress={toggleCollapsed}
-                hitSlop={HIT_SLOP_6_4}
-                accessibilityRole="button"
-                accessibilityLabel={t('feed.showMore')}
-                style={descriptionToggleStyle}
-              >
-                <Text style={styles.descriptionToggleButtonLabel}>{t('feed.showMore')}</Text>
-              </SquircleNativePressable>
-            </View>
+            </SquircleNativePressable>
           ) : descriptionOverflows === true && !isOverlayCollapsed ? (
             <View style={styles.descriptionExpandedWithToggle}>
               <TextWithAuthorLinks
@@ -271,6 +260,10 @@ const styles = StyleSheet.create({
     textShadowRadius: 0,
   },
 });
+
+// Static compositions — computed once at module load, not per render.
+const descriptionCollapsedTextStyle = StyleSheet.compose(styles.descriptionText, styles.descriptionTextFlexible);
+const descriptionToggleStyle = StyleSheet.compose(styles.descriptionToggleSurface, styles.descriptionTogglePressable);
 
 export const VideoOverlayCaption = memo(VideoOverlayCaptionComponent);
 VideoOverlayCaptionComponent.displayName = 'VideoOverlayCaption';
