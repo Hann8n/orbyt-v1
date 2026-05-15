@@ -132,18 +132,22 @@ function VideoOverlayActionsComponent({
         disabled={isRepostPending}
         hitSlop={HIT_SLOP_14}
       >
-        <Animated.View style={repostAnimatedStyle}>
-          <NanoIcon
-            name="refresh-fill"
-            size={actionIconSize}
-            color={isReposted ? Colors.teal[500] : Colors.neutral[50]}
-          />
-        </Animated.View>
+        <View style={styles.iconContainer}>
+          <Animated.View style={repostAnimatedStyle}>
+            <NanoIcon
+              name="refresh-fill"
+              size={actionIconSize}
+              color={isReposted ? Colors.teal[500] : Colors.neutral[50]}
+            />
+          </Animated.View>
+        </View>
         <Text style={styles.actionText}>{formatNumber(repostCount)}</Text>
       </Pressable>
 
       <Pressable style={styles.baseActionButton} onPress={onOpenComments} hitSlop={HIT_SLOP_14}>
-        <NanoIcon name="chat-fill" size={actionIconSize} color={Colors.neutral[50]} />
+        <View style={styles.iconContainer}>
+          <NanoIcon name="chat-fill" size={actionIconSize} color={Colors.neutral[50]} />
+        </View>
         <Text style={styles.actionText}>{formatNumber(commentCount)}</Text>
       </Pressable>
 
@@ -153,13 +157,15 @@ function VideoOverlayActionsComponent({
         disabled={isLikePending}
         hitSlop={HIT_SLOP_14}
       >
-        <Animated.View style={likeAnimatedStyle}>
-          <NanoIcon
-            name="heart-fill"
-            size={actionIconSize}
-            color={isLiked ? Colors.coral[500] : Colors.neutral[50]}
-          />
-        </Animated.View>
+        <View style={styles.iconContainer}>
+          <Animated.View style={likeAnimatedStyle}>
+            <NanoIcon
+              name="heart-fill"
+              size={actionIconSize}
+              color={isLiked ? Colors.coral[500] : Colors.neutral[50]}
+            />
+          </Animated.View>
+        </View>
         <Text style={styles.actionText}>{formatNumber(likeCount)}</Text>
       </Pressable>
     </View>
@@ -182,6 +188,18 @@ const styles = StyleSheet.create({
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 2,
+  },
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 2,
   },
   actionText: {
     color: Colors.neutral[50],
@@ -191,8 +209,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     minWidth: 45,
-    textShadowColor: Colors.transparent,
-    textShadowRadius: 0,
+    textShadowColor: Colors.overlay.black35,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
 
