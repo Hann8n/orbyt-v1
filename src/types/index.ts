@@ -57,7 +57,6 @@ export interface ListFeedViewProps {
   contentScrollProgressOutput?: SharedValue<number>;
   forceError?: boolean;
   ListComponent?: React.ComponentType<unknown> | null;
-  targetScrollIndex?: number | null;
   dataUpdatedAt?: number;
   /** When provided, grid item tap calls this (e.g. open feed modal); required for grid tap to do anything. */
   onGridItemPress?: (index: number) => void;

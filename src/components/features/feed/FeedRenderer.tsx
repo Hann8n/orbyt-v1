@@ -23,10 +23,7 @@ import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { Colors } from '../../../theme';
 import { feedService } from '../../../services/FeedService';
 import type { ListFeedViewRef, ViewMode } from '../../../types';
-import {
-  buildFeedModalHref,
-  type GridFeedModalZoomConfig,
-} from '@/utils/navigation/feedModalRoute';
+import type { GridFeedModalZoomConfig } from '@/utils/navigation/feedModalRoute';
 import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { FollowProvider } from '../../../context/FollowContext';
 import type { ExtendedFeedViewPost as FeedItem } from '../../../services/api/types';
@@ -74,10 +71,8 @@ interface FeedRendererProps {
     refetchIntervalInBackground?: boolean;
   };
 
-  // Debug flag
   forceError?: boolean;
-  ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component for integration with collapsible tabs
-  targetScrollIndex?: number | null; // Initial index to scroll to when opening feed
+  ListComponent?: React.ComponentType<unknown> | null;
   /** When opening the feed modal from grid, matches `Link.AppleZoomTarget` on the list row (iOS 18+). */
   zoomTargetPostUri?: string | null;
 
@@ -108,7 +103,6 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
       fetchNextPage: searchFetchNextPage,
       forceError = false,
       ListComponent,
-      targetScrollIndex: propTargetScrollIndex,
       zoomTargetPostUri,
       pullToRefreshEnabled = false,
       onPullToRefreshExtra,
@@ -119,9 +113,6 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
 
     const isSearchFeed = feedOption === 'search';
 
-    // Memoized query options - useFeed handles defaults (staleTime, gcTime, etc.)
-    // Keep query enabled always to avoid refetch trigger when visibility changes
-    // Visibility is handled separately for video playback and infinite scroll
     const memoizedQueryOptions = useMemo(() => {
       const { enabled: providedEnabled, ...restOptions } = queryOptions ?? {};
 
@@ -178,49 +169,23 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
       }
     }, [hasNextPage, isFetchingNextPage, isVisible, fetchNextPage]);
 
-    const feedModalTab = useFeedModalTabSegment();
     const router = useRouter();
+    const feedModalTab = useFeedModalTabSegment();
 
-    // Refs keep callbacks stable so FlashList items don't re-render when
-    // query state / navigation context changes. Values are always current.
     const routerRef = useRef(router);
     routerRef.current = router;
-    const feedModalTabRef = useRef(feedModalTab);
-    feedModalTabRef.current = feedModalTab;
+    const tabSegmentRef = useRef(feedModalTab);
+    tabSegmentRef.current = feedModalTab;
 
-    const gridStateRef = useRef({
-      feed,
-      feedOption,
-      userDid,
-      resolvedBackgroundColor,
-      secondaryColor,
-      hasNextPage,
-      isFetchingNextPage,
-    });
-    gridStateRef.current = {
-      feed,
-      feedOption,
-      userDid,
-      resolvedBackgroundColor,
-      secondaryColor,
-      hasNextPage,
-      isFetchingNextPage,
-    };
+    const gridStateRef = useRef({ feed, feedOption, userDid });
+    gridStateRef.current = { feed, feedOption, userDid };
 
     const handleHashtagPress = useCallback(
       (hashtag: string) => {
-        routerRef.current.push(
-          buildFeedModalHref(
-            {
-              feedOption: `hashtag:${hashtag}`,
-              backgroundColor: Colors.black,
-              secondaryColor: Colors.neutral[50],
-              initialIndex: '0',
-              initialPostUri: '',
-            },
-            feedModalTabRef.current
-          )
-        );
+        routerRef.current.push({
+          pathname: `/(tabs)/${tabSegmentRef.current}/feed`,
+          params: { feedOption: `hashtag:${hashtag}`, initialPostUri: '' },
+        });
       },
       []
     );
@@ -229,24 +194,17 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
       (index: number) => {
         const s = gridStateRef.current;
         if (index >= 0 && index < s.feed.length) {
-          feedService.setCurrentFeed(s.feed);
+          if (s.feedOption === 'search') feedService.setCurrentFeed(s.feed);
           const item = s.feed[index] as FeedItem;
           const initialPostUri = item?.post?.uri ?? '';
-          routerRef.current.push(
-            buildFeedModalHref(
-              {
-                feedOption: s.feedOption || 'search',
-                userDid: s.userDid,
-                backgroundColor: s.resolvedBackgroundColor,
-                secondaryColor: s.secondaryColor || Colors.neutral[50],
-                initialIndex: index.toString(),
-                initialPostUri,
-                hasNextPage: s.hasNextPage ? 'true' : 'false',
-                isFetchingNextPage: s.isFetchingNextPage ? 'true' : 'false',
-              },
-              feedModalTabRef.current
-            )
-          );
+          routerRef.current.push({
+            pathname: `/(tabs)/${tabSegmentRef.current}/feed`,
+            params: {
+              feedOption: s.feedOption || 'search',
+              ...(s.userDid ? { userDid: s.userDid } : {}),
+              initialPostUri,
+            },
+          });
         }
       },
       []
@@ -278,7 +236,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
       return {
         onBeforeNavigate: (index: number) => {
           const s = gridStateRef.current;
-          if (index >= 0 && index < s.feed.length) {
+          if (s.feedOption === 'search' && index >= 0 && index < s.feed.length) {
             feedService.setCurrentFeed(s.feed);
           }
         },
@@ -286,24 +244,18 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
           const s = gridStateRef.current;
           const item = s.feed[index] as FeedItem | undefined;
           const initialPostUri = item?.post?.uri ?? '';
-          return buildFeedModalHref(
-            {
+          return {
+            pathname: `/(tabs)/${tabSegmentRef.current}/feed` as const,
+            params: {
               feedOption: s.feedOption || 'search',
-              userDid: s.userDid,
-              backgroundColor: s.resolvedBackgroundColor,
-              secondaryColor: s.secondaryColor || Colors.neutral[50],
-              initialIndex: String(index),
+              ...(s.userDid ? { userDid: s.userDid } : {}),
               initialPostUri,
-              hasNextPage: s.hasNextPage ? 'true' : 'false',
-              isFetchingNextPage: s.isFetchingNextPage ? 'true' : 'false',
             },
-            feedModalTabRef.current
-          );
+          };
         },
       };
     }, []);
 
-    // Single ref: ListFeedView chooses list vs grid internally and forwards scrollToTop
     const listFeedViewRef = useRef<ListFeedViewRef>(null);
 
     useImperativeHandle(
@@ -314,8 +266,6 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
       []
     );
 
-    // Scroll to top on feed reset: fires when dataUpdatedAt changes and the first item URI
-    // differs from before (covers same-count resets that the old feed.length check missed).
     const prevFirstUriRef = useRef(feed[0]?.post?.uri ?? null);
     const prevDataUpdatedAtRef = useRef(dataUpdatedAt);
     useEffect(() => {
@@ -358,7 +308,6 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
         isLoading={isSearchFeed ? false : isPending}
         isError={isSearchFeed ? false : finalIsError}
         isPaused={isPaused}
-        targetScrollIndex={propTargetScrollIndex}
         pullToRefresh={pullToRefresh}
       />
     );

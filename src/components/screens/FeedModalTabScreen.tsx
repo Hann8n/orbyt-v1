@@ -23,19 +23,13 @@ const FeedModalTabScreen = memo(() => {
   const isRouteFocused = useVisibilityRouteIsActive('feed-modal');
 
   const routeParams = useMemo(() => {
-    const initialIndex = params.initialIndex ? parseInt(params.initialIndex as string, 10) : null;
-    const validInitialIndex = initialIndex !== null && !isNaN(initialIndex) ? initialIndex : null;
     const initialPostUri =
       typeof params.initialPostUri === 'string' && params.initialPostUri.length > 0
         ? params.initialPostUri
         : null;
     return {
-      feed: params.feed as string,
       feedOption: params.feedOption as string,
-      userDid: params.userDid as string,
-      hasNextPage: params.hasNextPage === 'true',
-      isFetchingNextPage: params.isFetchingNextPage === 'true',
-      initialIndex: validInitialIndex,
+      userDid: params.userDid as string | undefined,
       initialPostUri,
     };
   }, [params]);
@@ -68,10 +62,7 @@ const FeedModalTabScreen = memo(() => {
         secondaryColor={Colors.neutral[50]}
         isVisible={isRouteFocused}
         hasTabBar
-        hasNextPage={routeParams.hasNextPage}
-        isFetchingNextPage={routeParams.isFetchingNextPage}
         queryOptions={modalQueryOptions}
-        targetScrollIndex={routeParams.initialIndex}
         zoomTargetPostUri={routeParams.initialPostUri}
       />
 

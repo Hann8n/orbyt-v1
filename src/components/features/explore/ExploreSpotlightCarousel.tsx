@@ -123,13 +123,8 @@ export const ExploreSpotlightCarousel = React.memo(({ videos }: Props) => {
         const postUri = item?.post?.uri ?? '';
         return buildFeedModalHref(
           {
-            initialIndex: String(index),
             initialPostUri: postUri,
             feedOption: 'search',
-            backgroundColor: 'transparent',
-            secondaryColor: Colors.neutral[50],
-            hasNextPage: 'false',
-            isFetchingNextPage: 'false',
           },
           'explore'
         );
@@ -145,13 +140,8 @@ export const ExploreSpotlightCarousel = React.memo(({ videos }: Props) => {
       router.navigate(
         buildFeedModalHref(
           {
-            initialIndex: String(index),
             initialPostUri: videoUri,
             feedOption: 'search',
-            backgroundColor: 'transparent',
-            secondaryColor: Colors.neutral[50],
-            hasNextPage: 'false',
-            isFetchingNextPage: 'false',
           },
           'explore'
         )

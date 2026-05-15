@@ -265,7 +265,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       contentScrollProgressOutput,
       forceError = false,
       ListComponent,
-      targetScrollIndex,
       onGridItemPress: onGridItemPressProp,
       zoomTargetPostUri,
       gridFeedModalZoomConfig,
@@ -276,26 +275,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
   ) => {
     const resolvedViewMode = viewMode ?? 'list';
 
-    const initialScrollIndex = useMemo((): number | undefined => {
-      if (
-        targetScrollIndex !== null &&
-        targetScrollIndex !== undefined &&
-        resolvedViewMode === 'list' &&
-        feed.length > 0
-      ) {
-        return Math.max(0, Math.min(targetScrollIndex, feed.length - 1));
-      }
-      return undefined;
-    }, [targetScrollIndex, resolvedViewMode, feed.length]);
-
-    // Hooks
     const insets = useSafeAreaInsets();
 
-    // Layout state
     const [headerHeight, setHeaderHeight] = useState(0);
     const [feedLayoutHeight, setFeedLayoutHeight] = useState(0);
 
-    // Refs
     const flashListRef = useRef<FlashListRef<FeedListItem>>(null);
     const gridRef = useRef<ListFeedViewRef>(null);
 
@@ -303,11 +287,14 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const endOfFeedEnabledSV = useSharedValue(0);
     const endOfFeedOverscrollOpacitySV = useSharedValue(0);
 
-    const seedActiveIndex =
-      typeof initialScrollIndex === 'number' ? initialScrollIndex : feed.length > 0 ? 0 : -1;
+    const seedActiveIndex = (() => {
+      if (zoomTargetPostUri && feed.length > 0) {
+        const idx = feed.findIndex(item => item.post?.uri === zoomTargetPostUri);
+        if (idx >= 0) return idx;
+      }
+      return feed.length > 0 ? 0 : -1;
+    })();
     const activeVisibleIndexRef = useRef(seedActiveIndex);
-    // useState lazy initializer creates the store once on mount — useMemo([seedActiveIndex])
-    // would recreate it when feed.length changes from 0→N, losing accumulated state.
     const [listPlaybackStore] = useState(() =>
       createFeedListPlaybackStore({ activeIndex: seedActiveIndex })
     );
@@ -383,10 +370,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       if (useManualIosGlassTabPaddingLayout) {
         return getViewportDimensions(insets, { useFullWindowHeight: !hasTabBar }).height;
       }
-      if (feedLayoutHeight > 0) {
-        return feedLayoutHeight;
-      }
-      return Math.max(0, screenHeight - insets.top - insets.bottom);
+      return Math.max(0, screenHeight - getEffectiveTopInset(insets.top) - insets.bottom);
     })();
     const cardHeight = useManualIosGlassTabPaddingLayout
       ? getVideoCardHeight(screenWidth, screenHeight)
@@ -401,12 +385,18 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [listPlaybackStore]
     );
 
+    const didScrollToTargetRef = useRef(false);
     useEffect(() => {
-      if (typeof initialScrollIndex !== 'number') return;
-      if (activeVisibleIndexRef.current === initialScrollIndex) return;
-      activeVisibleIndexRef.current = initialScrollIndex;
-      listPlaybackStore.patch({ activeIndex: initialScrollIndex });
-    }, [initialScrollIndex, listPlaybackStore]);
+      if (didScrollToTargetRef.current || !zoomTargetPostUri || feed.length === 0) return;
+      const idx = feed.findIndex(item => item.post?.uri === zoomTargetPostUri);
+      if (idx < 0 || !flashListRef.current) return;
+      didScrollToTargetRef.current = true;
+      if (activeVisibleIndexRef.current !== idx) {
+        activeVisibleIndexRef.current = idx;
+        listPlaybackStore.patch({ activeIndex: idx });
+      }
+      flashListRef.current.scrollToItem({ item: feed[idx], animated: false, viewPosition: 0 });
+    }, [zoomTargetPostUri, feed, listPlaybackStore]);
 
     useEffect(() => {
       if (feed.length === 0) {
@@ -538,6 +528,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     }, [handleOrientationChange]);
 
     const itemSpacing = cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
+
+    const overrideItemLayout = useCallback(
+      (layout: { span?: number; size?: number }) => {
+        layout.size = cardHeight;
+      },
+      [cardHeight]
+    );
     const hasHeader = Boolean(headerComponent);
 
     const listViewportForEmpty = feedLayoutHeight > 0 ? feedLayoutHeight : viewableAreaHeight;
@@ -764,11 +761,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               data={listData}
               renderItem={renderItem}
               extraData={listRenderExtraData}
+              overrideItemLayout={overrideItemLayout}
               drawDistance={FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE}
               keyExtractor={listKeyExtractor}
               getItemType={getListItemType}
               refreshControl={refreshControlElement}
-              initialScrollIndex={initialScrollIndex}
               ListHeaderComponent={listHeaderElement}
               pagingEnabled={false}
               snapToOffsets={snapToOffsets}
@@ -814,7 +811,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         renderItem,
         listRenderExtraData,
         refreshControlElement,
-        initialScrollIndex,
         listHeaderElement,
         snapToOffsets,
         snapToIntervalValue,
@@ -825,6 +821,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         listEmptyElement,
         listFooterElement,
         listContentContainerStyle,
+        overrideItemLayout,
       ]
     );
 
@@ -944,9 +941,7 @@ const styles = StyleSheet.create({
     height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
     backgroundColor: Colors.transparent,
   },
-  measurementPlaceholder: {
-    // Used by FlashList for measurement passes
-  },
+  measurementPlaceholder: {},
   endOfFeedOverscrollHint: {
     position: 'absolute',
     left: 0,

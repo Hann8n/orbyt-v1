@@ -203,7 +203,7 @@ function ChatMessageRichText({
                 if (!clean) return;
                 router.navigate(
                   buildFeedModalHref(
-                    { feedOption: `hashtag:${clean}`, initialIndex: '0', initialPostUri: '' },
+                    { feedOption: `hashtag:${clean}`, initialPostUri: '' },
                     currentTab
                   )
                 );

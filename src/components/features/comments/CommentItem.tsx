@@ -480,9 +480,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
         buildFeedModalHref(
           {
             feedOption: `hashtag:${hashtag}`,
-            backgroundColor: Colors.black,
-            secondaryColor: Colors.neutral[50],
-            initialIndex: '0',
             initialPostUri: '',
           },
           feedModalTab
