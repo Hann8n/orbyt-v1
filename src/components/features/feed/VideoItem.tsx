@@ -29,12 +29,14 @@ export interface VideoItemProps {
   height: number;
   feedOption?: string;
   isVisible?: boolean;
-  allowPlayback?: boolean;
+  canPlay?: boolean;
   index?: number;
   /** iOS: marks the row as the zoom transition target (paired with grid `Link.AppleZoom`). */
   isAppleZoomTarget?: boolean;
   /** Navigate to a hashtag feed. */
   onHashtagPress?: (hashtag: string) => void;
+  /** Active index in the list for computing relative visibility */
+  activeIndex?: number;
 }
 
 function VideoItemComponent({
@@ -43,10 +45,11 @@ function VideoItemComponent({
   height,
   feedOption,
   isVisible,
-  allowPlayback,
+  canPlay,
   index = 0,
   isAppleZoomTarget = false,
   onHashtagPress,
+  activeIndex,
 }: VideoItemProps) {
   const embed = 'embed' in post ? (post.embed as PostView['embed']) : undefined;
   const videoView = getVideoView(embed);
@@ -68,11 +71,12 @@ function VideoItemComponent({
       post={normalizedPost}
       feedItem={feedItem}
       {...(isVisible !== undefined ? { isVisible } : {})}
-      {...(allowPlayback !== undefined ? { shouldDisablePlayback: !allowPlayback } : {})}
+      {...(canPlay !== undefined ? { canPlay } : {})}
       height={height}
       feedOption={feedOption}
       index={index}
       onHashtagPress={onHashtagPress}
+      {...(activeIndex !== undefined ? { activeIndex } : {})}
     />
   );
 
@@ -120,8 +124,9 @@ const areVideoItemPropsEqual = (prev: VideoItemProps, next: VideoItemProps): boo
     prev.height === next.height &&
     prev.feedOption === next.feedOption &&
     prev.isVisible === next.isVisible &&
-    prev.allowPlayback === next.allowPlayback &&
+    prev.canPlay === next.canPlay &&
     prev.index === next.index &&
+    prev.activeIndex === next.activeIndex &&
     prev.isAppleZoomTarget === next.isAppleZoomTarget &&
     prev.onHashtagPress === next.onHashtagPress
   );

@@ -9,9 +9,8 @@ import {
   DEFAULT_SEEK_TOLERANCE_SCRUBBER,
 } from '../../../../../utils/video/helpers';
 import { logger } from '../../../../../utils/logger';
-import { computeShouldPlayVideo } from './computeShouldPlayVideo';
 
-function logVideoCardPlayerError(action: string, err: unknown): void {
+export function logVideoCardPlayerError(action: string, err: unknown): void {
   logger.debug(`VideoCard: ${action} threw`, {
     component: 'VideoCard',
     action,
@@ -19,13 +18,38 @@ function logVideoCardPlayerError(action: string, err: unknown): void {
   });
 }
 
+const computeShouldPlayVideo = ({
+  cannotShowMedia,
+  isBlurred,
+  canPlay,
+  hasError,
+  userPaused,
+  isVisible,
+  videoUrl,
+}: {
+  cannotShowMedia: boolean;
+  isBlurred: boolean;
+  canPlay: boolean;
+  hasError: boolean;
+  userPaused: boolean;
+  isVisible: boolean;
+  videoUrl: string | null;
+}): boolean =>
+  !cannotShowMedia &&
+  !isBlurred &&
+  canPlay &&
+  !hasError &&
+  !userPaused &&
+  isVisible &&
+  Boolean(videoUrl);
+
 export interface UseVideoCardPlayerArgs {
   videoUrl: string | null;
   postUri: string;
   feedOption?: string;
   isVisible: boolean;
   holdSource: boolean;
-  shouldDisablePlayback: boolean;
+  canPlay: boolean;
   cannotShowMedia: boolean;
   isBlurred: boolean;
   onVideoStatus?: (uri: string, status: string) => void;
@@ -52,7 +76,7 @@ export function useVideoCardPlayer({
   feedOption,
   isVisible,
   holdSource,
-  shouldDisablePlayback,
+  canPlay,
   cannotShowMedia,
   isBlurred,
   onVideoStatus,
@@ -125,7 +149,7 @@ export function useVideoCardPlayer({
 
   const togglePlayback = useCallback(
     (shouldPlay?: boolean) => {
-      if (cannotShowMedia || isBlurred || shouldDisablePlayback) return;
+      if (cannotShowMedia || isBlurred || !canPlay) return;
       if (hasError) return;
       setVideoState(prev => {
         const nextPaused = shouldPlay !== undefined ? !shouldPlay : !prev.userPaused;
@@ -133,7 +157,7 @@ export function useVideoCardPlayer({
         return { ...prev, userPaused: nextPaused };
       });
     },
-    [cannotShowMedia, isBlurred, shouldDisablePlayback, hasError, setVideoState]
+    [cannotShowMedia, isBlurred, canPlay, hasError, setVideoState]
   );
 
   const seek = useCallback(
@@ -176,7 +200,7 @@ export function useVideoCardPlayer({
   const shouldPlayVideo = computeShouldPlayVideo({
     cannotShowMedia,
     isBlurred,
-    shouldDisablePlayback,
+    canPlay,
     hasError,
     userPaused: videoState.userPaused,
     isVisible,

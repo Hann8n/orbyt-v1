@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ExtendedPostView, ExtendedFeedViewPost } from '../../../../../services/api/types';
 
@@ -62,23 +63,26 @@ export function useVideoCardModerationState(
   const reason = firstBlur?.type === 'label' ? firstBlur.label.val : undefined;
   const isBlurred = isWarn && !userChoseToView;
 
-  const warningDescription = (() => {
+  const warningDescription = useMemo(() => {
     const fallback = t('video.contentWarningFallback');
     if (!reason) return fallback;
 
     const labels = reason
       .split(',')
-      .map((l: string) => l.trim())
+      .map((l: string) => l.trim().toLowerCase())
       .filter((l: string) => !WARNING_HIDDEN_LABELS.includes(l));
 
     if (labels.length === 0) return fallback;
+
+    if (labels.some(l => l === 'inauthentic-account')) {
+      return t('video.contentWarningInauthentic');
+    }
 
     const getLabelMessage = (label: string): string => {
       const key = `video.contentWarningLabels.${label}`;
       const translated = t(key);
       if (translated !== key) return translated;
-      const lowerLabel = label.toLowerCase();
-      const matchedKey = CONTENT_WARNING_LABEL_KEYS.find(k => k.toLowerCase() === lowerLabel);
+      const matchedKey = CONTENT_WARNING_LABEL_KEYS.find(k => k === label);
       if (matchedKey) return t(`video.contentWarningLabels.${matchedKey}`);
       return label
         .split('-')
@@ -94,20 +98,13 @@ export function useVideoCardModerationState(
     if (messages.length === 0) return fallback;
 
     const andConjunction = t('video.contentWarningAnd');
-
-    if (
-      labels.some(l => l === 'inauthentic-account' || l.toLowerCase() === 'inauthentic-account')
-    ) {
-      return t('video.contentWarningInauthentic');
-    }
-
     const formattedMessage =
       messages.length > 1
         ? messages.slice(0, -1).join(', ') + andConjunction + messages[messages.length - 1]
         : messages[0];
 
     return t('video.contentWarningMayContain', { labels: formattedMessage });
-  })();
+  }, [reason, t]);
 
   const handleViewContent = () => setUserChoseToView(true);
 

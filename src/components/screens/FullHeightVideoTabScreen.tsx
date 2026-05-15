@@ -12,7 +12,7 @@ import { VideoItem } from '@/components/features/feed/VideoItem';
 import { feedService } from '@/services/FeedService';
 import { getViewportDimensions } from '@/utils/device/screen';
 import type { EdgeInsets } from 'react-native-safe-area-context';
-import { useFeedVisibility } from '@/core/visibility';
+import { useFeedVisibility } from '@/core/visibility/hooks';
 import { useVisibilityRouteIsActive } from '@/hooks';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
@@ -92,7 +92,7 @@ const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
               height={cardHeight}
               feedOption={FEED_OPTION}
               isVisible={true}
-              allowPlayback={canPlay}
+              canPlay={canPlay}
               index={0}
               isAppleZoomTarget={Platform.OS === 'ios'}
             />
@@ -105,7 +105,7 @@ const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
           height={fullHeightVideoHeight}
           feedOption={FEED_OPTION}
           isVisible={true}
-          allowPlayback={canPlay}
+          canPlay={canPlay}
           index={0}
           isAppleZoomTarget={Platform.OS === 'ios'}
         />

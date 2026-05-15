@@ -83,19 +83,6 @@ function VideoOverlayAuthorComponent({
     onAuthorPress?.(author.did ?? author.handle ?? '', author);
   }, [onAuthorPress, author]);
 
-  const avatarProfileColors = useMemo(
-    () =>
-      profileColors
-        ? {
-            backgroundColor: profileColors.backgroundColor,
-            foregroundColor: profileColors.foregroundColor,
-            textColor: profileColors.textColor,
-          }
-        : undefined,
-    [profileColors]
-  );
-
-
   return (
     <>
       {post.repostedBy ? (
@@ -127,7 +114,7 @@ function VideoOverlayAuthorComponent({
               ringColor={ringColor}
               blurRadius={isAuthorBlocked ? 30 : 0}
               status={authorProfileStatus ?? undefined}
-              profileColors={avatarProfileColors}
+              profileColors={profileColors ?? undefined}
             />
           </NativePressable>
         </View>
@@ -306,13 +293,22 @@ const styles = StyleSheet.create({
 });
 
 // Static compositions — computed once at module load, not per render.
-const avatarContainerStyle = StyleSheet.compose(styles.avatarContainer, sharedItemStyles.avatarContainer);
-const authorTextContainerStyle = StyleSheet.compose(styles.authorTextContainer, sharedItemStyles.accountInfoContainer);
+const avatarContainerStyle = StyleSheet.compose(
+  styles.avatarContainer,
+  sharedItemStyles.avatarContainer
+);
+const authorTextContainerStyle = StyleSheet.compose(
+  styles.authorTextContainer,
+  sharedItemStyles.accountInfoContainer
+);
 const authorNameTextStyle = StyleSheet.compose(styles.baseText, styles.authorName);
 const followSeparatorStyle = StyleSheet.compose(styles.authorName, styles.followSeparator);
 const followTextStyle = [styles.baseText, styles.authorName, styles.followText];
 const sourceTextStyle = StyleSheet.compose(styles.sourceText, styles.sourceTextOpacity);
-const repostIndicatorTextStyle = StyleSheet.compose(styles.repostIndicatorText, styles.repostTextOpacity);
+const repostIndicatorTextStyle = StyleSheet.compose(
+  styles.repostIndicatorText,
+  styles.repostTextOpacity
+);
 
 export const VideoOverlayAuthor = memo(VideoOverlayAuthorComponent);
 VideoOverlayAuthorComponent.displayName = 'VideoOverlayAuthor';
