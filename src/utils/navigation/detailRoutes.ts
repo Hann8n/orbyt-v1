@@ -23,13 +23,13 @@ export function getDetailNavTabIfInsideTabs(segments: readonly string[]): Detail
 function profilePathnameForTab(
   tab: DetailNavTab
 ):
-  | '/(tabs)/profile/[did]'
+  | '/(tabs)/profile/user/[did]'
   | '/(tabs)/home/user/[did]'
   | '/(tabs)/explore/user/[did]'
   | '/(tabs)/activity/user/[did]' {
   switch (tab) {
     case 'profile':
-      return '/(tabs)/profile/[did]';
+      return '/(tabs)/profile/user/[did]';
     case 'home':
       return '/(tabs)/home/user/[did]';
     case 'explore':

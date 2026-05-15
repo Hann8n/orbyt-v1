@@ -15,8 +15,8 @@ import React, {
   useState,
 } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useNavigation, useRouter } from 'expo-router';
-import type { DetailNavTab } from '@/utils/navigation/detailRoutes';
+import { useRouter } from 'expo-router';
+import { useCurrentDetailNavTab, type DetailNavTab } from '@/utils/navigation/detailRoutes';
 
 import ListFeedView from './ListFeedView';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
@@ -173,18 +173,14 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
     const routerRef = useRef(router);
     routerRef.current = router;
 
-    const navigation = useNavigation();
-    const navigationRef = useRef(navigation);
-    navigationRef.current = navigation;
+    const currentTab = useCurrentDetailNavTab();
+    const currentTabRef = useRef(currentTab);
+    currentTabRef.current = currentTab;
 
     const gridStateRef = useRef({ feed, feedOption, userDid });
     gridStateRef.current = { feed, feedOption, userDid };
 
-    // Reads the active tab from NativeTabs navigation state synchronously — no React state, no staleness.
-    const getTab = (): DetailNavTab => {
-      const state = navigationRef.current.getParent()?.getState();
-      return (state?.routes[state?.index ?? 0]?.name as DetailNavTab) ?? 'home';
-    };
+    const getTab = (): DetailNavTab => currentTabRef.current;
 
     const handleHashtagPress = useCallback(
       (hashtag: string) => {

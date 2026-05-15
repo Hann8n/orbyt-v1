@@ -103,7 +103,7 @@ const VideoGridItem: React.FC<{
 
   if (zoomLink && Platform.OS === 'ios') {
     return (
-      <Link href={zoomLink.href} asChild>
+      <Link push href={zoomLink.href} asChild>
         <Pressable style={flattenedStyle} onPress={zoomLink.onBeforeNavigate}>
           <Link.AppleZoom>
             <View collapsable={false} style={styles.appleZoomSourceInner}>

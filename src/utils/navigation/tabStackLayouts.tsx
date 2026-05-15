@@ -32,10 +32,6 @@ export function HomeTabStackLayout() {
   );
 }
 
-/**
- * Explore, Activity — use `user/[did]` (not `profile/[did]`) so deep-link patterns stay
- * distinct from the Profile tab’s `[did].tsx` (both would otherwise map to `(tabs)/profile/:did`).
- */
 export function IndexExploreActivityStackLayout() {
   return (
     <Stack screenOptions={tabStackScreenOptions}>
@@ -48,14 +44,13 @@ export function IndexExploreActivityStackLayout() {
   );
 }
 
-/** Profile tab — root is `index`; other users are `[did]`; channels under `channel/[id]`. */
 export function ProfileTabStackLayout() {
   return (
     <Stack screenOptions={tabStackScreenOptions}>
       <Stack.Screen name="index" />
       <Stack.Screen name="feed" />
       <Stack.Screen name="full-height-video" />
-      <Stack.Screen name="[did]" dangerouslySingular={getUserSingularName} />
+      <Stack.Screen name="user/[did]" dangerouslySingular={getUserSingularName} />
       <Stack.Screen name="channel/[id]" dangerouslySingular={getChannelSingularName} />
     </Stack>
   );

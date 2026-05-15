@@ -70,8 +70,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const router = useRouter();
   const rawParams = useLocalSearchParams<{ did?: string }>();
 
-  // Route file is [did].tsx - param name is "did", but we accept either DID or handle
-  // and resolve handles to DIDs here (single place).
   const providedIdentifier = rawParams.did;
   const providedIsDid = !!providedIdentifier && providedIdentifier.startsWith('did:');
 
