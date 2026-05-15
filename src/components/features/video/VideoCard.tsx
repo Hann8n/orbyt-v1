@@ -33,6 +33,7 @@ import { logger } from '../../../utils/logger';
 import { getVideoView, normalizePostView } from '../../../utils/video/helpers';
 import { INTERACTIONSEEN } from '../../../services/api/types';
 import type { ExtendedFeedViewPost, ExtendedPostView } from '../../../services/api/types';
+import { AppBskyFeedPost } from '@atproto/api';
 import { useQueryClient } from '@tanstack/react-query';
 
 import VideoCardMediaLayer from './video-card/VideoCardMediaLayer';
@@ -307,7 +308,7 @@ function VideoCard({
       totalLikes: displayInteractionRef.current.likeCount,
       totalComments: displayInteractionRef.current.commentCount,
       isLiked: displayInteractionRef.current.isLiked,
-      postedAt: (postView.record as { createdAt?: string })?.createdAt || postView.indexedAt,
+      postedAt: (postView.record as AppBskyFeedPost.Record)?.createdAt || postView.indexedAt,
       onToggleLike: handleLike,
       isLikePending: overlayPendingRef.current.isLikePending,
     });

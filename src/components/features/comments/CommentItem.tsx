@@ -20,7 +20,7 @@ import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { AtUri } from '@atproto/api';
-import { prefetchProfile, useProfileByDid } from '../../../services/data/ProfileService';
+import { prefetchProfile } from '../../../services/data/ProfileService';
 import { MenuView } from '@react-native-menu/menu';
 import type { MenuAction } from '@react-native-menu/menu';
 
@@ -66,15 +66,13 @@ function getCommentLikeCount(c: Comment) {
   return c?.likeCount ?? 0;
 }
 function getCommentText(c: Comment) {
-  return (c?.record as { text?: string })?.text || '';
+  return c?.record?.text || '';
 }
 function getCommentFacets(c: Comment) {
-  return (c?.record as { facets?: unknown })?.facets;
+  return c?.record?.facets;
 }
 function getCommentEmbed(c: Comment) {
-  const viewEmbed = (c as { embed?: unknown })?.embed;
-  const recordEmbed = (c?.record as { embed?: unknown })?.embed;
-  return viewEmbed ?? recordEmbed;
+  return c?.embed ?? c?.record?.embed;
 }
 
 const GALLERY_MAX_HEIGHT = 280;
@@ -340,16 +338,14 @@ const CommentItem: React.FC<CommentItemProps> = ({
     };
   });
 
-  const authorName = formatHandle(comment?.author?.handle || '') || t('feed.unknownUser');
-  const authorHandle = formatHandle(comment?.author?.handle || '');
-  const authorDid = comment?.author?.did || null;
-  const authorAvatar = comment?.author?.avatar ?? undefined;
+  const author = comment?.author;
+  const authorName = formatHandle(author?.handle || '') || t('feed.unknownUser');
+  const authorHandle = formatHandle(author?.handle || '');
+  const authorDid = author?.did || null;
+  const authorAvatar = author?.avatar ?? undefined;
 
-  // Get profile data to check if author is blocked
-  const { data: authorProfile } = useProfileByDid(authorDid);
-  const isAuthorBlocked = !!(
-    authorProfile?.viewer?.blocking || authorProfile?.viewer?.blockingByList
-  );
+  // ProfileViewBasic (comment.author) already embeds viewer state from the AppView.
+  const isAuthorBlocked = !!(author?.viewer?.blocking || author?.viewer?.blockingByList);
 
   const commentText = useMemo(() => getCommentText(comment), [comment]);
 
@@ -834,7 +830,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
     if (!isImagesEmbed || !Array.isArray(embedObj?.images)) return null;
 
-    const embedImages: EmbedImage[] = (embed as { images: unknown[] }).images
+    const embedImages: EmbedImage[] = ((embed as unknown) as { images: unknown[] }).images
       .filter(
         (img: unknown) =>
           typeof img === 'object' && img !== null && ('thumb' in img || 'fullsize' in img)
@@ -897,7 +893,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               type="profile"
               size={level > 0 ? 30 : 40}
               blurRadius={isAuthorBlocked ? 30 : 0}
-              status={authorProfile?.status}
+              status={author?.status}
               style={[styles.commentAvatar, level > 0 && styles.commentAvatarNested]}
             />
           </NativePressable>
@@ -928,7 +924,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 <BotBadge
                   handle={authorHandle}
                   did={authorDid ?? undefined}
-                  labels={authorProfile?.labels ?? comment?.author?.labels}
+                  labels={author?.labels}
                   textSize={16}
                   textColor={Colors.neutral[50]}
                 />

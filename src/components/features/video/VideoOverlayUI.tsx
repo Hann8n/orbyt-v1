@@ -2,16 +2,13 @@ import { memo, useMemo } from 'react';
 import { Image } from 'expo-image';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
+import { AppBskyActorDefs } from '@atproto/api';
 
 import { VideoOverlayActions } from './video-overlay/VideoOverlayActions';
 import { VideoOverlayAuthor } from './video-overlay/VideoOverlayAuthor';
 import { VideoOverlayCaption } from './video-overlay/VideoOverlayCaption';
 import type { ProfileColorScheme } from '../../../utils/formatting/colors';
-import type {
-  ExtendedPostView,
-  ProfileViewWithOrbyt,
-  StatusView,
-} from '../../../services/api/types';
+import type { ExtendedPostView } from '../../../services/api/types';
 
 const TOP_GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
 const BOTTOM_GRADIENT_SHIM = require('../../../assets/video-gradient.png');
@@ -53,10 +50,10 @@ export interface VideoOverlayUIProps {
     isAuthorBlocked: boolean;
     profileColors: ProfileColorScheme | null | undefined;
     authorDid: string | null | undefined;
-    authorProfileStatus: StatusView | null | undefined;
-    /** Verification slice from the by-DID profile cache. Threaded inline so
+    authorProfileStatus: AppBskyActorDefs.StatusView | null | undefined;
+    /** Verification slice from the feed's author.viewer — threaded inline so
      *  VerificationBadge can skip its own per-card `useProfile(handle)` query. */
-    verification: ProfileViewWithOrbyt['verification'];
+    verification: AppBskyActorDefs.VerificationState | undefined;
   };
 }
 

@@ -5,7 +5,6 @@ import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation
 
 import { Colors } from '../../../theme';
 import { formatHandle } from '../../../utils/formatting/handles';
-import { useProfileByDid } from '../../../services/data/ProfileService';
 import type { Like } from '../../../services/api/types';
 
 import UI from '../../ui/UI';
@@ -26,8 +25,8 @@ const CommentLikeItemComponent: React.FC<CommentLikeItemProps> = ({ like, onPres
   const handle = actor?.handle ?? '';
   const did = actor?.did ?? null;
 
-  const { data: actorProfile } = useProfileByDid(did);
-  const isActorBlocked = !!(actorProfile?.viewer?.blocking || actorProfile?.viewer?.blockingByList);
+  // ProfileView (like.actor) already embeds viewer state from the AppView.
+  const isActorBlocked = !!(actor?.viewer?.blocking || actor?.viewer?.blockingByList);
 
   const displayHandle = useMemo(() => formatHandle(handle) || handle || 'unknown', [handle]);
 
@@ -48,7 +47,7 @@ const CommentLikeItemComponent: React.FC<CommentLikeItemProps> = ({ like, onPres
           type="profile"
           size={AVATAR_SIZE}
           blurRadius={isActorBlocked ? 30 : 0}
-          status={actorProfile?.status}
+          status={actor?.status}
           style={styles.avatar}
         />
       </View>
@@ -63,14 +62,14 @@ const CommentLikeItemComponent: React.FC<CommentLikeItemProps> = ({ like, onPres
               handle={handle}
               textSize={16}
               textColor={Colors.neutral[50]}
-              verification={actorProfile?.verification}
+              verification={actor?.verification}
             />
           ) : null}
           {handle ? (
             <BotBadge
               handle={handle}
               did={did ?? undefined}
-              labels={actorProfile?.labels}
+              labels={actor?.labels}
               textSize={16}
               textColor={Colors.neutral[50]}
             />

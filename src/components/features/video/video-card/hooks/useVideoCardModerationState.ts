@@ -51,9 +51,7 @@ export function useVideoCardModerationState(
   const contentListUI = feedItem?.contentListUI;
   const contentMediaUI = feedItem?.contentMediaUI;
   const hasModerationFromBatch = contentListUI != null || contentMediaUI != null;
-  const postHasLabels =
-    Array.isArray((postView as { labels?: unknown[] }).labels) &&
-    (postView as { labels: unknown[] }).labels.length > 0;
+  const postHasLabels = Array.isArray(postView.labels) && postView.labels.length > 0;
   const shouldBlur = !!(contentListUI?.blur || contentMediaUI?.blur);
   const noOverride = !!(contentListUI?.noOverride || contentMediaUI?.noOverride);
   const isFiltered = !!(contentListUI?.filter || contentMediaUI?.filter);

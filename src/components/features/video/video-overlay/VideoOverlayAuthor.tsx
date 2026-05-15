@@ -13,11 +13,8 @@ import { formatHandle } from '../../../../utils/formatting/handles';
 import { getLocalizedChannelDisplayNameFromSlug } from '../../../../utils/channels/orbyt';
 import { BORDER_RADIUS } from '../../../../utils/constants';
 import type { ProfileColorScheme } from '../../../../utils/formatting/colors';
-import type {
-  ExtendedPostView,
-  ProfileViewWithOrbyt,
-  StatusView,
-} from '../../../../services/api/types';
+import type { ExtendedPostView } from '../../../../services/api/types';
+import { AppBskyActorDefs } from '@atproto/api';
 
 const HIT_SLOP_12 = { top: 12, bottom: 12, left: 12, right: 12 } as const;
 const HIT_SLOP_8_6 = { top: 8, bottom: 8, left: 6, right: 6 } as const;
@@ -32,11 +29,11 @@ export interface VideoOverlayAuthorProps {
   channelSlug?: string | null;
   authorAvatarSize: number;
   isAuthorBlocked: boolean;
-  authorProfileStatus?: StatusView | null;
+  authorProfileStatus?: AppBskyActorDefs.StatusView | null;
   profileColors: ProfileColorScheme | null | undefined;
-  /** Verification slice from the by-DID profile cache. Passed inline to
-   *  VerificationBadge so it skips its own per-card `useProfile(handle)` query. */
-  verification?: ProfileViewWithOrbyt['verification'];
+  /** Verification slice from the feed's author.viewer — passed inline so
+   *  VerificationBadge can skip its own per-card `useProfile(handle)` query. */
+  verification?: AppBskyActorDefs.VerificationState | undefined;
   onAuthorPress?: (
     identifier: string,
     data?: { did?: string; handle?: string; displayName?: string; avatar?: string }

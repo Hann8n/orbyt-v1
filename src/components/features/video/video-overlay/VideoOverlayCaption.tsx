@@ -144,7 +144,13 @@ function VideoOverlayCaptionComponent({
 
         <View style={styles.descriptionCaptionColumn}>
           {descriptionOverflows === true && isOverlayCollapsed ? (
-            <View style={styles.descriptionInlineToggleRow}>
+            <SquircleNativePressable
+              onPress={toggleCollapsed}
+              hitSlop={HIT_SLOP_6_4}
+              accessibilityRole="button"
+              accessibilityLabel={t('feed.showMore')}
+              style={styles.descriptionTextFlexible}
+            >
               <TextWithAuthorLinks
                 text={record?.text ?? ''}
                 style={descriptionCollapsedTextStyle}
@@ -154,16 +160,7 @@ function VideoOverlayCaptionComponent({
                 onHashtagPress={onHashtagPress}
                 facets={facets}
               />
-              <SquircleNativePressable
-                onPress={toggleCollapsed}
-                hitSlop={HIT_SLOP_6_4}
-                accessibilityRole="button"
-                accessibilityLabel={t('feed.showMore')}
-                style={descriptionToggleStyle}
-              >
-                <Text style={styles.descriptionToggleButtonLabel}>{t('feed.showMore')}</Text>
-              </SquircleNativePressable>
-            </View>
+            </SquircleNativePressable>
           ) : descriptionOverflows === true && !isOverlayCollapsed ? (
             <View style={styles.descriptionExpandedWithToggle}>
               <TextWithAuthorLinks
