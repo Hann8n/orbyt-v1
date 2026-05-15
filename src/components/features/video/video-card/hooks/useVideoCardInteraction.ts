@@ -50,9 +50,9 @@ export function useVideoCardInteraction({
   const defaultInteraction = useMemo(
     () => ({
       isLiked: !!postView.viewer?.like,
-      likeCount: postView.likeCount || 0,
-      commentCount: postView.replyCount || 0,
-      repostCount: postView.repostCount || 0,
+      likeCount: postView.likeCount ?? 0,
+      commentCount: postView.replyCount ?? 0,
+      repostCount: postView.repostCount ?? 0,
       isReposted: !!postView.viewer?.repost,
       isBookmarked: false,
       likeUri: postView.viewer?.like,

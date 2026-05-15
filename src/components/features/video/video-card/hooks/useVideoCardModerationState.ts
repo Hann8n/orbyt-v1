@@ -58,10 +58,8 @@ export function useVideoCardModerationState(
   const cannotShowMedia = noOverride || isFiltered || (!hasModerationFromBatch && postHasLabels);
   const isWarn = shouldBlur && !noOverride && !isFiltered;
   const firstBlur = contentListUI?.blurs?.[0] ?? contentMediaUI?.blurs?.[0];
-  const reason =
-    firstBlur && typeof firstBlur === 'object' && 'label' in firstBlur
-      ? (firstBlur as { label: { val?: string } }).label?.val
-      : undefined;
+  // ModerationCause is a discriminated union; when type === 'label', label.val is guaranteed.
+  const reason = firstBlur?.type === 'label' ? firstBlur.label.val : undefined;
   const isBlurred = isWarn && !userChoseToView;
 
   const warningDescription = (() => {

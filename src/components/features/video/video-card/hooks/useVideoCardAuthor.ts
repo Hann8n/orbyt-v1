@@ -93,9 +93,7 @@ export function useVideoCardAuthor({
   );
 
   const postRecord = postView.record as AppBskyFeedPost.Record;
-  const channelTag = (postRecord.tags ?? []).find(
-    (t): t is string => typeof t === 'string' && t.startsWith('orbyt-channel-')
-  );
+  const channelTag = (postRecord.tags ?? []).find(t => t.startsWith('orbyt-channel-'));
   const channelSlug = channelTag ? channelTag.replace(/^orbyt-channel-/, '') || null : null;
   const channelUri = channelSlug ? (getChannelBySlug(channelSlug)?.uri ?? null) : null;
 

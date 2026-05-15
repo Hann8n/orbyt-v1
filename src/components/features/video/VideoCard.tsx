@@ -282,10 +282,10 @@ function VideoCard({
   }, [postView, resolvedFeedUri, presentShareSheet]);
 
   const handleFollowPress = useCallback(() => {
-    const author = postView.author;
-    if (!author?.handle) return;
+    const target = postView.author;
+    if (!target?.handle) return;
     followMutationRef.current.mutate(
-      { did: author.did, handle: author.handle, isFollowing: true },
+      { did: target.did, handle: target.handle, isFollowing: true },
       {}
     );
   }, [postView.author]);
@@ -295,13 +295,7 @@ function VideoCard({
       uri: postView.uri,
       cid: postView.cid,
       indexedAt: postView.indexedAt,
-      author: postView.author
-        ? {
-            did: postView.author.did,
-            handle: postView.author.handle,
-            displayName: postView.author.displayName,
-          }
-        : undefined,
+      author: postView.author,
     };
     presentCommentSection({
       post: commentPost,
