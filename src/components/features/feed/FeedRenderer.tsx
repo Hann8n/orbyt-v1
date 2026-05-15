@@ -15,7 +15,8 @@ import React, {
   useState,
 } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
+import type { DetailNavTab } from '@/utils/navigation/detailRoutes';
 
 import ListFeedView from './ListFeedView';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
@@ -24,7 +25,6 @@ import { Colors } from '../../../theme';
 import { feedService } from '../../../services/FeedService';
 import type { ListFeedViewRef, ViewMode } from '../../../types';
 import type { GridFeedModalZoomConfig } from '@/utils/navigation/feedModalRoute';
-import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { FollowProvider } from '../../../context/FollowContext';
 import type { ExtendedFeedViewPost as FeedItem } from '../../../services/api/types';
 
@@ -170,20 +170,26 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
     }, [hasNextPage, isFetchingNextPage, isVisible, fetchNextPage]);
 
     const router = useRouter();
-    const feedModalTab = useFeedModalTabSegment();
-
     const routerRef = useRef(router);
     routerRef.current = router;
-    const tabSegmentRef = useRef(feedModalTab);
-    tabSegmentRef.current = feedModalTab;
+
+    const navigation = useNavigation();
+    const navigationRef = useRef(navigation);
+    navigationRef.current = navigation;
 
     const gridStateRef = useRef({ feed, feedOption, userDid });
     gridStateRef.current = { feed, feedOption, userDid };
 
+    // Reads the active tab from NativeTabs navigation state synchronously — no React state, no staleness.
+    const getTab = (): DetailNavTab => {
+      const state = navigationRef.current.getParent()?.getState();
+      return (state?.routes[state?.index ?? 0]?.name as DetailNavTab) ?? 'home';
+    };
+
     const handleHashtagPress = useCallback(
       (hashtag: string) => {
         routerRef.current.push({
-          pathname: `/(tabs)/${tabSegmentRef.current}/feed`,
+          pathname: `/(tabs)/${getTab()}/feed` as const,
           params: { feedOption: `hashtag:${hashtag}`, initialPostUri: '' },
         });
       },
@@ -198,7 +204,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
           const item = s.feed[index] as FeedItem;
           const initialPostUri = item?.post?.uri ?? '';
           routerRef.current.push({
-            pathname: `/(tabs)/${tabSegmentRef.current}/feed`,
+            pathname: `/(tabs)/${getTab()}/feed` as const,
             params: {
               feedOption: s.feedOption || 'search',
               ...(s.userDid ? { userDid: s.userDid } : {}),
@@ -245,7 +251,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
           const item = s.feed[index] as FeedItem | undefined;
           const initialPostUri = item?.post?.uri ?? '';
           return {
-            pathname: `/(tabs)/${tabSegmentRef.current}/feed` as const,
+            pathname: `/(tabs)/${getTab()}/feed` as const,
             params: {
               feedOption: s.feedOption || 'search',
               ...(s.userDid ? { userDid: s.userDid } : {}),

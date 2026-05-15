@@ -475,18 +475,6 @@ function ListFeedViewComponent({
       [headerHeight]
     );
 
-    const isMountedRef = useRef(false);
-    useEffect(() => {
-      if (!isMountedRef.current) {
-        isMountedRef.current = true;
-        return;
-      }
-      const idx = activeVisibleIndexRef.current;
-      if (!flashListRef.current || feed.length === 0 || !listSurfaceActive || idx < 0 || resolvedViewMode !== 'list') return;
-      try {
-        flashListRef.current.scrollToIndex({ index: idx, animated: false, viewPosition: 0.5 });
-      } catch (_error) {}
-    }, [screenWidth, feed.length, listSurfaceActive, resolvedViewMode]);
 
     const itemSpacing = cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
 

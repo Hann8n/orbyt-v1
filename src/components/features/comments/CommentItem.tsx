@@ -16,7 +16,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { buildFeedModalHref } from '@/utils/navigation/feedModalRoute';
-import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { AtUri } from '@atproto/api';
@@ -415,8 +414,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   }, [isLiking, uri, cid, isLiked, comment.viewer?.like, animateHeart, likeComment, t]);
 
   const navigation = useRouter();
-  const feedModalTab = useFeedModalTabSegment();
-  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
+  const { navigateToProfile: goToProfile, currentTab: feedModalTab } = useProfileChannelNavigation();
 
   const navigateToAuthorProfile = useCallback(
     (

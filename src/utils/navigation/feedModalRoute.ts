@@ -1,6 +1,6 @@
 import type { Href } from 'expo-router';
 
-import type { FeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
+import type { DetailNavTab } from '@/utils/navigation/detailRoutes';
 
 /**
  * Serializable search params for tab-stack feed routes (`/(tabs)/{tab}/feed`).
@@ -20,7 +20,7 @@ export type FullHeightVideoModalParams = {
 /** Typed `href` for the full-height video screen (push on current tab’s stack when possible). */
 export function buildFullHeightVideoHref(
   params: FullHeightVideoModalParams,
-  tab: FeedModalTabSegment = 'explore'
+  tab: DetailNavTab = 'explore'
 ): Href {
   return {
     pathname: `/(tabs)/${tab}/full-height-video`,
@@ -31,7 +31,7 @@ export function buildFullHeightVideoHref(
 /** Typed `href` for the feed stack screen inside a tab. */
 export function buildFeedModalHref(
   params: FeedModalSearchParams,
-  tab: FeedModalTabSegment = 'explore'
+  tab: DetailNavTab = 'explore'
 ): Href {
   const routeParams: Record<string, string> = {
     feedOption: params.feedOption,

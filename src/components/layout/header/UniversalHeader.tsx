@@ -32,7 +32,6 @@ import { SquircleView, SquircleNativePressable } from '../../ui/Squircle';
 import { OutlinkIcon, GermDmIcon } from '../../ui/Icon';
 import { useRouter } from 'expo-router';
 import { buildFeedModalHref } from '@/utils/navigation/feedModalRoute';
-import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { hexToRGBA, blendColors, getRelativeLuminance } from '../../../utils/formatting/colors';
 import { Avatar } from '../../ui/UI';
@@ -778,8 +777,7 @@ const HeaderContentComponent = memo<{
   customDescription?: React.ReactNode;
 }>(({ content, textColor, backgroundColor, shadowColor, customDescription }) => {
   const router = useRouter();
-  const feedModalTab = useFeedModalTabSegment();
-  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
+  const { navigateToProfile: goToProfile, currentTab: feedModalTab } = useProfileChannelNavigation();
 
   const germButtonShadow = useMemo(() => {
     if (!shadowColor) return {};

@@ -71,7 +71,7 @@ import { useUserStore } from '@/stores/userStore';
 import type { MessageView, PostView, ProfileViewBasic } from '@/services/api/types';
 import { openPostInBluesky } from '@/utils/links/bluesky';
 import { buildFeedModalHref, buildFullHeightVideoHref } from '@/utils/navigation/feedModalRoute';
-import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
+import { useCurrentDetailNavTab } from '@/utils/navigation/detailRoutes';
 import { seedChatEmbedVideoFeed } from '@/utils/chat/seedChatEmbedVideoFeed';
 import { getVideoView } from '@/utils/video/helpers';
 import { hexToRGBA, isColorDark } from '@/utils/formatting/colors';
@@ -133,8 +133,7 @@ function ChatMessageRichText({
   fromMeTextColor?: string;
 }) {
   const router = useRouter();
-  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
-  const currentTab = useFeedModalTabSegment();
+  const { navigateToProfile: goToProfile, currentTab } = useProfileChannelNavigation();
 
   const rt = useMemo(
     () => new RichText({ text: text || '', facets: facets ?? undefined }),
@@ -962,7 +961,7 @@ function ChatEmbeddedPost({
 }) {
   const openFromRow = useContext(ReactionPickerRowContext);
   const handleLongPress = openFromRow ?? onLongPress;
-  const feedModalTab = useFeedModalTabSegment();
+  const feedModalTab = useCurrentDetailNavTab();
   const record = (embed as { record?: EmbedRecordShape }).record;
   if (!record || typeof record !== 'object') return null;
 
