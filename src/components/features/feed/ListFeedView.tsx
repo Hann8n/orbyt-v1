@@ -340,11 +340,12 @@ function ListFeedViewComponent({
       if (useManualIosGlassTabPaddingLayout) {
         return getViewportDimensions(insets, { useFullWindowHeight: !hasTabBar }).height;
       }
-      return Math.max(0, screenHeight - getEffectiveTopInset(insets.top) - insets.bottom);
-    }, [hasTabBar, screenHeight, insets.bottom, feedLayoutHeight, useManualIosGlassTabPaddingLayout, insets.top]);
+      // For non-liquid glass, don't subtract status bar - only subtract bottom inset
+      return Math.max(0, screenHeight - insets.bottom);
+    }, [hasTabBar, screenHeight, insets.bottom, feedLayoutHeight, useManualIosGlassTabPaddingLayout]);
     const cardHeight = useManualIosGlassTabPaddingLayout
       ? getVideoCardHeight(screenWidth, screenHeight)
-      : Math.max(0, viewableAreaHeight - FEED_VIEW_CONSTANTS.LIST_ITEM_GAP);
+      : viewableAreaHeight;
 
     const handleActiveVisibleIndexChange = useCallback((index: number) => {
       if (activeVisibleIndexRef.current === index) return;
@@ -446,7 +447,6 @@ function ListFeedViewComponent({
           );
         }
 
-        // Handle header items
         if (isFeedHeaderItem(item)) {
           return <View onLayout={(e) => {
             const h = Math.round(e.nativeEvent.layout.height);

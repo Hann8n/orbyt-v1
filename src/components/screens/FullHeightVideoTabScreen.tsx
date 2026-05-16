@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -9,12 +9,14 @@ import { BackArrowIcon } from '@/components/ui/Icon';
 import { Colors } from '@/theme';
 import { FollowProvider } from '@/context/FollowContext';
 import { VideoItem } from '@/components/features/feed/VideoItem';
+import { IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING } from '@/components/features/feed/feedViewShared';
 import { feedService } from '@/services/FeedService';
-import { getViewportDimensions } from '@/utils/device/screen';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
+import { isIosLiquidGlassAvailable } from '@/stores/userStore';
+import { getVideoCardHeight } from '@/utils/video/helpers';
 import type { EdgeInsets } from 'react-native-safe-area-context';
 import { useFeedVisibility } from '@/core/visibility/hooks';
 import { useVisibilityRouteIsActive } from '@/hooks';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 const ROUTE_KEY = 'full-height-video-modal';
 const FEED_OPTION = 'full-height-video';
@@ -34,56 +36,50 @@ const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
   feedItem,
   canPlay,
 }: PlaybackProps) {
-  const { width: windowWidth, height: windowHeight } = getViewportDimensions(insets, {
-    useFullWindowHeight: true,
-  });
+  const { screenWidth, screenHeight } = useDeviceLayout();
+  const hasTabBar = true;
+  const useManualIosGlassTabPaddingLayout = hasTabBar && isIosLiquidGlassAvailable;
+
+  const viewableAreaHeight = (() => {
+    if (!hasTabBar) {
+      const maxViewport = Math.max(0, screenHeight - insets.bottom);
+      return maxViewport;
+    }
+    if (useManualIosGlassTabPaddingLayout) {
+      return screenHeight;
+    }
+    // For non-liquid glass, don't subtract status bar - only subtract bottom inset
+    return Math.max(0, screenHeight - insets.bottom);
+  })();
+
+  const cardHeight = useManualIosGlassTabPaddingLayout
+    ? getVideoCardHeight(screenWidth, screenHeight)
+    : viewableAreaHeight;
 
   const topInset = typeof insets.top === 'number' ? insets.top : 0;
   const bottomInset = typeof insets.bottom === 'number' ? insets.bottom : 0;
-  const liquidGlassEnabled = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
-  const cardHeight = useMemo(() => {
-    if (!liquidGlassEnabled) return 0;
-    const availableHeight = Math.max(0, windowHeight - topInset - bottomInset);
-    const maxCardHeightByWidth = (windowWidth * 16) / 9;
-    return Math.max(0, Math.min(availableHeight, maxCardHeightByWidth));
-  }, [liquidGlassEnabled, windowHeight, topInset, bottomInset, windowWidth]);
-
-  const cardWidth = useMemo(() => {
-    if (!liquidGlassEnabled) return 0;
+  const cardWidth = (() => {
+    if (!useManualIosGlassTabPaddingLayout) return screenWidth;
     return (cardHeight * 9) / 16;
-  }, [cardHeight, liquidGlassEnabled]);
+  })();
 
-  const safeAreaVideoAreaStyle = useMemo(
-    () =>
-      StyleSheet.create({
-        safeAreaVideoArea: {
-          paddingTop: topInset,
-          paddingBottom: bottomInset,
-          justifyContent: 'center',
-          alignItems: 'center',
-        },
-      }).safeAreaVideoArea,
-    [topInset, bottomInset]
-  );
+  const safeAreaVideoAreaStyle = {
+    paddingTop: topInset,
+    paddingBottom: bottomInset + (useManualIosGlassTabPaddingLayout ? IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING : 0),
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  };
 
-  const cardContainerStyle = useMemo(
-    () =>
-      StyleSheet.create({
-        cardContainer: {
-          width: cardWidth,
-          height: cardHeight,
-          overflow: 'hidden',
-        },
-      }).cardContainer,
-    [cardHeight, cardWidth]
-  );
-
-  const fullHeightVideoHeight = Math.max(0, windowHeight - bottomInset);
+  const cardContainerStyle = {
+    width: cardWidth,
+    height: cardHeight,
+    overflow: 'hidden' as const,
+  };
 
   return (
     <View style={styles.videoArea}>
-      {liquidGlassEnabled ? (
+      {useManualIosGlassTabPaddingLayout ? (
         <View style={[safeAreaVideoAreaStyle, styles.videoAreaLiquidGlassInner]}>
           <View style={cardContainerStyle}>
             <VideoItem
@@ -102,7 +98,7 @@ const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
         <VideoItem
           feedItem={feedItem}
           post={feedItem.post}
-          height={fullHeightVideoHeight}
+          height={cardHeight}
           feedOption={FEED_OPTION}
           isVisible={true}
           canPlay={canPlay}
@@ -134,20 +130,11 @@ const FullHeightVideoTabScreen = memo(() => {
     router.back();
   }, [router]);
 
-  const backButtonTop = useMemo(
-    () => (typeof insets.top === 'number' ? insets.top : 0) + 15,
-    [insets.top]
-  );
+  const backButtonTop = (typeof insets.top === 'number' ? insets.top : 0) + 15;
 
-  const backButtonDynamicStyle = useMemo(
-    () =>
-      StyleSheet.create({
-        backButtonDynamic: {
-          top: backButtonTop,
-        },
-      }).backButtonDynamic,
-    [backButtonTop]
-  );
+  const backButtonDynamicStyle = {
+    top: backButtonTop,
+  };
 
   return (
     <FollowProvider>
