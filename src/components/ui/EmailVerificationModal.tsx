@@ -76,19 +76,13 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
   useSheetPresentation(visible, 'email-verification-sheet');
 
-  // Format token as "XXXXX-XXXXX" (uppercase, alphanumeric only)
   const formatToken = (text: string): string => {
-    // Remove all non-alphanumeric characters (hyphens, spaces, etc.)
     const cleaned = text.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-
-    // Limit to 10 characters (5 + 5)
     const limited = cleaned.slice(0, 10);
 
-    // Add hyphen after 5 characters if we have more than 5 characters
     if (limited.length <= 5) {
       return limited;
     }
-    // Format as "XXXXX-XXXXX"
     return `${limited.slice(0, 5)}-${limited.slice(5)}`;
   };
 
@@ -137,41 +131,31 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
     setError(null);
 
     try {
-      // Get user's email directly from session API
       const sessionResponse = await agent.api.com.atproto.server.getSession();
       const email = sessionResponse.data.email ?? null;
       if (!email) {
         throw new Error(t('auth.emailNotFound'));
       }
 
-      // API expects token WITH hyphen (format: "XXXXX-XXXXX")
-      // Send token exactly as formatted (with hyphen)
       const trimmedToken = token.trim();
 
-      // Validate token format (should be 11 characters with hyphen: "XXXXX-XXXXX")
       if (trimmedToken.length !== 11 || !trimmedToken.includes('-')) {
         setError(t('auth.invalidVerificationFormat'));
         setIsVerifying(false);
         return;
       }
 
-      // Log for debugging
       logger.debug('Verifying email token', {
         component: 'EmailVerificationModal',
         token: trimmedToken,
         tokenLength: trimmedToken.length,
       });
 
-      // Send token with hyphen (API expects this format)
       await EmailVerificationService.confirmEmail(agent, email, trimmedToken);
 
-      // Refresh verification status directly from session API
-      // Use API field name directly: emailConfirmed (not emailVerified)
       const refreshedSession = await agent.api.com.atproto.server.getSession();
       const emailConfirmed = refreshedSession.data.emailConfirmed;
 
-      // Update state with refreshed verification status
-      // Use Zustand's setState which automatically triggers subscriptions/rerenders
       useUserStore.setState(state => {
         if (state.currentUser) {
           return {
@@ -181,22 +165,16 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
         return state;
       });
 
-      // Reset form state
       setToken('');
       setEmailSent(false);
 
-      // Use requestIdleCallback to ensure state update propagates before closing modal
-      // This ensures route guards and other components see the updated emailConfirmed status
       requestIdleCallback(
         () => {
-          // Close modal after React has processed the state update
-          // This gives route guards time to re-evaluate with the new state
           onClose();
         },
         { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
       );
     } catch (err) {
-      // Handle specific error types from the API
       let errorMessage = t('auth.failedToVerifyEmail');
       if (err instanceof Error) {
         const errMsg = err.message;

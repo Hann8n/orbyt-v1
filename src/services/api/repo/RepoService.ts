@@ -55,11 +55,9 @@ export class RepoService {
       throw new Error('Unsupported video format');
     }
 
-    // Fetch the video file
     const response = await fetch(videoPath);
     const videoBlob = await response.blob();
 
-    // Upload the video to Bluesky
     const { api } = await AtprotoCore.getApiClient();
     const uploadResult = await api.uploadBlob(videoBlob, {
       encoding: 'video/mp4',
@@ -220,7 +218,6 @@ export class RepoService {
       if (!userDid) return false;
       const { api } = await AtprotoCore.getApiClient();
 
-      // Read existing
       let existing: OrbytProfileRecord | null = null;
       try {
         const rec = await api.com.atproto.repo.getRecord({
@@ -250,7 +247,6 @@ export class RepoService {
       };
 
       if (existing) {
-        // putRecord
         await api.com.atproto.repo.putRecord({
           repo: userDid,
           collection: 'com.getorbyt.profile',
@@ -258,7 +254,6 @@ export class RepoService {
           record: nextRecord,
         });
       } else {
-        // createRecord
         await api.com.atproto.repo.createRecord({
           repo: userDid,
           collection: 'com.getorbyt.profile',

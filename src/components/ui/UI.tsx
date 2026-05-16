@@ -51,20 +51,12 @@ import { Colors, ColorScale, NeutralScale } from '../../theme';
 export { Colors };
 export type { ColorScale, NeutralScale };
 
-// ============================================================================
-// COLOR UTILITY FUNCTIONS
-// ============================================================================
-
 /**
  * Check if colors meet WCAG AA standard (4.5:1 contrast ratio)
  */
 const meetsContrastGuidelines = (color1: string, color2: string): boolean => {
   return getContrastRatio(color1, color2) >= 4.5;
 };
-
-// ============================================================================
-// STANDARDIZED COMPONENTS
-// ============================================================================
 
 // Button Variants
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
@@ -865,10 +857,6 @@ const Badge: React.FC<BadgeProps> = ({ text, variant, size, style }) => {
     </SquircleView>
   );
 };
-
-// ============================================================================
-// STYLES
-// ============================================================================
 
 const styles = StyleSheet.create({
   // Modal styles
