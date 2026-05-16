@@ -9,9 +9,7 @@ import {
   LayoutAnimation,
   ActivityIndicator,
   InteractionManager,
-  Modal,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { NativePressable } from '@/components/ui/NativePressable';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -22,8 +20,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import type { InfiniteData, QueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
@@ -56,31 +53,11 @@ import CommentInputFooter from './CommentInputFooter';
 import CommentItem from './CommentItem';
 import { CommentLikeItem } from './CommentLikeItem';
 import KlipyGifPickerSheet from './KlipyGifPickerSheet';
-import type { Comment, Like, ExtendedPostView, FeedResponse as FeedResp } from '../../../services/api/types';
+import type { Comment, Like, ExtendedPostView } from '../../../services/api/types';
 import type { KlipyItem } from '../../../services/klipy/KlipyService';
 
 type HeaderLikeState = { isLiked: boolean; likeCount: number; likeUri?: string };
 
-function readPostFromFeedCache(queryClient: QueryClient, postUri: string): HeaderLikeState {
-  const caches = queryClient.getQueriesData<InfiniteData<FeedResp>>({
-    queryKey: queryKeys.feed.all,
-  }) as Array<[unknown, InfiniteData<FeedResp> | undefined]>;
-  for (const [, data] of caches) {
-    for (const page of data?.pages ?? []) {
-      for (const item of page.feed) {
-        if ((item.post as ExtendedPostView).uri === postUri) {
-          const p = item.post as ExtendedPostView;
-          return {
-            isLiked: !!p.viewer?.like,
-            likeCount: p.likeCount ?? 0,
-            likeUri: p.viewer?.like,
-          };
-        }
-      }
-    }
-  }
-  return { isLiked: false, likeCount: 0, likeUri: undefined };
-}
 import {
   ensureCommentUploadImage,
   klipyThumbUrlForEmbed,
@@ -164,10 +141,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   });
   const inputRef = useRef<TextInput>(null);
 
-  const [viewingImageUri, setViewingImageUri] = useState<string | null>(null);
-  const handleImagePress = useCallback((uri: string) => {
-    if (uri) setViewingImageUri(uri);
-  }, []);
 
   const [replyContext, setReplyContext] = useState<{
     authorName: string;
@@ -299,18 +272,23 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const { currentUser } = useUserStore();
   const { data: currentUserProfile } = useProfileByDid(currentUser?.did ?? null);
 
-  const queryClient = useQueryClient();
   const likeMutation = useLikeMutation();
 
-  const [headerLikeState, setHeaderLikeState] = useState<HeaderLikeState>(() =>
-    post?.uri ? readPostFromFeedCache(queryClient, post.uri) : { isLiked: false, likeCount: 0, likeUri: undefined }
-  );
+  const [headerLikeState, setHeaderLikeState] = useState<HeaderLikeState>({
+    isLiked: false,
+    likeCount: 0,
+    likeUri: undefined,
+  });
 
   // Reset local like state when a different post is presented.
   useEffect(() => {
     if (!post?.uri) return;
-    setHeaderLikeState(readPostFromFeedCache(queryClient, post.uri));
-  }, [post?.uri, queryClient]);
+    setHeaderLikeState({
+      isLiked: false,
+      likeCount: 0,
+      likeUri: undefined,
+    });
+  }, [post?.uri]);
 
   const headerHeartScale = useSharedValue(1);
   const headerHeartStyle = useAnimatedStyle(() => ({
@@ -693,14 +671,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           comment={item}
           onDismiss={onDismiss}
           onCommentDeleted={undefined}
-          onImagePress={handleImagePress}
           onReplyPress={handleReplyPress}
           highlightUri={scrollToCommentUri}
           level={level}
         />
       );
     },
-    [scrollToCommentUri, onDismiss, handleReplyPress, handleImagePress]
+    [scrollToCommentUri, onDismiss, handleReplyPress]
   );
 
   const renderLikeItem = useCallback<ListRenderItem<Like>>(
@@ -917,37 +894,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onSelect={handleSelectGif}
         onClose={handleGifPickerClosed}
       />
-
-      <Modal
-        visible={!!viewingImageUri}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setViewingImageUri(null)}
-        hardwareAccelerated
-      >
-        <View
-          style={styles.imageViewerRoot}
-          accessibilityViewIsModal
-          accessibilityLabel="Image viewer"
-        >
-          <NativePressable
-            style={styles.imageViewerDismiss}
-            onPress={() => setViewingImageUri(null)}
-            accessibilityRole="button"
-            accessibilityLabel="Close image viewer"
-          >
-            {viewingImageUri ? (
-              <Image
-                source={{ uri: viewingImageUri }}
-                style={styles.imageViewerImage}
-                contentFit="contain"
-                cachePolicy="memory-disk"
-              />
-            ) : null}
-          </NativePressable>
-        </View>
-      </Modal>
     </>
   );
 };
