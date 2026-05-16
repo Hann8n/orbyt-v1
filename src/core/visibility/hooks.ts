@@ -6,8 +6,6 @@ import { FEED_ROW_VIEWABILITY_CONFIG } from './feedRowVisibility';
 
 interface FeedVisibilityOptions {
   isActive: boolean;
-  /** When true, blocks playback regardless of other conditions (e.g., header visible). */
-  headerBlocking?: boolean;
   /** Emits the most visible row index from native list viewability callbacks. */
   onActiveVisibleIndexChange?: (index: number) => void;
   /** Fired synchronously (layout effect) whenever canPlay changes. Caller can patch the
@@ -40,7 +38,6 @@ const selectViewableToken = (
  */
 export function useFeedVisibility({
   isActive,
-  headerBlocking = false,
   onActiveVisibleIndexChange,
   onCanPlayChange,
   isHeaderItem,
@@ -56,7 +53,7 @@ export function useFeedVisibility({
 
   const [headerVisible, setHeaderVisible] = useState(false);
 
-  const canPlay = isActive && isForeground && !headerBlocking && !headerVisible;
+  const canPlay = isActive && isForeground && !headerVisible;
 
   const onCanPlayChangeRef = useRef(onCanPlayChange);
   useEffect(() => {
@@ -76,7 +73,6 @@ export function useFeedVisibility({
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      // SDK-native header visibility tracking: check if header is in viewable items
       const headerInViewable = isHeaderItem
         ? viewableItems.some(item => item.isViewable && isHeaderItem(item.item))
         : false;
@@ -105,10 +101,6 @@ export function useFeedVisibility({
   };
 }
 
-/**
- * Check whether the current screen is focused.
- * routeKey is intentionally ignored to preserve existing API shape.
- */
 export function useVisibilityRouteIsActive(_routeKey: string | null | undefined): boolean {
   return useIsFocused();
 }

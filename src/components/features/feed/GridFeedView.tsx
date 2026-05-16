@@ -177,8 +177,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const flashListRef = useRef<FlashListRef<ExtendedFeedViewPost>>(null);
     const [headerHeight, setHeaderHeight] = useState(0);
     const [gridLayoutHeight, setGridLayoutHeight] = useState(0);
-    const hasHeader = Boolean(headerComponent);
-    const useScrollTracking = !ListComponent && hasHeader;
+    const useScrollTracking = !ListComponent && isHeaderFeed;
     const insets = useSafeAreaInsets();
     const viewportDimensions = getViewportDimensions(insets);
     const viewableAreaHeight = viewportDimensions.height;
@@ -193,7 +192,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const listViewportForEmpty = gridLayoutHeight > 0 ? gridLayoutHeight : viewableAreaHeight;
     const emptyStateHeaderDeduction = ListComponent
       ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS
-      : hasHeader && headerHeight > 0
+      : isHeaderFeed && headerHeight > 0
         ? headerHeight
         : 0;
     const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);

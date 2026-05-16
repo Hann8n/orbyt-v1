@@ -2,13 +2,12 @@ type ListSnapOffsetsParams = {
   snapDisabledCompactLiquidGlass: boolean;
   snapWaitHeaderLayout: boolean;
   listSnapUsesInterval: boolean;
-  hasHeader: boolean;
+  isHeaderFeed: boolean;
   headerHeight: number;
   cardHeight: number;
   itemCount: number;
   itemSpacing: number;
   snapTopInset: number;
-  isHeaderFeed: boolean;
 };
 
 type GridSnapOffsetsParams = {
@@ -25,21 +24,20 @@ export function buildListSnapToOffsets({
   snapDisabledCompactLiquidGlass,
   snapWaitHeaderLayout,
   listSnapUsesInterval,
-  hasHeader,
+  isHeaderFeed,
   headerHeight,
   cardHeight,
   itemCount,
   itemSpacing,
   snapTopInset,
-  isHeaderFeed,
 }: ListSnapOffsetsParams): number[] | undefined {
   if (snapDisabledCompactLiquidGlass || snapWaitHeaderLayout || listSnapUsesInterval) {
     return undefined;
   }
 
-  if (hasHeader) {
+  if (isHeaderFeed) {
     const useHeaderPitch = headerHeight > 0 && cardHeight > 0;
-    const headerSnapAdjust = isHeaderFeed ? snapTopInset : 0;
+    const headerSnapAdjust = snapTopInset;
     const offsets = new Array<number>(itemCount + 1);
     offsets[0] = 0;
 

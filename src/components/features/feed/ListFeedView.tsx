@@ -290,19 +290,20 @@ function ListFeedViewComponent({
     const localProgressSV = useSharedValue(0);
     const progressOutput = useRef(contentScrollProgressOutput ?? localProgressSV).current;
 
+    const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
+
     const seedActiveIndex = (() => {
       if (zoomTargetPostUri && feed.length > 0) {
         const idx = feed.findIndex(item => !isFeedHeaderItem(item) && item.post?.uri === zoomTargetPostUri);
-        if (idx >= 0) return idx + (headerComponent ? 1 : 0);
+        if (idx >= 0) return idx + (isHeaderFeed ? 1 : 0);
       }
-      return feed.length > 0 ? (headerComponent ? 1 : 0) : -1;
+      return feed.length > 0 ? (isHeaderFeed ? 1 : 0) : -1;
     })();
     const activeVisibleIndexRef = useRef(seedActiveIndex);
     const [activeIndex, setActiveIndex] = useState(seedActiveIndex);
 
     const tabBarVisibility = useTabBarVisibility();
     const listSurfaceActive = isVisible && resolvedViewMode === 'list';
-    const hasHeader = Boolean(headerComponent);
     const chromeVisibleMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
 
     useEffect(() => {
@@ -327,7 +328,6 @@ function ListFeedViewComponent({
     );
 
     const { screenWidth, screenHeight, isCompact } = useDeviceLayout();
-    const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
     const hasTabBar = hasTabBarProp ?? true;
     const useManualIosGlassTabPaddingLayout = hasTabBar && isIosLiquidGlassAvailable;
     const useNativeTabBottomSafeArea =
@@ -363,14 +363,14 @@ function ListFeedViewComponent({
       if (didScrollToTargetRef.current || !zoomTargetPostUri || feed.length === 0) return;
       const idx = feed.findIndex(item => !isFeedHeaderItem(item) && item.post?.uri === zoomTargetPostUri);
       if (idx < 0 || !flashListRef.current) return;
-      const adjustedIdx = idx + (headerComponent ? 1 : 0);
+      const adjustedIdx = idx + (isHeaderFeed ? 1 : 0);
       didScrollToTargetRef.current = true;
       if (activeVisibleIndexRef.current !== adjustedIdx) {
         activeVisibleIndexRef.current = adjustedIdx;
         setActiveIndex(adjustedIdx);
       }
       flashListRef.current.scrollToItem({ item: feed[idx], animated: false, viewPosition: 0 });
-    }, [zoomTargetPostUri, feed, headerComponent]);
+    }, [zoomTargetPostUri, feed, isHeaderFeed]);
 
     useEffect(() => {
       if (feed.length === 0) {
@@ -380,10 +380,10 @@ function ListFeedViewComponent({
         return;
       }
       if (activeVisibleIndexRef.current >= 0) return;
-      const headerOffset = headerComponent ? 1 : 0;
+      const headerOffset = isHeaderFeed ? 1 : 0;
       activeVisibleIndexRef.current = headerOffset;
       setActiveIndex(headerOffset);
-    }, [feed.length, headerComponent]);
+    }, [feed.length, isHeaderFeed]);
 
     const {
       canPlay,
@@ -497,7 +497,7 @@ function ListFeedViewComponent({
     const listViewportForEmpty = feedLayoutHeight > 0 ? feedLayoutHeight : viewableAreaHeight;
     const emptyStateHeaderDeduction = ListComponent
       ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS
-      : hasHeader && headerHeight > 0
+      : isHeaderFeed && headerHeight > 0
         ? headerHeight
         : 0;
     const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
@@ -506,12 +506,12 @@ function ListFeedViewComponent({
       useManualIosGlassTabPaddingLayout && !isCompact ? getEffectiveTopInset(insets.top) : 0;
 
     const snapDisabledCompactLiquidGlass =
-      useManualIosGlassTabPaddingLayout && !hasHeader && isCompact;
-    const snapWaitHeaderLayout = hasHeader && headerHeight <= 0;
+      useManualIosGlassTabPaddingLayout && !isHeaderFeed && isCompact;
+    const snapWaitHeaderLayout = isHeaderFeed && headerHeight <= 0;
     const listSnapUsesInterval =
       !snapDisabledCompactLiquidGlass &&
       !snapWaitHeaderLayout &&
-      !hasHeader &&
+      !isHeaderFeed &&
       snapTopInset === 0 &&
       listData.length > 0;
 
@@ -522,25 +522,23 @@ function ListFeedViewComponent({
         snapDisabledCompactLiquidGlass,
         snapWaitHeaderLayout,
         listSnapUsesInterval,
-        hasHeader,
+        isHeaderFeed,
         headerHeight,
         cardHeight,
         itemCount: listData.length,
         itemSpacing,
         snapTopInset,
-        isHeaderFeed,
       });
     }, [
       snapDisabledCompactLiquidGlass,
       snapWaitHeaderLayout,
       listSnapUsesInterval,
-      hasHeader,
+      isHeaderFeed,
       headerHeight,
       cardHeight,
       listData.length,
       itemSpacing,
       snapTopInset,
-      isHeaderFeed,
     ]);
 
     const handleFeedLayout = useCallback((e: LayoutChangeEvent) => {
@@ -550,7 +548,7 @@ function ListFeedViewComponent({
       }
     }, []);
 
-    const fadeDist = hasHeader ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
+    const fadeDist = isHeaderFeed ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
 
     const scrollHandler = useAnimatedScrollHandler({
       onScroll: event => {
@@ -580,10 +578,10 @@ function ListFeedViewComponent({
       const headerSnapAdjust = isHeaderFeed ? snapTopInset : 0;
       scrollFadeParamsSV.value = {
         spacing: itemSpacing,
-        snapOrigin: hasHeader ? headerHeight - headerSnapAdjust : -snapTopInset,
-        firstVideoIdx: hasHeader ? 1 : 0,
+        snapOrigin: isHeaderFeed ? headerHeight - headerSnapAdjust : -snapTopInset,
+        firstVideoIdx: isHeaderFeed ? 1 : 0,
       };
-    }, [scrollFadeParamsSV, itemSpacing, hasHeader, headerHeight, isHeaderFeed, snapTopInset]);
+    }, [scrollFadeParamsSV, itemSpacing, isHeaderFeed, headerHeight, snapTopInset]);
 
     const feedScrollMotion = useMemo<FeedScrollMotionValue>(
       () => ({ scrollOffsetYSV, scrollFadeParamsSV }),

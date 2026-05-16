@@ -42,6 +42,29 @@ type Post = ExtendedPostView | ExtendedFeedViewPost;
 const MIN_SCRUBBER_DURATION_SECONDS = 7;
 const cardHeightStyleCache = new Map<number, { height: number }>();
 
+const getDistanceFromActive = (activeIndex: number | undefined, currentIndex: number): number =>
+  activeIndex !== undefined ? Math.abs(activeIndex - currentIndex) : Infinity;
+
+const getIsVisible = (
+  activeIndex: number | undefined,
+  currentIndex: number,
+  isVisibleProp: boolean
+): boolean =>
+  activeIndex !== undefined ? activeIndex === currentIndex && isVisibleProp : isVisibleProp;
+
+const getRenderHeavyChrome = (
+  activeIndex: number | undefined,
+  distanceFromActive: number,
+  defaultValue: boolean
+): boolean =>
+  activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 1 : defaultValue;
+
+const getHoldSource = (
+  activeIndex: number | undefined,
+  distanceFromActive: number
+): boolean =>
+  activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 2 : true;
+
 const getCardHeightStyle = (cardHeight: number): { height: number } => {
   const normalized = Math.max(0, Math.round(cardHeight));
   const cached = cardHeightStyleCache.get(normalized);
@@ -115,14 +138,10 @@ function VideoCard({
   const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
 
   const idx = index ?? 0;
-  // Calculate distance from active index once (reused for multiple checks)
-  const distanceFromActive = activeIndex !== undefined ? Math.abs(activeIndex - idx) : Infinity;
-  const isVisible =
-    activeIndex !== undefined ? activeIndex === idx && isVisibleProp : isVisibleProp;
-  const renderHeavyChrome =
-    activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 1 : renderHeavyChromeProp;
-  const holdSource =
-    activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 2 : true;
+  const distanceFromActive = getDistanceFromActive(activeIndex, idx);
+  const isVisible = getIsVisible(activeIndex, idx, isVisibleProp);
+  const renderHeavyChrome = getRenderHeavyChrome(activeIndex, distanceFromActive, renderHeavyChromeProp);
+  const holdSource = getHoldSource(activeIndex, distanceFromActive);
 
   const { height: windowHeight } = useWindowDimensions();
   const cardHeight = height ?? windowHeight;
@@ -135,8 +154,6 @@ function VideoCard({
   const videoUrl = videoView?.playlist || null;
   const posterUrl = videoView?.thumbnail || null;
 
-  // Use post URI or CID as unique recycling key to prevent image reuse from other videos
-  // when no thumbnail has loaded yet (FlashList/expo-image recycling).
   const recyclingKey = postView?.uri || postView?.cid || `item-${idx}`;
 
   const {
@@ -370,7 +387,6 @@ function VideoCard({
     const { spacing, snapOrigin, firstVideoIdx } = scrollFadeParamsSV.value;
     if (spacing === 0) return seekOpacity;
 
-    // Skip scroll opacity for off-screen cards (renderHeavyChrome already handles proximity)
     if (!renderHeavyChrome) return seekOpacity;
 
     const cardTop = snapOrigin + (idx - firstVideoIdx) * spacing;

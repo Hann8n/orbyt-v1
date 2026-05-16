@@ -20,12 +20,7 @@ export const FEED_VIEW_CONSTANTS = {
 export const IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING = 12;
 
 export const isHeaderFeed = (feedOption: string, headerComponent?: ReactNode): boolean =>
-  feedOption === FEED_TYPES.PROFILE ||
-  feedOption === FEED_TYPES.LIKES ||
-  feedOption === FEED_TYPES.REPOSTS ||
-  (feedOption && isValidAtUri(feedOption)) ||
-  (feedOption && feedOption.startsWith('hashtag:orbyt-channel-')) ||
-  Boolean(headerComponent);
+  Boolean(headerComponent) || isValidAtUri(feedOption);
 
 export const getProfileColors = (backgroundColor?: string, secondaryColor?: string) =>
   secondaryColor
