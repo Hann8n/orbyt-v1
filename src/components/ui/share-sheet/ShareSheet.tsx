@@ -21,7 +21,7 @@ import CloseButton from '../CloseButton';
 import CancelButton from '../CancelButton';
 import { ModerationService } from '../../../services/moderation/ModerationService';
 import { Colors } from '../UI';
-import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
+import { useShareSheet } from '../../../stores/modalStore';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useBookmarkStore } from '../../../stores/bookmarkStore';
 import { useUserStore } from '../../../stores/userStore';
@@ -32,7 +32,7 @@ import { FontFamily, Typography } from '../../../utils/components/typography';
 
 const ShareSheet: React.FC = () => {
   const { t } = useTranslation();
-  const { getCurrentData, dismissShareSheet } = useGlobalShareSheet();
+  const { getCurrentData, dismissShareSheet } = useShareSheet();
   const data = getCurrentData();
 
   // Always render the TrueSheet component, but only show content when there's data

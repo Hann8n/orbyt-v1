@@ -35,7 +35,7 @@ import { useUserStore } from '../../../stores/userStore';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useModalStore } from '../../../stores/modalStore';
-import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
+import { useShareSheet } from '../../../stores/modalStore';
 import { useLikeMutation } from '@/hooks/useLikeMutation';
 import { useQueryClient } from '@tanstack/react-query';
 import type { FeedResponse } from '../../../services/api/types';
@@ -137,7 +137,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }))
   );
 
-  const { presentShareSheet } = useGlobalShareSheet();
+  const { presentShareSheet } = useShareSheet();
 
   const post = globalData?.post || propPost;
   const onDismiss = propOnDismiss || dismissCommentSection;

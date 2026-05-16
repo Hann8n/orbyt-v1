@@ -43,7 +43,7 @@ import EmptyFeed from '../feed/EmptyFeed';
 import { getBottomNavBarHeight } from '../../../utils/device/screen';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { formatRelativeDate } from '../../ui/RelativeDate';
-import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
+import { useCommentSection } from '../../../stores/modalStore';
 import { useUserStore } from '../../../stores/userStore';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { itemSizeConfig } from '@/components/ui/ItemStyles';
@@ -455,7 +455,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
     const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
     const currentUser = useUserStore(s => s.currentUser);
     const { reason, author, indexedAt, uri } = item;
-    const { presentCommentSection } = useGlobalCommentSection();
+    const { presentCommentSection } = useCommentSection();
     // Notification author is ProfileView — status is already embedded by the AppView.
     const authorStatus = author?.status;
     const isPostAction = POST_ACTION_TYPES.includes(reason as PostActionReason);

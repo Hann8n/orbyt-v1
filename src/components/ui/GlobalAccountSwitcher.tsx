@@ -1,5 +1,5 @@
 import React from 'react';
-import { useGlobalAccountSwitcher } from '../../hooks/useGlobalModals';
+import { useAccountSwitcher } from '../../stores/modalStore';
 import AccountSwitcher from '../features/profile/AccountSwitcher';
 import { useAuth } from '../../stores/userStore';
 import type { SavedAccount } from '../../stores/userStore';
@@ -10,7 +10,7 @@ type AccountWithProfile = SavedAccount & { cachedProfile?: ProfileViewWithOrbyt 
 import { logger } from '../../utils/logger';
 
 const GlobalAccountSwitcher: React.FC = () => {
-  const { visible, dismissAccountSwitcher } = useGlobalAccountSwitcher();
+  const { visible, dismissAccountSwitcher } = useAccountSwitcher();
   const { signOut } = useAuth();
 
   const handleAccountSwitch = async (account: AccountWithProfile) => {
