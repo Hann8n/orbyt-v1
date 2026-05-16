@@ -9,14 +9,12 @@ import React, {
 import {
   View,
   StyleSheet,
-  Dimensions,
   LayoutChangeEvent,
   Platform,
   Pressable,
   RefreshControl,
   ActivityIndicator,
   type ViewStyle,
-  useWindowDimensions,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Link, type Href } from 'expo-router';
@@ -38,8 +36,8 @@ import {
 } from '../../../utils/constants';
 import { buildGridSnapToOffsets } from '@/utils/feed/snapOffsets';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
-import * as Device from 'expo-device';
 import { getViewportDimensions } from '../../../utils/device/screen';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import EmptyFeed from './EmptyFeed';
 import {
   FEED_VIEW_CONSTANTS,
@@ -201,13 +199,15 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
     const scrollOffsetYSV = useSharedValue(0);
     const fadeDist = useScrollTracking ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
+    const localProgressSV = useSharedValue(0);
+    const progressOutput = useRef(contentScrollProgressOutput ?? localProgressSV).current;
 
     const scrollHandler = useAnimatedScrollHandler({
       onScroll: event => {
         const y = event.contentOffset.y;
         scrollOffsetYSV.value = y;
-        if (contentScrollProgressOutput && fadeDist > 0) {
-          contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
+        if (fadeDist > 0) {
+          progressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
         }
       },
     });
@@ -231,17 +231,14 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       []
     );
 
-    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-    const isTablet =
-      Device.deviceType === Device.DeviceType.TABLET || Math.min(windowWidth, windowHeight) >= 600;
+    const { screenWidth: windowWidth, isTablet } = useDeviceLayout();
     const computedColumns = (() => {
-      const w = windowWidth || Dimensions.get('window').width;
       let cols = 3;
-      if (w > 1200 || isTablet) {
+      if (windowWidth > 1200 || isTablet) {
         cols = 6;
-      } else if (w > 900) {
+      } else if (windowWidth > 900) {
         cols = 5;
-      } else if (w > 480) {
+      } else if (windowWidth > 480) {
         cols = 4;
       } else {
         cols = 3;
@@ -250,7 +247,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     })();
 
     const numColumns = computedColumns;
-    const itemWidth = (windowWidth || Dimensions.get('window').width) / numColumns;
+    const itemWidth = windowWidth / numColumns;
     const itemHeight = itemWidth / DEFAULT_VIDEO_ASPECT_RATIO;
     const itemSpacing = itemHeight + FEED_VIEW_CONSTANTS.GRID_CELL_GAP;
     const extraBottomPadding = isIosLiquidGlassAvailable

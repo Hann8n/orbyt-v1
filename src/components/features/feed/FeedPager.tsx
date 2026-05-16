@@ -204,7 +204,6 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     const index = feedOptions.findIndex(option => option === currentFeed);
     if (index >= 0) {
       setPagerPage(index);
-      setCurrentFeedIndex(index);
     }
   }, [currentFeed, feedOptions, setPagerPage]);
 
@@ -214,14 +213,16 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   const feedBarAnimatedStyle = useAnimatedStyle(() => {
     const visible = tabBarVisibility.value > 0.5;
     return {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      zIndex: 2,
+      backgroundColor: Colors.transparent,
+      top: applySafeArea ? 12 + insets.top : 12,
       opacity: withTiming(visible ? 1 : 0, { duration: 200 }),
-      transform: [
-        {
-          translateY: withTiming(visible ? 0 : -18, { duration: 200 }),
-        },
-      ],
+      transform: [{ translateY: withTiming(visible ? 0 : -18, { duration: 200 }) }],
     };
-  }, [tabBarVisibility]);
+  }, [tabBarVisibility, applySafeArea, insets.top]);
 
   // Handle page change from PagerView - final confirmation after transition completes
   const handlePageSelected = useCallback(
@@ -238,11 +239,13 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     [feedOptions, onFeedChange]
   );
 
-  // Retry is handled inside FeedRenderer (refetch); pass stable no-op so child can call it
-  const handleIndicatorTap = (feedOption: FeedOption) => {
-    const targetIndex = feedOptions.findIndex(option => option === feedOption);
-    if (targetIndex >= 0) setPagerPage(targetIndex);
-  };
+  const handleIndicatorTap = useCallback(
+    (feedOption: FeedOption) => {
+      const targetIndex = feedOptions.findIndex(option => option === feedOption);
+      if (targetIndex >= 0) setPagerPage(targetIndex);
+    },
+    [feedOptions, setPagerPage]
+  );
 
   // Memoized query options for feed rendering (merge profile-style overrides when provided)
   // IMPORTANT: Must be memoized to prevent FeedRenderer re-renders on every parent frame
@@ -262,6 +265,29 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     [width]
   );
 
+  const feedQueryOptions = useMemo(
+    () => ({ ...baseQueryOptions, enabled: baseQueryOptions.enabled ?? true }),
+    [baseQueryOptions]
+  );
+
+  const feedRendererRefCallbacks = useMemo(
+    () => Object.fromEntries(
+      feedOptions.map(fo => [fo, (r: ListFeedViewRef | null) => { feedRendererRefs.current[fo] = r; }])
+    ),
+    [feedOptions]
+  );
+
+  const indicatorPressHandlers = useMemo(
+    () => Object.fromEntries(
+      feedOptions.map(fo => [fo, () => handleIndicatorTap(fo)])
+    ),
+    [feedOptions, handleIndicatorTap]
+  );
+
+  const handleCreatePress = useCallback(() => {
+    router.navigate('/create');
+  }, [router]);
+
   const indicatorBaseFontSize =
     typeof indicatorFontSize === 'number' && indicatorFontSize > 0
       ? fontSizeFor(indicatorFontSize)
@@ -269,15 +295,11 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
         ? Typography.sizes.h3
         : Typography.sizes.title;
 
-  const feedSwitcherTopStyle = { top: applySafeArea ? 12 + insets.top : 12 };
-
   // Both feeds render side-by-side; each keeps its own scroll and cursor (fully independent).
   const renderFeed = useCallback(
     ({ item: feedOption, index }: { item: FeedOption; index: number }) => (
       <FeedRenderer
-        ref={r => {
-          feedRendererRefs.current[feedOption] = r;
-        }}
+        ref={feedRendererRefCallbacks[feedOption]}
         feedOption={String(feedOption)}
         userDid={userDid}
         headerComponent={headerComponent}
@@ -289,11 +311,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
           index === currentFeedIndex ? contentScrollProgressOutput : undefined
         }
         onRetryFeed={NOOP}
-        queryOptions={{
-          ...baseQueryOptions,
-          // Keep feed data queries alive after tab switches; visibility only controls playback.
-          enabled: baseQueryOptions.enabled ?? true,
-        }}
+        queryOptions={feedQueryOptions}
         isVisible={isVisible && index === currentFeedIndex}
         forceError={forceError}
         pullToRefreshEnabled={pullToRefreshEnabled}
@@ -301,6 +319,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
       />
     ),
     [
+      feedRendererRefCallbacks,
       userDid,
       headerComponent,
       backgroundColor,
@@ -309,7 +328,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
       onViewModeChange,
       contentScrollProgressOutput,
       currentFeedIndex,
-      baseQueryOptions,
+      feedQueryOptions,
       isVisible,
       forceError,
       pullToRefreshEnabled,
@@ -342,7 +361,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
       {controlStatusBar && <StatusBar barStyle="light-content" backgroundColor={Colors.black} />}
 
       {showFeedIndicator && (
-        <Animated.View style={[styles.feedSwitcher, feedSwitcherTopStyle, feedBarAnimatedStyle]}>
+        <Animated.View style={feedBarAnimatedStyle}>
           <View style={styles.indicatorContainer}>
             <View style={styles.feedIndicators}>
               {feedOptions.map((feedOption, index) => (
@@ -352,15 +371,13 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
                   indicatorBaseFontSize={indicatorBaseFontSize}
                   pageScrollProgress={pageScrollProgress}
                   label={getLabel(feedOption)}
-                  onPress={() => handleIndicatorTap(feedOption)}
+                  onPress={indicatorPressHandlers[feedOption]}
                   pressableStyle={styles.indicatorItem}
                 />
               ))}
             </View>
             <NativePressable
-              onPress={() => {
-                router.navigate('/create');
-              }}
+              onPress={handleCreatePress}
               style={styles.createButton}
             >
               <NanoIcon name="camera-2-fill" size={26} color={Colors.neutral[50]} />
@@ -393,13 +410,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.black,
-  },
-  feedSwitcher: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 2,
-    backgroundColor: Colors.transparent,
   },
   indicatorContainer: {
     flexDirection: 'row',

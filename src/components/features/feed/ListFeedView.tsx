@@ -287,6 +287,8 @@ function ListFeedViewComponent({
     const endOfFeedEnabledSV = useSharedValue(0);
     const endOfFeedOverscrollOpacitySV = useSharedValue(0);
     const scrollFadeParamsSV = useSharedValue<ScrollFadeParams>({ spacing: 0, snapOrigin: 0, firstVideoIdx: 0 });
+    const localProgressSV = useSharedValue(0);
+    const progressOutput = useRef(contentScrollProgressOutput ?? localProgressSV).current;
 
     const seedActiveIndex = (() => {
       if (zoomTargetPostUri && feed.length > 0) {
@@ -337,14 +339,18 @@ function ListFeedViewComponent({
         return feedLayoutHeight > 0 ? Math.min(feedLayoutHeight, maxViewport) : maxViewport;
       }
       if (useManualIosGlassTabPaddingLayout) {
-        return getViewportDimensions(insets, { useFullWindowHeight: !hasTabBar }).height;
+        return getViewportDimensions({ top: insets.top, bottom: insets.bottom, left: 0, right: 0 }, { useFullWindowHeight: !hasTabBar }).height;
       }
       // For non-liquid glass, don't subtract status bar - only subtract bottom inset
       return Math.max(0, screenHeight - insets.bottom);
-    }, [hasTabBar, screenHeight, insets.bottom, feedLayoutHeight, useManualIosGlassTabPaddingLayout]);
-    const cardHeight = useManualIosGlassTabPaddingLayout
-      ? getVideoCardHeight(screenWidth, screenHeight)
-      : viewableAreaHeight;
+    }, [hasTabBar, screenHeight, insets.top, insets.bottom, feedLayoutHeight, useManualIosGlassTabPaddingLayout]);
+    const cardHeight = useMemo(
+      () =>
+        useManualIosGlassTabPaddingLayout
+          ? getVideoCardHeight(screenWidth, screenHeight)
+          : viewableAreaHeight,
+      [useManualIosGlassTabPaddingLayout, screenWidth, screenHeight, viewableAreaHeight]
+    );
 
     const handleActiveVisibleIndexChange = useCallback((index: number) => {
       if (activeVisibleIndexRef.current === index) return;
@@ -389,7 +395,10 @@ function ListFeedViewComponent({
       isHeaderItem: isFeedListHeaderItem,
     });
 
-    const profileColors = getProfileColors(backgroundColor, secondaryColor);
+    const profileColors = useMemo(
+      () => getProfileColors(backgroundColor, secondaryColor),
+      [backgroundColor, secondaryColor]
+    );
     const endOfFeedHintColor = useMemo(
       () => getEndOfFeedOverscrollTextColor(profileColors?.textColor, secondaryColor),
       [profileColors?.textColor, secondaryColor]
@@ -431,6 +440,11 @@ function ListFeedViewComponent({
       [cardHeight, feedOption, zoomTargetPostUri, onHashtagPress, activeIndex, canPlay]
     );
 
+    const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
+      const h = Math.round(e.nativeEvent.layout.height);
+      if (h > 0) setHeaderHeight(prev => (prev === h ? prev : h));
+    }, []);
+
     const renderItem = useCallback(
       ({ item, index, target, extraData }: ListRenderItemInfo<FeedListItem>) => {
         const xd = extraData as typeof listRenderExtraData | undefined;
@@ -447,10 +461,7 @@ function ListFeedViewComponent({
         }
 
         if (isFeedHeaderItem(item)) {
-          return <View onLayout={(e) => {
-            const h = Math.round(e.nativeEvent.layout.height);
-            if (h > 0) setHeaderHeight(prev => (prev === h ? prev : h));
-          }}>{item.component}</View>;
+          return <View onLayout={handleHeaderLayout}>{item.component}</View>;
         }
 
         const isAppleZoomTarget =
@@ -477,7 +488,10 @@ function ListFeedViewComponent({
     );
 
 
-    const itemSpacing = cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
+    const itemSpacing = useMemo(
+      () => cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
+      [cardHeight]
+    );
 
 
     const listViewportForEmpty = feedLayoutHeight > 0 ? feedLayoutHeight : viewableAreaHeight;
@@ -543,8 +557,8 @@ function ListFeedViewComponent({
         const y = Math.max(0, event.contentOffset.y);
         scrollOffsetYSV.value = y;
 
-        if (contentScrollProgressOutput && fadeDist > 0) {
-          contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
+        if (fadeDist > 0) {
+          progressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
         }
 
         const contentH = event.contentSize?.height ?? 0;
@@ -569,7 +583,7 @@ function ListFeedViewComponent({
         snapOrigin: hasHeader ? headerHeight - headerSnapAdjust : -snapTopInset,
         firstVideoIdx: hasHeader ? 1 : 0,
       };
-    }, [itemSpacing, hasHeader, headerHeight, isHeaderFeed, snapTopInset]);
+    }, [scrollFadeParamsSV, itemSpacing, hasHeader, headerHeight, isHeaderFeed, snapTopInset]);
 
     const feedScrollMotion = useMemo<FeedScrollMotionValue>(
       () => ({ scrollOffsetYSV, scrollFadeParamsSV }),
@@ -854,14 +868,6 @@ const styles = StyleSheet.create({
   itemSeparator: {
     height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
     backgroundColor: Colors.black,
-  },
-  listHeaderBottomSeparator: {
-    height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
-    backgroundColor: Colors.black,
-  },
-  listHeaderBottomSeparatorEmpty: {
-    height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
-    backgroundColor: Colors.transparent,
   },
   measurementPlaceholder: {},
   endOfFeedOverscrollHint: {
