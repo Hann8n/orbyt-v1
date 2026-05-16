@@ -11,6 +11,7 @@ import {
 } from '@atproto/api';
 import { ModerationService } from '../../moderation/ModerationService';
 import { AtprotoCore } from '../core';
+import { isValidAtUriOrDid, isValidAtUri } from '../../../utils/atproto/uriValidation';
 import type {
   FeedResponse,
   FeedType,
@@ -123,12 +124,7 @@ export async function getFeed(
       let feed = feedLink || '';
 
       // Validate feed URI format before making the request
-      if (!feed) {
-        return { feed: [], cursor: null };
-      }
-
-      // Validate AT-URI format
-      if (!feed.startsWith('at://') && !feed.startsWith('did:')) {
+      if (!feed || !isValidAtUriOrDid(feed)) {
         return { feed: [], cursor: null };
       }
 
@@ -338,7 +334,7 @@ export async function getPosts(
 export async function getFeedGenerator(uri: string): Promise<FeedGeneratorOutput | null> {
   try {
     // Validate URI format
-    if (!uri || !uri.startsWith('at://')) {
+    if (!uri || !isValidAtUri(uri)) {
       return null;
     }
 
@@ -362,7 +358,7 @@ export async function getFeedGenerator(uri: string): Promise<FeedGeneratorOutput
 export async function getFeedGeneratorSubscriberCount(uri: string): Promise<number> {
   try {
     // Validate URI format
-    if (!uri || !uri.startsWith('at://') || !uri.includes('/app.bsky.feed.generator/')) {
+    if (!uri || !isValidAtUri(uri) || !uri.includes('/app.bsky.feed.generator/')) {
       return 0;
     }
 

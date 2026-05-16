@@ -39,8 +39,7 @@ import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useModalStore } from '../../../stores/modalStore';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
-import { useLikeMutation, patchFeedPost } from '@/hooks/useLikeMutation';
-import type { FeedResponse } from '../../../services/api/types';
+import { useLikeMutation } from '@/hooks/useLikeMutation';
 
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { Colors } from '../../../theme';
@@ -311,8 +310,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   useEffect(() => {
     if (!post?.uri) return;
     setHeaderLikeState(readPostFromFeedCache(queryClient, post.uri));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [post?.uri]);
+  }, [post?.uri, queryClient]);
 
   const headerHeartScale = useSharedValue(1);
   const headerHeartStyle = useAnimatedStyle(() => ({
@@ -322,7 +320,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   useEffect(() => {
     cancelAnimation(headerHeartScale);
     headerHeartScale.value = 1;
-  }, [post?.uri, headerHeartScale]);
+  }, [post?.uri]);
 
   const handleHeaderToggleLike = useCallback(() => {
     if (!post?.uri || !post?.cid || likeMutation.isPending) return;
@@ -356,7 +354,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         },
       }
     );
-  }, [likeMutation, post?.uri, post?.cid, headerLikeState, headerHeartScale]);
+  }, [likeMutation, post?.uri, post?.cid, headerLikeState]);
 
   const handleHeaderSharePress = useCallback(() => {
     onDismiss?.();
@@ -427,20 +425,26 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     structuralSharing: false,
   });
 
-  const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
   const previousCommentsLengthRef = useRef<number>(0);
 
+  const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
+
   const flattenedComments = useMemo(() => {
-    const comments = commentsPages?.pages.flatMap(p => p.comments) ?? [];
+    const allComments = commentsPages
+      ?.pages
+      .flatMap(page => page.comments)
+      .filter((comment: ExtendedPostView) => {
+        const commentUri = comment.uri;
+        if (commentUri && reportedPostUris.has(commentUri)) {
+          return false;
+        }
+        return true;
+      }) ?? [];
 
     const flat: Comment[] = [];
     const addComments = (commentList: Comment[], parentComment?: Comment) => {
       commentList.forEach((c: Comment) => {
         if (c && typeof c === 'object') {
-          const commentUri = c?.uri;
-          if (commentUri && reportedPostUris.has(commentUri)) {
-            return;
-          }
           const flatComment: Comment = {
             ...c,
             parent: parentComment,
@@ -454,7 +458,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       });
     };
 
-    if (comments.length > 0) addComments(comments);
+    if (allComments.length > 0) addComments(allComments);
     return flat;
   }, [commentsPages, reportedPostUris]);
 
@@ -638,18 +642,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [t]
   );
 
-  const handleCommentDeleted = (wasReply?: boolean) => {
-    if (wasReply || !post?.uri) return;
-    const uri = post.uri;
-    queryClient.setQueriesData<InfiniteData<FeedResponse>>(
-      { queryKey: queryKeys.feed.all },
-      old => patchFeedPost(old, uri, p => ({
-        ...p,
-        replyCount: Math.max(0, (p.replyCount ?? 1) - 1),
-      }))
-    );
-  };
-
   const handleTabPress = useCallback((tabId: string) => {
     const next = tabId as 'comments' | 'likes';
     setActiveTab(next);
@@ -700,7 +692,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         <CommentItem
           comment={item}
           onDismiss={onDismiss}
-          onCommentDeleted={handleCommentDeleted}
+          onCommentDeleted={undefined}
           onImagePress={handleImagePress}
           onReplyPress={handleReplyPress}
           highlightUri={scrollToCommentUri}
@@ -708,7 +700,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         />
       );
     },
-    [scrollToCommentUri, onDismiss, handleCommentDeleted, handleReplyPress, handleImagePress]
+    [scrollToCommentUri, onDismiss, handleReplyPress, handleImagePress]
   );
 
   const renderLikeItem = useCallback<ListRenderItem<Like>>(
@@ -767,12 +759,18 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     if (hasNextLikesPage && !isFetchingNextLikesPage) fetchNextLikesPage();
   }, [hasNextLikesPage, isFetchingNextLikesPage, fetchNextLikesPage]);
 
+  const replyingToText = useMemo(() => `${t('comments.replyingTo', { name: '' }).trim()} `, [t]);
+  const selectedGifAspectRatio =
+    selectedGif?.width && selectedGif?.height && selectedGif.height > 0
+      ? selectedGif.width / selectedGif.height
+      : null;
+
   const ComposerFooter = (
     <View style={styles.composerFooter}>
       {replyContext ? (
         <View style={styles.replyBanner}>
           <Text style={styles.replyBannerText} numberOfLines={1} ellipsizeMode="tail">
-            {`${t('comments.replyingTo', { name: '' }).trim()} `}
+            {replyingToText}
             <Text style={styles.replyBannerNameText}>{replyContext.authorName}</Text>
           </Text>
           <NativePressable
@@ -796,11 +794,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onPressGif={openGifPicker}
         onPressPhotos={handlePickImages}
         selectedGifPreviewUri={selectedGif?.previewUrl ?? null}
-        selectedGifAspectRatio={
-          selectedGif?.width && selectedGif?.height && selectedGif.height > 0
-            ? selectedGif.width / selectedGif.height
-            : null
-        }
+        selectedGifAspectRatio={selectedGifAspectRatio}
         selectedImages={selectedImages}
         hasAttachment={!!selectedGif || selectedImages.length > 0}
         onClearAttachment={() => {

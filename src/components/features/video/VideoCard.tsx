@@ -24,6 +24,7 @@ import { INTERACTIONSEEN } from '../../../services/api/types';
 import type { ExtendedFeedViewPost, ExtendedPostView } from '../../../services/api/types';
 import { AppBskyFeedPost } from '@atproto/api';
 import { useQueryClient } from '@tanstack/react-query';
+import { isValidAtUri } from '../../../utils/atproto/uriValidation';
 
 import VideoCardMediaGestureLayer from './video-card/VideoCardMediaGestureLayer';
 import VideoCardOverlayLayers from './video-card/VideoCardOverlayLayers';
@@ -106,24 +107,22 @@ function VideoCard({
     }))
   );
   const resolvedFeedUri = useMemo(() => {
-    if (feedOption?.startsWith('at://')) return feedOption;
-    if (algorithmicFeedProvider?.startsWith('at://')) return algorithmicFeedProvider;
+    if (feedOption && isValidAtUri(feedOption)) return feedOption;
+    if (algorithmicFeedProvider && isValidAtUri(algorithmicFeedProvider)) return algorithmicFeedProvider;
     return undefined;
   }, [feedOption, algorithmicFeedProvider]);
 
   const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
 
   const idx = index ?? 0;
+  // Calculate distance from active index once (reused for multiple checks)
+  const distanceFromActive = activeIndex !== undefined ? Math.abs(activeIndex - idx) : Infinity;
   const isVisible =
     activeIndex !== undefined ? activeIndex === idx && isVisibleProp : isVisibleProp;
   const renderHeavyChrome =
-    activeIndex !== undefined
-      ? activeIndex >= 0 && Math.abs(activeIndex - idx) <= 1
-      : renderHeavyChromeProp;
+    activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 1 : renderHeavyChromeProp;
   const holdSource =
-    activeIndex !== undefined
-      ? activeIndex >= 0 && idx >= activeIndex - 1 && idx <= activeIndex + 2
-      : true;
+    activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 2 : true;
 
   const { height: windowHeight } = useWindowDimensions();
   const cardHeight = height ?? windowHeight;
@@ -370,16 +369,21 @@ function VideoCard({
     if (!scrollOffsetYSV || !scrollFadeParamsSV) return seekOpacity;
     const { spacing, snapOrigin, firstVideoIdx } = scrollFadeParamsSV.value;
     if (spacing === 0) return seekOpacity;
+
+    // Skip scroll opacity for off-screen cards (renderHeavyChrome already handles proximity)
+    if (!renderHeavyChrome) return seekOpacity;
+
     const cardTop = snapOrigin + (idx - firstVideoIdx) * spacing;
     const distance = Math.abs(scrollOffsetYSV.value - cardTop);
     const scrollOpacity = 1 - Math.max(0, Math.min(1, (distance - spacing * 0.15) / (spacing * 0.3)));
     return Math.min(seekOpacity, scrollOpacity);
   });
 
+  const playerDuration = player?.duration;
   const shouldHideScrubberForShortVideo = !!(
-    player?.duration &&
-    player.duration > 0 &&
-    player.duration < MIN_SCRUBBER_DURATION_SECONDS
+    playerDuration &&
+    playerDuration > 0 &&
+    playerDuration < MIN_SCRUBBER_DURATION_SECONDS
   );
 
   const posterPriority: 'low' | 'normal' | 'high' = isVisible ? 'high' : 'normal';
@@ -419,18 +423,10 @@ function VideoCard({
       handleOverlayCollapsedChange,
       handleLike,
       handleRepost,
-      displayInteraction.isLiked,
-      displayInteraction.isReposted,
-      displayInteraction.likeCount,
-      displayInteraction.commentCount,
-      displayInteraction.repostCount,
+      displayInteraction,
       isLikePending,
       isRepostPending,
-      author.isFollowing,
-      author.hasProfile,
-      author.channelSlug,
-      author.authorProfileOverlay,
-      author.isCurrentUserProfile,
+      author,
       handleChannelPress,
       handleAuthorPress,
       handleRepostAuthorPress,

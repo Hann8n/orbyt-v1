@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Share, Platform, Alert, ScrollView } from 'react-native';
+import { AtUri } from '@atproto/api';
 import { NativePressable } from '../NativePressable';
 import { SquircleView } from '../Squircle';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
@@ -160,9 +161,16 @@ const ShareSheet: React.FC = () => {
   const handleShare = async () => {
     if (!postUri) return;
     try {
-      // Extract rkey from AT URI: at://did:plc:abc123/app.bsky.feed.post/rkey
-      const parts = postUri.replace('at://', '').split('/');
-      const rkey = parts.length >= 3 ? parts[2] : '';
+      // Extract rkey from AT URI using SDK's AtUri parser
+      let rkey = '';
+      try {
+        const uri = new AtUri(postUri);
+        rkey = uri.rkey || '';
+      } catch (_error) {
+        // Fall back to manual parsing if SDK parsing fails
+        const parts = postUri.replace('at://', '').split('/');
+        rkey = parts.length >= 3 ? parts[2] : '';
+      }
       if (!rkey) return;
 
       const identifier =

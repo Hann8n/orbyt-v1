@@ -446,9 +446,7 @@ function ListFeedViewComponent({
           return <View onLayout={(e) => {
             const h = Math.round(e.nativeEvent.layout.height);
             if (h > 0 && h !== headerHeight) {
-              requestAnimationFrame(() => {
-                setHeaderHeight(h);
-              });
+              setHeaderHeight(h);
             }
           }}>{item.component}</View>;
         }
@@ -657,7 +655,7 @@ function ListFeedViewComponent({
       );
     }, [pullToRefresh, profileColors?.textColor, secondaryColor, insets.top]);
 
-    const listHeaderElement = useMemo(() => null, []);
+    const listHeaderElement = null;
 
     const listFooterElement = useMemo(() => {
       if (feed.length === 0 && headerComponent) {
@@ -666,68 +664,47 @@ function ListFeedViewComponent({
       return feed.length > 0 ? <View style={styles.itemSeparator} /> : null;
     }, [feed.length, headerComponent, listEmptyElement]);
 
-    const listBody = useMemo(
-      () => (
-        <View collapsable={false} style={listContainerStyle} onLayout={handleFeedLayout}>
-          {showEndOfFeed ? (
-            <EndOfFeedOverscrollHint
-              opacitySV={endOfFeedOverscrollOpacitySV}
-              bottomInset={endOfFeedHintBottomInset}
-              labelColor={endOfFeedHintColor}
-            />
-          ) : null}
-          <View style={styles.flashListWrapper}>
-            <AnimatedFlashList
-              ref={flashListRef}
-              style={styles.flashList}
-              data={listData}
-              renderItem={renderItem}
-              extraData={listRenderExtraData}
-              drawDistance={FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE}
-              keyExtractor={listKeyExtractor}
-              getItemType={getListItemType}
-              refreshControl={refreshControlElement}
-              ListHeaderComponent={listHeaderElement}
-              pagingEnabled={false}
-              snapToOffsets={snapToOffsets}
-              snapToInterval={snapToIntervalValue}
-              snapToAlignment={snapToIntervalValue != null ? 'start' : undefined}
-              decelerationRate={
-                Platform.OS === 'ios'
-                  ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
-                  : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
-              }
-              disableIntervalMomentum={true}
-              scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
-              onScroll={scrollHandler}
-              onEndReached={onLoadMore}
-              onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              onViewableItemsChanged={onViewableItemsChanged}
-              viewabilityConfig={viewabilityConfig}
-              maintainVisibleContentPosition={MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED}
-              scrollEnabled={true}
-              showsVerticalScrollIndicator={
-                listData.length >= SCROLL_INDICATOR_CONSTANTS.FEED_LIST_MIN_ITEMS
-              }
-              bounces={true}
-              directionalLockEnabled={true}
-              alwaysBounceVertical
-              alwaysBounceHorizontal={false}
-              ListEmptyComponent={listEmptyElement}
-              ItemSeparatorComponent={ItemSeparatorComponent}
-              ListFooterComponent={listFooterElement}
-              contentContainerStyle={listContentContainerStyle}
-            />
-          </View>
-        </View>
-      ),
+    // Memoize FlashList props separately to reduce listBody dependency count
+    const flashListProps = useMemo(
+      () => ({
+        ref: flashListRef,
+        style: styles.flashList,
+        data: listData,
+        renderItem,
+        extraData: listRenderExtraData,
+        drawDistance: FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE,
+        keyExtractor: listKeyExtractor,
+        getItemType: getListItemType,
+        refreshControl: refreshControlElement,
+        ListHeaderComponent: listHeaderElement,
+        pagingEnabled: false,
+        snapToOffsets,
+        snapToInterval: snapToIntervalValue,
+        snapToAlignment: (snapToIntervalValue != null ? 'start' : undefined) as 'start' | undefined,
+        decelerationRate:
+          Platform.OS === 'ios'
+            ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+            : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID,
+        disableIntervalMomentum: true,
+        scrollEventThrottle: APP_CONSTANTS.SCROLL_THROTTLE,
+        onScroll: scrollHandler,
+        onEndReached: onLoadMore,
+        onEndReachedThreshold: QUERY_CONSTANTS.END_REACHED_THRESHOLD,
+        onViewableItemsChanged,
+        viewabilityConfig,
+        maintainVisibleContentPosition: MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED,
+        scrollEnabled: true,
+        showsVerticalScrollIndicator: listData.length >= SCROLL_INDICATOR_CONSTANTS.FEED_LIST_MIN_ITEMS,
+        bounces: true,
+        directionalLockEnabled: true,
+        alwaysBounceVertical: true,
+        alwaysBounceHorizontal: false,
+        ListEmptyComponent: listEmptyElement,
+        ItemSeparatorComponent: ItemSeparatorComponent,
+        ListFooterComponent: listFooterElement,
+        contentContainerStyle: listContentContainerStyle,
+      }),
       [
-        listContainerStyle,
-        handleFeedLayout,
-        showEndOfFeed,
-        endOfFeedOverscrollOpacitySV,
-        endOfFeedHintBottomInset,
-        endOfFeedHintColor,
         listData,
         renderItem,
         listRenderExtraData,
@@ -745,6 +722,32 @@ function ListFeedViewComponent({
       ]
     );
 
+    const listBody = useMemo(
+      () => (
+        <View collapsable={false} style={listContainerStyle} onLayout={handleFeedLayout}>
+          {showEndOfFeed ? (
+            <EndOfFeedOverscrollHint
+              opacitySV={endOfFeedOverscrollOpacitySV}
+              bottomInset={endOfFeedHintBottomInset}
+              labelColor={endOfFeedHintColor}
+            />
+          ) : null}
+          <View style={styles.flashListWrapper}>
+            <AnimatedFlashList {...flashListProps} />
+          </View>
+        </View>
+      ),
+      [
+        listContainerStyle,
+        handleFeedLayout,
+        showEndOfFeed,
+        endOfFeedOverscrollOpacitySV,
+        endOfFeedHintBottomInset,
+        endOfFeedHintColor,
+        flashListProps,
+      ]
+    );
+
     const listSurfaceNode = useMemo(
       () => (
         <FeedScrollProvider motion={feedScrollMotion} layout={feedScrollLayout}>
@@ -754,11 +757,16 @@ function ListFeedViewComponent({
       [feedScrollMotion, feedScrollLayout, listBody]
     );
 
+    const gridFeedData = useMemo(
+      () => feed.filter(item => !isFeedHeaderItem(item)) as ExtendedFeedViewPost[],
+      [feed]
+    );
+
     const gridSurfaceNode = useMemo(
       () => (
         <GridFeedView
           ref={gridRef}
-          feed={feed.filter(item => !isFeedHeaderItem(item)) as ExtendedFeedViewPost[]}
+          feed={gridFeedData}
           headerComponent={headerComponent}
           backgroundColor={backgroundColor}
           secondaryColor={secondaryColor}
@@ -779,7 +787,7 @@ function ListFeedViewComponent({
         />
       ),
       [
-        feed,
+        gridFeedData,
         headerComponent,
         backgroundColor,
         secondaryColor,

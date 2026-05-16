@@ -311,6 +311,7 @@ export function useDeleteCommentMutation() {
         };
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.comments.all });
+      // Invalidate feed queries to refetch updated reply count from server
       queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
     },
   });

@@ -22,6 +22,7 @@ import { BookmarkService } from './api/bookmark/BookmarkService';
 import { ActorService } from './api/actor/ActorService';
 import { isValidPost } from './api/postGuards';
 import { useUserStore } from '../stores/userStore';
+import { isValidAtUri } from '../utils/atproto/uriValidation';
 
 // Re-export API types for convenience
 export type { ExtendedFeedViewPost as FeedItem } from './api/types';
@@ -128,7 +129,7 @@ class FeedService {
             uri: channel.uri,
             type: 'feed',
           });
-        } else if (channel.uri.startsWith('at://')) {
+        } else if (isValidAtUri(channel.uri)) {
           // Regular feed generator URI
           const orbytChannel = getChannelByUri(channel.uri);
           if (orbytChannel && orbytChannel.isPostable !== false) {
@@ -229,7 +230,7 @@ class FeedService {
    */
   private normalizeFeedOptionForAPI(feedOption: FeedOption): FeedOption {
     // If it's already a hashtag or not an orbyt channel URI, return as-is
-    if (feedOption.startsWith('hashtag:') || !feedOption.startsWith('at://')) {
+    if (feedOption.startsWith('hashtag:') || !isValidAtUri(feedOption)) {
       return feedOption;
     }
 
@@ -251,7 +252,7 @@ class FeedService {
   }
 
   private getFeedLink(feedOption: FeedOption): string | null {
-    if (feedOption.startsWith('at://')) {
+    if (isValidAtUri(feedOption)) {
       return feedOption;
     }
 
@@ -552,7 +553,7 @@ class FeedService {
       } else {
         // Handle custom feed URIs (external feed generators and non-postable orbyt channels)
         // Use original feedOption for feed generator URIs, not the normalized one
-        const feedLink = feedOption.startsWith('at://')
+        const feedLink = isValidAtUri(feedOption)
           ? feedOption
           : this.getFeedLink(feedOptionForAPI);
         if (!feedLink) {

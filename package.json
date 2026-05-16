@@ -44,6 +44,7 @@
     "@atproto/lexicon": "^0.6.2",
     "@atproto/oauth-client": "^0.6.1",
     "@atproto/oauth-client-expo": "^0.0.10",
+    "@atproto/syntax": "^0.5.4",
     "@atproto/xrpc": "^0.7.7",
     "@babel/runtime": "^7.28.6",
     "@expo/dom-webview": "~55.0.6",

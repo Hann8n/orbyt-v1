@@ -147,11 +147,11 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
     const dataUpdatedAt = isSearchFeed ? 0 : feedQuery.dataUpdatedAt;
 
     const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
+
     const feed = useMemo(() => {
       return sourceFeed.filter(item => {
         const uri = (item as { post?: { uri?: string } }).post?.uri;
-        if (!uri) return false;
-        if (reportedPostUris.has(uri)) return false;
+        if (uri && reportedPostUris.has(uri)) return false;
         return true;
       });
     }, [sourceFeed, reportedPostUris]);

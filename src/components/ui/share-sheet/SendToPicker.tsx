@@ -53,8 +53,7 @@ const SHEET_NAME = 'share-sheet-send-to';
 const MAX_MESSAGE_LENGTH = 300;
 
 const canBeMessaged = (profile: ProfileViewBasic): boolean => {
-  const allowIncoming = (profile as { associated?: { chat?: { allowIncoming?: string } } })
-    ?.associated?.chat?.allowIncoming;
+  const allowIncoming = profile.associated?.chat?.allowIncoming;
   switch (allowIncoming) {
     case 'none':
       return false;
@@ -62,7 +61,7 @@ const canBeMessaged = (profile: ProfileViewBasic): boolean => {
       return true;
     case 'following':
     case undefined:
-      return Boolean((profile as { viewer?: { followedBy?: string } })?.viewer?.followedBy);
+      return Boolean(profile.viewer?.followedBy);
     default:
       return false;
   }
@@ -117,14 +116,14 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   });
 
   const conversations = (conversationsData?.pages ?? []).flatMap(
-    p => (p as { conversations?: ConvoView[] })?.conversations ?? []
+    p => (p as { conversations?: ConvoView[] }).conversations ?? []
   );
 
   const filteredConversations = searchQuery.trim()
     ? conversations.filter((c: ConvoView) => {
         const other = c.members?.find(m => m.did !== currentUserDid) ?? c.members?.[0];
-        const name = (other as { displayName?: string })?.displayName?.toLowerCase() ?? '';
-        const handle = (other as { handle?: string })?.handle?.toLowerCase() ?? '';
+        const name = other?.displayName?.toLowerCase() ?? '';
+        const handle = other?.handle?.toLowerCase() ?? '';
         const q = searchQuery.toLowerCase();
         return name.includes(q) || handle.includes(q);
       })
@@ -145,8 +144,8 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   };
 
   const getPickerItemKey = (item: ConvoView | ProfileViewBasic) => {
-    if ('id' in item && typeof (item as ConvoView).id === 'string') {
-      return `convo-${(item as ConvoView).id}`;
+    if ('id' in item && typeof item.id === 'string') {
+      return `convo-${item.id}`;
     }
     const p = item as ProfileViewBasic;
     return `profile-${p.did || p.handle || 'search'}`;
@@ -155,11 +154,11 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   const currentUser = useUserStore(s => s.currentUser);
 
   const renderConversationItem = ({ item }: { item: ConvoView | ProfileViewBasic }) => {
-    const itemIsConversation = 'id' in item && typeof (item as ConvoView).id === 'string';
+    const itemIsConversation = 'id' in item && typeof item.id === 'string';
     const profile: ProfileViewBasic = itemIsConversation
-      ? (((item as ConvoView).members?.find(m => m.did !== currentUserDid) ??
-          (item as ConvoView).members?.[0]) as ProfileViewBasic)
-      : (item as ProfileViewBasic);
+      ? ((item as ConvoView).members?.find(m => m.did !== currentUserDid) ??
+          (item as ConvoView).members?.[0]) as ProfileViewBasic
+      : item as ProfileViewBasic;
 
     const isDisabled = !itemIsConversation && !canBeMessaged(item as ProfileViewBasic);
     const key = getPickerItemKey(item);

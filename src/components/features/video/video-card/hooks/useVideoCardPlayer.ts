@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useEvent } from 'expo';
 import { useVideoPlayer, type VideoPlayer, type VideoSource } from 'expo-video';
 import { useRecyclingState } from '@shopify/flash-list';
+import { useStableRef } from '@/hooks/useStableRef';
 
 import {
   createVideoSource,
@@ -90,6 +91,7 @@ export function useVideoCardPlayer({
   }, []);
 
   const player = useVideoPlayer(null, configureVideoPlayer);
+  const playerRef = useStableRef(player);
 
   const playerStatusEvent = useEvent(player, 'statusChange', { status: 'idle' });
   const playerStatus = playerStatusEvent?.status ?? 'idle';
@@ -105,7 +107,7 @@ export function useVideoCardPlayer({
   }, [hasError]);
 
   useEffect(() => {
-    let cancelled = false;
+    const abortController = new AbortController();
     const shouldLoad = holdSource || (hasError && isVisible);
     const source = shouldLoad && videoSource ? videoSource : null;
 
@@ -121,24 +123,20 @@ export function useVideoCardPlayer({
       hasRetriedErrorRef.current = true;
     }
 
-    player.replaceAsync(source).catch(err => {
-      if (!cancelled) logVideoCardPlayerError('replaceAsync', err);
+    playerRef.current.replaceAsync(source).catch(err => {
+      if (!abortController.signal.aborted) logVideoCardPlayerError('replaceAsync', err);
     });
     return () => {
-      cancelled = true;
+      abortController.abort();
     };
-  }, [holdSource, videoSource, player, hasError, isVisible]);
+  }, [holdSource, videoSource, hasError, isVisible]);
 
   const [videoState, setVideoState] = useRecyclingState({ userPaused: false }, [
     postUri,
     feedOption,
   ]);
 
-  const userPausedRef = useRef(videoState.userPaused);
-
-  useLayoutEffect(() => {
-    userPausedRef.current = videoState.userPaused;
-  }, [videoState.userPaused]);
+  const userPausedRef = useStableRef(videoState.userPaused);
 
   const setUserPaused = useCallback(
     (next: boolean) => {
@@ -165,12 +163,12 @@ export function useVideoCardPlayer({
       try {
         const positionInSeconds = position > 1000 ? position / 1000 : position;
         // eslint-disable-next-line react-compiler/react-compiler
-        player.currentTime = positionInSeconds;
+        playerRef.current.currentTime = positionInSeconds;
       } catch (err) {
         logVideoCardPlayerError('seek', err);
       }
     },
-    [player]
+    []
   );
 
   const [firstFrameRendered, setFirstFrameRendered] = useRecyclingState(false, [
@@ -186,10 +184,10 @@ export function useVideoCardPlayer({
   useEffect(() => {
     const becameActive = isVisible && !wasActiveRef.current;
     if (becameActive && videoState.userPaused && !hasError) {
-      setVideoState(prev => ({ ...prev, userPaused: false }));
+      setUserPaused(false);
     }
     wasActiveRef.current = isVisible;
-  }, [isVisible, hasError, videoState.userPaused, setVideoState]);
+  }, [isVisible, hasError, videoState.userPaused, setUserPaused]);
 
   useEffect(() => {
     if (playerStatus === 'readyToPlay') onVideoStatus?.(postUri, 'loaded');
@@ -209,12 +207,12 @@ export function useVideoCardPlayer({
 
   useEffect(() => {
     try {
-      if (shouldPlayVideo) player.play();
-      else player.pause();
+      if (shouldPlayVideo) playerRef.current.play();
+      else playerRef.current.pause();
     } catch (err) {
       logVideoCardPlayerError(shouldPlayVideo ? 'play' : 'pause', err);
     }
-  }, [shouldPlayVideo, player]);
+  }, [shouldPlayVideo]);
 
   const shouldLoadVideo = !cannotShowMedia && !isBlurred && !!videoSource;
 

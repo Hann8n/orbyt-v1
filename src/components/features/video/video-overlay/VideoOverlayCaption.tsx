@@ -18,7 +18,7 @@ import { FontFamily, Typography } from '@/utils/components/typography';
 import { BORDER_RADIUS } from '../../../../utils/constants';
 import { hexToRGBA } from '../../../../utils/formatting/colors';
 import type { ExtendedPostView, PostRecord } from '../../../../services/api/types';
-import type { RichTextFacet } from '../../../../utils/types/richText';
+import { AppBskyRichtextFacet } from '@atproto/api';
 
 const HIT_SLOP_6_4 = { top: 6, bottom: 6, left: 4, right: 4 } as const;
 
@@ -124,7 +124,7 @@ function VideoOverlayCaptionComponent({
 
   if (!hasDescription) return null;
 
-  const facets = record?.facets as RichTextFacet[] | undefined;
+  const facets = record?.facets as AppBskyRichtextFacet.Main[] | undefined;
 
   return (
     <View style={styles.descriptionContainer}>

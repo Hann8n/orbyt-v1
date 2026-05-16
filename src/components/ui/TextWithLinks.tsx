@@ -3,6 +3,7 @@ import { Text, Linking, StyleSheet, StyleProp, TextStyle, type TextProps } from 
 import { RichText } from '@atproto/api';
 import { FontFamily } from '../../utils/components/typography';
 import { NATIVE_PRESSABLE_ACTIVE_OPACITY } from '@/utils/constants';
+import { isValidDid } from '../../utils/atproto/uriValidation';
 
 export interface TextWithLinksProps {
   text: string;
@@ -97,7 +98,7 @@ function TextWithLinksBase({
     // Treat bsky.app profile links as in-app profile navigation.
     const profileId = extractProfileIdentifierFromUrl(uri);
     if (profileId) {
-      onAuthorPress(profileId, { did: profileId.startsWith('did:') ? profileId : undefined });
+      onAuthorPress(profileId, { did: isValidDid(profileId) ? profileId : undefined });
       return;
     }
 

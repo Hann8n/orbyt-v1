@@ -14,6 +14,7 @@ import {
   type ModerationOpts,
 } from '@atproto/api';
 import { AtprotoCore } from '../api/core';
+import { isValidDid } from '../../utils/atproto/uriValidation';
 
 const MANAGED_LABEL_KEYS = ['porn', 'sexual', 'nudity', 'graphic-media'] as const;
 
@@ -188,7 +189,7 @@ export class ModerationService {
           // ignore
         }
         subject = { $type: 'com.atproto.repo.strongRef' as const, uri, ...(cid && { cid }) };
-      } else if (uri.startsWith('did:')) {
+      } else if (isValidDid(uri)) {
         subject = { $type: 'com.atproto.admin.defs#repoRef' as const, did: uri };
       } else {
         subject = { $type: 'com.atproto.repo.strongRef' as const, uri };

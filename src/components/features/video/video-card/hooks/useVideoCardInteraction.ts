@@ -1,14 +1,9 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { InfiniteData, QueryKey } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 
-import { AtprotoFeedService } from '../../../../../services/api/feed/FeedService';
-import { useLikeMutation, patchFeedPost } from '@/hooks/useLikeMutation';
-import { queryKeys } from '../../../../../utils/query/queryKeys';
-import type { ExtendedPostView, FeedResponse } from '../../../../../services/api/types';
-
-type FeedSnapshot = [QueryKey, InfiniteData<FeedResponse> | undefined];
+import { useLikeMutation } from '@/hooks/useLikeMutation';
+import { useRepostMutation } from '@/hooks/useRepostMutation';
+import type { ExtendedPostView } from '../../../../../services/api/types';
 
 export type VideoCardInteractionDisplay = {
   isLiked: boolean;
@@ -38,7 +33,8 @@ export interface UseVideoCardInteractionResult {
 export function useVideoCardInteraction({
   postView,
 }: UseVideoCardInteractionArgs): UseVideoCardInteractionResult {
-  const queryClient = useQueryClient();
+  const likeMutation = useLikeMutation();
+  const repostMutation = useRepostMutation();
 
   // Source of truth is the feed query cache — patched optimistically by mutations.
   const display = useMemo<VideoCardInteractionDisplay>(
@@ -63,51 +59,6 @@ export function useVideoCardInteraction({
 
   const displayRef = useRef(display);
   const pendingRef = useRef({ isLikePending: false, isRepostPending: false });
-
-  const likeMutation = useLikeMutation();
-
-  const repostMutation = useMutation<
-    string | undefined,
-    Error,
-    { postUri: string; postCid: string; isReposted: boolean; repostUri?: string; repostCount: number },
-    { snapshots: FeedSnapshot[] }
-  >({
-    mutationFn: async ({ postUri, postCid, isReposted, repostUri }) => {
-      if (!isReposted) return AtprotoFeedService.repostPost(postUri, postCid);
-      if (!repostUri) throw new Error('No repost URI');
-      await AtprotoFeedService.deleteRepost(repostUri);
-      return undefined;
-    },
-    onMutate: ({ postUri, isReposted, repostCount }) => {
-      const newIsReposted = !isReposted;
-      const newCount = newIsReposted ? repostCount + 1 : Math.max(0, repostCount - 1);
-      const snapshots = queryClient.getQueriesData<InfiniteData<FeedResponse>>({
-        queryKey: queryKeys.feed.all,
-      }) as FeedSnapshot[];
-      queryClient.setQueriesData<InfiniteData<FeedResponse>>(
-        { queryKey: queryKeys.feed.all },
-        old => patchFeedPost(old, postUri, post => ({
-          ...post,
-          repostCount: newCount,
-          viewer: { ...post.viewer, repost: newIsReposted ? 'optimistic' : undefined },
-        }))
-      );
-      return { snapshots };
-    },
-    onSuccess: (repostUri, { postUri, isReposted }) => {
-      const newIsReposted = !isReposted;
-      queryClient.setQueriesData<InfiniteData<FeedResponse>>(
-        { queryKey: queryKeys.feed.all },
-        old => patchFeedPost(old, postUri, post => ({
-          ...post,
-          viewer: { ...post.viewer, repost: newIsReposted ? repostUri : undefined },
-        }))
-      );
-    },
-    onError: (_, __, context) => {
-      for (const [key, data] of context?.snapshots ?? []) queryClient.setQueryData(key, data);
-    },
-  });
 
   useLayoutEffect(() => {
     displayRef.current = display;

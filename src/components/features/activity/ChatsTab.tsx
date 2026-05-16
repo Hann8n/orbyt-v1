@@ -94,14 +94,12 @@ function getLastMessagePreview(
 ): string {
   if (!lastMessage || typeof lastMessage !== 'object') return '';
   if (ChatBskyConvoDefs.isMessageView(lastMessage)) {
-    // If the last message includes an embedded post, prefer a richer single-line preview.
-    const msg = lastMessage as ChatBskyConvoDefs.MessageView;
-    const senderDid = (msg as { sender?: { did?: string } }).sender?.did;
-    const isFromMe = !!currentUserDid && !!senderDid && senderDid === currentUserDid;
-    const embed = (msg as { embed?: unknown }).embed;
+    const msg = lastMessage;
+    const senderDid = msg.sender?.did;
+    const isFromMe = senderDid === currentUserDid;
+    const embed = msg.embed;
     if (embed && typeof embed === 'object') {
       const embedType = (embed as { $type?: string }).$type;
-      // MessageView embed: view lexicon id or main record id (same payload).
       if (
         (embedType === 'app.bsky.embed.record#view' || embedType === 'app.bsky.embed.record') &&
         'record' in embed
@@ -110,20 +108,12 @@ function getLastMessagePreview(
         if (record && typeof record === 'object') {
           const recordType = record.$type;
           if (recordType === 'app.bsky.embed.record#viewRecord' && record.author && record.value) {
-            const authorHandleRaw = (record as { author?: { handle?: string } }).author?.handle;
-            const authorHandle = authorHandleRaw ? formatHandle(authorHandleRaw) : '';
+            const authorHandle = record.author.handle && typeof record.author.handle === 'string' ? formatHandle(record.author.handle) : '';
             const base = isFromMe ? i18n.t('chat.youSharedPost') : i18n.t('chat.sharedPost');
             return authorHandle ? `${base} by @${authorHandle}` : base;
           }
-          // Unavailable record variants (notFound/blocked/detached)
-          if (
-            recordType === 'app.bsky.embed.record#viewNotFound' ||
-            recordType === 'app.bsky.embed.record#viewBlocked' ||
-            recordType === 'app.bsky.embed.record#viewDetached' ||
-            record.notFound === true ||
-            record.blocked === true ||
-            record.detached === true
-          ) {
+          const unavailableTypes = ['app.bsky.embed.record#viewNotFound', 'app.bsky.embed.record#viewBlocked', 'app.bsky.embed.record#viewDetached'];
+          if (recordType && unavailableTypes.includes(recordType) || record.notFound || record.blocked || record.detached) {
             return isFromMe ? i18n.t('chat.youSharedPost') : i18n.t('chat.sharedPost');
           }
         }
@@ -132,8 +122,8 @@ function getLastMessagePreview(
     }
     return msg.text ?? '';
   }
-  if ('text' in lastMessage && typeof (lastMessage as { text?: string }).text === 'string') {
-    return (lastMessage as { text: string }).text;
+  if ('text' in lastMessage && typeof lastMessage.text === 'string') {
+    return lastMessage.text;
   }
   return i18n.t('chat.messageDeleted');
 }
@@ -169,13 +159,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
     const nameLabel = formatHandle(handle) || t('feed.unknownUser');
     const preview = getLastMessagePreview(item.lastMessage, currentUser?.did ?? undefined);
     const lastMsg = item.lastMessage;
-    const sentAt =
-      lastMsg &&
-      typeof lastMsg === 'object' &&
-      'sentAt' in lastMsg &&
-      typeof (lastMsg as { sentAt?: string }).sentAt === 'string'
-        ? (lastMsg as { sentAt: string }).sentAt
-        : undefined;
+    const sentAt = lastMsg && 'sentAt' in lastMsg && typeof lastMsg.sentAt === 'string' ? lastMsg.sentAt : undefined;
     const unread = (item.unreadCount ?? 0) > 0;
     const isRequest = item.status === 'request';
     const isMuted = item.muted ?? false;
@@ -183,7 +167,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
       lastMsg && typeof lastMsg === 'object' && 'sender' in lastMsg
         ? (lastMsg as { sender?: { did?: string } }).sender?.did
         : undefined;
-    const isLastMessageFromMe = !!currentUser?.did && lastMessageSenderDid === currentUser.did;
+    const isLastMessageFromMe = currentUser?.did && lastMessageSenderDid && currentUser.did === lastMessageSenderDid;
 
     const handlePress = useCallback(() => {
       if (item.id && other?.did) {
@@ -194,13 +178,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
       }
     }, [navigation, item.id, other]);
 
-    const handleAvatarPress = useCallback(() => {
-      if (other?.did) {
-        goToProfile(other.did);
-      }
-    }, [goToProfile, other]);
-
-    const handleNamePress = useCallback(() => {
+    const handleProfilePress = useCallback(() => {
       if (other?.did) {
         goToProfile(other.did);
       }
@@ -231,7 +209,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
       <View style={styles.conversationItem}>
         <View style={styles.conversationItemRow}>
           <NativePressable
-            onPress={handleAvatarPress}
+            onPress={handleProfilePress}
             style={activityListSharedStyles.profileImage}
           >
             <Avatar
@@ -244,7 +222,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
           <NativePressable onPress={handlePress} style={activityListSharedStyles.mainColumn}>
             <View style={activityListSharedStyles.nameRow}>
               <NativePressable
-                onPress={handleNamePress}
+                onPress={handleProfilePress}
                 hitSlop={nameHitSlop}
                 style={activityListSharedStyles.namePressable}
               >

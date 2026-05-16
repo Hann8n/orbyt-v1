@@ -4,6 +4,8 @@
 
 import { Linking, Alert } from 'react-native';
 import i18n from '../../i18n';
+import { isValidAtUri } from '../atproto/uriValidation';
+import { AtUri } from '@atproto/api';
 
 /**
  * Convert AT Protocol URI to Bluesky web URL
@@ -11,18 +13,22 @@ import i18n from '../../i18n';
  * @returns Bluesky web URL (e.g., https://bsky.app/profile/did:plc:abc123/post/xyz789)
  */
 const convertAtUriToBlueskyUrl = (atUri: string): string => {
-  if (!atUri.startsWith('at://')) {
+  if (!isValidAtUri(atUri)) {
     return atUri;
   }
 
-  // Extract the necessary parts from the AT URI
-  const parts = atUri.replace('at://', '').split('/');
-  if (parts.length >= 3) {
-    const did = parts[0];
-    const rkey = parts[2];
+  try {
+    // Use SDK's AtUri to parse the URI structure
+    const uri = new AtUri(atUri);
+    const did = uri.hostname;
+    const rkey = uri.rkey;
 
-    // Format as a bsky.app URL
-    return `https://bsky.app/profile/${did}/post/${rkey}`;
+    if (did && rkey) {
+      // Format as a bsky.app URL
+      return `https://bsky.app/profile/${did}/post/${rkey}`;
+    }
+  } catch (_error) {
+    // Fall back to original URI if parsing fails
   }
 
   return atUri;
@@ -34,19 +40,22 @@ const convertAtUriToBlueskyUrl = (atUri: string): string => {
  * @returns Bluesky web URL (e.g., https://bsky.app/profile/did:plc:abc123/lists/xyz789)
  */
 const convertListUriToBlueskyUrl = (atUri: string): string => {
-  if (!atUri.startsWith('at://')) {
+  if (!isValidAtUri(atUri)) {
     return atUri;
   }
 
-  // Extract the necessary parts from the AT URI
-  // Format: at://did:plc:xxxx/app.bsky.graph.list/rkey
-  const parts = atUri.replace('at://', '').split('/');
-  if (parts.length >= 3) {
-    const did = parts[0];
-    const rkey = parts[2];
+  try {
+    // Use SDK's AtUri to parse the URI structure
+    const uri = new AtUri(atUri);
+    const did = uri.hostname;
+    const rkey = uri.rkey;
 
-    // Format as a bsky.app list URL
-    return `https://bsky.app/profile/${did}/lists/${rkey}`;
+    if (did && rkey) {
+      // Format as a bsky.app list URL
+      return `https://bsky.app/profile/${did}/lists/${rkey}`;
+    }
+  } catch (_error) {
+    // Fall back to original URI if parsing fails
   }
 
   return atUri;

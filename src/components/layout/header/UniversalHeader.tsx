@@ -39,7 +39,7 @@ import { Colors } from '../../../theme';
 import { Typography, FontFamily, TextStyles } from '../../../utils/components/typography';
 import { splitHandleSuffix } from '../../../utils/formatting/handles';
 import { TextWithLinks } from '../../ui/TextWithLinks';
-import type { RichTextFacet } from '../../../utils/types/richText';
+import { AppBskyRichtextFacet } from '@atproto/api';
 import { useDetailHeaderScrollPresentation } from './useDetailHeaderScrollPresentation';
 
 /**
@@ -113,7 +113,7 @@ export interface HeaderContent {
   /** Optional action link in subtitle area (e.g. Germ DM) */
   subtitleAction?: { label: string; onPress: () => void };
   description?: string;
-  facets?: RichTextFacet[];
+  facets?: AppBskyRichtextFacet.Main[];
   badge?: React.ReactNode;
   onAvatarPress?: () => void;
   onTitlePress?: () => void;

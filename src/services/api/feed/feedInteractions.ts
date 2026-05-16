@@ -11,12 +11,13 @@ import {
   getFeedInteractionsSupported,
   setFeedInteractionsSupported,
 } from './feedInteractionSupport';
+import { isValidAtUri } from '../../../utils/atproto/uriValidation';
 
 const APPVIEW_SERVICE_PROXY = 'did:web:api.bsky.app#bsky_appview' as const;
 const feedProxyDidCache = new Map<string, string | null>();
 
 async function getFeedGeneratorProxy(feed: string | undefined): Promise<string | null> {
-  if (!feed || !feed.startsWith('at://')) return null;
+  if (!feed || !isValidAtUri(feed)) return null;
 
   if (feedProxyDidCache.has(feed)) {
     const cachedDid = feedProxyDidCache.get(feed);

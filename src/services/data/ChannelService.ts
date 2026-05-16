@@ -13,6 +13,7 @@ import {
 import { hydrateOrbytChannels } from '../OrbytChannelsService';
 import { resolveLocalizedText } from '@/i18n/resolveLocalizedText';
 import { queryKeys } from '@/utils/query/queryKeys';
+import { isValidAtUri } from '../../utils/atproto/uriValidation';
 // Image.resolveAssetSource replaced with expo-asset
 
 export interface CachedChannel {
@@ -137,7 +138,7 @@ class ChannelService {
     }
 
     // Handle feed generator URIs (both orbyt and external)
-    if (!uriOrFeed.startsWith('at://')) {
+    if (!isValidAtUri(uriOrFeed)) {
       return null;
     }
 
@@ -158,7 +159,7 @@ class ChannelService {
     }
 
     // Validate URI format - must be a valid at-uri for feed generators
-    if (!uri.startsWith('at://')) {
+    if (!isValidAtUri(uri)) {
       return null;
     }
 
@@ -367,7 +368,7 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
   if (
     !uriOrFeed ||
     (!uriOrFeed.startsWith('hashtag:') &&
-      !uriOrFeed.startsWith('at://') &&
+      !isValidAtUri(uriOrFeed) &&
       !isOrbytChannel(uriOrFeed))
   ) {
     return {

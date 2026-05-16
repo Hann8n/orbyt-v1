@@ -17,6 +17,7 @@ import type { FeedResponse } from '../services/api/types';
 import ProfileService from '../services/data/ProfileService';
 import { useQueryClient } from '@tanstack/react-query';
 import type { InfiniteData } from '@tanstack/react-query';
+import { isValidAtUri } from '../utils/atproto/uriValidation';
 
 const selectFeedPages = (data: InfiniteData<FeedResponse> | undefined): FeedItem[] =>
   (data?.pages ?? []).flatMap(p => p?.feed ?? []);
@@ -165,7 +166,7 @@ export function useFeed(
     (feedOption === 'profile' ||
       feedOption === 'likes' ||
       feedOption === 'reposts' ||
-      (feedOption && feedOption.startsWith('at://'))) &&
+      (feedOption && isValidAtUri(feedOption))) &&
     Boolean(userDid);
 
   return {

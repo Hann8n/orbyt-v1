@@ -19,6 +19,7 @@ import type {
 } from '../api/types';
 import { useFollowStore } from '../../stores/followStore';
 import { queryClient as globalQueryClient } from '../../utils/query/queryClient';
+import { isValidDid } from '../../utils/atproto/uriValidation';
 
 /** Truthy sentinel for optimistic follow only; unfollow ignores it and uses store or getProfile. */
 const OPTIMISTIC_FOLLOW_URI_PLACEHOLDER = 'at://placeholder';
@@ -151,7 +152,7 @@ class ProfileService {
     if (!did) return null;
 
     // Validate that input is actually a DID (starts with "did:")
-    if (!did.startsWith('did:')) {
+    if (!isValidDid(did)) {
       // This is a handle, not a DID - return null (caller should use getProfile with handle instead)
       return null;
     }
@@ -930,7 +931,7 @@ export async function prefetchProfile(
   const cleanIdentifier = identifier.trim();
   if (!cleanIdentifier) return;
 
-  const isDid = cleanIdentifier.startsWith('did:');
+  const isDid = isValidDid(cleanIdentifier);
   const did = isDid ? cleanIdentifier : partialProfile?.did;
 
   // Step 1: Set partial data immediately for instant UI (if provided and cache is missing)

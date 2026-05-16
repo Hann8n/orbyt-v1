@@ -958,7 +958,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 onAuthorPress={handleAuthorPress}
                 onHashtagPress={handleHashtagPress}
                 facets={
-                  facets as import('../../../utils/types/richText').RichTextFacet[] | undefined
+                  facets as import('@atproto/api').AppBskyRichtextFacet.Main[] | undefined
                 }
               />
             ) : null}

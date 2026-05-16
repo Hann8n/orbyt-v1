@@ -8,6 +8,7 @@ import {
   getRemoteChannelByUri,
   isKnownOrbytChannelUri,
 } from '@/services/OrbytChannelsService';
+import { isValidAtUri } from '../atproto/uriValidation';
 
 export interface OrbytChannel {
   uri: string;
@@ -216,7 +217,7 @@ export function channelToHashtag(uriOrSlug: string): string | null {
   // Try to extract slug from URI
   let slug: string | null = null;
 
-  if (uriOrSlug.startsWith('at://')) {
+  if (isValidAtUri(uriOrSlug)) {
     // It's a URI (local or feed generator), extract slug
     slug = extractFeedSlug(uriOrSlug);
   } else {

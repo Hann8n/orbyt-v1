@@ -6,6 +6,7 @@ import { FEED_TYPES } from '../../../utils/constants';
 import type { FeedListItem } from '../../../types';
 import { isFeedHeaderItem } from '../../../types';
 import { blendColors, hexToRGBA } from '../../../utils/formatting/colors';
+import { isValidAtUri } from '../../../utils/atproto/uriValidation';
 
 export const FEED_VIEW_CONSTANTS = {
   LIST_ITEM_GAP: 3,
@@ -22,7 +23,7 @@ export const isHeaderFeed = (feedOption: string, headerComponent?: ReactNode): b
   feedOption === FEED_TYPES.PROFILE ||
   feedOption === FEED_TYPES.LIKES ||
   feedOption === FEED_TYPES.REPOSTS ||
-  (feedOption && feedOption.startsWith('at://')) ||
+  (feedOption && isValidAtUri(feedOption)) ||
   (feedOption && feedOption.startsWith('hashtag:orbyt-channel-')) ||
   Boolean(headerComponent);
 

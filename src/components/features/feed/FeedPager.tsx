@@ -2,6 +2,7 @@ import {
   useRef,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useState,
   useMemo,
   forwardRef,
@@ -179,6 +180,11 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
 
   // Must match initialPage: native PagerView does not fire onPageSelected for the initial page.
   const pageScrollProgress = useSharedValue(initialPageIndex);
+  const pageScrollProgressRef = useRef(pageScrollProgress);
+
+  useLayoutEffect(() => {
+    pageScrollProgressRef.current = pageScrollProgress;
+  }, [pageScrollProgress]);
 
   const [currentFeedIndex, setCurrentFeedIndex] = useState(initialPageIndex);
 
@@ -187,11 +193,10 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
       if (index < 0 || !pagerViewRef.current) return;
       if (scrollEnabled) pagerViewRef.current.setPage(index);
       else pagerViewRef.current.setPageWithoutAnimation(index);
-      // eslint-disable-next-line react-hooks/immutability, react-compiler/react-compiler
-      pageScrollProgress.value = index;
+      pageScrollProgressRef.current.value = index;
       setCurrentFeedIndex(index);
     },
-    [scrollEnabled, pageScrollProgress]
+    [scrollEnabled]
   );
 
   // Sync controlled currentFeed -> pager page (handles store hydration and programmatic changes)
@@ -226,15 +231,14 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     (event: { nativeEvent: { position: number } }) => {
       const nextIndex = event.nativeEvent.position;
       // Update shared value to exact position after transition
-      // eslint-disable-next-line react-hooks/immutability
-      pageScrollProgress.value = nextIndex;
+      pageScrollProgressRef.current.value = nextIndex;
       setCurrentFeedIndex(nextIndex);
       const newFeedOption = feedOptions[nextIndex];
       if (newFeedOption) {
         onFeedChange?.(newFeedOption);
       }
     },
-    [feedOptions, onFeedChange, pageScrollProgress]
+    [feedOptions, onFeedChange]
   );
 
   // Retry is handled inside FeedRenderer (refetch); pass stable no-op so child can call it
