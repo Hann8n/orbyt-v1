@@ -91,7 +91,6 @@ export function useFeed(
   const moderationData = useModerationSettings(effectiveUserDid || undefined);
   const modReady = moderationData.moderationPrefs != null;
 
-
   const isUserSpecificFeed = feedOption === 'following' || feedOption === 'your-mix';
   const isFeedBootstrapReady =
     !isUserSpecificFeed ||

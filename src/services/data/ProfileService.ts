@@ -194,8 +194,7 @@ class ProfileService {
           qc.setQueryData(queryKeys.profiles.detail(profile.did), profile);
         }
       }
-    } catch {
-    }
+    } catch {}
   }
 
   static async precacheCurrentUserProfile(qc: QueryClient = globalQueryClient): Promise<void> {
@@ -689,7 +688,10 @@ export function useSubscriptionMutation() {
     },
     onSuccess: data => {
       if (!data?.did) return;
-      queryClient.invalidateQueries({ queryKey: profileKeys.detail(data.did), refetchType: 'inactive' });
+      queryClient.invalidateQueries({
+        queryKey: profileKeys.detail(data.did),
+        refetchType: 'inactive',
+      });
     },
   });
 }

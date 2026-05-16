@@ -35,11 +35,12 @@ export function useRepostMutation() {
       }) as FeedSnapshot[];
       queryClient.setQueriesData<InfiniteData<FeedResponse>>(
         { queryKey: queryKeys.feed.all },
-        old => patchFeedPost(old, postUri, post => ({
-          ...post,
-          repostCount: newCount,
-          viewer: { ...post.viewer, repost: newIsReposted ? 'optimistic' : undefined },
-        }))
+        old =>
+          patchFeedPost(old, postUri, post => ({
+            ...post,
+            repostCount: newCount,
+            viewer: { ...post.viewer, repost: newIsReposted ? 'optimistic' : undefined },
+          }))
       );
       return { snapshots };
     },
@@ -48,10 +49,11 @@ export function useRepostMutation() {
       const newIsReposted = !isReposted;
       queryClient.setQueriesData<InfiniteData<FeedResponse>>(
         { queryKey: queryKeys.feed.all },
-        old => patchFeedPost(old, postUri, post => ({
-          ...post,
-          viewer: { ...post.viewer, repost: newIsReposted ? repostUri : undefined },
-        }))
+        old =>
+          patchFeedPost(old, postUri, post => ({
+            ...post,
+            viewer: { ...post.viewer, repost: newIsReposted ? repostUri : undefined },
+          }))
       );
     },
 

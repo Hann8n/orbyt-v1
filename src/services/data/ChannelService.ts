@@ -145,7 +145,6 @@ class ChannelService {
     }
   }
 
-
   private static createOrbytChannelCache(
     orbytChannel: import('../../utils/channels/orbyt').OrbytChannel
   ): CachedChannel {
@@ -196,9 +195,7 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
 
   if (
     !uriOrFeed ||
-    (!uriOrFeed.startsWith('hashtag:') &&
-      !isValidAtUri(uriOrFeed) &&
-      !isOrbytChannel(uriOrFeed))
+    (!uriOrFeed.startsWith('hashtag:') && !isValidAtUri(uriOrFeed) && !isOrbytChannel(uriOrFeed))
   ) {
     return {
       colors: {
@@ -249,7 +246,5 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
     },
   };
 }
-
-
 
 export default ChannelService;

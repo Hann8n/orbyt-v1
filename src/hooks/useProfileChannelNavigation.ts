@@ -49,6 +49,7 @@ export function useProfileChannelNavigation(options?: { fallbackTab?: DetailNavT
     navigateToChannel,
     currentTab,
     buildProfileHref: (did: string) => buildProfileDetailHref(did, currentTab),
-    buildChannelHref: (encodedChannelId: string) => buildChannelDetailHref(encodedChannelId, currentTab),
+    buildChannelHref: (encodedChannelId: string) =>
+      buildChannelDetailHref(encodedChannelId, currentTab),
   };
 }

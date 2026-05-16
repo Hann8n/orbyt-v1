@@ -27,7 +27,7 @@ export function useDetailHeaderScrollPresentation({
       contentScrollProgress?.value ?? 0,
       [0, 0.6, 1],
       [1, 1, 0.02],
-      'clamp',
+      'clamp'
     );
     return { opacity };
   });
@@ -39,12 +39,7 @@ export function useDetailHeaderScrollPresentation({
     return {
       ...absoluteFill,
       backgroundColor: Colors.black,
-      opacity: interpolate(
-        contentScrollProgress?.value ?? 0,
-        [0, 0.5, 1],
-        [0, 0, 0.3],
-        'clamp',
-      ),
+      opacity: interpolate(contentScrollProgress?.value ?? 0, [0, 0.5, 1], [0, 0, 0.3], 'clamp'),
       pointerEvents: 'none' as const,
     };
   });

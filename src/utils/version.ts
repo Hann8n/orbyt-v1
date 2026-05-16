@@ -41,7 +41,6 @@ function getBuildNumber(): string {
   return fromConfig ?? 'N/A';
 }
 
-
 /**
  * Format iOS ApplicationReleaseType enum value to human-readable string.
  * Uses the enum's reverse mapping (e.g. 5 -> 'APP_STORE').

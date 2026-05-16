@@ -310,7 +310,8 @@ export async function mutePostComments(postUri: string): Promise<boolean> {
     const urip = new AtUri(postUri);
     const userDid = AtprotoCore.getCurrentUserDid();
     if (!userDid) throw new Error('No authenticated user found');
-    if (urip.hostname !== userDid) throw new Error('Cannot mute comments on a post that you do not own');
+    if (urip.hostname !== userDid)
+      throw new Error('Cannot mute comments on a post that you do not own');
 
     // Create a threadgate with no allow rules (effectively muting all comments)
     const record = {

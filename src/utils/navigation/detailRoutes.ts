@@ -17,7 +17,9 @@ export function isRootModalStackContext(segments: readonly string[]): boolean {
 
 /** When the focused route is under `(tabs)`, returns that tab; otherwise `null` (e.g. root modal). */
 export function getDetailNavTabIfInsideTabs(segments: readonly string[]): DetailNavTab | null {
-  return (segments.find(s => (TAB_SEGMENTS as readonly string[]).includes(s)) as DetailNavTab) ?? null;
+  return (
+    (segments.find(s => (TAB_SEGMENTS as readonly string[]).includes(s)) as DetailNavTab) ?? null
+  );
 }
 
 function profilePathnameForTab(
@@ -76,5 +78,7 @@ export function buildChannelDetailHref(encodedChannelId: string, tab: DetailNavT
 
 export function useCurrentDetailNavTab(): DetailNavTab {
   const segments = useSegments();
-  return (segments.find(s => (TAB_SEGMENTS as readonly string[]).includes(s)) as DetailNavTab) ?? 'home';
+  return (
+    (segments.find(s => (TAB_SEGMENTS as readonly string[]).includes(s)) as DetailNavTab) ?? 'home'
+  );
 }

@@ -330,7 +330,7 @@ export default Sentry.wrap(function RootLayout() {
     };
 
     setFocusedFromAppState(AppState.currentState);
-    const appStateSub = AppState.addEventListener('change', (status) => {
+    const appStateSub = AppState.addEventListener('change', status => {
       setFocusedFromAppState(status);
       if (status === 'active') {
         void syncOnlineState();

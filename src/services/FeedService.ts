@@ -542,7 +542,12 @@ class FeedService {
         const validPosts: ExtendedFeedViewPost[] = [];
         for (const uri of urisToFetch) {
           const post = postsMap.get(uri);
-          if (post && typeof post === 'object' && !AppBskyFeedDefs.isNotFoundPost(post) && !AppBskyFeedDefs.isBlockedPost(post)) {
+          if (
+            post &&
+            typeof post === 'object' &&
+            !AppBskyFeedDefs.isNotFoundPost(post) &&
+            !AppBskyFeedDefs.isBlockedPost(post)
+          ) {
             validPosts.push({ post } as ExtendedFeedViewPost);
           }
         }
@@ -553,9 +558,7 @@ class FeedService {
       } else {
         // Handle custom feed URIs (external feed generators and non-postable orbyt channels)
         // Use original feedOption for feed generator URIs, not the normalized one
-        const feedLink = isValidAtUri(feedOption)
-          ? feedOption
-          : this.getFeedLink(feedOptionForAPI);
+        const feedLink = isValidAtUri(feedOption) ? feedOption : this.getFeedLink(feedOptionForAPI);
         if (!feedLink) {
           return { feed: [], cursor: null };
         }

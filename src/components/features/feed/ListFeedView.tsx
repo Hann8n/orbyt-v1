@@ -272,566 +272,572 @@ function ListFeedViewComponent({
   onHashtagPress,
   ref,
 }: ListFeedViewProps & { ref?: Ref<ListFeedViewRef> }) {
-    'use no memo';
-    const resolvedViewMode = viewMode ?? 'list';
+  'use no memo';
+  const resolvedViewMode = viewMode ?? 'list';
 
-    const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
 
-    const [headerHeight, setHeaderHeight] = useState(0);
-    const [feedLayoutHeight, setFeedLayoutHeight] = useState(0);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [feedLayoutHeight, setFeedLayoutHeight] = useState(0);
 
-    const flashListRef = useRef<FlashListRef<FeedListItem>>(null);
-    const gridRef = useRef<ListFeedViewRef>(null);
+  const flashListRef = useRef<FlashListRef<FeedListItem>>(null);
+  const gridRef = useRef<ListFeedViewRef>(null);
 
-    const scrollOffsetYSV = useSharedValue(0);
-    const endOfFeedEnabledSV = useSharedValue(0);
-    const endOfFeedOverscrollOpacitySV = useSharedValue(0);
-    const scrollFadeParamsSV = useSharedValue<ScrollFadeParams>({ spacing: 0, snapOrigin: 0, firstVideoIdx: 0 });
-    const localProgressSV = useSharedValue(0);
-    const progressOutput = useRef(contentScrollProgressOutput ?? localProgressSV).current;
+  const scrollOffsetYSV = useSharedValue(0);
+  const endOfFeedEnabledSV = useSharedValue(0);
+  const endOfFeedOverscrollOpacitySV = useSharedValue(0);
+  const scrollFadeParamsSV = useSharedValue<ScrollFadeParams>({
+    spacing: 0,
+    snapOrigin: 0,
+    firstVideoIdx: 0,
+  });
+  const localProgressSV = useSharedValue(0);
+  const progressOutput = useRef(contentScrollProgressOutput ?? localProgressSV).current;
 
-    const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
+  const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
 
-    const seedActiveIndex = (() => {
-      if (zoomTargetPostUri && feed.length > 0) {
-        const idx = feed.findIndex(item => !isFeedHeaderItem(item) && item.post?.uri === zoomTargetPostUri);
-        if (idx >= 0) return idx + (isHeaderFeed ? 1 : 0);
+  const seedActiveIndex = (() => {
+    if (zoomTargetPostUri && feed.length > 0) {
+      const idx = feed.findIndex(
+        item => !isFeedHeaderItem(item) && item.post?.uri === zoomTargetPostUri
+      );
+      if (idx >= 0) return idx + (isHeaderFeed ? 1 : 0);
+    }
+    return feed.length > 0 ? (isHeaderFeed ? 1 : 0) : -1;
+  })();
+  const activeVisibleIndexRef = useRef(seedActiveIndex);
+  const [activeIndex, setActiveIndex] = useState(seedActiveIndex);
+
+  const tabBarVisibility = useTabBarVisibility();
+  const listSurfaceActive = isVisible && resolvedViewMode === 'list';
+  const chromeVisibleMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
+
+  useEffect(() => {
+    if (listSurfaceActive) tabBarVisibility.value = 1;
+  }, [listSurfaceActive, tabBarVisibility]);
+
+  useAnimatedReaction(
+    () => scrollOffsetYSV.value,
+    (y, prevY) => {
+      if (!listSurfaceActive) return;
+      const cy = Math.max(0, y);
+      const py = prevY === null ? cy : Math.max(0, prevY);
+      if (cy < chromeVisibleMaxY) {
+        tabBarVisibility.value = 1;
+      } else if (cy > py + CHROME_HIDE_DIRECTION_THRESHOLD_PX) {
+        tabBarVisibility.value = 0;
+      } else if (cy < py - CHROME_SHOW_DIRECTION_THRESHOLD_PX) {
+        tabBarVisibility.value = 1;
       }
-      return feed.length > 0 ? (isHeaderFeed ? 1 : 0) : -1;
-    })();
-    const activeVisibleIndexRef = useRef(seedActiveIndex);
-    const [activeIndex, setActiveIndex] = useState(seedActiveIndex);
+    },
+    [scrollOffsetYSV, tabBarVisibility, listSurfaceActive, chromeVisibleMaxY]
+  );
 
-    const tabBarVisibility = useTabBarVisibility();
-    const listSurfaceActive = isVisible && resolvedViewMode === 'list';
-    const chromeVisibleMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
+  const { screenWidth, screenHeight, isCompact } = useDeviceLayout();
+  const hasTabBar = hasTabBarProp ?? true;
+  const useManualIosGlassTabPaddingLayout = hasTabBar && isIosLiquidGlassAvailable;
+  const useNativeTabBottomSafeArea =
+    hasTabBar && Platform.OS === 'ios' && !isIosLiquidGlassAvailable;
 
-    useEffect(() => {
-      if (listSurfaceActive) tabBarVisibility.value = 1;
-    }, [listSurfaceActive, tabBarVisibility]);
+  const viewableAreaHeight = useMemo(() => {
+    if (!hasTabBar) {
+      const maxViewport = Math.max(0, screenHeight - insets.bottom);
+      return feedLayoutHeight > 0 ? Math.min(feedLayoutHeight, maxViewport) : maxViewport;
+    }
+    if (useManualIosGlassTabPaddingLayout) {
+      return getViewportDimensions(
+        { top: insets.top, bottom: insets.bottom, left: 0, right: 0 },
+        { useFullWindowHeight: !hasTabBar }
+      ).height;
+    }
+    // For non-liquid glass, don't subtract status bar - only subtract bottom inset
+    return Math.max(0, screenHeight - insets.bottom);
+  }, [
+    hasTabBar,
+    screenHeight,
+    insets.top,
+    insets.bottom,
+    feedLayoutHeight,
+    useManualIosGlassTabPaddingLayout,
+  ]);
+  const cardHeight = useMemo(
+    () =>
+      useManualIosGlassTabPaddingLayout
+        ? getVideoCardHeight(screenWidth, screenHeight)
+        : viewableAreaHeight,
+    [useManualIosGlassTabPaddingLayout, screenWidth, screenHeight, viewableAreaHeight]
+  );
 
-    useAnimatedReaction(
-      () => scrollOffsetYSV.value,
-      (y, prevY) => {
-        if (!listSurfaceActive) return;
-        const cy = Math.max(0, y);
-        const py = prevY === null ? cy : Math.max(0, prevY);
-        if (cy < chromeVisibleMaxY) {
-          tabBarVisibility.value = 1;
-        } else if (cy > py + CHROME_HIDE_DIRECTION_THRESHOLD_PX) {
-          tabBarVisibility.value = 0;
-        } else if (cy < py - CHROME_SHOW_DIRECTION_THRESHOLD_PX) {
-          tabBarVisibility.value = 1;
-        }
-      },
-      [scrollOffsetYSV, tabBarVisibility, listSurfaceActive, chromeVisibleMaxY]
+  const handleActiveVisibleIndexChange = useCallback((index: number) => {
+    if (activeVisibleIndexRef.current === index) return;
+    activeVisibleIndexRef.current = index;
+    setActiveIndex(index);
+  }, []);
+
+  const didScrollToTargetRef = useRef(false);
+  useEffect(() => {
+    if (didScrollToTargetRef.current || !zoomTargetPostUri || feed.length === 0) return;
+    const idx = feed.findIndex(
+      item => !isFeedHeaderItem(item) && item.post?.uri === zoomTargetPostUri
     );
+    if (idx < 0 || !flashListRef.current) return;
+    const adjustedIdx = idx + (isHeaderFeed ? 1 : 0);
+    didScrollToTargetRef.current = true;
+    if (activeVisibleIndexRef.current !== adjustedIdx) {
+      activeVisibleIndexRef.current = adjustedIdx;
+      setActiveIndex(adjustedIdx);
+    }
+    flashListRef.current.scrollToItem({ item: feed[idx], animated: false, viewPosition: 0 });
+  }, [zoomTargetPostUri, feed, isHeaderFeed]);
 
-    const { screenWidth, screenHeight, isCompact } = useDeviceLayout();
-    const hasTabBar = hasTabBarProp ?? true;
-    const useManualIosGlassTabPaddingLayout = hasTabBar && isIosLiquidGlassAvailable;
-    const useNativeTabBottomSafeArea =
-      hasTabBar && Platform.OS === 'ios' && !isIosLiquidGlassAvailable;
+  useEffect(() => {
+    if (feed.length === 0) {
+      if (activeVisibleIndexRef.current === -1) return;
+      activeVisibleIndexRef.current = -1;
+      setActiveIndex(-1);
+      return;
+    }
+    if (activeVisibleIndexRef.current >= 0) return;
+    const headerOffset = isHeaderFeed ? 1 : 0;
+    activeVisibleIndexRef.current = headerOffset;
+    setActiveIndex(headerOffset);
+  }, [feed.length, isHeaderFeed]);
 
-    const viewableAreaHeight = useMemo(() => {
-      if (!hasTabBar) {
-        const maxViewport = Math.max(0, screenHeight - insets.bottom);
-        return feedLayoutHeight > 0 ? Math.min(feedLayoutHeight, maxViewport) : maxViewport;
-      }
-      if (useManualIosGlassTabPaddingLayout) {
-        return getViewportDimensions({ top: insets.top, bottom: insets.bottom, left: 0, right: 0 }, { useFullWindowHeight: !hasTabBar }).height;
-      }
-      // For non-liquid glass, don't subtract status bar - only subtract bottom inset
-      return Math.max(0, screenHeight - insets.bottom);
-    }, [hasTabBar, screenHeight, insets.top, insets.bottom, feedLayoutHeight, useManualIosGlassTabPaddingLayout]);
-    const cardHeight = useMemo(
-      () =>
-        useManualIosGlassTabPaddingLayout
-          ? getVideoCardHeight(screenWidth, screenHeight)
-          : viewableAreaHeight,
-      [useManualIosGlassTabPaddingLayout, screenWidth, screenHeight, viewableAreaHeight]
-    );
+  const { canPlay, onViewableItemsChanged, viewabilityConfig } = useFeedVisibility({
+    isActive: listSurfaceActive,
+    onActiveVisibleIndexChange: handleActiveVisibleIndexChange,
+    isHeaderItem: isFeedListHeaderItem,
+  });
 
-    const handleActiveVisibleIndexChange = useCallback((index: number) => {
-      if (activeVisibleIndexRef.current === index) return;
-      activeVisibleIndexRef.current = index;
-      setActiveIndex(index);
-    }, []);
+  const profileColors = useMemo(
+    () => getProfileColors(backgroundColor, secondaryColor),
+    [backgroundColor, secondaryColor]
+  );
+  const endOfFeedHintColor = useMemo(
+    () => getEndOfFeedOverscrollTextColor(profileColors?.textColor, secondaryColor),
+    [profileColors?.textColor, secondaryColor]
+  );
 
-    const didScrollToTargetRef = useRef(false);
-    useEffect(() => {
-      if (didScrollToTargetRef.current || !zoomTargetPostUri || feed.length === 0) return;
-      const idx = feed.findIndex(item => !isFeedHeaderItem(item) && item.post?.uri === zoomTargetPostUri);
-      if (idx < 0 || !flashListRef.current) return;
-      const adjustedIdx = idx + (isHeaderFeed ? 1 : 0);
-      didScrollToTargetRef.current = true;
-      if (activeVisibleIndexRef.current !== adjustedIdx) {
-        activeVisibleIndexRef.current = adjustedIdx;
-        setActiveIndex(adjustedIdx);
-      }
-      flashListRef.current.scrollToItem({ item: feed[idx], animated: false, viewPosition: 0 });
-    }, [zoomTargetPostUri, feed, isHeaderFeed]);
+  const listData = useMemo(() => {
+    if (headerComponent) {
+      return [{ type: 'header' as const, component: headerComponent }, ...feed] as FeedListItem[];
+    }
+    return feed;
+  }, [headerComponent, feed]);
 
-    useEffect(() => {
-      if (feed.length === 0) {
-        if (activeVisibleIndexRef.current === -1) return;
-        activeVisibleIndexRef.current = -1;
-        setActiveIndex(-1);
-        return;
-      }
-      if (activeVisibleIndexRef.current >= 0) return;
-      const headerOffset = isHeaderFeed ? 1 : 0;
-      activeVisibleIndexRef.current = headerOffset;
-      setActiveIndex(headerOffset);
-    }, [feed.length, isHeaderFeed]);
+  const effectiveIsError = forceError || isError;
 
-    const {
+  const showEndOfFeed =
+    feed.length > 0 &&
+    !effectiveIsError &&
+    !isLoading &&
+    hasNextPage === false &&
+    !isFetchingNextPage;
+
+  useEffect(() => {
+    endOfFeedEnabledSV.value = showEndOfFeed ? 1 : 0;
+    if (!showEndOfFeed) {
+      endOfFeedOverscrollOpacitySV.value = 0;
+    }
+  }, [showEndOfFeed, endOfFeedEnabledSV, endOfFeedOverscrollOpacitySV]);
+
+  const listRenderExtraData = useMemo(
+    () => ({
+      cardHeight,
+      feedOption,
+      zoomTargetPostUri: zoomTargetPostUri ?? null,
+      onHashtagPress,
+      activeIndex,
       canPlay,
-      onViewableItemsChanged,
-      viewabilityConfig,
-    } = useFeedVisibility({
-      isActive: listSurfaceActive,
-      onActiveVisibleIndexChange: handleActiveVisibleIndexChange,
-      isHeaderItem: isFeedListHeaderItem,
-    });
+    }),
+    [cardHeight, feedOption, zoomTargetPostUri, onHashtagPress, activeIndex, canPlay]
+  );
 
-    const profileColors = useMemo(
-      () => getProfileColors(backgroundColor, secondaryColor),
-      [backgroundColor, secondaryColor]
-    );
-    const endOfFeedHintColor = useMemo(
-      () => getEndOfFeedOverscrollTextColor(profileColors?.textColor, secondaryColor),
-      [profileColors?.textColor, secondaryColor]
-    );
+  const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = Math.round(e.nativeEvent.layout.height);
+    if (h > 0) setHeaderHeight(prev => (prev === h ? prev : h));
+  }, []);
 
-    const listData = useMemo(() => {
-      if (headerComponent) {
-        return [{ type: 'header' as const, component: headerComponent }, ...feed] as FeedListItem[];
-      }
-      return feed;
-    }, [headerComponent, feed]);
-
-    const effectiveIsError = forceError || isError;
-
-    const showEndOfFeed =
-      feed.length > 0 &&
-      !effectiveIsError &&
-      !isLoading &&
-      hasNextPage === false &&
-      !isFetchingNextPage;
-
-    useEffect(() => {
-      endOfFeedEnabledSV.value = showEndOfFeed ? 1 : 0;
-      if (!showEndOfFeed) {
-        endOfFeedOverscrollOpacitySV.value = 0;
-      }
-    }, [showEndOfFeed, endOfFeedEnabledSV, endOfFeedOverscrollOpacitySV]);
-
-
-    const listRenderExtraData = useMemo(
-      () => ({
-        cardHeight,
-        feedOption,
-        zoomTargetPostUri: zoomTargetPostUri ?? null,
-        onHashtagPress,
-        activeIndex,
-        canPlay,
-      }),
-      [cardHeight, feedOption, zoomTargetPostUri, onHashtagPress, activeIndex, canPlay]
-    );
-
-    const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
-      const h = Math.round(e.nativeEvent.layout.height);
-      if (h > 0) setHeaderHeight(prev => (prev === h ? prev : h));
-    }, []);
-
-    const renderItem = useCallback(
-      ({ item, index, target, extraData }: ListRenderItemInfo<FeedListItem>) => {
-        const xd = extraData as typeof listRenderExtraData | undefined;
-        const h = xd?.cardHeight ?? 0;
-        if (target === RenderTargetOptions.Measurement || !xd) {
-          return (
-            <View
-              style={StyleSheet.compose(
-                styles.measurementPlaceholder,
-                getMeasurementHeightStyle(h)
-              )}
-            />
-          );
-        }
-
-        if (isFeedHeaderItem(item)) {
-          return <View onLayout={handleHeaderLayout}>{item.component}</View>;
-        }
-
-        const isAppleZoomTarget =
-          Boolean(xd.zoomTargetPostUri) &&
-          !isFeedHeaderItem(item) &&
-          item.post?.uri === xd.zoomTargetPostUri &&
-          Platform.OS === 'ios';
+  const renderItem = useCallback(
+    ({ item, index, target, extraData }: ListRenderItemInfo<FeedListItem>) => {
+      const xd = extraData as typeof listRenderExtraData | undefined;
+      const h = xd?.cardHeight ?? 0;
+      if (target === RenderTargetOptions.Measurement || !xd) {
         return (
-          <VideoItem
-            feedItem={item}
-            post={item.post}
-            height={xd.cardHeight}
-            feedOption={xd.feedOption}
-            index={index}
-            isAppleZoomTarget={isAppleZoomTarget}
-            onHashtagPress={xd.onHashtagPress}
-            activeIndex={xd.activeIndex}
-            canPlay={xd.canPlay}
+          <View
+            style={StyleSheet.compose(styles.measurementPlaceholder, getMeasurementHeightStyle(h))}
           />
         );
-      },
+      }
 
-      []
-    );
+      if (isFeedHeaderItem(item)) {
+        return <View onLayout={handleHeaderLayout}>{item.component}</View>;
+      }
 
+      const isAppleZoomTarget =
+        Boolean(xd.zoomTargetPostUri) &&
+        !isFeedHeaderItem(item) &&
+        item.post?.uri === xd.zoomTargetPostUri &&
+        Platform.OS === 'ios';
+      return (
+        <VideoItem
+          feedItem={item}
+          post={item.post}
+          height={xd.cardHeight}
+          feedOption={xd.feedOption}
+          index={index}
+          isAppleZoomTarget={isAppleZoomTarget}
+          onHashtagPress={xd.onHashtagPress}
+          activeIndex={xd.activeIndex}
+          canPlay={xd.canPlay}
+        />
+      );
+    },
 
-    const itemSpacing = useMemo(
-      () => cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
-      [cardHeight]
-    );
+    []
+  );
 
+  const itemSpacing = useMemo(() => cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP, [cardHeight]);
 
-    const listViewportForEmpty = feedLayoutHeight > 0 ? feedLayoutHeight : viewableAreaHeight;
-    const emptyStateHeaderDeduction = ListComponent
-      ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS
-      : isHeaderFeed && headerHeight > 0
-        ? headerHeight
-        : 0;
-    const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
+  const listViewportForEmpty = feedLayoutHeight > 0 ? feedLayoutHeight : viewableAreaHeight;
+  const emptyStateHeaderDeduction = ListComponent
+    ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS
+    : isHeaderFeed && headerHeight > 0
+      ? headerHeight
+      : 0;
+  const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
 
-    const snapTopInset =
-      useManualIosGlassTabPaddingLayout && !isCompact ? getEffectiveTopInset(insets.top) : 0;
+  const snapTopInset =
+    useManualIosGlassTabPaddingLayout && !isCompact ? getEffectiveTopInset(insets.top) : 0;
 
-    const snapDisabledCompactLiquidGlass =
-      useManualIosGlassTabPaddingLayout && !isHeaderFeed && isCompact;
-    const snapWaitHeaderLayout = isHeaderFeed && headerHeight <= 0;
-    const listSnapUsesInterval =
-      !snapDisabledCompactLiquidGlass &&
-      !snapWaitHeaderLayout &&
-      !isHeaderFeed &&
-      snapTopInset === 0 &&
-      listData.length > 0;
+  const snapDisabledCompactLiquidGlass =
+    useManualIosGlassTabPaddingLayout && !isHeaderFeed && isCompact;
+  const snapWaitHeaderLayout = isHeaderFeed && headerHeight <= 0;
+  const listSnapUsesInterval =
+    !snapDisabledCompactLiquidGlass &&
+    !snapWaitHeaderLayout &&
+    !isHeaderFeed &&
+    snapTopInset === 0 &&
+    listData.length > 0;
 
-    const snapToIntervalValue = listSnapUsesInterval ? itemSpacing : undefined;
+  const snapToIntervalValue = listSnapUsesInterval ? itemSpacing : undefined;
 
-    const snapToOffsets = useMemo((): number[] | undefined => {
-      return buildListSnapToOffsets({
-        snapDisabledCompactLiquidGlass,
-        snapWaitHeaderLayout,
-        listSnapUsesInterval,
-        isHeaderFeed,
-        headerHeight,
-        cardHeight,
-        itemCount: listData.length,
-        itemSpacing,
-        snapTopInset,
-      });
-    }, [
+  const snapToOffsets = useMemo((): number[] | undefined => {
+    return buildListSnapToOffsets({
       snapDisabledCompactLiquidGlass,
       snapWaitHeaderLayout,
       listSnapUsesInterval,
       isHeaderFeed,
       headerHeight,
       cardHeight,
-      listData.length,
+      itemCount: listData.length,
       itemSpacing,
       snapTopInset,
-    ]);
-
-    const handleFeedLayout = useCallback((e: LayoutChangeEvent) => {
-      const h = Math.round(e.nativeEvent.layout.height);
-      if (h > 0) {
-        setFeedLayoutHeight(prev => (prev === h ? prev : h));
-      }
-    }, []);
-
-    const fadeDist = isHeaderFeed ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
-
-    const scrollHandler = useAnimatedScrollHandler({
-      onScroll: event => {
-        const y = Math.max(0, event.contentOffset.y);
-        scrollOffsetYSV.value = y;
-
-        if (fadeDist > 0) {
-          progressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
-        }
-
-        const contentH = event.contentSize?.height ?? 0;
-        const layoutH = event.layoutMeasurement?.height ?? 0;
-        const maxY = Math.max(0, contentH - layoutH);
-        const overscrollPastEnd = y - maxY;
-        if (endOfFeedEnabledSV.value < 0.5) {
-          endOfFeedOverscrollOpacitySV.value = 0;
-        } else {
-          endOfFeedOverscrollOpacitySV.value = Math.max(
-            0,
-            Math.min(1, overscrollPastEnd / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX)
-          );
-        }
-      },
     });
+  }, [
+    snapDisabledCompactLiquidGlass,
+    snapWaitHeaderLayout,
+    listSnapUsesInterval,
+    isHeaderFeed,
+    headerHeight,
+    cardHeight,
+    listData.length,
+    itemSpacing,
+    snapTopInset,
+  ]);
 
-    useEffect(() => {
-      const headerSnapAdjust = isHeaderFeed ? snapTopInset : 0;
-      scrollFadeParamsSV.value = {
-        spacing: itemSpacing,
-        snapOrigin: isHeaderFeed ? headerHeight - headerSnapAdjust : -snapTopInset,
-        firstVideoIdx: isHeaderFeed ? 1 : 0,
-      };
-    }, [scrollFadeParamsSV, itemSpacing, isHeaderFeed, headerHeight, snapTopInset]);
+  const handleFeedLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = Math.round(e.nativeEvent.layout.height);
+    if (h > 0) {
+      setFeedLayoutHeight(prev => (prev === h ? prev : h));
+    }
+  }, []);
 
-    const feedScrollMotion = useMemo<FeedScrollMotionValue>(
-      () => ({ scrollOffsetYSV, scrollFadeParamsSV }),
-      [scrollOffsetYSV, scrollFadeParamsSV]
-    );
+  const fadeDist = isHeaderFeed ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
 
-    const feedScrollLayout = useMemo<FeedScrollLayoutValue>(
-      () => ({
-        headerHeight,
-        viewportHeight: viewableAreaHeight,
-        itemSpacing,
-      }),
-      [headerHeight, viewableAreaHeight, itemSpacing]
-    );
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: event => {
+      const y = Math.max(0, event.contentOffset.y);
+      scrollOffsetYSV.value = y;
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        scrollToTop: () =>
-          resolvedViewMode === 'grid'
-            ? gridRef.current?.scrollToTop()
-            : flashListRef.current?.scrollToTop({ animated: true }),
-      }),
-      [resolvedViewMode]
-    );
-
-    const endOfFeedHintBottomInset = useNativeTabBottomSafeArea ? 12 : Math.max(12, insets.bottom);
-
-    const listContentContainerExtraStyle = useMemo(() => {
-      if (feed.length === 0) {
-        return undefined;
+      if (fadeDist > 0) {
+        progressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
       }
-      if (useNativeTabBottomSafeArea) {
-        return styles.contentContainerListItemsNativeTabBottom;
+
+      const contentH = event.contentSize?.height ?? 0;
+      const layoutH = event.layoutMeasurement?.height ?? 0;
+      const maxY = Math.max(0, contentH - layoutH);
+      const overscrollPastEnd = y - maxY;
+      if (endOfFeedEnabledSV.value < 0.5) {
+        endOfFeedOverscrollOpacitySV.value = 0;
+      } else {
+        endOfFeedOverscrollOpacitySV.value = Math.max(
+          0,
+          Math.min(1, overscrollPastEnd / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX)
+        );
       }
-      const bottomPadding =
-        insets.bottom +
-        (useManualIosGlassTabPaddingLayout ? IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING : 0);
-      return getBottomPaddingStyle(bottomPadding);
-    }, [feed.length, useNativeTabBottomSafeArea, insets.bottom, useManualIosGlassTabPaddingLayout]);
-    const listContentContainerStyle = useMemo(
-      () => StyleSheet.compose(styles.contentContainer, listContentContainerExtraStyle),
-      [listContentContainerExtraStyle]
-    );
-    const listContainerStyle = styles.container;
-    const tabSafeAreaStyle = styles.tabSceneSafeArea;
+    },
+  });
 
-    const listEmptyElement = useMemo(
-      () => (
-        <ListEmptyComponent
-          isLoading={isLoading}
-          effectiveIsError={effectiveIsError}
-          feedOption={feedOption}
-          secondaryColor={secondaryColor}
-          profileColors={profileColors}
-          emptyComponentHeight={emptyComponentHeight}
-          onRetry={onRetry}
-        />
-      ),
-      [
-        isLoading,
-        effectiveIsError,
-        feedOption,
-        secondaryColor,
-        profileColors,
-        emptyComponentHeight,
-        onRetry,
-      ]
-    );
+  useEffect(() => {
+    const headerSnapAdjust = isHeaderFeed ? snapTopInset : 0;
+    scrollFadeParamsSV.value = {
+      spacing: itemSpacing,
+      snapOrigin: isHeaderFeed ? headerHeight - headerSnapAdjust : -snapTopInset,
+      firstVideoIdx: isHeaderFeed ? 1 : 0,
+    };
+  }, [scrollFadeParamsSV, itemSpacing, isHeaderFeed, headerHeight, snapTopInset]);
 
-    const refreshControlElement = useMemo(() => {
-      if (!pullToRefresh) return undefined;
-      return (
-        <RefreshControl
-          refreshing={pullToRefresh.refreshing}
-          onRefresh={pullToRefresh.onRefresh}
-          tintColor={getPullToRefreshTintColor(profileColors?.textColor, secondaryColor)}
-          progressViewOffset={insets.top}
-        />
-      );
-    }, [pullToRefresh, profileColors?.textColor, secondaryColor, insets.top]);
+  const feedScrollMotion = useMemo<FeedScrollMotionValue>(
+    () => ({ scrollOffsetYSV, scrollFadeParamsSV }),
+    [scrollOffsetYSV, scrollFadeParamsSV]
+  );
 
-    const listHeaderElement = null;
+  const feedScrollLayout = useMemo<FeedScrollLayoutValue>(
+    () => ({
+      headerHeight,
+      viewportHeight: viewableAreaHeight,
+      itemSpacing,
+    }),
+    [headerHeight, viewableAreaHeight, itemSpacing]
+  );
 
-    const listFooterElement = useMemo(() => {
-      if (feed.length === 0 && headerComponent) {
-        return listEmptyElement;
-      }
-      return feed.length > 0 ? <View style={styles.itemSeparator} /> : null;
-    }, [feed.length, headerComponent, listEmptyElement]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToTop: () =>
+        resolvedViewMode === 'grid'
+          ? gridRef.current?.scrollToTop()
+          : flashListRef.current?.scrollToTop({ animated: true }),
+    }),
+    [resolvedViewMode]
+  );
 
-    // Memoize FlashList props separately to reduce listBody dependency count
-    const flashListProps = useMemo(
-      () => ({
-        ref: flashListRef,
-        style: styles.flashList,
-        data: listData,
-        renderItem,
-        extraData: listRenderExtraData,
-        drawDistance: FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE,
-        keyExtractor: listKeyExtractor,
-        getItemType: getListItemType,
-        refreshControl: refreshControlElement,
-        ListHeaderComponent: listHeaderElement,
-        pagingEnabled: false,
-        snapToOffsets,
-        snapToInterval: snapToIntervalValue,
-        snapToAlignment: (snapToIntervalValue != null ? 'start' : undefined) as 'start' | undefined,
-        decelerationRate:
-          Platform.OS === 'ios'
-            ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
-            : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID,
-        disableIntervalMomentum: snapToIntervalValue != null,
-        scrollEventThrottle: APP_CONSTANTS.SCROLL_THROTTLE,
-        onScroll: scrollHandler,
-        onEndReached: onLoadMore,
-        onEndReachedThreshold: QUERY_CONSTANTS.END_REACHED_THRESHOLD,
-        onViewableItemsChanged,
-        viewabilityConfig,
-        maintainVisibleContentPosition: MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED,
-        scrollEnabled: true,
-        showsVerticalScrollIndicator: listData.length >= SCROLL_INDICATOR_CONSTANTS.FEED_LIST_MIN_ITEMS,
-        bounces: true,
-        directionalLockEnabled: true,
-        alwaysBounceVertical: true,
-        alwaysBounceHorizontal: false,
-        ListEmptyComponent: listEmptyElement,
-        ItemSeparatorComponent: ItemSeparatorComponent,
-        ListFooterComponent: listFooterElement,
-        contentContainerStyle: listContentContainerStyle,
-      }),
-      [
-        listData,
-        renderItem,
-        listRenderExtraData,
-        refreshControlElement,
-        listHeaderElement,
-        snapToOffsets,
-        snapToIntervalValue,
-        scrollHandler,
-        onLoadMore,
-        onViewableItemsChanged,
-        viewabilityConfig,
-        listEmptyElement,
-        listFooterElement,
-        listContentContainerStyle,
-      ]
-    );
+  const endOfFeedHintBottomInset = useNativeTabBottomSafeArea ? 12 : Math.max(12, insets.bottom);
 
-    const listBody = useMemo(
-      () => (
-        <View collapsable={false} style={listContainerStyle} onLayout={handleFeedLayout}>
-          {showEndOfFeed ? (
-            <EndOfFeedOverscrollHint
-              opacitySV={endOfFeedOverscrollOpacitySV}
-              bottomInset={endOfFeedHintBottomInset}
-              labelColor={endOfFeedHintColor}
-            />
-          ) : null}
-          <View style={styles.flashListWrapper}>
-            <AnimatedFlashList {...flashListProps} />
-          </View>
-        </View>
-      ),
-      [
-        listContainerStyle,
-        handleFeedLayout,
-        showEndOfFeed,
-        endOfFeedOverscrollOpacitySV,
-        endOfFeedHintBottomInset,
-        endOfFeedHintColor,
-        flashListProps,
-      ]
-    );
+  const listContentContainerExtraStyle = useMemo(() => {
+    if (feed.length === 0) {
+      return undefined;
+    }
+    if (useNativeTabBottomSafeArea) {
+      return styles.contentContainerListItemsNativeTabBottom;
+    }
+    const bottomPadding =
+      insets.bottom +
+      (useManualIosGlassTabPaddingLayout ? IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING : 0);
+    return getBottomPaddingStyle(bottomPadding);
+  }, [feed.length, useNativeTabBottomSafeArea, insets.bottom, useManualIosGlassTabPaddingLayout]);
+  const listContentContainerStyle = useMemo(
+    () => StyleSheet.compose(styles.contentContainer, listContentContainerExtraStyle),
+    [listContentContainerExtraStyle]
+  );
+  const listContainerStyle = styles.container;
+  const tabSafeAreaStyle = styles.tabSceneSafeArea;
 
-    const listSurfaceNode = useMemo(
-      () => (
-        <FeedScrollProvider motion={feedScrollMotion} layout={feedScrollLayout}>
-          {listBody}
-        </FeedScrollProvider>
-      ),
-      [feedScrollMotion, feedScrollLayout, listBody]
-    );
+  const listEmptyElement = useMemo(
+    () => (
+      <ListEmptyComponent
+        isLoading={isLoading}
+        effectiveIsError={effectiveIsError}
+        feedOption={feedOption}
+        secondaryColor={secondaryColor}
+        profileColors={profileColors}
+        emptyComponentHeight={emptyComponentHeight}
+        onRetry={onRetry}
+      />
+    ),
+    [
+      isLoading,
+      effectiveIsError,
+      feedOption,
+      secondaryColor,
+      profileColors,
+      emptyComponentHeight,
+      onRetry,
+    ]
+  );
 
-    const gridFeedData = useMemo(
-      () => feed.filter(item => !isFeedHeaderItem(item)) as ExtendedFeedViewPost[],
-      [feed]
-    );
-
-    const gridSurfaceNode = useMemo(
-      () => (
-        <GridFeedView
-          ref={gridRef}
-          feed={gridFeedData}
-          headerComponent={headerComponent}
-          backgroundColor={backgroundColor}
-          secondaryColor={secondaryColor}
-          feedOption={feedOption}
-          userDid={userDid}
-          onLoadMore={onLoadMore}
-          hasNextPage={hasNextPage}
-          onGridItemPress={onGridItemPressProp}
-          gridFeedModalZoomConfig={gridFeedModalZoomConfig ?? undefined}
-          isError={effectiveIsError}
-          onRetry={onRetry}
-          isLoading={isLoading}
-          ListComponent={ListComponent}
-          contentScrollProgressOutput={contentScrollProgressOutput}
-          snapTopInset={snapTopInset}
-          useNativeTabBottomSafeArea={useNativeTabBottomSafeArea}
-          pullToRefresh={pullToRefresh}
-        />
-      ),
-      [
-        gridFeedData,
-        headerComponent,
-        backgroundColor,
-        secondaryColor,
-        feedOption,
-        userDid,
-        onLoadMore,
-        hasNextPage,
-        onGridItemPressProp,
-        gridFeedModalZoomConfig,
-        effectiveIsError,
-        onRetry,
-        isLoading,
-        ListComponent,
-        contentScrollProgressOutput,
-        snapTopInset,
-        useNativeTabBottomSafeArea,
-        pullToRefresh,
-      ]
-    );
-
-    const stack = (
-      <FeedSurfaceStack
-        listActive={resolvedViewMode === 'list'}
-        listSurface={listSurfaceNode}
-        gridSurface={gridSurfaceNode}
+  const refreshControlElement = useMemo(() => {
+    if (!pullToRefresh) return undefined;
+    return (
+      <RefreshControl
+        refreshing={pullToRefresh.refreshing}
+        onRefresh={pullToRefresh.onRefresh}
+        tintColor={getPullToRefreshTintColor(profileColors?.textColor, secondaryColor)}
+        progressViewOffset={insets.top}
       />
     );
+  }, [pullToRefresh, profileColors?.textColor, secondaryColor, insets.top]);
 
-    return useNativeTabBottomSafeArea ? (
-      <RNScreensSafeAreaView style={tabSafeAreaStyle} edges={SAFE_AREA_BOTTOM_EDGES}>
-        {stack}
-      </RNScreensSafeAreaView>
-    ) : (
-      stack
-    );
+  const listHeaderElement = null;
+
+  const listFooterElement = useMemo(() => {
+    if (feed.length === 0 && headerComponent) {
+      return listEmptyElement;
+    }
+    return feed.length > 0 ? <View style={styles.itemSeparator} /> : null;
+  }, [feed.length, headerComponent, listEmptyElement]);
+
+  // Memoize FlashList props separately to reduce listBody dependency count
+  const flashListProps = useMemo(
+    () => ({
+      ref: flashListRef,
+      style: styles.flashList,
+      data: listData,
+      renderItem,
+      extraData: listRenderExtraData,
+      drawDistance: FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE,
+      keyExtractor: listKeyExtractor,
+      getItemType: getListItemType,
+      refreshControl: refreshControlElement,
+      ListHeaderComponent: listHeaderElement,
+      pagingEnabled: false,
+      snapToOffsets,
+      snapToInterval: snapToIntervalValue,
+      snapToAlignment: (snapToIntervalValue != null ? 'start' : undefined) as 'start' | undefined,
+      decelerationRate:
+        Platform.OS === 'ios'
+          ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+          : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID,
+      disableIntervalMomentum: snapToIntervalValue != null,
+      scrollEventThrottle: APP_CONSTANTS.SCROLL_THROTTLE,
+      onScroll: scrollHandler,
+      onEndReached: onLoadMore,
+      onEndReachedThreshold: QUERY_CONSTANTS.END_REACHED_THRESHOLD,
+      onViewableItemsChanged,
+      viewabilityConfig,
+      maintainVisibleContentPosition: MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED,
+      scrollEnabled: true,
+      showsVerticalScrollIndicator:
+        listData.length >= SCROLL_INDICATOR_CONSTANTS.FEED_LIST_MIN_ITEMS,
+      bounces: true,
+      directionalLockEnabled: true,
+      alwaysBounceVertical: true,
+      alwaysBounceHorizontal: false,
+      ListEmptyComponent: listEmptyElement,
+      ItemSeparatorComponent: ItemSeparatorComponent,
+      ListFooterComponent: listFooterElement,
+      contentContainerStyle: listContentContainerStyle,
+    }),
+    [
+      listData,
+      renderItem,
+      listRenderExtraData,
+      refreshControlElement,
+      listHeaderElement,
+      snapToOffsets,
+      snapToIntervalValue,
+      scrollHandler,
+      onLoadMore,
+      onViewableItemsChanged,
+      viewabilityConfig,
+      listEmptyElement,
+      listFooterElement,
+      listContentContainerStyle,
+    ]
+  );
+
+  const listBody = useMemo(
+    () => (
+      <View collapsable={false} style={listContainerStyle} onLayout={handleFeedLayout}>
+        {showEndOfFeed ? (
+          <EndOfFeedOverscrollHint
+            opacitySV={endOfFeedOverscrollOpacitySV}
+            bottomInset={endOfFeedHintBottomInset}
+            labelColor={endOfFeedHintColor}
+          />
+        ) : null}
+        <View style={styles.flashListWrapper}>
+          <AnimatedFlashList {...flashListProps} />
+        </View>
+      </View>
+    ),
+    [
+      listContainerStyle,
+      handleFeedLayout,
+      showEndOfFeed,
+      endOfFeedOverscrollOpacitySV,
+      endOfFeedHintBottomInset,
+      endOfFeedHintColor,
+      flashListProps,
+    ]
+  );
+
+  const listSurfaceNode = useMemo(
+    () => (
+      <FeedScrollProvider motion={feedScrollMotion} layout={feedScrollLayout}>
+        {listBody}
+      </FeedScrollProvider>
+    ),
+    [feedScrollMotion, feedScrollLayout, listBody]
+  );
+
+  const gridFeedData = useMemo(
+    () => feed.filter(item => !isFeedHeaderItem(item)) as ExtendedFeedViewPost[],
+    [feed]
+  );
+
+  const gridSurfaceNode = useMemo(
+    () => (
+      <GridFeedView
+        ref={gridRef}
+        feed={gridFeedData}
+        headerComponent={headerComponent}
+        backgroundColor={backgroundColor}
+        secondaryColor={secondaryColor}
+        feedOption={feedOption}
+        userDid={userDid}
+        onLoadMore={onLoadMore}
+        hasNextPage={hasNextPage}
+        onGridItemPress={onGridItemPressProp}
+        gridFeedModalZoomConfig={gridFeedModalZoomConfig ?? undefined}
+        isError={effectiveIsError}
+        onRetry={onRetry}
+        isLoading={isLoading}
+        ListComponent={ListComponent}
+        contentScrollProgressOutput={contentScrollProgressOutput}
+        snapTopInset={snapTopInset}
+        useNativeTabBottomSafeArea={useNativeTabBottomSafeArea}
+        pullToRefresh={pullToRefresh}
+      />
+    ),
+    [
+      gridFeedData,
+      headerComponent,
+      backgroundColor,
+      secondaryColor,
+      feedOption,
+      userDid,
+      onLoadMore,
+      hasNextPage,
+      onGridItemPressProp,
+      gridFeedModalZoomConfig,
+      effectiveIsError,
+      onRetry,
+      isLoading,
+      ListComponent,
+      contentScrollProgressOutput,
+      snapTopInset,
+      useNativeTabBottomSafeArea,
+      pullToRefresh,
+    ]
+  );
+
+  const stack = (
+    <FeedSurfaceStack
+      listActive={resolvedViewMode === 'list'}
+      listSurface={listSurfaceNode}
+      gridSurface={gridSurfaceNode}
+    />
+  );
+
+  return useNativeTabBottomSafeArea ? (
+    <RNScreensSafeAreaView style={tabSafeAreaStyle} edges={SAFE_AREA_BOTTOM_EDGES}>
+      {stack}
+    </RNScreensSafeAreaView>
+  ) : (
+    stack
+  );
 }
 
 const styles = StyleSheet.create({

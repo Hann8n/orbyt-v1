@@ -1,7 +1,16 @@
 import React, { useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Alert, Linking, Share, ScrollView, useWindowDimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+  Linking,
+  Share,
+  ScrollView,
+  useWindowDimensions,
+} from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
@@ -414,7 +423,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
   }, [isLiking, uri, cid, isLiked, comment.viewer?.like, animateHeart, likeComment, t]);
 
   const navigation = useRouter();
-  const { navigateToProfile: goToProfile, currentTab: feedModalTab } = useProfileChannelNavigation();
+  const { navigateToProfile: goToProfile, currentTab: feedModalTab } =
+    useProfileChannelNavigation();
 
   const navigateToAuthorProfile = useCallback(
     (
@@ -556,7 +566,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
     repostComment(
       { uri, cid },
       {
-        onSuccess: () => Alert.alert(t('common.success'), t('comments.repostedSuccessfully', { postType })),
+        onSuccess: () =>
+          Alert.alert(t('common.success'), t('comments.repostedSuccessfully', { postType })),
         onError: () => Alert.alert(t('common.error'), t('comments.failedToRepost', { postType })),
       }
     );
@@ -575,7 +586,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
             { uri },
             {
               onSuccess: () => onCommentDeleted?.(isReply),
-              onError: () => Alert.alert(t('common.error'), t('comments.failedToDelete', { postType })),
+              onError: () =>
+                Alert.alert(t('common.error'), t('comments.failedToDelete', { postType })),
             }
           );
         },
@@ -828,7 +840,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
     if (!isImagesEmbed || !Array.isArray(embedObj?.images)) return null;
 
-    const embedImages: EmbedImage[] = ((embed as unknown) as { images: unknown[] }).images
+    const embedImages: EmbedImage[] = (embed as unknown as { images: unknown[] }).images
       .filter(
         (img: unknown) =>
           typeof img === 'object' && img !== null && ('thumb' in img || 'fullsize' in img)
@@ -897,94 +909,92 @@ const CommentItem: React.FC<CommentItemProps> = ({
           </NativePressable>
           <View style={styles.commentItemBody}>
             <View style={styles.commentItemContent}>
-            <View style={styles.commentItemAuthorRow}>
-              <NativePressable
-                onPress={() => {
-                  const authorData = comment?.author;
-                  if (authorHandle || authorDid) {
-                    handleAuthorPress(authorHandle, authorDid, authorData);
-                  }
-                }}
-                style={styles.commentAuthorNamePressable}
-              >
-                <Text style={styles.commentAuthorName} numberOfLines={1} ellipsizeMode="tail">
-                  {authorName}
-                </Text>
-              </NativePressable>
-              {authorHandle && (
-                <VerificationBadge
-                  handle={authorHandle}
-                  textSize={16}
-                  textColor={Colors.neutral[50]}
-                />
-              )}
-              {authorHandle && (
-                <BotBadge
-                  handle={authorHandle}
-                  did={authorDid ?? undefined}
-                  labels={author?.labels}
-                  textSize={16}
-                  textColor={Colors.neutral[50]}
-                />
-              )}
-            </View>
-            {parent && parentAuthorName && level > 0 && parent.parent && (
-              <NativePressable
-                onPress={() => {
-                  const parentAuthorData = parent?.author;
-                  if (parentAuthorHandle && typeof parentAuthorHandle === 'string') {
-                    handleAuthorPress(
-                      parentAuthorHandle,
-                      parentAuthorDid ?? undefined,
-                      parentAuthorData
-                    );
-                  }
-                }}
-                style={styles.parentChyronPressable}
-              >
-                <View style={styles.parentChyronContent}>
-                  <NanoIcon name="reply-arrow" size={14} color={Colors.neutral[300]} />
-                  <Text style={styles.parentChyronText} numberOfLines={1} ellipsizeMode="tail">
-                    {parentAuthorHandle || parentAuthorName}
-                  </Text>
-                </View>
-              </NativePressable>
-            )}
-
-            {commentText ? (
-              <TextWithAuthorLinks
-                text={commentText}
-                style={styles.commentText}
-                onAuthorPress={handleAuthorPress}
-                onHashtagPress={handleHashtagPress}
-                facets={
-                  facets as import('@atproto/api').AppBskyRichtextFacet.Main[] | undefined
-                }
-              />
-            ) : null}
-            {renderImages()}
-            <View style={styles.commentMetaContainer}>
-              <RelativeDate dateString={comment?.indexedAt} style={styles.commentTimestamp} />
-              <NativePressable onPress={handleReplyPress} style={styles.replyButton}>
-                <Text style={styles.replyButtonText}>{t('comments.reply')}</Text>
-              </NativePressable>
-              <MenuView
-                actions={commentMenuActions}
-                onPressAction={handleCommentMenuPressAction}
-                shouldOpenOnLongPress={false}
-                themeVariant="dark"
-                isAnchoredToRight={true}
-              >
+              <View style={styles.commentItemAuthorRow}>
                 <NativePressable
-                  style={styles.moreButton}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('common.more')}
+                  onPress={() => {
+                    const authorData = comment?.author;
+                    if (authorHandle || authorDid) {
+                      handleAuthorPress(authorHandle, authorDid, authorData);
+                    }
+                  }}
+                  style={styles.commentAuthorNamePressable}
                 >
-                  <NanoIcon name="more-fill" size={16} color={Colors.neutral[300]} />
+                  <Text style={styles.commentAuthorName} numberOfLines={1} ellipsizeMode="tail">
+                    {authorName}
+                  </Text>
                 </NativePressable>
-              </MenuView>
-            </View>
+                {authorHandle && (
+                  <VerificationBadge
+                    handle={authorHandle}
+                    textSize={16}
+                    textColor={Colors.neutral[50]}
+                  />
+                )}
+                {authorHandle && (
+                  <BotBadge
+                    handle={authorHandle}
+                    did={authorDid ?? undefined}
+                    labels={author?.labels}
+                    textSize={16}
+                    textColor={Colors.neutral[50]}
+                  />
+                )}
+              </View>
+              {parent && parentAuthorName && level > 0 && parent.parent && (
+                <NativePressable
+                  onPress={() => {
+                    const parentAuthorData = parent?.author;
+                    if (parentAuthorHandle && typeof parentAuthorHandle === 'string') {
+                      handleAuthorPress(
+                        parentAuthorHandle,
+                        parentAuthorDid ?? undefined,
+                        parentAuthorData
+                      );
+                    }
+                  }}
+                  style={styles.parentChyronPressable}
+                >
+                  <View style={styles.parentChyronContent}>
+                    <NanoIcon name="reply-arrow" size={14} color={Colors.neutral[300]} />
+                    <Text style={styles.parentChyronText} numberOfLines={1} ellipsizeMode="tail">
+                      {parentAuthorHandle || parentAuthorName}
+                    </Text>
+                  </View>
+                </NativePressable>
+              )}
+
+              {commentText ? (
+                <TextWithAuthorLinks
+                  text={commentText}
+                  style={styles.commentText}
+                  onAuthorPress={handleAuthorPress}
+                  onHashtagPress={handleHashtagPress}
+                  facets={facets as import('@atproto/api').AppBskyRichtextFacet.Main[] | undefined}
+                />
+              ) : null}
+              {renderImages()}
+              <View style={styles.commentMetaContainer}>
+                <RelativeDate dateString={comment?.indexedAt} style={styles.commentTimestamp} />
+                <NativePressable onPress={handleReplyPress} style={styles.replyButton}>
+                  <Text style={styles.replyButtonText}>{t('comments.reply')}</Text>
+                </NativePressable>
+                <MenuView
+                  actions={commentMenuActions}
+                  onPressAction={handleCommentMenuPressAction}
+                  shouldOpenOnLongPress={false}
+                  themeVariant="dark"
+                  isAnchoredToRight={true}
+                >
+                  <NativePressable
+                    style={styles.moreButton}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.more')}
+                  >
+                    <NanoIcon name="more-fill" size={16} color={Colors.neutral[300]} />
+                  </NativePressable>
+                </MenuView>
+              </View>
             </View>
             <View style={styles.commentActionsColumn}>
               <NativePressable

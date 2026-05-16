@@ -1,9 +1,9 @@
 /**
  * SDK-native overlay layering strategy
- * 
+ *
  * Centralized zIndex management for video card overlays to prevent fragility.
  * Uses a single source of truth for layer ordering instead of scattered hardcoded values.
- * 
+ *
  * Layer order (bottom to top):
  * 1. Video player/media layer (0-5)
  * 2. Loading overlays (5)

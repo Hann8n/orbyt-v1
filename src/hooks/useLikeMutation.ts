@@ -50,11 +50,12 @@ export function useLikeMutation() {
       }) as FeedSnapshot[];
       queryClient.setQueriesData<InfiniteData<FeedResponse>>(
         { queryKey: queryKeys.feed.all },
-        old => patchFeedPost(old, postUri, post => ({
-          ...post,
-          likeCount: newCount,
-          viewer: { ...post.viewer, like: newIsLiked ? 'optimistic' : undefined },
-        }))
+        old =>
+          patchFeedPost(old, postUri, post => ({
+            ...post,
+            likeCount: newCount,
+            viewer: { ...post.viewer, like: newIsLiked ? 'optimistic' : undefined },
+          }))
       );
       return { snapshots };
     },
@@ -63,10 +64,11 @@ export function useLikeMutation() {
       const newIsLiked = !isLiked;
       queryClient.setQueriesData<InfiniteData<FeedResponse>>(
         { queryKey: queryKeys.feed.all },
-        old => patchFeedPost(old, postUri, post => ({
-          ...post,
-          viewer: { ...post.viewer, like: newIsLiked ? likeUri : undefined },
-        }))
+        old =>
+          patchFeedPost(old, postUri, post => ({
+            ...post,
+            viewer: { ...post.viewer, like: newIsLiked ? likeUri : undefined },
+          }))
       );
     },
 

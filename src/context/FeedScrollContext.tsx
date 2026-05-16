@@ -40,4 +40,3 @@ export function FeedScrollProvider({
 export function useFeedScrollMotion(): FeedScrollMotionValue | null {
   return useContext(FeedScrollMotionContext);
 }
-

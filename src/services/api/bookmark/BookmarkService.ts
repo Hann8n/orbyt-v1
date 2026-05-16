@@ -60,7 +60,13 @@ export class BookmarkService {
         return (
           AppBskyFeedDefs.isPostView(item) &&
           typeof uri === 'string' &&
-          (() => { try { return new AtUri(uri).collection === FEED_POST_COLLECTION; } catch { return false; } })()
+          (() => {
+            try {
+              return new AtUri(uri).collection === FEED_POST_COLLECTION;
+            } catch {
+              return false;
+            }
+          })()
         );
       });
 

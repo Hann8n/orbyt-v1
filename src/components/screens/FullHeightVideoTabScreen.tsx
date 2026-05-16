@@ -66,7 +66,8 @@ const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
 
   const safeAreaVideoAreaStyle = {
     paddingTop: topInset,
-    paddingBottom: bottomInset + (useManualIosGlassTabPaddingLayout ? IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING : 0),
+    paddingBottom:
+      bottomInset + (useManualIosGlassTabPaddingLayout ? IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING : 0),
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
   };

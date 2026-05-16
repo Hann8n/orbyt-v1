@@ -80,7 +80,10 @@ const SQUIRCLE_CONTAINER_KEYS = new Set<string>([
   'aspectRatio',
 ]);
 
-export function splitStyle(style: StyleProp<ViewStyle>): { container: ViewStyle; inner: ViewStyle } {
+export function splitStyle(style: StyleProp<ViewStyle>): {
+  container: ViewStyle;
+  inner: ViewStyle;
+} {
   const flat = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
   const container: Record<string, unknown> = {};
   const inner: Record<string, unknown> = {};
@@ -93,7 +96,6 @@ export function splitStyle(style: StyleProp<ViewStyle>): { container: ViewStyle;
   }
   return { container: container as ViewStyle, inner: inner as ViewStyle };
 }
-
 
 function shouldFillInnerPressable(container: ViewStyle): boolean {
   return (

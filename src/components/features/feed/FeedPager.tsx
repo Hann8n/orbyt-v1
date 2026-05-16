@@ -271,16 +271,20 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   );
 
   const feedRendererRefCallbacks = useMemo(
-    () => Object.fromEntries(
-      feedOptions.map(fo => [fo, (r: ListFeedViewRef | null) => { feedRendererRefs.current[fo] = r; }])
-    ),
+    () =>
+      Object.fromEntries(
+        feedOptions.map(fo => [
+          fo,
+          (r: ListFeedViewRef | null) => {
+            feedRendererRefs.current[fo] = r;
+          },
+        ])
+      ),
     [feedOptions]
   );
 
   const indicatorPressHandlers = useMemo(
-    () => Object.fromEntries(
-      feedOptions.map(fo => [fo, () => handleIndicatorTap(fo)])
-    ),
+    () => Object.fromEntries(feedOptions.map(fo => [fo, () => handleIndicatorTap(fo)])),
     [feedOptions, handleIndicatorTap]
   );
 
@@ -376,10 +380,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
                 />
               ))}
             </View>
-            <NativePressable
-              onPress={handleCreatePress}
-              style={styles.createButton}
-            >
+            <NativePressable onPress={handleCreatePress} style={styles.createButton}>
               <NanoIcon name="camera-2-fill" size={26} color={Colors.neutral[50]} />
             </NativePressable>
           </View>

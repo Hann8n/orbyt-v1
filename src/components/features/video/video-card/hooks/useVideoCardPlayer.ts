@@ -158,18 +158,15 @@ export function useVideoCardPlayer({
     [cannotShowMedia, isBlurred, canPlay, hasError, setVideoState]
   );
 
-  const seek = useCallback(
-    (position: number) => {
-      try {
-        const positionInSeconds = position > 1000 ? position / 1000 : position;
-        // eslint-disable-next-line react-compiler/react-compiler
-        playerRef.current.currentTime = positionInSeconds;
-      } catch (err) {
-        logVideoCardPlayerError('seek', err);
-      }
-    },
-    []
-  );
+  const seek = useCallback((position: number) => {
+    try {
+      const positionInSeconds = position > 1000 ? position / 1000 : position;
+      // eslint-disable-next-line react-compiler/react-compiler
+      playerRef.current.currentTime = positionInSeconds;
+    } catch (err) {
+      logVideoCardPlayerError('seek', err);
+    }
+  }, []);
 
   const [firstFrameRendered, setFirstFrameRendered] = useRecyclingState(false, [
     postUri,

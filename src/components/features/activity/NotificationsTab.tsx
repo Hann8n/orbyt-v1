@@ -33,9 +33,7 @@ import { NotificationService } from '../../../services/api/notification/Notifica
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
-import ProfileService, {
-  prefetchProfile,
-} from '../../../services/data/ProfileService';
+import ProfileService, { prefetchProfile } from '../../../services/data/ProfileService';
 import { Colors } from '../../../theme';
 import { Avatar } from '../../../components/ui/UI';
 import { VerificationBadge, BotBadge } from '../badging';

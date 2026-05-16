@@ -156,9 +156,9 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   const renderConversationItem = ({ item }: { item: ConvoView | ProfileViewBasic }) => {
     const itemIsConversation = 'id' in item && typeof item.id === 'string';
     const profile: ProfileViewBasic = itemIsConversation
-      ? ((item as ConvoView).members?.find(m => m.did !== currentUserDid) ??
-          (item as ConvoView).members?.[0]) as ProfileViewBasic
-      : item as ProfileViewBasic;
+      ? (((item as ConvoView).members?.find(m => m.did !== currentUserDid) ??
+          (item as ConvoView).members?.[0]) as ProfileViewBasic)
+      : (item as ProfileViewBasic);
 
     const isDisabled = !itemIsConversation && !canBeMessaged(item as ProfileViewBasic);
     const key = getPickerItemKey(item);

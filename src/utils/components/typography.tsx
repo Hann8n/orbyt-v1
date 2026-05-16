@@ -10,7 +10,11 @@ const LAYOUT_SCALE_MIN = 0.97;
  * Calculate responsive scale factor for typography.
  * Balances user's system font scale (accessibility) with device dimensions.
  */
-const getTypographyScale = (width?: number, height?: number, fontScaleOverride?: number): number => {
+const getTypographyScale = (
+  width?: number,
+  height?: number,
+  fontScaleOverride?: number
+): number => {
   const dims = width && height ? { width, height } : Dimensions.get('window');
   const { isTablet, isSmallPhone } = classifyDevice(dims.width, dims.height);
 
@@ -61,7 +65,8 @@ export const FontFamily: Record<FontWeightToken, string> = {
 };
 
 // Scale helper - uses current SCALE value
-export const fontSizeFor = (base: number): number => PixelRatio.roundToNearestPixel(Math.round(base * SCALE));
+export const fontSizeFor = (base: number): number =>
+  PixelRatio.roundToNearestPixel(Math.round(base * SCALE));
 
 // Update scale dynamically (call when dimensions or font scale changes)
 const updateTypographyScale = (width?: number, height?: number, fontScale?: number): void => {

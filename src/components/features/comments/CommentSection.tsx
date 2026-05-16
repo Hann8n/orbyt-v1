@@ -172,7 +172,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   });
   const inputRef = useRef<TextInput>(null);
 
-
   const [replyContext, setReplyContext] = useState<{
     authorName: string;
     parentUri: string;
@@ -332,12 +331,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     if (!post?.uri || !post?.cid || likeMutation.isPending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    const { isLiked: currentIsLiked, likeUri: currentLikeUri, likeCount: currentLikeCount } =
-      headerLikeState;
+    const {
+      isLiked: currentIsLiked,
+      likeUri: currentLikeUri,
+      likeCount: currentLikeCount,
+    } = headerLikeState;
     const newIsLiked = !currentIsLiked;
-    const newCount = newIsLiked
-      ? currentLikeCount + 1
-      : Math.max(0, currentLikeCount - 1);
+    const newCount = newIsLiked ? currentLikeCount + 1 : Math.max(0, currentLikeCount - 1);
 
     if (newIsLiked) {
       headerHeartScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
@@ -347,16 +347,33 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       headerHeartScale.value = withSpring(1);
     }
 
-    setHeaderLikeState({ isLiked: newIsLiked, likeCount: newCount, likeUri: newIsLiked ? 'optimistic' : undefined });
+    setHeaderLikeState({
+      isLiked: newIsLiked,
+      likeCount: newCount,
+      likeUri: newIsLiked ? 'optimistic' : undefined,
+    });
 
     likeMutation.mutate(
-      { postUri: post.uri, postCid: post.cid, isLiked: currentIsLiked, likeUri: currentLikeUri, likeCount: currentLikeCount },
+      {
+        postUri: post.uri,
+        postCid: post.cid,
+        isLiked: currentIsLiked,
+        likeUri: currentLikeUri,
+        likeCount: currentLikeCount,
+      },
       {
         onSuccess: resolvedLikeUri => {
-          setHeaderLikeState(prev => ({ ...prev, likeUri: newIsLiked ? resolvedLikeUri : undefined }));
+          setHeaderLikeState(prev => ({
+            ...prev,
+            likeUri: newIsLiked ? resolvedLikeUri : undefined,
+          }));
         },
         onError: () => {
-          setHeaderLikeState({ isLiked: currentIsLiked, likeCount: currentLikeCount, likeUri: currentLikeUri });
+          setHeaderLikeState({
+            isLiked: currentIsLiked,
+            likeCount: currentLikeCount,
+            likeUri: currentLikeUri,
+          });
         },
       }
     );
@@ -436,16 +453,16 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
 
   const flattenedComments = useMemo(() => {
-    const allComments = commentsPages
-      ?.pages
-      .flatMap(page => page.comments)
-      .filter((comment: ExtendedPostView) => {
-        const commentUri = comment.uri;
-        if (commentUri && reportedPostUris.has(commentUri)) {
-          return false;
-        }
-        return true;
-      }) ?? [];
+    const allComments =
+      commentsPages?.pages
+        .flatMap(page => page.comments)
+        .filter((comment: ExtendedPostView) => {
+          const commentUri = comment.uri;
+          if (commentUri && reportedPostUris.has(commentUri)) {
+            return false;
+          }
+          return true;
+        }) ?? [];
 
     const flat: Comment[] = [];
     const addComments = (commentList: Comment[], parentComment?: Comment) => {

@@ -267,7 +267,6 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
     [onSelect, handleAdPress, showContextMenu, t]
   );
 
-
   const placeholder = t('comments.klipySearchPlaceholder');
 
   const tabs = useMemo(

@@ -40,7 +40,11 @@ import { Colors } from '@/theme';
 import { useAccountSwitcher } from '@/stores/modalStore';
 import { useVisibilityRouteIsActive } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFollowMutation, useBlockMutation, useSubscriptionMutation } from '@/services/data/ProfileService';
+import {
+  useFollowMutation,
+  useBlockMutation,
+  useSubscriptionMutation,
+} from '@/services/data/ProfileService';
 import { queryKeys } from '@/utils/query/queryKeys';
 import { feedService } from '@/services/FeedService';
 import { FEED_CONFIG } from '@/hooks/useFeed';
@@ -180,8 +184,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
     }
   }, [profileFeedOptions, activeTab]);
 
-  const showErrorScreen =
-    (isProfileFetchError || isExternalProfileMissing) && !didQuery.isFetching;
+  const showErrorScreen = (isProfileFetchError || isExternalProfileMissing) && !didQuery.isFetching;
 
   const renderErrorScreen = (
     <ProfileChannelErrorScreen
@@ -224,7 +227,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const blockMutation = useBlockMutation();
   const subscriptionMutation = useSubscriptionMutation();
 
-  const isSubscribed = !!(profileData?.viewer?.activitySubscription?.post || profileData?.viewer?.activitySubscription?.reply);
+  const isSubscribed = !!(
+    profileData?.viewer?.activitySubscription?.post ||
+    profileData?.viewer?.activitySubscription?.reply
+  );
   const isFollowing = !!profileData?.viewer?.following;
 
   const germSubtitleAction = (() => {

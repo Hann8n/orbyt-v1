@@ -108,12 +108,24 @@ function getLastMessagePreview(
         if (record && typeof record === 'object') {
           const recordType = record.$type;
           if (recordType === 'app.bsky.embed.record#viewRecord' && record.author && record.value) {
-            const authorHandle = record.author.handle && typeof record.author.handle === 'string' ? formatHandle(record.author.handle) : '';
+            const authorHandle =
+              record.author.handle && typeof record.author.handle === 'string'
+                ? formatHandle(record.author.handle)
+                : '';
             const base = isFromMe ? i18n.t('chat.youSharedPost') : i18n.t('chat.sharedPost');
             return authorHandle ? `${base} by @${authorHandle}` : base;
           }
-          const unavailableTypes = ['app.bsky.embed.record#viewNotFound', 'app.bsky.embed.record#viewBlocked', 'app.bsky.embed.record#viewDetached'];
-          if (recordType && unavailableTypes.includes(recordType) || record.notFound || record.blocked || record.detached) {
+          const unavailableTypes = [
+            'app.bsky.embed.record#viewNotFound',
+            'app.bsky.embed.record#viewBlocked',
+            'app.bsky.embed.record#viewDetached',
+          ];
+          if (
+            (recordType && unavailableTypes.includes(recordType)) ||
+            record.notFound ||
+            record.blocked ||
+            record.detached
+          ) {
             return isFromMe ? i18n.t('chat.youSharedPost') : i18n.t('chat.sharedPost');
           }
         }
@@ -159,7 +171,10 @@ const ConversationItem = React.memo<ConversationItemProps>(
     const nameLabel = formatHandle(handle) || t('feed.unknownUser');
     const preview = getLastMessagePreview(item.lastMessage, currentUser?.did ?? undefined);
     const lastMsg = item.lastMessage;
-    const sentAt = lastMsg && 'sentAt' in lastMsg && typeof lastMsg.sentAt === 'string' ? lastMsg.sentAt : undefined;
+    const sentAt =
+      lastMsg && 'sentAt' in lastMsg && typeof lastMsg.sentAt === 'string'
+        ? lastMsg.sentAt
+        : undefined;
     const unread = (item.unreadCount ?? 0) > 0;
     const isRequest = item.status === 'request';
     const isMuted = item.muted ?? false;
@@ -167,7 +182,8 @@ const ConversationItem = React.memo<ConversationItemProps>(
       lastMsg && typeof lastMsg === 'object' && 'sender' in lastMsg
         ? (lastMsg as { sender?: { did?: string } }).sender?.did
         : undefined;
-    const isLastMessageFromMe = currentUser?.did && lastMessageSenderDid && currentUser.did === lastMessageSenderDid;
+    const isLastMessageFromMe =
+      currentUser?.did && lastMessageSenderDid && currentUser.did === lastMessageSenderDid;
 
     const handlePress = useCallback(() => {
       if (item.id && other?.did) {
@@ -545,7 +561,6 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
     ),
     [navigation, handleAcceptConvo, handleDeclineConvo, pendingAcceptId, pendingDeclineId]
   );
-
 
   const getItemType = useCallback((item: ConvoView) => {
     return item.status === 'request' ? 'request' : 'conversation';

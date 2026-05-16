@@ -246,7 +246,9 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                     style={[
                       styles.headerTitle,
                       header.titleColor ? { color: header.titleColor } : undefined,
-                      header.titleFontSize ? { fontSize: fontSizeFor(header.titleFontSize) } : undefined,
+                      header.titleFontSize
+                        ? { fontSize: fontSizeFor(header.titleFontSize) }
+                        : undefined,
                       header.titleOpacity !== undefined
                         ? { opacity: header.titleOpacity }
                         : undefined,
@@ -263,7 +265,9 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                     style={[
                       styles.headerSubtitle,
                       header.subtitleColor ? { color: header.subtitleColor } : undefined,
-                      header.subtitleFontSize ? { fontSize: fontSizeFor(header.subtitleFontSize) } : undefined,
+                      header.subtitleFontSize
+                        ? { fontSize: fontSizeFor(header.subtitleFontSize) }
+                        : undefined,
                       header.subtitleOpacity !== undefined
                         ? { opacity: header.subtitleOpacity }
                         : undefined,
@@ -324,7 +328,9 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                       style={[
                         styles.headerTitle,
                         header.titleColor ? { color: header.titleColor as string } : null,
-                        header.titleFontSize ? { fontSize: fontSizeFor(header.titleFontSize) } : null,
+                        header.titleFontSize
+                          ? { fontSize: fontSizeFor(header.titleFontSize) }
+                          : null,
                         header.titleOpacity !== undefined ? { opacity: header.titleOpacity } : null,
                       ]}
                       numberOfLines={1}
@@ -339,7 +345,9 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                       style={[
                         styles.headerSubtitle,
                         header.subtitleColor ? { color: header.subtitleColor as string } : null,
-                        header.subtitleFontSize ? { fontSize: fontSizeFor(header.subtitleFontSize) } : null,
+                        header.subtitleFontSize
+                          ? { fontSize: fontSizeFor(header.subtitleFontSize) }
+                          : null,
                         header.subtitleOpacity !== undefined
                           ? { opacity: header.subtitleOpacity }
                           : null,

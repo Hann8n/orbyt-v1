@@ -262,8 +262,14 @@ const styles = StyleSheet.create({
 });
 
 // Static compositions — computed once at module load, not per render.
-const descriptionCollapsedTextStyle = StyleSheet.compose(styles.descriptionText, styles.descriptionTextFlexible);
-const descriptionToggleStyle = StyleSheet.compose(styles.descriptionToggleSurface, styles.descriptionTogglePressable);
+const descriptionCollapsedTextStyle = StyleSheet.compose(
+  styles.descriptionText,
+  styles.descriptionTextFlexible
+);
+const descriptionToggleStyle = StyleSheet.compose(
+  styles.descriptionToggleSurface,
+  styles.descriptionTogglePressable
+);
 
 export const VideoOverlayCaption = memo(VideoOverlayCaptionComponent);
 VideoOverlayCaptionComponent.displayName = 'VideoOverlayCaption';

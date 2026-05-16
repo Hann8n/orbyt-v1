@@ -20,10 +20,5 @@ export { QueryErrorBoundary } from './QueryErrorBoundary';
 // Default export for the entire UI system
 export { default as UI } from './UI';
 
-export {
-  SquircleView,
-  SquircleButton,
-  SquircleNativePressable,
-  splitStyle,
-} from './Squircle';
+export { SquircleView, SquircleButton, SquircleNativePressable, splitStyle } from './Squircle';
 export * from './buttonPresets';

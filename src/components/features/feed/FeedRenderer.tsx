@@ -182,35 +182,29 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
 
     const getTab = (): DetailNavTab => currentTabRef.current;
 
-    const handleHashtagPress = useCallback(
-      (hashtag: string) => {
+    const handleHashtagPress = useCallback((hashtag: string) => {
+      routerRef.current.push({
+        pathname: `/(tabs)/${getTab()}/feed` as const,
+        params: { feedOption: `hashtag:${hashtag}`, initialPostUri: '' },
+      });
+    }, []);
+
+    const handleGridItemPress = useCallback((index: number) => {
+      const s = gridStateRef.current;
+      if (index >= 0 && index < s.feed.length) {
+        if (s.feedOption === 'search') feedService.setCurrentFeed(s.feed);
+        const item = s.feed[index] as FeedItem;
+        const initialPostUri = item?.post?.uri ?? '';
         routerRef.current.push({
           pathname: `/(tabs)/${getTab()}/feed` as const,
-          params: { feedOption: `hashtag:${hashtag}`, initialPostUri: '' },
+          params: {
+            feedOption: s.feedOption || 'search',
+            ...(s.userDid ? { userDid: s.userDid } : {}),
+            initialPostUri,
+          },
         });
-      },
-      []
-    );
-
-    const handleGridItemPress = useCallback(
-      (index: number) => {
-        const s = gridStateRef.current;
-        if (index >= 0 && index < s.feed.length) {
-          if (s.feedOption === 'search') feedService.setCurrentFeed(s.feed);
-          const item = s.feed[index] as FeedItem;
-          const initialPostUri = item?.post?.uri ?? '';
-          routerRef.current.push({
-            pathname: `/(tabs)/${getTab()}/feed` as const,
-            params: {
-              feedOption: s.feedOption || 'search',
-              ...(s.userDid ? { userDid: s.userDid } : {}),
-              initialPostUri,
-            },
-          });
-        }
-      },
-      []
-    );
+      }
+    }, []);
 
     const [pullRefreshing, setPullRefreshing] = useState(false);
 

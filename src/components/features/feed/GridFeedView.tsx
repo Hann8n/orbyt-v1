@@ -20,10 +20,7 @@ import { NativePressable } from '@/components/ui/NativePressable';
 import { Link, type Href } from 'expo-router';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-  useSharedValue,
-  useAnimatedScrollHandler,
-} from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedScrollHandler } from 'react-native-reanimated';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ListFeedViewRef, ListFeedPullToRefresh } from '../../../types';
 import { Colors } from '../../../theme';

@@ -151,7 +151,8 @@ export async function getFeed(
         logger.warn('getFeed: custom feed error', {
           component: 'feedQueries',
           feedLink,
-          error: customFeedError instanceof Error ? customFeedError.message : String(customFeedError),
+          error:
+            customFeedError instanceof Error ? customFeedError.message : String(customFeedError),
         });
         return { feed: [], cursor: null };
       }
@@ -583,7 +584,7 @@ export async function getRepostedVideos(
 
       // Keep only items that are reposts
       const reposts = feedChunk.filter(
-        (item) => item.reason && AppBskyFeedDefs.isReasonRepost(item.reason)
+        item => item.reason && AppBskyFeedDefs.isReasonRepost(item.reason)
       );
 
       // Within reposts, keep only those that contain video embeds using our efficient filter
@@ -666,9 +667,7 @@ export async function getSuggestedFeeds(limit: number = 10): Promise<GeneratorVi
  * @param limit - Number of channels to return
  * @returns Array of feed generator objects
  */
-export async function getStaticChannels(
-  limit: number = 10
-): Promise<GeneratorView[]> {
+export async function getStaticChannels(limit: number = 10): Promise<GeneratorView[]> {
   try {
     const remoteChannels = await hydrateOrbytChannels();
     const channelUris = remoteChannels.map(channel => channel.uri);

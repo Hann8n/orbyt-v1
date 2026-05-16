@@ -22,4 +22,3 @@ export const COMPOSER_INPUT_DIMENSIONS = {
   sendButtonPadding: 8,
   sendButtonMarginLeft: 8,
 } as const;
-

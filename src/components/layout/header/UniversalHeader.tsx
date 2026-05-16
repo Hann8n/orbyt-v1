@@ -767,7 +767,8 @@ const HeaderContentComponent = memo<{
   customDescription?: React.ReactNode;
 }>(({ content, textColor, backgroundColor, shadowColor, customDescription }) => {
   const router = useRouter();
-  const { navigateToProfile: goToProfile, currentTab: feedModalTab } = useProfileChannelNavigation();
+  const { navigateToProfile: goToProfile, currentTab: feedModalTab } =
+    useProfileChannelNavigation();
 
   const germButtonShadow = useMemo(() => {
     if (!shadowColor) return {};

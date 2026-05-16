@@ -9,7 +9,13 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { useSharedValue, useAnimatedStyle, withTiming, useDerivedValue, interpolate } from 'react-native-reanimated';
+import {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  useDerivedValue,
+  interpolate,
+} from 'react-native-reanimated';
 import { useFeedScrollMotion } from '../../../context/FeedScrollContext';
 
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
@@ -59,10 +65,7 @@ const getRenderHeavyChrome = (
 ): boolean =>
   activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 1 : defaultValue;
 
-const getHoldSource = (
-  activeIndex: number | undefined,
-  distanceFromActive: number
-): boolean =>
+const getHoldSource = (activeIndex: number | undefined, distanceFromActive: number): boolean =>
   activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 2 : true;
 
 const getCardHeightStyle = (cardHeight: number): { height: number } => {
@@ -131,7 +134,8 @@ function VideoCard({
   );
   const resolvedFeedUri = useMemo(() => {
     if (feedOption && isValidAtUri(feedOption)) return feedOption;
-    if (algorithmicFeedProvider && isValidAtUri(algorithmicFeedProvider)) return algorithmicFeedProvider;
+    if (algorithmicFeedProvider && isValidAtUri(algorithmicFeedProvider))
+      return algorithmicFeedProvider;
     return undefined;
   }, [feedOption, algorithmicFeedProvider]);
 
@@ -140,7 +144,11 @@ function VideoCard({
   const idx = index ?? 0;
   const distanceFromActive = getDistanceFromActive(activeIndex, idx);
   const isVisible = getIsVisible(activeIndex, idx, isVisibleProp);
-  const renderHeavyChrome = getRenderHeavyChrome(activeIndex, distanceFromActive, renderHeavyChromeProp);
+  const renderHeavyChrome = getRenderHeavyChrome(
+    activeIndex,
+    distanceFromActive,
+    renderHeavyChromeProp
+  );
   const holdSource = getHoldSource(activeIndex, distanceFromActive);
 
   const { height: windowHeight } = useWindowDimensions();
@@ -391,7 +399,8 @@ function VideoCard({
 
     const cardTop = snapOrigin + (idx - firstVideoIdx) * spacing;
     const distance = Math.abs(scrollOffsetYSV.value - cardTop);
-    const scrollOpacity = 1 - Math.max(0, Math.min(1, (distance - spacing * 0.15) / (spacing * 0.3)));
+    const scrollOpacity =
+      1 - Math.max(0, Math.min(1, (distance - spacing * 0.15) / (spacing * 0.3)));
     return Math.min(seekOpacity, scrollOpacity);
   });
 

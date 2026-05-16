@@ -106,9 +106,10 @@ const Channel: React.FC = () => {
   })();
 
   const hashtagOption = isCategoryChannel ? channelToHashtag(uri) : null;
-  const categorySourceFeeds = isCategoryChannel && hashtagOption
-    ? { top: `${hashtagOption}:top`, latest: `${hashtagOption}:latest` }
-    : { top: uri || '', latest: uri || '' };
+  const categorySourceFeeds =
+    isCategoryChannel && hashtagOption
+      ? { top: `${hashtagOption}:top`, latest: `${hashtagOption}:latest` }
+      : { top: uri || '', latest: uri || '' };
 
   const channelPagerFeeds = (() => {
     if (!uri) return [''];
@@ -123,9 +124,7 @@ const Channel: React.FC = () => {
   })();
 
   const queryOptions = {
-    enabled: Boolean(
-      channelData && uri && (uri.startsWith('hashtag:') || uri.startsWith('at://'))
-    ),
+    enabled: Boolean(channelData && uri && (uri.startsWith('hashtag:') || uri.startsWith('at://'))),
   };
 
   useEffect(() => {

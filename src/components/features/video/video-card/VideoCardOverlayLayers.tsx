@@ -73,7 +73,6 @@ function VideoCardOverlayLayers({
   );
 }
 
-
 const styles = StyleSheet.create({
   videoScrubberLayer: {
     ...StyleSheet.absoluteFillObject,
