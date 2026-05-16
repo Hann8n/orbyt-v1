@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, CORNER_SMOOTHING } from '../../utils/constants';
 import { StyleSheet, Text, View, StyleProp, ViewStyle, ActivityIndicator } from 'react-native';
 import { NativePressable } from './NativePressable';
-import { SquircleNativePressable, SquircleView, splitSquircleSurfaceStyle } from './Squircle';
+import { SquircleNativePressable, SquircleView, splitStyle } from './Squircle';
 import { useRouter } from 'expo-router';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { Avatar } from './UI';
@@ -368,7 +368,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         </View>
       );
     }
-    const { container: squircleOuter, inner: squircleInner } = splitSquircleSurfaceStyle(rootStyle);
+    const { container: squircleOuter, inner: squircleInner } = splitStyle(rootStyle);
     return (
       <SquircleView style={[squircleOuter, styles.squircleClip]} cornerSmoothing={CORNER_SMOOTHING}>
         <View style={squircleInner} pointerEvents="none">

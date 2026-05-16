@@ -80,7 +80,7 @@ const SQUIRCLE_CONTAINER_KEYS = new Set<string>([
   'aspectRatio',
 ]);
 
-function splitStyle(style: StyleProp<ViewStyle>): { container: ViewStyle; inner: ViewStyle } {
+export function splitStyle(style: StyleProp<ViewStyle>): { container: ViewStyle; inner: ViewStyle } {
   const flat = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
   const container: Record<string, unknown> = {};
   const inner: Record<string, unknown> = {};
@@ -94,13 +94,6 @@ function splitStyle(style: StyleProp<ViewStyle>): { container: ViewStyle; inner:
   return { container: container as ViewStyle, inner: inner as ViewStyle };
 }
 
-/** Same inner/outer split as {@link SquircleNativePressable}; use when the inner layer is a `View`. */
-export function splitSquircleSurfaceStyle(style: StyleProp<ViewStyle>): {
-  container: ViewStyle;
-  inner: ViewStyle;
-} {
-  return splitStyle(style);
-}
 
 function shouldFillInnerPressable(container: ViewStyle): boolean {
   return (

@@ -24,6 +24,6 @@ export {
   SquircleView,
   SquircleButton,
   SquircleNativePressable,
-  splitSquircleSurfaceStyle,
+  splitStyle,
 } from './Squircle';
 export * from './buttonPresets';
