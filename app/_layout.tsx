@@ -28,9 +28,10 @@ import { seenVideoService } from '@/services/SeenVideoService';
 import { storage } from '@/utils/storage/storage';
 import { logger } from '@/utils/logger';
 import { APP_CONSTANTS } from '@/utils/constants';
-import { setupReactQueryLifecycleBridge } from '@/utils/query/lifecycle';
+import { focusManager, onlineManager } from '@tanstack/react-query';
+import { AppState, type AppStateStatus } from 'react-native';
+import * as Network from 'expo-network';
 import { LocaleSync } from '@/i18n/LocaleSync';
-import { useSentryUserSync } from '@/hooks/useSentryUserSync';
 import * as Sentry from '@sentry/react-native';
 import { useResponsiveTypography } from '@/utils/components/typography';
 
@@ -41,18 +42,11 @@ const navigationIntegration = Sentry.reactNavigationIntegration({
 Sentry.init({
   dsn: 'https://f2e61d33071557e11913fd3407ba7421@o4510432459096064.ingest.us.sentry.io/4510432460537856',
 
-  // Adds more context data to events (IP address, cookies, user, etc.)
-  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
   sendDefaultPii: true,
-
-  // Enable Logs
   enableLogs: true,
-
-  // Performance Tracing
   tracesSampleRate: 1.0,
   enableUserInteractionTracing: true,
 
-  // Profiling (iOS: profilesSampleRate above; Android: androidProfilingOptions)
   profilesSampleRate: 1.0,
   _experiments: {
     androidProfilingOptions: {
@@ -62,11 +56,9 @@ Sentry.init({
     },
   },
 
-  // Session Replay
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1.0,
 
-  // View Hierarchy
   attachViewHierarchy: true,
 
   integrations: [
@@ -147,7 +139,6 @@ const GlobalModals: React.FC = () => {
   const setShowEmailVerificationModal = useUserStore(state => state.setShowEmailVerificationModal);
   const [isDeferredModalMountReady, setIsDeferredModalMountReady] = React.useState(false);
 
-  // Reset modal flag when user/DID changes (account switch) or email gets verified
   const prevDid = React.useRef(currentUser?.did);
 
   useEffect(() => {
@@ -181,7 +172,6 @@ const GlobalModals: React.FC = () => {
       {isDeferredModalMountReady && (
         <React.Suspense fallback={null}>
           <LazyShareSheet />
-          {/* Single global instance so comments don't open twice on feed transparent modal */}
           <LazyCommentSection />
         </React.Suspense>
       )}
@@ -296,16 +286,11 @@ function RootNavigator() {
 }
 
 export default Sentry.wrap(function RootLayout() {
-  // Sync Sentry user context with app authentication state
-  useSentryUserSync();
-
-  // Wire up Sentry navigation integration so route changes produce spans/breadcrumbs
   const navRef = useNavigationContainerRef();
   useEffect(() => {
     navigationIntegration.registerNavigationContainer(navRef);
   }, [navRef]);
 
-  // Ensure typography scale updates when dimensions or font scale changes
   useResponsiveTypography();
 
   const isAuthenticated = useUserStore(selectIsSessionValid);
@@ -326,65 +311,80 @@ export default Sentry.wrap(function RootLayout() {
     }
   }, [pathname, params]);
 
-  // Set Android navigation bar button style (light)
   useEffect(() => {
     if (Platform.OS === 'android') {
       NavigationBar.setButtonStyleAsync('light').catch(() => {});
     }
   }, []);
 
-  // Bridge React Query focus state with RN app lifecycle.
   useEffect(() => {
-    return setupReactQueryLifecycleBridge();
+    let teardown: (() => void) | null = null;
+
+    const setFocusedFromAppState = (status: AppStateStatus) => {
+      focusManager.setFocused(status === 'active');
+    };
+
+    const syncOnlineState = async () => {
+      const state = await Network.getNetworkStateAsync();
+      onlineManager.setOnline(state.isInternetReachable ?? true);
+    };
+
+    setFocusedFromAppState(AppState.currentState);
+    const appStateSub = AppState.addEventListener('change', (status) => {
+      setFocusedFromAppState(status);
+      if (status === 'active') {
+        void syncOnlineState();
+      }
+    });
+
+    // Set initial online state and let onlineManager handle pausing offline queries
+    void syncOnlineState();
+
+    teardown = () => {
+      appStateSub.remove();
+      teardown = null;
+    };
+
+    return teardown;
   }, []);
 
-  // Initialize app - run in parallel, don't block rendering
-  // Splash screen is controlled by SessionProvider.isLoading (auth state only)
   useEffect(() => {
     const initializeApp = async () => {
-      // Preload sprite sheets (non-blocking)
       const { preloadSpriteSheet } = require('@/components/ui/AnimatedTVStatic');
       const { preloadRocketSpriteSheet } = require('@/components/ui/RocketBackground');
       preloadSpriteSheet().catch(() => {});
       preloadRocketSpriteSheet().catch(() => {});
 
-      // Initialize user state - this sets isInitializingAuth which controls splash screen
       await initializeUserState();
     };
 
     initializeApp();
   }, [initializeUserState]);
 
-  // Clear bookmarks on logout (useBookmarksQuery stops fetching automatically via enabled:sessionValid)
   useEffect(() => {
     if (!isAuthenticated) {
       clearBookmarks();
     }
   }, [isAuthenticated, clearBookmarks]);
 
-  // Initialize seen video service and subscribe to user changes
   useEffect(() => {
-    // Initialize with current user
     const currentUser = useUserStore.getState().currentUser;
     seenVideoService.setUserDid(currentUser?.did ?? null);
 
-    // Subscribe to user changes (account switching)
     const unsubscribe = useUserStore.subscribe(state => {
       const currentUser = state.currentUser;
       seenVideoService.setUserDid(currentUser?.did ?? null);
     });
 
-    // Run cleanup on app start (defer to avoid blocking startup)
     requestIdleCallback(
       async () => {
         try {
-          // Check last cleanup time (store in MMKV)
           const lastCleanupKey = 'seen_videos_last_cleanup';
           const lastCleanup = storage.getNumber(lastCleanupKey) ?? 0;
           const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
           if (lastCleanup < sevenDaysAgo) {
-            const deleted = await seenVideoService.cleanupOldEntries(30); // 30 day retention
+            const deleted = await seenVideoService.cleanupOldEntries(30);
             storage.set(lastCleanupKey, Date.now());
             logger?.info?.(`Cleaned up ${deleted} old seen video entries`);
           }
@@ -398,11 +398,6 @@ export default Sentry.wrap(function RootLayout() {
     return unsubscribe;
   }, []);
 
-  // Note: OAuthSession.fetchHandler automatically refreshes tokens when making API calls
-  // No need to manually refresh on app foreground - tokens refresh automatically via getTokenSet('auto')
-
-  // Keep native splash gated only by auth restoration. Non-critical network bootstrap
-  // should happen after first render to avoid startup deadlocks.
   const isAppReady = !isInitializingAuth;
 
   const didHideSplashRef = React.useRef(false);

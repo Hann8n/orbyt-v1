@@ -108,7 +108,6 @@ export function useGalleryTrimImport({
     }
   }, [t]);
 
-  // Wire up clip-trim event subscriptions exactly once.
   useEffect(() => {
     const VideoTrimModule = VideoTrim as Spec;
 

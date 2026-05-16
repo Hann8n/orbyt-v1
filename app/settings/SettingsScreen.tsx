@@ -6,7 +6,7 @@ import type { MenuAction } from '@react-native-menu/menu';
 import { NativePressable } from '@/components/ui/NativePressable';
 import * as Clipboard from 'expo-clipboard';
 import Icon, { GridViewIcon, ListViewIcon } from '@/components/ui/Icon';
-import { getDeviceInfo, getFormattedVersion } from '@/utils/version';
+import { getDeviceInfo, getBuildVersion } from '@/utils/version';
 import { Colors } from '@/theme';
 import ListHeader from '@/components/ui/ListHeader';
 import { OptionsButton } from '@/components/ui/OptionsButton';
@@ -15,7 +15,7 @@ import { settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 import { SHEET_VERTICAL_LIST_ROW_OUTER } from '@/utils/components/truesheet';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
+import { useAccountSwitcher } from '@/stores/modalStore';
 import type { ViewMode } from '@/types';
 import { FontFamily, Typography } from '@/utils/components/typography';
 import { posthog } from '@/config/posthog';
@@ -27,7 +27,7 @@ const SettingsScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
-  const { presentAccountSwitcher } = useGlobalAccountSwitcher();
+  const { presentAccountSwitcher } = useAccountSwitcher();
   const { currentUser } = useCurrentUser();
   const { savedAccounts } = useAccountManagement();
 
@@ -186,7 +186,7 @@ ${deviceInfo}`
     [t]
   );
 
-  const formattedVersion = getFormattedVersion();
+  const formattedVersion = getBuildVersion();
 
   const handleVersionPress = async () => {
     try {

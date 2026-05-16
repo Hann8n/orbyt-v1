@@ -10,7 +10,6 @@ export {
   FOOTER_TOP_PADDING_DEFAULT,
   COMPOSER_INPUT_PADDING,
   COMPOSER_INPUT_DIMENSIONS,
-  getFooterBottomPadding,
 } from './utils';
 export { AppTrueSheet, type AppTrueSheetProps, type AppTrueSheetVariant } from './AppTrueSheet';
 export {

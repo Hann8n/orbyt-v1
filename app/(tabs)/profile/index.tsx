@@ -37,7 +37,7 @@ import {
 import { useCurrentUser, useUserStore } from '@/stores/userStore';
 import { HeaderAction, HeaderActionButton } from '@/components/layout/header/UniversalHeader';
 import { Colors } from '@/theme';
-import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
+import { useAccountSwitcher } from '@/stores/modalStore';
 import { useVisibilityRouteIsActive } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFollowMutation, useBlockMutation, useSubscriptionMutation } from '@/services/data/ProfileService';
@@ -74,22 +74,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
 
   const { currentUser } = useCurrentUser();
 
-  const { presentAccountSwitcher } = useGlobalAccountSwitcher();
+  const { presentAccountSwitcher } = useAccountSwitcher();
   const didLongPressMenuRef = useRef(false);
 
-  // Use DID in route key to differentiate between own profile and author profiles
   const profileRouteKey = providedIdentifier ? `profile:${providedIdentifier}` : 'profile:self';
 
   const isRouteFocused = useVisibilityRouteIsActive(profileRouteKey);
 
   const queryClient = useQueryClient();
 
-  // If param is a handle, resolve it to a DID (cached by DID inside the hook).
   const handleQuery = useProfile(!providedIsDid ? providedIdentifier : null);
   const resolvedDidFromHandle = handleQuery.data?.did ?? null;
 
-  // Always use DID for the actual profile view.
-  // Only fall back to current user DID when no external identifier was provided.
   const targetDid = (() => {
     if (providedIsDid) return providedIdentifier || null;
     if (providedIdentifier) return resolvedDidFromHandle;
@@ -111,7 +107,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
     } as ProfileViewWithOrbyt;
   })();
 
-  // Always fetch by DID (handle query is only used to resolve handle to DID)
   const didQuery = useProfileByDid(targetDid, {
     refetchOnWindowFocus: true,
     refetchInterval: isRouteFocused ? 3 * 60 * 1000 : (false as const),
@@ -279,7 +274,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
     return { label: t('profile.germDm'), onPress };
   })();
 
-  // Prefetch reposts feed in background after profile loads
   useEffect(() => {
     if (!profileDid || !isRouteFocused || isProfileLoading) return;
 

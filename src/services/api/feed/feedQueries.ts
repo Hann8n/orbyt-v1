@@ -67,7 +67,6 @@ export async function getFeed(
 
     let responseData: RawFeedApiOutput;
 
-    // Unified feed handling based on feedType
     if (feedType === 'author' || feedType === 'authorVideos') {
       // Author feed - use author filter
       const authorFilter = feedType === 'authorVideos' ? 'posts_with_video' : 'posts_with_media';
@@ -266,7 +265,6 @@ export async function applyModerationBatch<T extends { post: PostView }>(items: 
       shouldFilter: mod.ui('contentList').filter,
     };
   }) as (T & { shouldFilter?: boolean })[];
-  // Exclude items that should be hidden (e.g. NSFW with "hide") — never render, never blur
   return mapped.filter(i => !i.shouldFilter) as T[];
 }
 
@@ -448,7 +446,6 @@ export async function searchHashtagSuggestions(
   query: string = '',
   limit: number = 10
 ): Promise<string[]> {
-  // Require at least one character — empty-query searches are expensive and return noise.
   if (!query.trim()) return [];
 
   try {

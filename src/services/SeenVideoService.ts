@@ -8,7 +8,6 @@ import { logger } from '../utils/logger';
 import type { ExtendedFeedViewPost } from './api/types';
 
 class SeenVideoService {
-  // Dedicated MMKV instance for seen videos (optimal performance)
   private readonly seenStorage = new MMKV({
     id: 'mmkv.seen-videos',
   });
@@ -159,11 +158,6 @@ class SeenVideoService {
       // If no userDid is set, don't filter (safety check)
       // This prevents filtering when user is not logged in or userDid is not initialized
       if (!targetUserDid) {
-        if (__DEV__) {
-          logger.debug('SeenVideoService.filterSeen: No userDid, skipping filter', {
-            totalItems: feedItems.length,
-          });
-        }
         return feedItems;
       }
 
@@ -171,12 +165,6 @@ class SeenVideoService {
 
       // If no seen videos, return all items
       if (seenUris.size === 0) {
-        if (__DEV__) {
-          logger.debug('SeenVideoService.filterSeen: No seen videos, returning all items', {
-            totalItems: feedItems.length,
-            userDid: targetUserDid,
-          });
-        }
         return feedItems;
       }
 
@@ -263,7 +251,6 @@ class SeenVideoService {
     const cutoffTime = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
     const prefix = `${this.KEY_PREFIX}${this.userDid ? `${this.userDid}:` : ''}`;
 
-    // Get all keys from dedicated instance (faster - only seen video keys)
     const allKeys = this.seenStorage.getAllKeys();
     let deleted = 0;
 

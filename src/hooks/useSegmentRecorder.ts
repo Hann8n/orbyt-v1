@@ -51,7 +51,6 @@ export function useSegmentRecorder({
   const recorderRef = useRef<Recorder | null>(null);
   const activeRef = useRef<ActiveRecording | null>(null);
   const baseDurationRef = useRef(0);
-  // Bumped on cancel/dispose to invalidate in-flight callbacks.
   const epochRef = useRef(0);
 
   const onSegmentCommittedRef = useRef(onSegmentCommitted);

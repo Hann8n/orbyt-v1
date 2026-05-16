@@ -44,8 +44,6 @@ export async function createVideoPost(
 
   await AtprotoCore.ensureSession();
 
-  // Check email confirmation before allowing video post
-  // Use userStore as source of truth (uses API field name directly: emailConfirmed)
   try {
     const { useUserStore } = await import('../../../stores/userStore');
     const currentUser = useUserStore.getState().currentUser;

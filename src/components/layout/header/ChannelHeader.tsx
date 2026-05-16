@@ -20,7 +20,7 @@ import type { ViewMode } from '../../../types';
 import { hexToRGBA, getStatusBarStyle, isColorDark } from '../../../utils/formatting/colors';
 import { Colors } from '../../../theme';
 import { FontFamily, TextStyles } from '../../../utils/components/typography';
-import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
+import { useChannelSubscriptions } from '../../../stores/userStore';
 import {
   isOrbytChannel,
   getChannelByUri,
@@ -86,7 +86,7 @@ const SubscribeButton: React.FC<{
 }) => {
   const { t } = useTranslation();
   const { subscribedChannels, subscribeToChannel, unsubscribeFromChannel } =
-    useSubscribedChannels();
+    useChannelSubscriptions();
   const { width: screenWidth } = useWindowDimensions();
   const isWideScreen = screenWidth > 768;
 

@@ -349,15 +349,12 @@ export class VideoService {
     videoPath: string,
     onProgress?: (progress: number) => void
   ): Promise<BlobRef> {
-    // Use same progress callback for consistent progress reporting
     const uploadResult = await this.uploadVideo(videoPath, onProgress);
 
-    // If already complete, return blob (progress already reported as 90%)
     if (uploadResult.blob) {
       return uploadResult.blob;
     }
 
-    // Wait for processing to complete (progress reported by waitForJobCompletion)
     return await this.waitForJobCompletion(uploadResult.jobId, onProgress);
   }
 

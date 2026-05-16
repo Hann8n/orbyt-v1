@@ -2,7 +2,6 @@
 export { useDeviceLayout } from './useDeviceLayout';
 export type { DeviceLayout } from './useDeviceLayout';
 export * from './useFeed';
-export * from './useSubscribedChannels';
 export { useProfileChannelNavigation } from './useProfileChannelNavigation';
 export { useAppStore } from '../stores/appStore';
 export { useModerationSettings } from './useModerationSettings';

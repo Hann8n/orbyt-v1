@@ -18,11 +18,9 @@ interface Header {
   /** Secondary text used by the header banner. */
   subtitle?: string | null;
   subtitleTranslations?: TranslationMap;
-  // Optional custom colors
   titleColor?: string;
   /** Color for subtitle text. */
   subtitleColor?: string;
-  // Optional font customization
   titleFontFamily?: string;
   titleFontSize?: number;
   /** Font for subtitle text. */
@@ -34,7 +32,6 @@ interface Header {
    * - 'subtitle-first' renders subtitle above title
    */
   textOrder?: 'title-first' | 'subtitle-first';
-  // Optional text opacity (0 to 1)
   titleOpacity?: number;
   /** Opacity for subtitle text. */
   subtitleOpacity?: number;
@@ -123,15 +120,12 @@ class HeaderService {
   static getImageUrl(imageUrl: string): string {
     if (!imageUrl) return '';
 
-    // Absolute URL
     if (imageUrl.startsWith('http')) {
       return imageUrl;
     }
 
-    // Resolve against last successful base URL if available
     const base = HeaderService.lastSuccessfulBaseUrl || 'https://getorbyt.com/';
 
-    // Handle paths like ../orbyt_header1.png coming from api directory
     if (imageUrl.startsWith('../')) {
       // Remove one level from base path
       try {
@@ -143,7 +137,6 @@ class HeaderService {
       }
     }
 
-    // Generic relative resolution
     try {
       const resolved = new URL(imageUrl, base);
       return resolved.toString();

@@ -273,8 +273,6 @@ export class RepoService {
     }
   }
 
-  // Migration version - increment this to trigger re-sync for all users
-  // v1: Initial orbyt API migration (Jan 2026) - ensures all profiles are indexed
   private static readonly MIGRATION_VERSION = 1;
   private static readonly MIGRATION_KEY_PREFIX = 'orbyt_profile_migration_v';
 

@@ -179,7 +179,6 @@ const AppIconSettingsScreen: React.FC = () => {
   const isBeta = orbytColors?.isBeta ?? false;
   const { width: screenWidth } = useWindowDimensions();
 
-  // Calculate icon size to fill available width
   const availableWidth = screenWidth - GRID_PADDING * 2;
   const totalGapWidth = GRID_GAP * (NUM_COLUMNS - 1);
   const iconSize = Math.floor((availableWidth - totalGapWidth) / NUM_COLUMNS);

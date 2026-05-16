@@ -15,7 +15,7 @@ import { Avatar } from '@/components/ui/UI';
 import { useAlgorithmicFeedProvider } from '@/stores/userStore';
 import { settingsLayoutStyles } from './SettingsStyles';
 import { OptionsButton } from '@/components/ui/OptionsButton';
-import { useSubscribedChannels } from '@/hooks/useSubscribedChannels';
+import { useChannelSubscriptions } from '@/stores/userStore';
 import VerticalListSheet, {
   VerticalListButton,
   TrueSheet,
@@ -65,7 +65,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
     subscribedChannels: channels,
     subscribeToChannel,
     unsubscribeFromChannel,
-  } = useSubscribedChannels();
+  } = useChannelSubscriptions();
   const [selectedChannel, setSelectedChannel] = useState<ChannelUser | null>(null);
   const [subscribingChannels, setSubscribingChannels] = useState<Set<string>>(new Set());
 
@@ -86,7 +86,6 @@ const AlgorithmicFeedScreen: React.FC = () => {
     return name;
   }, [selectedChannel, t]);
 
-  // Fetch feed generator metadata from API
   const { data: blueskyVideoData } = useQuery({
     queryKey: ['feedGenerator', ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri],
     queryFn: () =>
@@ -101,7 +100,6 @@ const AlgorithmicFeedScreen: React.FC = () => {
     staleTime: 60 * 60 * 1000, // Cache for 1 hour
   });
 
-  // Build feed options from API data
   const feedOptions = useMemo((): FeedProviderOption[] => {
     const options: FeedProviderOption[] = [];
 
@@ -132,7 +130,6 @@ const AlgorithmicFeedScreen: React.FC = () => {
     return options;
   }, [blueskyVideoData, videosForYouData, t]);
 
-  // Sync with store when it changes
   useEffect(() => {
     setSelectedUri(algorithmicFeedProvider);
   }, [algorithmicFeedProvider]);
@@ -161,7 +158,6 @@ const AlgorithmicFeedScreen: React.FC = () => {
     return uri === selectedUri;
   };
 
-  // Transform channels data - subscribed channels only (no built-ins)
   const listData = useMemo((): ChannelUser[] => {
     // Filter out built-in channels as a safety measure
     const BUILT_IN_CHANNELS = ['following', 'your-mix'];

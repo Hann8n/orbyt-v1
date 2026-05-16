@@ -43,7 +43,6 @@ interface UseFeedOptions {
 }
 
 interface UseFeedReturn {
-  // Data
   feed: FeedItem[];
   /** True until the first fetch settles (incl. when query is disabled / waiting). Prefer over `isLoading` for empty-slot UI. */
   isPending: boolean;
@@ -58,7 +57,6 @@ interface UseFeedReturn {
   isPaused: boolean;
   dataUpdatedAt: number;
 
-  // Actions
   fetchNextPage: () => void;
   refetch: () => void;
 }
@@ -90,23 +88,10 @@ export function useFeed(
   const effectiveUserDid =
     feedOption === 'following' || feedOption === 'your-mix' ? currentUser?.did : userDid;
 
-  // React Query automatically deduplicates useModerationSettings calls with the same userDid
-  // Multiple feeds calling this will share the same query instance and network request
   const moderationData = useModerationSettings(effectiveUserDid || undefined);
   const modReady = moderationData.moderationPrefs != null;
 
-  // React Query automatically handles query key changes - when effectiveUserDid changes,
-  // it treats it as a new query and fetches fresh data. Old queries are cleaned up via gcTime.
 
-  // Ensure query is enabled only when:
-  // 1. Base enabled flag is true
-  // 2. Account switch is complete (not switching)
-  // 3. Agent is available (API client ready) — implies a usable ATProto session alongside bootstrap
-  // 4. For user-specific feeds, we have a user DID
-  // 5. Moderation prefs loaded (from MMKV or fetch) so applyModerationBatch can filter
-  //
-  // We intentionally do not also gate on selectIsSessionValid: feed bootstrap + agent cover
-  // the signed-in path; duplicate session selectors would not change enabled semantics here.
   const isUserSpecificFeed = feedOption === 'following' || feedOption === 'your-mix';
   const isFeedBootstrapReady =
     !isUserSpecificFeed ||

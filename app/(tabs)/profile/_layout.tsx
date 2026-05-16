@@ -1,3 +1,5 @@
-import { ProfileTabStackLayout } from '@/utils/navigation/tabStackLayouts';
+import { Stack } from 'expo-router';
 
-export default ProfileTabStackLayout;
+export default function ProfileLayout() {
+  return <Stack screenOptions={{ headerShown: false }} />;
+}

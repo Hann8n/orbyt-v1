@@ -65,11 +65,9 @@ function convertJsonBlobToBlobRef(blob: unknown): BlobRef | null {
     size?: number;
   };
 
-  // Try asBlobRef first (handles various formats)
   const converted = BlobRef.asBlobRef(blobObj);
   if (converted) return converted;
 
-  // Manual conversion for { ref: { $link: string } } format from getRecord
   if (
     blobObj.ref &&
     typeof blobObj.ref === 'object' &&
@@ -80,7 +78,6 @@ function convertJsonBlobToBlobRef(blob: unknown): BlobRef | null {
     return new BlobRef(cid, blobObj.mimeType || 'application/octet-stream', blobObj.size ?? -1);
   }
 
-  // Handle direct CID format
   if (blobObj.ref instanceof CID && blobObj.mimeType) {
     return new BlobRef(blobObj.ref, blobObj.mimeType, blobObj.size ?? -1);
   }

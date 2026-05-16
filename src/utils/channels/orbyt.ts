@@ -82,7 +82,6 @@ export function extractFeedSlug(uri: string): string | null {
     return null;
   }
 
-  // Handle local channel URIs (at://local.orbyt.channel/{slug})
   if (uri.startsWith('at://local.orbyt.channel/')) {
     const parts = uri.split('/');
     if (parts.length >= 4) {
@@ -94,27 +93,18 @@ export function extractFeedSlug(uri: string): string | null {
     return null;
   }
 
-  // Check if URI contains the feed generator pattern
   if (!uri.includes('/app.bsky.feed.generator/')) {
     return null;
   }
 
-  // Split on the feed generator pattern and take the last part
   const parts = uri.split('/app.bsky.feed.generator/');
   if (parts.length < 2) {
     return null;
   }
 
-  // Extract slug, removing any trailing slashes, query parameters, or fragments
   let slug = parts[1].trim();
-
-  // Remove trailing slashes
   slug = slug.replace(/\/+$/, '');
-
-  // Remove query parameters and fragments (everything after ? or #)
   slug = slug.split('?')[0].split('#')[0];
-
-  // Final trim to ensure no leading/trailing whitespace
   slug = slug.trim();
 
   return slug || null;
@@ -209,12 +199,10 @@ export function channelToHashtag(uriOrSlug: string): string | null {
     return null;
   }
 
-  // If it's already a hashtag format, return as-is
   if (uriOrSlug.startsWith('hashtag:')) {
     return uriOrSlug;
   }
 
-  // Try to extract slug from URI
   let slug: string | null = null;
 
   if (isValidAtUri(uriOrSlug)) {
@@ -229,7 +217,6 @@ export function channelToHashtag(uriOrSlug: string): string | null {
     return null;
   }
 
-  // Return hashtag format matching the tag format used in posts: orbyt-channel-{slug}
   return `hashtag:orbyt-channel-${slug}`;
 }
 
@@ -249,12 +236,10 @@ export function hashtagToChannelSlug(hashtagFeedOption: string): string | null {
 
   const hashtag = hashtagFeedOption.substring(8).trim(); // Remove 'hashtag:' prefix
 
-  // Handle orbyt-channel- prefix (the actual format used in posts)
   if (hashtag.startsWith('orbyt-channel-')) {
     return hashtag.substring(15); // Remove 'orbyt-channel-' prefix (15 chars) to get the slug
   }
 
-  // Fallback for legacy orbyt- format
   if (hashtag.startsWith('orbyt-')) {
     return hashtag.substring(7); // Remove 'orbyt-' prefix to get the slug
   }

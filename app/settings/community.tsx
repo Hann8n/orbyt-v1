@@ -43,7 +43,6 @@ async function fetchCategory(): Promise<DiscourseTopic[]> {
   if (!res.ok) throw new Error('Failed to load topics');
   const data = (await res.json()) as CategoryResponse;
   const topics = data.topic_list?.topics ?? [];
-  // Exclude category "about" topic; only show topics that can be voted on
   return topics.filter(t => t.can_vote !== false);
 }
 

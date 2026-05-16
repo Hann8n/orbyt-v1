@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useSubscribedChannels } from '@/hooks/useSubscribedChannels';
+import { useChannelSubscriptions } from '@/stores/userStore';
 import { Colors } from '@/theme';
 import { Avatar, Icon } from '@/components/ui/UI';
 import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
@@ -44,7 +44,7 @@ export default function ChannelManagementScreen() {
   const { navigateToChannel: goToChannel } = useProfileChannelNavigation();
   const insets = useSafeAreaInsets();
 
-  const { subscribedChannels: channels, unsubscribeFromChannel } = useSubscribedChannels();
+  const { subscribedChannels: channels, unsubscribeFromChannel } = useChannelSubscriptions();
 
   const [selectedChannel, setSelectedChannel] = useState<ChannelUser | null>(null);
 
@@ -65,7 +65,6 @@ export default function ChannelManagementScreen() {
     return name;
   }, [selectedChannel, t]);
 
-  // Transform channels data - subscribed channels only (no built-ins)
   const listData = useMemo((): ChannelUser[] => {
     // Filter out built-in channels as a safety measure
     const BUILT_IN_CHANNELS = ['following', 'your-mix'];

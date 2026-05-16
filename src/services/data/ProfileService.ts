@@ -712,13 +712,11 @@ export function useStatusExpirationMonitor(
       }
     };
 
-    // If API says status is inactive, invalidate immediately
     if (profile.status.isActive === false) {
       invalidate();
       return undefined;
     }
 
-    // If expiresAt exists, schedule invalidation
     const expirationTime = getStatusExpirationTime(profile.status);
     if (expirationTime) {
       const timeUntilExpiration = expirationTime - Date.now() + 60 * 1000; // 1 min buffer
@@ -757,7 +755,6 @@ export async function prefetchProfile(
   const isDid = isValidDid(cleanIdentifier);
   const did = isDid ? cleanIdentifier : partialProfile?.did;
 
-  // Step 1: Set partial data immediately for instant UI (if provided and cache is missing)
   if (partialProfile && did) {
     const existing = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
 
@@ -776,7 +773,6 @@ export async function prefetchProfile(
     }
   }
 
-  // Step 2: Prefetch full profile in background (always, to ensure complete data)
   if (isDid && did) {
     await queryClient.prefetchQuery({
       queryKey: profileKeys.detail(did),
@@ -784,7 +780,6 @@ export async function prefetchProfile(
       staleTime: PROFILE_CACHE_EXPIRY,
     });
   } else if (!isDid) {
-    // Fetch by handle, but cache by DID from response
     const profile = await ProfileService.getProfile(cleanIdentifier);
     if (profile?.did) {
       queryClient.setQueryData(profileKeys.detail(profile.did), profile);

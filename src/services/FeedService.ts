@@ -20,7 +20,7 @@ import { seenVideoService } from './SeenVideoService';
 import { AtprotoFeedService } from './api/feed/FeedService';
 import { BookmarkService } from './api/bookmark/BookmarkService';
 import { ActorService } from './api/actor/ActorService';
-import { isValidPost } from './api/postGuards';
+import { AppBskyFeedDefs } from '@atproto/api';
 import { useUserStore } from '../stores/userStore';
 import { isValidAtUri } from '../utils/atproto/uriValidation';
 
@@ -542,7 +542,7 @@ class FeedService {
         const validPosts: ExtendedFeedViewPost[] = [];
         for (const uri of urisToFetch) {
           const post = postsMap.get(uri);
-          if (post && isValidPost(post)) {
+          if (post && typeof post === 'object' && !AppBskyFeedDefs.isNotFoundPost(post) && !AppBskyFeedDefs.isBlockedPost(post)) {
             validPosts.push({ post } as ExtendedFeedViewPost);
           }
         }
@@ -583,7 +583,6 @@ class FeedService {
     }
   }
 
-  // Search results state management (only used for search feeds)
   setCurrentFeed = setSearchResults;
   getCurrentFeed = getSearchResults;
   clearCurrentFeed = clearSearchResults;

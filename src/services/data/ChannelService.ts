@@ -1,5 +1,5 @@
 import { AtprotoFeedService } from '../api/feed/FeedService';
-import { useQuery, skipToken, UseQueryResult, QueryClient } from '@tanstack/react-query';
+import { useQuery, skipToken, UseQueryResult } from '@tanstack/react-query';
 import { Colors } from '../../theme';
 import {
   isOrbytChannel,
@@ -251,24 +251,5 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
 }
 
 
-export async function prefetchChannel(
-  queryClient: QueryClient,
-  uri: string
-): Promise<void> {
-  if (!uri || !queryClient) return;
-
-  const existing = queryClient.getQueryData<CachedChannel>(queryKeys.channels.detail(uri));
-  if (existing) return;
-
-  try {
-    await queryClient.prefetchQuery({
-      queryKey: queryKeys.channels.detail(uri),
-      queryFn: () => ChannelService.getChannel(uri),
-      staleTime: 30 * 60 * 1000,
-    });
-  } catch {
-    // Prefetch is best-effort
-  }
-}
 
 export default ChannelService;

@@ -18,4 +18,3 @@ export * from './links';
 export * from './errors';
 export * from './navigation';
 export * from './components';
-export * from './types';

@@ -14,7 +14,6 @@ const FollowersScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
 
-  // Query for followers
   const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, error } =
     useInfiniteQuery({
       queryKey: ['followers', currentUser?.did],
@@ -41,7 +40,6 @@ const FollowersScreen: React.FC = () => {
       staleTime: 5 * 60 * 1000, // 5 minutes
     });
 
-  // Flatten all followers from all pages
   const followers = useMemo(() => {
     if (!data?.pages) return [];
     return data.pages.flatMap((page: FollowersResponse) => page.followers || []);

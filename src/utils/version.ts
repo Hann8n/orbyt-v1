@@ -13,7 +13,7 @@ import { Platform } from 'react-native';
  * In release builds, prefer the installed binary (`expo-application`) — that is
  * what the store and OS report.
  */
-function getBuildVersion(): string {
+export function getBuildVersion(): string {
   const fromConfig = Constants.expoConfig?.version;
   if (__DEV__ && fromConfig) {
     return fromConfig;
@@ -41,12 +41,6 @@ function getBuildNumber(): string {
   return fromConfig ?? 'N/A';
 }
 
-/**
- * Format the display version for UI.
- */
-export function getFormattedVersion(): string {
-  return getBuildVersion();
-}
 
 /**
  * Format iOS ApplicationReleaseType enum value to human-readable string.

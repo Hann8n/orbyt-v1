@@ -140,7 +140,6 @@ export function useVisitHistory(currentUserDid?: string | null) {
     return Array.from(new Set(uris)).sort();
   }, [visitHistory]);
 
-  // Profiles: batch endpoint is best-practice for ATProto.
   const { data: recentProfiles = [] } = useBatchProfilesByDid(profileDids);
   const profilesByDid = useMemo(() => {
     const map = new Map<string, ProfileViewWithOrbyt>();
@@ -150,7 +149,6 @@ export function useVisitHistory(currentUserDid?: string | null) {
     return map;
   }, [recentProfiles]);
 
-  // Channels: batch ATProto fetch (no per-item fan-out).
   const { data: recentFeedGenerators = [] } = useQuery({
     queryKey: ['recently-visited', 'feed-generators', currentUserDid ?? null, channelUris] as const,
     queryFn: async (): Promise<GeneratorView[]> => {
@@ -168,7 +166,6 @@ export function useVisitHistory(currentUserDid?: string | null) {
     refetchOnWindowFocus: false,
   });
 
-  // Map into the existing CachedChannel-ish shape the UI expects.
   const channelsByUri = useMemo(() => {
     const map = new Map<string, CachedChannel>();
     for (const feed of recentFeedGenerators) {

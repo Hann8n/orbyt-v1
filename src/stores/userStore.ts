@@ -7,7 +7,7 @@ import { getOAuthClient } from '../services/auth';
 import type { OAuthSession } from '@atproto/oauth-client';
 import { RepoService } from '../services/api/repo/RepoService';
 import { isUserCancellation, getErrorMessage } from '../utils/errors/errorHandler';
-import { requiresReauth } from '../utils/errors/oauth';
+import { TokenRevokedError, TokenRefreshError, TokenInvalidError } from '@atproto/oauth-client';
 import { logger } from '../utils/logger';
 
 import { ModerationService } from '../services/moderation/ModerationService';
@@ -69,7 +69,12 @@ async function assertRequiredOAuthScope(session: OAuthSession): Promise<void> {
 
 function getSessionRestoreOutcome(error: unknown): SessionRestoreOutcome {
   if (error instanceof AuthFlowError) return error.kind;
-  if (requiresReauth(error)) return 'reauth_required';
+  if (
+    error instanceof TokenRevokedError ||
+    error instanceof TokenRefreshError ||
+    error instanceof TokenInvalidError
+  )
+    return 'reauth_required';
   if (isUserCancellation(error)) return 'cancelled';
   if (error instanceof Error && error.message.startsWith('oauth_scope_upgrade_required:')) {
     return 'reauth_required';
@@ -700,7 +705,11 @@ export const useUserStore = create<UserState>()(
             }
 
             const errorMessage = getErrorMessage(error);
-            if (requiresReauth(error)) {
+            if (
+              error instanceof TokenRevokedError ||
+              error instanceof TokenRefreshError ||
+              error instanceof TokenInvalidError
+            ) {
               set({
                 authStatus: 'reauth_required',
                 isAuthenticating: false,
@@ -1517,7 +1526,11 @@ export const useUserStore = create<UserState>()(
             await agent.api.app.bsky.actor.getProfile({ actor: currentUser.did });
             return true;
           } catch (error) {
-            if (requiresReauth(error)) {
+            if (
+              error instanceof TokenRevokedError ||
+              error instanceof TokenRefreshError ||
+              error instanceof TokenInvalidError
+            ) {
               applyAuthFailureState({
                 clearActiveDid: true,
                 authError: 'oauth_reauth_required',
