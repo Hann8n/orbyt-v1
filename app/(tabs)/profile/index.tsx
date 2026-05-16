@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import Animated, {
   useSharedValue,
@@ -40,9 +40,8 @@ import { Colors } from '@/theme';
 import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
 import { useVisibilityRouteIsActive } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFollowMutation, useBlockMutation } from '@/services/data/ProfileService';
+import { useFollowMutation, useBlockMutation, useSubscriptionMutation } from '@/services/data/ProfileService';
 import { queryKeys } from '@/utils/query/queryKeys';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { feedService } from '@/services/FeedService';
 import { FEED_CONFIG } from '@/hooks/useFeed';
 import type { FeedResponse } from '@/services/api/types';
@@ -65,7 +64,7 @@ const OVERLAY_HEADER_ACTIONS_LAYOUT = LinearTransition.duration(360).easing(
   Easing.inOut(Easing.cubic)
 );
 
-const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const { t } = useTranslation();
   const router = useRouter();
   const rawParams = useLocalSearchParams<{ did?: string }>();
@@ -78,14 +77,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const [profileError, setProfileError] = useState<string | null>(null);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const didLongPressMenuRef = useRef(false);
+
   // Use DID in route key to differentiate between own profile and author profiles
-  const profileRouteKey = useMemo(() => {
-    if (providedIdentifier) {
-      return `profile:${providedIdentifier}`;
-    }
-    // Own profile tab: use default key
-    return 'profile:self';
-  }, [providedIdentifier]);
+  const profileRouteKey = providedIdentifier ? `profile:${providedIdentifier}` : 'profile:self';
 
   const isRouteFocused = useVisibilityRouteIsActive(profileRouteKey);
 
@@ -97,19 +91,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Always use DID for the actual profile view.
   // Only fall back to current user DID when no external identifier was provided.
-  const targetDid = useMemo(() => {
+  const targetDid = (() => {
     if (providedIsDid) return providedIdentifier || null;
     if (providedIdentifier) return resolvedDidFromHandle;
     return currentUser?.did || null;
-  }, [providedIsDid, providedIdentifier, resolvedDidFromHandle, currentUser?.did]);
+  })();
 
-  // Determine if we're viewing our own profile
   const isViewingOwnProfile = !providedIdentifier;
 
-  const ownProfilePlaceholder = useMemo<ProfileViewWithOrbyt | undefined>(() => {
+  const ownProfilePlaceholder: ProfileViewWithOrbyt | undefined = (() => {
     if (!isViewingOwnProfile) return undefined;
     if (!currentUser?.did || !currentUser?.handle) return undefined;
-
     return {
       did: currentUser.did,
       handle: currentUser.handle,
@@ -118,13 +110,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       description: '',
       viewer: {},
     } as ProfileViewWithOrbyt;
-  }, [
-    isViewingOwnProfile,
-    currentUser?.did,
-    currentUser?.handle,
-    currentUser?.displayName,
-    currentUser?.avatar,
-  ]);
+  })();
 
   // Always fetch by DID (handle query is only used to resolve handle to DID)
   const didQuery = useProfileByDid(targetDid, {
@@ -144,95 +130,60 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     !!providedIdentifier && !didQuery.isLoading && !isHandleResolving && !profileData;
 
   const { data: orbytColorsFromQuery } = useOrbytColors(targetDid);
-  const mergedOrbytColors = useMemo(() => {
+  const mergedOrbytColors = (() => {
     if (profileData?.orbytColors && orbytColorsFromQuery) {
-      return {
-        ...profileData.orbytColors,
-        ...orbytColorsFromQuery,
-      };
+      return { ...profileData.orbytColors, ...orbytColorsFromQuery };
     }
     return orbytColorsFromQuery ?? profileData?.orbytColors ?? null;
-  }, [profileData?.orbytColors, orbytColorsFromQuery]);
+  })();
 
-  const profileColors = useMemo(
-    () => getProfileColors(mergedOrbytColors || profileData),
-    [mergedOrbytColors, profileData]
-  );
+  const profileColors = getProfileColors(mergedOrbytColors || profileData);
 
-  // Check if live using helper function
   const isLive = isLiveStatus(profileData?.status);
 
-  // Monitor status expiration and invalidate cache when it expires
   useStatusExpirationMonitor(profileData, targetDid);
 
-  // Tab state
   const [activeTab, setActiveTab] = useState<ProfileFeedTab>('profile');
   const viewMode = useUserStore(state => state.profileFeedViewMode);
   const setProfileFeedViewMode = useUserStore(state => state.setProfileFeedViewMode);
   const setViewMode = (mode: ViewMode) => void setProfileFeedViewMode(mode);
 
-  // Read block state directly from profileData viewer fields (React Query cache - single source of truth)
   const isBlocked = !!(profileData?.viewer?.blocking || profileData?.viewer?.blockingByList);
   const isBlockedByList = !!profileData?.viewer?.blockingByList;
 
-  // Memoized query options for profile feed
-  const queryOptions = useMemo(
-    () => ({
-      enabled: Boolean(profileData?.did),
-    }),
-    [profileData?.did]
-  );
+  const queryOptions = { enabled: Boolean(profileData?.did) };
 
-  // Ensure profileData.did is defined for type safety
   const profileDid = profileData?.did ?? undefined;
 
-  // Colors are extracted during profile fetch in ProfileService.ts - no need to do it here
-
-  /** Profile metadata + subscriptions; runs with feed `refetch` on pull-to-refresh and on error retry. */
-  const refreshProfileMetadata = useCallback(async () => {
+  const refreshProfileMetadata = async () => {
     setProfileError(null);
     try {
-      try {
-        const { useSubscriptionStore } = await import('@/stores/subscriptionStore');
-        await useSubscriptionStore.getState().initialize();
-      } catch {
-        // Subscriptions are non-critical; ignore errors
-      }
       await refetchProfile();
     } catch {
       setProfileError(t('profile.failedToRefresh'));
     }
-  }, [refetchProfile, t]);
+  };
 
-  const isOwnProfileView = useMemo(() => {
+  const isOwnProfileView = (() => {
     if (isViewingOwnProfile) return true;
-
-    // Check if viewed profile DID matches signed-in user DID
     return !!(currentUser?.did && profileData?.did && currentUser.did === profileData.did);
-  }, [isViewingOwnProfile, currentUser?.did, profileData?.did]);
+  })();
 
-  const tabOptions: TabOption[] = useMemo(
-    () => [
-      { id: 'profile', label: t('profile.videos') },
-      { id: 'reposts', label: t('profile.reposts') },
-      ...(isOwnProfileView
-        ? [
-            { id: 'likes', label: t('profile.likes') },
-            { id: 'bookmarks', label: t('profile.saves') },
-            { id: 'watched', label: t('profile.watched') },
-          ]
-        : []),
-    ],
-    [isOwnProfileView, t]
-  );
+  const tabOptions: TabOption[] = [
+    { id: 'profile', label: t('profile.videos') },
+    { id: 'reposts', label: t('profile.reposts') },
+    ...(isOwnProfileView
+      ? [
+          { id: 'likes', label: t('profile.likes') },
+          { id: 'bookmarks', label: t('profile.saves') },
+          { id: 'watched', label: t('profile.watched') },
+        ]
+      : []),
+  ];
 
-  const profileFeedOptions = useMemo(
-    () =>
-      isOwnProfileView
-        ? (['profile', 'reposts', 'likes', 'bookmarks', 'watched'] as const)
-        : (['profile', 'reposts'] as const),
-    [isOwnProfileView]
-  );
+  const profileFeedOptions = isOwnProfileView
+    ? (['profile', 'reposts', 'likes', 'bookmarks', 'watched'] as const)
+    : (['profile', 'reposts'] as const);
 
   useEffect(() => {
     const allowedFeeds = profileFeedOptions as readonly ProfileFeedTab[];
@@ -242,74 +193,58 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }
   }, [profileFeedOptions, activeTab]);
 
-  const showErrorScreen = useMemo(
-    () => (isProfileFetchError || profileError || isExternalProfileMissing) && !didQuery.isFetching,
-    [isProfileFetchError, profileError, isExternalProfileMissing, didQuery.isFetching]
+  const showErrorScreen =
+    (isProfileFetchError || profileError || isExternalProfileMissing) && !didQuery.isFetching;
+
+  const renderErrorScreen = (
+    <ProfileChannelErrorScreen
+      title={t('profile.notFound')}
+      subtitle={
+        providedIdentifier
+          ? t('profile.notFoundFor', { identifier: providedIdentifier })
+          : profileError || t('profile.retrieveFailed')
+      }
+      onRetry={refreshProfileMetadata}
+      onGoBack={providedIdentifier ? () => router.back() : undefined}
+    />
   );
 
-  const renderErrorScreen = useMemo(() => {
-    const subtitle = providedIdentifier
-      ? t('profile.notFoundFor', { identifier: providedIdentifier })
-      : profileError || t('profile.retrieveFailed');
-    return (
-      <ProfileChannelErrorScreen
-        title={t('profile.notFound')}
-        subtitle={subtitle}
-        onRetry={refreshProfileMetadata}
-        onGoBack={providedIdentifier ? () => router.back() : undefined}
-      />
-    );
-  }, [providedIdentifier, profileError, refreshProfileMetadata, router, t]);
-
   const isLoading = (isProfileLoading || isHandleResolving) && !profileData;
-  // Overlay action state (moved from ProfileHeader)
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
   const [showLiveStreamSheet, setShowLiveStreamSheet] = useState(false);
-  const liveAvatarMenuActions = useMemo<MenuAction[]>(() => {
+
+  const liveAvatarMenuActions: MenuAction[] = (() => {
     if (!isLive) return [];
     const actions: MenuAction[] = [{ id: 'liveInfo', title: t('profile.avatarMenuSeeLiveInfo') }];
     if (profileData?.avatar) {
       actions.push({ id: 'viewAvatar', title: t('profile.avatarMenuViewProfilePicture') });
     }
     return actions;
-  }, [isLive, profileData?.avatar, t]);
+  })();
 
-  const onLiveAvatarMenuAction = useCallback(
-    (actionId: string) => {
-      if (actionId === 'liveInfo') {
-        setShowLiveStreamSheet(true);
-        return;
-      }
-      if (actionId === 'viewAvatar' && profileData?.avatar) {
-        navigateToProfileImageViewer(profileData.avatar);
-      }
-    },
-    [profileData?.avatar]
-  );
+  const onLiveAvatarMenuAction = (actionId: string) => {
+    if (actionId === 'liveInfo') {
+      setShowLiveStreamSheet(true);
+      return;
+    }
+    if (actionId === 'viewAvatar' && profileData?.avatar) {
+      navigateToProfileImageViewer(profileData.avatar);
+    }
+  };
 
   const followMutation = useFollowMutation();
   const blockMutation = useBlockMutation();
+  const subscriptionMutation = useSubscriptionMutation();
 
-  // Read subscription state from store (for cross-component sharing)
-  const isSubscribed = useSubscriptionStore(state =>
-    profileData?.did ? state.isSubscribed(profileData.did) : false
-  );
-
-  // Read follow state directly from profileData viewer (React Query cache - single source of truth)
+  const isSubscribed = !!(profileData?.viewer?.activitySubscription?.post || profileData?.viewer?.activitySubscription?.reply);
   const isFollowing = !!profileData?.viewer?.following;
 
-  // ProfileViewWithOrbyt already includes all ProfileView fields including associated.chat
-
-  // Germ DM subtitle action (inline in header, not overlay)
-  // Own profile: tap shows bottom sheet (user cannot DM themselves; can only disconnect)
-  // Others: tap opens Germ DM URL
-  const germSubtitleAction = useMemo(() => {
+  const germSubtitleAction = (() => {
     if (!profileData?.did || !currentUser?.did) return undefined;
     const germ = profileData?.associated?.germ;
     if (!germ?.messageMeUrl) return undefined;
     const isOwnProfile = profileData.did === currentUser.did;
-    // Own profile: always show if enabled. Others: respect showButtonTo.
     if (
       !isOwnProfile &&
       ((germ.showButtonTo !== 'everyone' && germ.showButtonTo !== 'usersIFollow') ||
@@ -349,18 +284,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       }
     };
 
-    return {
-      label: t('profile.germDm'),
-      onPress,
-    };
-  }, [
-    profileData?.did,
-    profileData?.associated?.germ,
-    profileData?.viewer?.followedBy,
-    currentUser?.did,
-    queryClient,
-    t,
-  ]);
+    return { label: t('profile.germDm'), onPress };
+  })();
 
   // Prefetch reposts feed in background after profile loads
   useEffect(() => {
@@ -396,72 +321,53 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     );
   }, [profileDid, isRouteFocused, isProfileLoading, queryClient]);
 
-  // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener
-
-  // Default colors for edit sheet - always reflect current profile color state
-  // Colors are now handled directly in ProfileCache, no need for separate state
-
-  // Follow / unblock
-  const handleFollowUnfollow = useCallback(async () => {
+  const handleFollowUnfollow = async () => {
     if (!profileData?.did || !profileData?.handle) return;
 
-    try {
-      // If blocked by list, don't allow unblocking (user must unsubscribe from list)
-      if (isBlockedByList) {
-        return;
-      }
+    if (isBlockedByList) return;
 
-      if (isBlocked) {
-        blockMutation.mutate({
-          did: profileData.did,
-          handle: profileData.handle,
-          isBlocked: false,
-        });
-        return;
-      }
-
-      const newFollowingState = !isFollowing;
-
-      // Trigger mutation (which handles optimistic updates in onMutate)
-      followMutation.mutate({
+    if (isBlocked) {
+      blockMutation.mutate({
         did: profileData.did,
         handle: profileData.handle,
-        isFollowing: newFollowingState,
+        isBlocked: false,
       });
-    } catch {
-      // no-op
+      return;
     }
-  }, [profileData, isBlocked, isBlockedByList, followMutation, blockMutation, isFollowing]);
 
-  const handleMenuPress = useCallback(() => {
-    // If a long-press fired, prevent the subsequent onPress from also running
+    followMutation.mutate({
+      did: profileData.did,
+      handle: profileData.handle,
+      isFollowing: !isFollowing,
+    });
+  };
+
+  const handleMenuPress = () => {
     if (didLongPressMenuRef.current) {
       didLongPressMenuRef.current = false;
       return;
     }
-
     if (isOwnProfileView) {
       router.navigate('/settings');
     } else {
       setShowProfileMenu(true);
     }
-  }, [isOwnProfileView, router]);
+  };
 
-  const handleMenuPressIn = useCallback(() => {
-    // `useRef` persists across navigation; clear at start of every gesture to avoid stale state.
+  const handleMenuPressIn = () => {
     didLongPressMenuRef.current = false;
-  }, []);
+  };
 
-  const handleMenuLongPress = useCallback(() => {
+  const handleMenuLongPress = () => {
     didLongPressMenuRef.current = true;
     presentAccountSwitcher();
-  }, [presentAccountSwitcher]);
+  };
 
-  const handleLogoutFromMenu = useCallback(async () => {
+  const handleLogoutFromMenu = async () => {
     if (onLogout) {
       await onLogout();
     }
-  }, [onLogout]);
+  };
 
   const insets = useSafeAreaInsets();
   const topInset = getEffectiveTopInset(insets.top);
@@ -480,25 +386,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   const overlayControlFadeAnimatedStyle = useAnimatedStyle(() => {
     const progress = overlayScrollProgressSV.value;
-    // Start fading sooner and complete fade earlier than before.
     const normalizedFade = interpolate(progress, [0.12, 0.55], [0, 1], Extrapolate.CLAMP);
-    // Smooth curve for less abrupt linear fade.
     const easedFade = normalizedFade * normalizedFade * (3 - 2 * normalizedFade);
-
-    return {
-      opacity: 1 - easedFade,
-    };
+    return { opacity: 1 - easedFade };
   }, [overlayScrollProgressSV]);
 
-  const baseBackTextColor = useMemo(
-    () => profileColors.textColor || Colors.neutral[50],
-    [profileColors.textColor]
-  );
-  // Build header actions exactly as original ProfileHeader customActions
-  const headerActions: HeaderAction[] = useMemo(() => {
+  const baseBackTextColor = profileColors.textColor || Colors.neutral[50];
+
+  const headerActions: HeaderAction[] = (() => {
     if (!profileData) return [];
 
-    // Own profile: single "Edit profile" button
     if (isOwnProfileView) {
       return [
         {
@@ -541,7 +438,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       icon,
       customIcon,
       onPress: handleFollowUnfollow,
-      disabled: isBlockedByList, // Disable unblock button when blocked by list
+      disabled: isBlockedByList,
     } as HeaderAction);
 
     if (isFollowing && !isBlocked && profileData.did) {
@@ -561,18 +458,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         onPress: async () => {
           const did = profileData.did;
           if (!did) return;
-
-          const store = useSubscriptionStore.getState();
-          const currentlySubscribed = store.isSubscribed(did);
-
-          // Store methods already update optimistically (set state before API call)
-          // Single tap behavior:
-          // - If not subscribed, turn on post notifications only (post: true, reply: false)
-          // - If subscribed, clear both states (unsubscribe from all activity)
-          if (!currentlySubscribed) {
-            await store.updatePreferences(did, { post: true, reply: false });
+          if (!isSubscribed) {
+            subscriptionMutation.mutate({ did, preferences: { post: true, reply: false } });
           } else {
-            await store.unsubscribe(did);
+            subscriptionMutation.mutate({ did, preferences: { post: false, reply: false } });
           }
         },
         onLongPress: () => {
@@ -585,19 +474,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }
 
     return buttons;
-  }, [
-    profileData,
-    isOwnProfileView,
-    isBlocked,
-    isBlockedByList,
-    handleFollowUnfollow,
-    isSubscribed,
-    t,
-    isFollowing,
-    profileColors.backgroundColor,
-    profileColors.textColor,
-    router,
-  ]);
+  })();
 
   return (
     <ProfileChannelFeedLayout backgroundColor={profileColors.chromeBackgroundColor}>
@@ -715,7 +592,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           contentScrollProgressOutput={overlayScrollProgressSV}
         />
       )}
-      {/* Sheets and menus moved from ProfileHeader so overlay buttons can control them */}
       <ProfileMenu
         visible={showProfileMenu}
         onDismiss={() => setShowProfileMenu(false)}
@@ -754,13 +630,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       />
     </ProfileChannelFeedLayout>
   );
-});
+};
 
 ProfileScreen.displayName = 'ProfileScreen';
 
 export default ProfileScreen;
 
-// Optimized StyleSheet creation outside component
 const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: Colors.transparent,
@@ -782,7 +657,6 @@ const styles = StyleSheet.create({
     columnGap: 8,
     zIndex: 2,
   },
-  /** Lets the lead (e.g. follow) pill paint above trailing actions during layout morph. */
   overlayHeaderActionSlot: {
     position: 'relative',
   },

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, CORNER_SMOOTHING } from '../../utils/constants';
 import { StyleSheet, Text, View, StyleProp, ViewStyle, ActivityIndicator } from 'react-native';
@@ -28,7 +28,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { itemSizeConfig, sharedItemStyles, sharedListRowStyles } from './ItemStyles';
 import { useUserStore } from '../../stores/userStore';
 import { isCurrentUser } from '../../stores/profileInteractionStore';
-import { useFollowStore } from '../../stores/followStore';
 import { BlurView } from 'expo-blur';
 
 interface AuthorItemProps {
@@ -181,14 +180,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const actualDisplayName = handleAsDisplayName
     ? formatHandle(handle)
     : trimmedPropName || trimmedCachedName || formatHandle(handle) || t('feed.unknownUser');
-  const followStoreState = useFollowStore(state =>
-    skipServerProfileData && did ? state.follows.get(did) : undefined
-  );
-  const actualIsFollowing = cachedProfile?.viewer?.following
-    ? true
-    : followStoreState !== undefined
-      ? followStoreState.isFollowing
-      : isFollowing;
+  const actualIsFollowing = cachedProfile?.viewer?.following ? true : isFollowing;
   const isBlocked = !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList);
 
   const isCurrentUserProfile = isCurrentUser(did, handle, currentUser);
@@ -221,13 +213,13 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
     }
   };
 
-  const handleFollowPress = useCallback(() => {
+  const handleFollowPress = () => {
     if (onFollowPress) {
       onFollowPress();
     } else if (handle) {
       followMutation.mutate({ did, handle, isFollowing: !actualIsFollowing });
     }
-  }, [onFollowPress, handle, followMutation, actualIsFollowing, did]);
+  };
 
   const rowContent = (
     <View

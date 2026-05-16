@@ -1,6 +1,7 @@
 import { ActorService } from '../api/actor/ActorService';
 import { GraphService } from '../api/graph/GraphService';
 import { RepoService } from '../api/repo/RepoService';
+import { NotificationService } from '../api/notification/NotificationService';
 import {
   useQuery,
   useMutation,
@@ -9,7 +10,7 @@ import {
   QueryKey,
   UseQueryResult,
 } from '@tanstack/react-query';
-import { useMemo, useEffect } from 'react';
+import { useEffect } from 'react';
 import { queryKeys } from '../../utils/query/queryKeys';
 import type {
   ProfileViewWithOrbyt,
@@ -17,38 +18,17 @@ import type {
   ProfileView,
   ExtendedFeedViewPost,
 } from '../api/types';
-import { useFollowStore } from '../../stores/followStore';
 import { queryClient as globalQueryClient } from '../../utils/query/queryClient';
 import { isValidDid } from '../../utils/atproto/uriValidation';
 
-/** Truthy sentinel for optimistic follow only; unfollow ignores it and uses store or getProfile. */
 const OPTIMISTIC_FOLLOW_URI_PLACEHOLDER = 'at://placeholder';
 
-/**
- * Check if a StatusView represents an active live status
- * Trusts the API's isActive field - the API already handles expiration checks
- *
- * API schema:
- * - status.status: REQUIRED, must be 'app.bsky.actor.status#live'
- * - status.isActive: Only present if expiration was set (true = active, false = expired)
- *
- * Simple logic: Trust the API. If isActive is present, use it. Otherwise, status is active.
- */
 export function isLiveStatus(status?: StatusView): boolean {
   if (!status) return false;
   if (status.status !== 'app.bsky.actor.status#live') return false;
-
-  // Trust API's isActive field - it's only present when expiration is set
-  // If present and false, status is expired. If present and true, status is active.
-  // If not present, status has no expiration and is active.
   return status.isActive !== false;
 }
 
-/**
- * Get the expiration time for a status (if it has one)
- * Returns null if status has no expiration
- * Useful for scheduling cache invalidation/refresh
- */
 function getStatusExpirationTime(status?: StatusView): number | null {
   if (!status?.expiresAt) return null;
 
@@ -59,17 +39,11 @@ function getStatusExpirationTime(status?: StatusView): number | null {
   }
 }
 
-/**
- * Calculate optimal staleTime for a profile based on status expiration
- * If profile has a live status that expires, use shorter staleTime
- * Otherwise use default PROFILE_CACHE_EXPIRY
- */
 function getProfileStaleTime(profile: ProfileViewWithOrbyt | null | undefined): number {
   if (!profile?.status) return PROFILE_CACHE_EXPIRY;
 
   const expirationTime = getStatusExpirationTime(profile.status);
   if (expirationTime) {
-    // Use status expiration time + 1 minute buffer, but at least 1 minute
     const timeUntilExpiration = expirationTime - Date.now();
     return Math.max(60 * 1000, timeUntilExpiration + 60 * 1000);
   }
@@ -77,87 +51,44 @@ function getProfileStaleTime(profile: ProfileViewWithOrbyt | null | undefined): 
   return PROFILE_CACHE_EXPIRY;
 }
 
-// Single source of truth for profile query keys.
 const profileKeys = queryKeys.profiles;
-
-// Note: getProfileColors has been moved to src/utils/formatting/colors.ts
-// Import it from there instead of using this file
-
-const PROFILE_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+const PROFILE_CACHE_EXPIRY = 24 * 60 * 60 * 1000;
 
 class ProfileService {
   private static currentUserDid: string | null = null;
   private static currentUserHandle: string | null = null;
 
-  // React Query integration
   static getQueryKey(did: string): QueryKey {
     return profileKeys.detail(did);
   }
 
-  // Make CACHE_EXPIRY accessible for React Query hooks
   static get cacheExpiry(): number {
     return PROFILE_CACHE_EXPIRY;
   }
 
-  /**
-   * Get profile from React Query cache synchronously
-   * @param queryClient - React Query client instance
-   * @param did - Profile DID
-   * @returns Profile or null
-   */
-  static getProfileFromCacheSync(
-    queryClient: QueryClient,
-    did: string
-  ): ProfileViewWithOrbyt | null {
-    if (!did) return null;
-    const queryKey = profileKeys.detail(did);
-    return queryClient.getQueryData<ProfileViewWithOrbyt>(queryKey) ?? null;
-  }
-
-  /**
-   * Sets the current user's DID for following status checks
-   */
   static setCurrentUserDid(did: string) {
     this.currentUserDid = did;
   }
 
-  /**
-   * Gets the current user's DID
-   */
   static getCurrentUserDid(): string | null {
     return this.currentUserDid;
   }
 
-  /**
-   * Sets the current user's handle for following status checks
-   */
   static setCurrentUserHandle(handle: string) {
     this.currentUserHandle = handle;
   }
 
-  /**
-   * Gets the current user's handle
-   */
   static getCurrentUserHandle(): string | null {
     return this.currentUserHandle;
   }
 
-  /**
-   * Get a profile by DID.
-   * ActorService resolves `orbytColors` with Orbyt Colors API as canonical source,
-   * then falls back to repo-record colors when needed.
-   * React Query handles caching, this just fetches from API.
-   */
   static async getProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {
     if (!did) return null;
 
-    // Validate that input is actually a DID (starts with "did:")
     if (!isValidDid(did)) {
-      // This is a handle, not a DID - return null (caller should use getProfile with handle instead)
       return null;
     }
 
-    // Throw when the response is empty so React Query treats it as a failure (not cacheable null success).
     const profile = await ActorService.getProfileByDid(did);
     if (!profile) {
       throw new Error('Failed to fetch profile by DID');
@@ -166,14 +97,6 @@ class ProfileService {
     return profile;
   }
 
-  /**
-   * Batch fetch multiple profiles
-   * More efficient than individual fetches for 2+ profiles
-   * React Query handles caching
-   *
-   * @param handles - Array of handles to fetch
-   * @returns Array of profiles with orbyt records
-   */
   static async batchGetProfiles(handles: string[]): Promise<ProfileViewWithOrbyt[]> {
     if (!handles || handles.length === 0) {
       return [];
@@ -190,11 +113,6 @@ class ProfileService {
     }
   }
 
-  /**
-   * Batch fetch profiles by DIDs.
-   * Delegates to getProfilesInBatch which uses the batch Bluesky endpoint + batch color API.
-   * The underlying API accepts DIDs as actors, so no handle resolution is needed.
-   */
   static async batchGetProfilesByDid(dids: string[]): Promise<ProfileViewWithOrbyt[]> {
     if (!dids || dids.length === 0) return [];
     const uniqueDids = Array.from(new Set(dids.filter((d): d is string => !!d)));
@@ -205,11 +123,9 @@ class ProfileService {
     }
   }
 
-  /** Get a profile by handle (React Query caches). */
   static async getProfile(handle: string): Promise<ProfileViewWithOrbyt | null> {
     if (!handle) return null;
 
-    // Normalize handle
     let cleanHandle = handle.trim().toLowerCase();
     if (cleanHandle.includes('://') || cleanHandle.includes('/')) {
       const parts = cleanHandle.split('/');
@@ -221,12 +137,10 @@ class ProfileService {
       }
     }
 
-    // Validate handle format
     if (cleanHandle !== 'verifier' && cleanHandle !== 'bsky.app' && !cleanHandle.includes('.')) {
       return null;
     }
 
-    // Throw when the response is empty so React Query retries instead of caching null.
     const profile = await ActorService.getProfile(cleanHandle);
     if (!profile) {
       throw new Error('Failed to fetch profile by handle');
@@ -235,20 +149,12 @@ class ProfileService {
     return profile;
   }
 
-  /**
-   * Batch-fetch profiles and colors for a page of feed items, then store results
-   * in the React Query cache by DID. Prevents N+1 individual fetches when VideoCard
-   * renders per-item useProfileByDid calls.
-   *
-   * Uses app.bsky.actor.getProfiles (batch ≤25) + POST /v1/colors (single call for all DIDs).
-   */
   static async warmProfileCacheFromFeed(
     feedItems: ExtendedFeedViewPost[],
     qc: QueryClient = globalQueryClient
   ): Promise<void> {
     if (!feedItems.length) return;
 
-    // Collect unique handles/DIDs not already in the React Query cache
     const handleToDid = new Map<string, string>();
     const uncachedHandles: string[] = [];
 
@@ -261,7 +167,6 @@ class ProfileService {
         handleToDid.set(handle, did);
         uncachedHandles.push(handle);
       }
-      // Also prefetch repost authors (reason.by carries both handle and did)
       if (
         item.reason &&
         '$type' in item.reason &&
@@ -289,28 +194,15 @@ class ProfileService {
         }
       }
     } catch {
-      // Prefetch is best-effort; individual card fetches act as fallback
     }
   }
 
-  /**
-   * Precache the current user's profile on app launch
-   * Uses existing ProfileService methods for simplicity
-   */
   static async precacheCurrentUserProfile(): Promise<void> {
     if (!this.currentUserDid) return;
-
-    // Use existing getProfileByDid method - it handles caching automatically
     this.getProfileByDid(this.currentUserDid);
   }
 }
 
-// React Query Hooks for ProfileService
-
-/**
- * Hook to fetch and subscribe to profile data by DID (preferred method)
- * React Query cache provides instant data on subsequent renders
- */
 export function useProfileByDid(
   did: string | null | undefined,
   options: {
@@ -323,14 +215,10 @@ export function useProfileByDid(
   } = {}
 ): UseQueryResult<ProfileViewWithOrbyt | null, Error> {
   const queryClient = useQueryClient();
-
-  // Calculate staleTime based on status expiration from React Query cache
-  const staleTime = useMemo(() => {
-    if (!did) return PROFILE_CACHE_EXPIRY;
-    // Read from React Query cache to calculate staleTime
-    const cachedProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
-    return getProfileStaleTime(cachedProfile);
-  }, [did, queryClient]);
+  const cachedProfile = did
+    ? queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did))
+    : undefined;
+  const staleTime = getProfileStaleTime(cachedProfile);
 
   return useQuery<ProfileViewWithOrbyt | null, Error>({
     queryKey: did ? profileKeys.detail(did) : ['profiles', 'detail', ''],
@@ -347,24 +235,11 @@ export function useProfileByDid(
   });
 }
 
-/**
- * Hook to batch fetch multiple profiles by DID
- * Useful when you have DIDs but not handles
- *
- * @param dids - Array of DIDs to fetch (can contain nulls)
- * @returns React Query result with array of profiles
- */
 export function useBatchProfilesByDid(
   dids: (string | null | undefined)[]
 ): UseQueryResult<ProfileViewWithOrbyt[], Error> {
-  const validDids = useMemo(() => {
-    return Array.from(new Set(dids.filter((d): d is string => !!d))).sort();
-  }, [dids]);
-
-  const queryKey = useMemo(
-    () => [...profileKeys.all, 'batch-by-did', ...validDids] as const,
-    [validDids]
-  );
+  const validDids = Array.from(new Set(dids.filter((d): d is string => !!d))).sort();
+  const queryKey = [...profileKeys.all, 'batch-by-did', ...validDids] as const;
 
   return useQuery<ProfileViewWithOrbyt[], Error>({
     queryKey,
@@ -381,11 +256,6 @@ export function useBatchProfilesByDid(
   });
 }
 
-/**
- * Hook to fetch and subscribe to profile data by handle
- * Note: Fetches by handle (for display/search) but caches by DID from response
- * React Query cache provides instant data on subsequent renders
- */
 export function useProfile(
   handle: string | null | undefined
 ): UseQueryResult<ProfileViewWithOrbyt | null, Error> {
@@ -398,7 +268,6 @@ export function useProfile(
     queryFn: async () => {
       if (!handle) return null;
       const profile = await ProfileService.getProfile(handle);
-      // Cache by DID from response (API always provides DID)
       if (profile?.did) {
         queryClient.setQueryData(profileKeys.detail(profile.did), profile);
       }
@@ -413,24 +282,8 @@ export function useProfile(
   });
 }
 
-/**
- * Hook to follow/unfollow a profile with optimistic updates
- */
 export function useFollowMutation() {
   const queryClient = useQueryClient();
-  const updateFollowState = (
-    did: string,
-    handle: string,
-    isFollowing: boolean,
-    followUri?: string
-  ) => {
-    useFollowStore.getState().updateFollowState(did, {
-      handle,
-      did,
-      isFollowing,
-      followUri,
-    });
-  };
 
   return useMutation({
     mutationFn: async ({
@@ -442,7 +295,6 @@ export function useFollowMutation() {
       handle: string;
       isFollowing: boolean;
     }) => {
-      // Prefer DID when available to avoid extra lookups (keeps UX fully optimistic)
       const resolvedDid =
         did ||
         (await ProfileService.getProfile(handle)
@@ -450,7 +302,6 @@ export function useFollowMutation() {
           .catch(() => undefined));
       if (!resolvedDid) throw new Error('Profile not found or missing DID');
 
-      // Make the actual API call (graph.follow returns the record URI; use it for unfollow to avoid stale getProfile)
       let followUri: string | undefined;
       if (isFollowing) {
         followUri = await GraphService.follow(resolvedDid);
@@ -460,21 +311,13 @@ export function useFollowMutation() {
         );
         let existingFollowUri = cached?.viewer?.following;
         if (existingFollowUri === OPTIMISTIC_FOLLOW_URI_PLACEHOLDER) existingFollowUri = undefined;
-        if (!existingFollowUri) {
-          existingFollowUri = useFollowStore.getState().getFollowState(resolvedDid)?.followUri;
-        }
         await GraphService.unfollow(resolvedDid, existingFollowUri);
         followUri = undefined;
       }
 
-      // Persist to follow store for navigation
-      updateFollowState(resolvedDid, handle, isFollowing, followUri);
-
       return { handle, isFollowing, did: resolvedDid, followUri };
     },
-    // When mutate is called:
     onMutate: async ({ did, handle, isFollowing }) => {
-      // Prefer DID when provided so the optimistic update is immediate (no await needed)
       let resolvedDid = did;
       if (!resolvedDid) {
         const profile = await ProfileService.getProfile(handle).catch(() => null);
@@ -482,18 +325,12 @@ export function useFollowMutation() {
       }
       if (!resolvedDid) throw new Error('Profile not found or missing DID');
 
-      // Cancel any outgoing refetches (don't block optimistic UI on this)
       void queryClient.cancelQueries({ queryKey: profileKeys.detail(resolvedDid) });
 
-      // Snapshot the previous value
       const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
         profileKeys.detail(resolvedDid)
       );
 
-      // Update follow store IMMEDIATELY (synchronously) before any async work
-      updateFollowState(resolvedDid, handle, isFollowing);
-
-      // Optimistically update React Query cache
       if (previousProfile) {
         queryClient.setQueryData(profileKeys.detail(resolvedDid), {
           ...previousProfile,
@@ -509,19 +346,11 @@ export function useFollowMutation() {
 
       return { previousProfile, did: resolvedDid };
     },
-    // If mutation fails, use context returned from onMutate to roll back
     onError: (_err, _variables, context) => {
       if (context?.previousProfile && context?.did) {
         queryClient.setQueryData(profileKeys.detail(context.did), context.previousProfile);
       }
-
-      // Revert follow store state
-      if (context?.did && context?.previousProfile) {
-        const wasFollowing = !!context.previousProfile.viewer?.following;
-        updateFollowState(context.did, '', wasFollowing);
-      }
     },
-    // Merge graph API result into cache; do not refetch profile here (getProfile can briefly lag follow writes).
     onSuccess: data => {
       if (!data?.did) return;
       queryClient.setQueryData<ProfileViewWithOrbyt | undefined>(
@@ -543,9 +372,6 @@ export function useFollowMutation() {
   });
 }
 
-/**
- * Hook to block/unblock a profile with optimistic updates
- */
 export function useBlockMutation() {
   const queryClient = useQueryClient();
 
@@ -559,28 +385,21 @@ export function useBlockMutation() {
       handle: string;
       isBlocked: boolean;
     }) => {
-      // Make the actual API call
       if (isBlocked) {
         await GraphService.blockUser(did);
       } else {
         await GraphService.unblockUser(did);
       }
 
-      // Cache is already updated in onMutate, just return success
       return { did, handle, isBlocked };
     },
-    // When mutate is called:
     onMutate: async ({ did, handle: _handle, isBlocked }) => {
-      // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: profileKeys.detail(did) });
 
-      // Snapshot the previous value
       const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
         profileKeys.detail(did)
       );
 
-      // Optimistically update React Query cache
-      // When manually blocking/unblocking, clear blockingByList (direct block only)
       if (previousProfile) {
         queryClient.setQueryData(profileKeys.detail(did), {
           ...previousProfile,
@@ -596,15 +415,12 @@ export function useBlockMutation() {
 
       return { previousProfile, did };
     },
-    // If mutation fails, use context returned from onMutate to roll back
     onError: (_err, { did: _did }, context) => {
       if (context?.previousProfile && context?.did) {
         queryClient.setQueryData(profileKeys.detail(context.did), context.previousProfile);
       }
     },
-    // Update cache after successful mutation to ensure persisted state
     onSuccess: (_data, { did }) => {
-      // React Query cache is already updated in onMutate
       // Invalidate feed queries immediately to refresh posts visibility
       queryClient.invalidateQueries({ queryKey: ['feed'], refetchType: 'active' });
 
@@ -619,9 +435,6 @@ export function useBlockMutation() {
   });
 }
 
-/**
- * Hook to mute/unmute a profile with optimistic updates
- */
 export function useMuteMutation() {
   const queryClient = useQueryClient();
 
@@ -635,28 +448,20 @@ export function useMuteMutation() {
       handle: string;
       isMuted: boolean;
     }) => {
-      // Make the actual API call
       if (isMuted) {
         await GraphService.muteUser(did);
       } else {
         await GraphService.unmuteUser(did);
       }
-
-      // Note: Cache updates are handled by React Query mutations
-
       return { did, handle, isMuted };
     },
-    // When mutate is called:
     onMutate: async ({ did, handle: _handle, isMuted }) => {
-      // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: profileKeys.detail(did) });
 
-      // Snapshot the previous value
       const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
         profileKeys.detail(did)
       );
 
-      // Optimistically update React Query cache
       if (previousProfile) {
         queryClient.setQueryData(profileKeys.detail(did), {
           ...previousProfile,
@@ -669,13 +474,11 @@ export function useMuteMutation() {
 
       return { previousProfile, did };
     },
-    // If mutation fails, use context returned from onMutate to roll back
     onError: (_err, { did: _did }, context) => {
       if (context?.previousProfile && context?.did) {
         queryClient.setQueryData(profileKeys.detail(context.did), context.previousProfile);
       }
     },
-    // Invalidate queries after successful mutation with delay to ensure server has processed
     onSuccess: (_, { did }) => {
       // Invalidate feed queries immediately to refresh posts visibility
       queryClient.invalidateQueries({ queryKey: ['feed'], refetchType: 'active' });
@@ -688,13 +491,6 @@ export function useMuteMutation() {
   });
 }
 
-/**
- * Hook to update profile colors with React Query integration
- */
-
-/**
- * Hook to update profile information with React Query integration
- */
 export function useProfileUpdateMutation() {
   const queryClient = useQueryClient();
 
@@ -844,13 +640,58 @@ export function useProfileUpdateMutation() {
 }
 
 /**
- * Hook to monitor and invalidate profiles with expired status
- * Trusts API's isActive field - invalidates immediately if false
- * Schedules invalidation based on expiresAt if provided
- *
- * @param profile - The profile to monitor
- * @param did - Optional DID for DID-based invalidation
+ * Hook to update activity subscription with React Query integration
+ * React Query cache is the single source of truth for subscription state
  */
+export function useSubscriptionMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      did,
+      preferences,
+    }: {
+      did: string;
+      preferences: { post: boolean; reply: boolean };
+    }) => {
+      if (!preferences.post && !preferences.reply) {
+        await NotificationService.deleteActivitySubscription(did);
+        return { did, preferences: null };
+      }
+      await NotificationService.putActivitySubscription(did, preferences);
+      return { did, preferences };
+    },
+    onMutate: async ({ did, preferences }) => {
+      await queryClient.cancelQueries({ queryKey: profileKeys.detail(did) });
+
+      const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
+        profileKeys.detail(did)
+      );
+
+      if (previousProfile) {
+        queryClient.setQueryData(profileKeys.detail(did), {
+          ...previousProfile,
+          viewer: {
+            ...previousProfile.viewer,
+            activitySubscription: !preferences.post && !preferences.reply ? undefined : preferences,
+          },
+        });
+      }
+
+      return { previousProfile, did };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousProfile && context?.did) {
+        queryClient.setQueryData(profileKeys.detail(context.did), context.previousProfile);
+      }
+    },
+    onSuccess: data => {
+      if (!data?.did) return;
+      queryClient.invalidateQueries({ queryKey: profileKeys.detail(data.did), refetchType: 'inactive' });
+    },
+  });
+}
+
 export function useStatusExpirationMonitor(
   profile: ProfileViewWithOrbyt | null | undefined,
   did?: string | null
@@ -893,26 +734,6 @@ export function useStatusExpirationMonitor(
   }, [profile, did, queryClient]);
 }
 
-/**
- * Pre-populate profile cache with partial data before navigation
- * This allows the profile screen to show data immediately without loading state
- *
- * @param queryClient - React Query client instance
- * @param partialProfile - Partial profile data (from post.author, AuthorItem props, etc.)
- * @param handle - Handle to use as cache key (required)
- */
-/**
- * Prefetch profile data with optional partial data for instant UI.
- *
- * This function:
- * 1. Sets partial data immediately (if provided) for instant UI feedback
- * 2. Prefetches full profile in background for complete data
- *
- * @param queryClient - React Query client
- * @param identifier - Handle or DID
- * @param partialProfile - Optional partial profile data for instant UI
- * @returns Promise that resolves when prefetch completes (can be ignored for fire-and-forget)
- */
 export async function prefetchProfile(
   queryClient: QueryClient,
   identifier: string,
@@ -968,10 +789,5 @@ export async function prefetchProfile(
     }
   }
 }
-
-/**
- * Clean up all existing profile color records for the current user
- */
-// Legacy cleanup removed: profileColors record is no longer used.
 
 export default ProfileService;

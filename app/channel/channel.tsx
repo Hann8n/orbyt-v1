@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   useSharedValue,
@@ -24,14 +24,11 @@ import { HeaderActionButton } from '@/components/layout/header/UniversalHeader';
 import FeedPager from '@/components/features/feed/FeedPager';
 import { Colors } from '@/theme';
 
-import {
-  useChannelColors,
-  useChannel,
-  useChannelColorsMutation,
-} from '@/services/data/ChannelService';
+import { useChannelColors, useChannel } from '@/services/data/ChannelService';
+import { queryKeys } from '@/utils/query/queryKeys';
 import ProfileService from '@/services/data/ProfileService';
 import { useUserStore } from '@/stores/userStore';
-import { extractColorsFromImage, hexToRGBA } from '@/utils/formatting/colors';
+import { extractColorsFromImage, darkenColor, hexToRGBA } from '@/utils/formatting/colors';
 import { useVisibilityRouteIsActive } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getEffectiveTopInset } from '@/utils/device/screen';
@@ -39,12 +36,16 @@ import { isOrbytChannel, getChannelByUri, channelToHashtag } from '@/utils/chann
 import { logger } from '@/utils/logger';
 import type { ViewMode } from '@/types';
 import type { FeedPagerRef } from '@/utils/navigation/tabRefs';
+import { useQueryClient } from '@tanstack/react-query';
+import type { CachedChannel } from '@/services/data/ChannelService';
+
 type ChannelCategoryTab = 'top' | 'latest';
 
-const Channel: React.FC = memo(() => {
+const Channel: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const queryClient = useQueryClient();
   const isRouteFocused = useVisibilityRouteIsActive('channel');
   const uriParam = (params.id as string) || '';
   const uri = uriParam ? decodeURIComponent(uriParam) : '';
@@ -66,16 +67,10 @@ const Channel: React.FC = memo(() => {
   } = useChannel(uri || '');
 
   const { colors: channelColors } = useChannelColors(uri || '');
-  const colorsMutation = useChannelColorsMutation();
 
   const viewMode = useUserStore(state => state.profileFeedViewMode);
   const setProfileFeedViewMode = useUserStore(state => state.setProfileFeedViewMode);
-  const setViewMode = useCallback(
-    (mode: ViewMode) => {
-      void setProfileFeedViewMode(mode);
-    },
-    [setProfileFeedViewMode]
-  );
+  const setViewMode = (mode: ViewMode) => void setProfileFeedViewMode(mode);
 
   const insets = useSafeAreaInsets();
   const topInset = getEffectiveTopInset(insets.top);
@@ -106,83 +101,62 @@ const Channel: React.FC = memo(() => {
 
   const activeCategoryTab = categoryTabState.uri === uri ? categoryTabState.tab : 'top';
 
-  const handleCategoryTabChange = useCallback(
-    (tab: ChannelCategoryTab) => {
-      setCategoryTabState({ uri, tab });
-    },
-    [uri]
-  );
-
-  const isCategoryChannel = useMemo(() => {
+  const isCategoryChannel = (() => {
     if (!uri || !isOrbytChannel(uri)) return false;
     const channel = getChannelByUri(uri);
     return channel?.isPostable !== false;
-  }, [uri]);
+  })();
 
-  const categorySourceFeeds = useMemo(() => {
-    if (!isCategoryChannel || !uri) {
-      return { top: uri || '', latest: uri || '' };
-    }
+  const hashtagOption = isCategoryChannel ? channelToHashtag(uri) : null;
+  const categorySourceFeeds = isCategoryChannel && hashtagOption
+    ? { top: `${hashtagOption}:top`, latest: `${hashtagOption}:latest` }
+    : { top: uri || '', latest: uri || '' };
 
-    const hashtagOption = channelToHashtag(uri);
-    if (!hashtagOption) {
-      return { top: uri, latest: uri };
-    }
-
-    return {
-      top: `${hashtagOption}:top`,
-      latest: `${hashtagOption}:latest`,
-    };
-  }, [isCategoryChannel, uri]);
-
-  const channelPagerFeeds = useMemo(() => {
+  const channelPagerFeeds = (() => {
     if (!uri) return [''];
     if (!isCategoryChannel) return [uri];
     return [categorySourceFeeds.top, categorySourceFeeds.latest];
-  }, [uri, isCategoryChannel, categorySourceFeeds.top, categorySourceFeeds.latest]);
+  })();
 
-  const currentChannelFeed = useMemo(() => {
+  const currentChannelFeed = (() => {
     if (!uri) return '';
     if (!isCategoryChannel) return uri;
     return activeCategoryTab === 'top' ? categorySourceFeeds.top : categorySourceFeeds.latest;
-  }, [
-    uri,
-    isCategoryChannel,
-    activeCategoryTab,
-    categorySourceFeeds.top,
-    categorySourceFeeds.latest,
-  ]);
+  })();
 
-  const queryOptions = useMemo(
-    () => ({
-      enabled: Boolean(
-        channelData && uri && (uri.startsWith('hashtag:') || uri.startsWith('at://'))
-      ),
-    }),
-    [channelData, uri]
-  );
+  const queryOptions = {
+    enabled: Boolean(
+      channelData && uri && (uri.startsWith('hashtag:') || uri.startsWith('at://'))
+    ),
+  };
 
-  const extractAndSaveColors = useCallback(
-    async (channelUri: string, avatarUrl: string) => {
-      try {
-        const colors = await extractColorsFromImage(avatarUrl);
-        colorsMutation.mutate({
-          uri: channelUri,
-          backgroundColor: colors.backgroundColor,
-          foregroundColor: colors.foregroundColor,
-        });
-      } catch (error) {
-        logger.error('Error extracting/saving channel colors', error, { component: 'Channel' });
-      }
-    },
-    [colorsMutation]
-  );
-
+  // Back-fill colors for stale cache entries that pre-date color extraction in ChannelService.
+  // New fetches always include colors, so this only fires for old cached data.
   useEffect(() => {
-    if (channelData && channelData.avatar && !channelData.channelColors) {
-      extractAndSaveColors(channelData.uri, channelData.avatar);
-    }
-  }, [channelData, extractAndSaveColors]);
+    if (!channelData?.avatar || channelData.channelColors) return;
+
+    extractColorsFromImage(channelData.avatar)
+      .then(colors => {
+        queryClient.setQueryData<CachedChannel>(
+          queryKeys.channels.detail(channelData.uri),
+          prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              channelColors: {
+                backgroundColor: darkenColor(colors.backgroundColor, 0.5),
+                foregroundColor: '#FFFFFF',
+                accentColor: colors.accentColor || Colors.black,
+                statusBarStyle: 'light' as const,
+              },
+            };
+          }
+        );
+      })
+      .catch(error => {
+        logger.error('Error extracting channel colors', error, { component: 'Channel' });
+      });
+  }, [channelData?.uri, channelData?.avatar, channelData?.channelColors, queryClient]);
 
   useEffect(() => {
     if (channelData?.creator?.handle) {
@@ -192,10 +166,8 @@ const Channel: React.FC = memo(() => {
     }
   }, [channelData?.creator?.handle]);
 
-  const channelHeaderData = useMemo(() => {
+  const channelHeaderData = (() => {
     if (!channelData) return null;
-
-    const likeCount = channelData.likeCount || 0;
 
     let description = channelData.description || '';
     if (isOrbytChannel(uri)) {
@@ -211,25 +183,20 @@ const Channel: React.FC = memo(() => {
       name: channelData.displayName || t('settings.untitledChannel'),
       description,
       avatar: channelData.avatar || '',
-      likeCount,
+      likeCount: channelData.likeCount || 0,
       isOwner: false,
       creator: channelData.creator,
     };
-  }, [channelData, uri, t]);
+  })();
 
-  const handleBackPress = useCallback(() => {
-    router.back();
-  }, [router]);
-
-  const handleDelete = useCallback(() => {
+  const handleDelete = () => {
     if (channelHeaderData?.id) {
       router.back();
     }
-  }, [channelHeaderData?.id, router]);
+  };
 
-  const headerActions = useMemo(() => {
-    if (channelHeaderData?.isOwner) {
-      return [
+  const headerActions = channelHeaderData?.isOwner
+    ? [
         {
           id: 'delete',
           label: t('common.delete'),
@@ -237,68 +204,41 @@ const Channel: React.FC = memo(() => {
           onPress: handleDelete,
           variant: 'danger' as const,
         },
-      ];
-    }
-    return [];
-  }, [channelHeaderData?.isOwner, handleDelete, t]);
+      ]
+    : [];
 
-  const refreshChannelMetadata = useCallback(async () => {
+  const refreshChannelMetadata = async () => {
     try {
       await refetchChannel();
     } catch (error) {
       logger.error('Error during refresh', error, { component: 'Channel' });
     }
-  }, [refetchChannel]);
+  };
 
   const showErrorScreen = !!channelError && !isChannelFetching;
 
-  const renderErrorScreen = () => (
-    <ProfileChannelErrorScreen
-      title={t('channel.notFound')}
-      subtitle={t('channel.retrieveFailed')}
-      onRetry={refreshChannelMetadata}
-      onGoBack={() => router.back()}
+  const tabOptions: TabOption[] = [
+    { id: 'top', label: t('channel.trending') },
+    { id: 'latest', label: t('channel.new') },
+  ];
+
+  const tabNavigation = !isCategoryChannel ? null : (
+    <TabNavigation
+      tabs={tabOptions}
+      activeTab={activeCategoryTab}
+      onTabPress={tabId => {
+        const id = tabId as ChannelCategoryTab;
+        setCategoryTabState({ uri, tab: id });
+        channelPagerRef.current?.setPage(id === 'top' ? 0 : 1);
+      }}
+      textColor={channelColors.textColor || Colors.neutral[50]}
+      inactiveTextColor={hexToRGBA(channelColors.textColor || Colors.neutral[50], 0.65)}
+      backgroundColor="transparent"
+      viewMode={viewMode}
+      onViewModeChange={setViewMode}
+      {...PROFILE_CHANNEL_TAB_NAVIGATION_DEFAULTS}
     />
   );
-
-  const tabOptions: TabOption[] = useMemo(
-    () => [
-      { id: 'top', label: t('channel.trending') },
-      { id: 'latest', label: t('channel.new') },
-    ],
-    [t]
-  );
-
-  const tabNavigation = useMemo(() => {
-    if (!isCategoryChannel) return null;
-
-    return (
-      <TabNavigation
-        tabs={tabOptions}
-        activeTab={activeCategoryTab}
-        onTabPress={tabId => {
-          const id = tabId as ChannelCategoryTab;
-          handleCategoryTabChange(id);
-          const index = id === 'top' ? 0 : 1;
-          channelPagerRef.current?.setPage(index);
-        }}
-        textColor={channelColors.textColor || Colors.neutral[50]}
-        inactiveTextColor={hexToRGBA(channelColors.textColor || Colors.neutral[50], 0.65)}
-        backgroundColor="transparent"
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        {...PROFILE_CHANNEL_TAB_NAVIGATION_DEFAULTS}
-      />
-    );
-  }, [
-    isCategoryChannel,
-    tabOptions,
-    activeCategoryTab,
-    handleCategoryTabChange,
-    channelColors.textColor,
-    viewMode,
-    setViewMode,
-  ]);
 
   const headerComponent = (
     <View style={styles.headerContainer} pointerEvents="box-none">
@@ -321,7 +261,7 @@ const Channel: React.FC = memo(() => {
       <DetailScreenOverlay
         showBackButton={showBackButton}
         actionButtonsTop={actionButtonsTop}
-        onBackPress={handleBackPress}
+        onBackPress={() => router.back()}
         backIconColor={baseBackTextColor}
         backIconPrimaryStyle={backIconPrimaryStyle}
         backIconSecondaryStyle={backIconSecondaryStyle}
@@ -342,7 +282,12 @@ const Channel: React.FC = memo(() => {
       </DetailScreenOverlay>
 
       {showErrorScreen ? (
-        renderErrorScreen()
+        <ProfileChannelErrorScreen
+          title={t('channel.notFound')}
+          subtitle={t('channel.retrieveFailed')}
+          onRetry={refreshChannelMetadata}
+          onGoBack={() => router.back()}
+        />
       ) : isLoading ? (
         <ProfileChannelFeedLoadingScreen backgroundColor={Colors.black} />
       ) : (
@@ -353,7 +298,10 @@ const Channel: React.FC = memo(() => {
           currentFeed={currentChannelFeed}
           onFeedChange={feed => {
             if (!isCategoryChannel) return;
-            handleCategoryTabChange(feed === categorySourceFeeds.top ? 'top' : 'latest');
+            setCategoryTabState({
+              uri,
+              tab: feed === categorySourceFeeds.top ? 'top' : 'latest',
+            });
           }}
           {...PROFILE_CHANNEL_FEED_PAGER_DEFAULTS}
           pullToRefreshEnabled
@@ -370,7 +318,7 @@ const Channel: React.FC = memo(() => {
       )}
     </ProfileChannelFeedLayout>
   );
-});
+};
 
 Channel.displayName = 'Channel';
 

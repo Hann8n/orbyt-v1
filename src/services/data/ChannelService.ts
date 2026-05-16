@@ -1,7 +1,6 @@
-import { storage } from '../../utils/storage/storage';
 import { AtprotoFeedService } from '../api/feed/FeedService';
 import { extractColorsFromImage, darkenColor } from '../../utils/formatting/colors';
-import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
+import { useQuery, useQueryClient, UseQueryResult, QueryClient } from '@tanstack/react-query';
 import { Colors } from '../../theme';
 import {
   isOrbytChannel,
@@ -63,49 +62,6 @@ class ChannelService {
     await this.channelsHydrationPromise;
   }
 
-  private static getChannelColorsKey(uri: string): string {
-    return `channelColors_${uri.toLowerCase()}`;
-  }
-
-  private static readPersistedColors(uri: string): CachedChannel['channelColors'] | undefined {
-    try {
-      const raw = storage.getString(this.getChannelColorsKey(uri));
-      if (!raw) return undefined;
-      const parsed = JSON.parse(raw) as CachedChannel['channelColors'];
-      if (!parsed?.backgroundColor) return undefined;
-      return {
-        backgroundColor: parsed.backgroundColor,
-        foregroundColor: '#FFFFFF',
-        accentColor: parsed.accentColor || Colors.black,
-        statusBarStyle: 'light',
-      };
-    } catch {
-      return undefined;
-    }
-  }
-
-  private static writePersistedColors(
-    uri: string,
-    colors: { backgroundColor: string; accentColor?: string }
-  ): void {
-    try {
-      storage.set(
-        this.getChannelColorsKey(uri),
-        JSON.stringify({
-          backgroundColor: colors.backgroundColor,
-          accentColor: colors.accentColor,
-          statusBarStyle: 'light',
-        })
-      );
-    } catch {
-      // ignore
-    }
-  }
-
-  /**
-   * Fetch and cache a channel/feed
-   * Accepts local channel URIs (at://local.orbyt.channel/{slug}), hashtag feeds (e.g., "hashtag:orbyt-channel-art"), and feed generator URIs
-   */
   static async getChannel(uriOrFeed: string): Promise<CachedChannel | null> {
     if (!uriOrFeed) return null;
     await this.ensureChannelsHydrated();
@@ -137,9 +93,6 @@ class ChannelService {
     return this.fetchAndCacheChannel(uriOrFeed);
   }
 
-  /**
-   * Fetch a channel from the API and cache it
-   */
   private static async fetchAndCacheChannel(uri: string): Promise<CachedChannel | null> {
     if (!uri) return null;
 
@@ -205,25 +158,23 @@ class ChannelService {
         subscriberCount,
         indexedAt: channel.view?.indexedAt,
         isOrbytChannel: isOrbytChannel(channelUri),
-        channelColors:
-          this.readPersistedColors(channelUri) ||
-          (channelColors
-            ? {
-                backgroundColor: channelColors.backgroundColor,
-                foregroundColor: channelColors.foregroundColor,
-                accentColor: channelColors.accentColor,
-                statusBarStyle:
-                  channelColors.statusBarStyle === 'light' ||
-                  channelColors.statusBarStyle === 'dark'
-                    ? channelColors.statusBarStyle
-                    : 'light',
-              }
-            : {
-                backgroundColor: Colors.black,
-                foregroundColor: '#FFFFFF',
-                accentColor: '#00D4FF',
-                statusBarStyle: 'light' as const,
-              }),
+        channelColors: channelColors
+          ? {
+              backgroundColor: channelColors.backgroundColor,
+              foregroundColor: channelColors.foregroundColor,
+              accentColor: channelColors.accentColor,
+              statusBarStyle:
+                channelColors.statusBarStyle === 'light' ||
+                channelColors.statusBarStyle === 'dark'
+                  ? channelColors.statusBarStyle
+                  : 'light',
+            }
+          : {
+              backgroundColor: Colors.black,
+              foregroundColor: '#FFFFFF',
+              accentColor: '#00D4FF',
+              statusBarStyle: 'light' as const,
+            },
         lastUpdated: Date.now(),
       };
 
@@ -233,23 +184,7 @@ class ChannelService {
     }
   }
 
-  /**
-   * Update the channel colors
-   */
-  static async updateChannelColors(
-    uri: string,
-    backgroundColor: string,
-    _foregroundColor: string,
-    accentColor?: string
-  ): Promise<void> {
-    if (!uri) return;
 
-    this.writePersistedColors(uri, { backgroundColor, accentColor });
-  }
-
-  /**
-   * Create a cached channel object from orbyt channel definition
-   */
   private static async createOrbytChannelCache(
     orbytChannel: import('../../utils/channels/orbyt').OrbytChannel
   ): Promise<CachedChannel> {
@@ -308,7 +243,7 @@ class ChannelService {
       subscriberCount: 0,
       indexedAt: new Date().toISOString(),
       isOrbytChannel: true,
-      channelColors: this.readPersistedColors(orbytChannel.uri) || channelColors,
+      channelColors,
       lastUpdated: Date.now(),
     };
 
@@ -316,22 +251,26 @@ class ChannelService {
   }
 }
 
-/**
- * Hook to fetch channel data
- */
 export function useChannel(uri: string | null | undefined): UseQueryResult<CachedChannel | null> {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: queryKeys.channels.detail(uri || ''),
     queryFn: () => ChannelService.getChannel(uri || ''),
     enabled: !!uri,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    networkMode: 'offlineFirst',
+    initialData: () => {
+      if (!uri) return undefined;
+      return queryClient.getQueryData<CachedChannel>(queryKeys.channels.detail(uri));
+    },
   });
 }
 
-/**
- * Hook to fetch just the channel colors
- */
 export function useChannelColors(uriOrFeed: string | null | undefined) {
   const { data: channel } = useChannel(uriOrFeed);
 
@@ -391,31 +330,25 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
   };
 }
 
-/**
- * Hook to update channel colors with React Query integration
- */
-export function useChannelColorsMutation() {
-  const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: async ({
-      uri,
-      backgroundColor,
-      foregroundColor,
-      accentColor,
-    }: {
-      uri: string;
-      backgroundColor: string;
-      foregroundColor: string;
-      accentColor?: string;
-    }) => {
-      await ChannelService.updateChannelColors(uri, backgroundColor, foregroundColor, accentColor);
-      return { uri, backgroundColor, foregroundColor, accentColor };
-    },
-    onSuccess: (_, { uri }) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.channels.detail(uri) });
-    },
-  });
+export async function prefetchChannel(
+  queryClient: QueryClient,
+  uri: string
+): Promise<void> {
+  if (!uri || !queryClient) return;
+
+  const existing = queryClient.getQueryData<CachedChannel>(queryKeys.channels.detail(uri));
+  if (existing) return;
+
+  try {
+    await queryClient.prefetchQuery({
+      queryKey: queryKeys.channels.detail(uri),
+      queryFn: () => ChannelService.getChannel(uri),
+      staleTime: 30 * 60 * 1000,
+    });
+  } catch {
+    // Prefetch is best-effort
+  }
 }
 
 export default ChannelService;

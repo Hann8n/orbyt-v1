@@ -1,4 +1,3 @@
-import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
@@ -9,7 +8,6 @@ import AuthorItem from '@/components/ui/AuthorItem';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { navigateToEncodedChannelUri } from '@/utils/navigation/navigateEncodedChannel';
 import { extractFeedSlug } from '@/utils/channels/orbyt';
-import { useFollowStore } from '@/stores/followStore';
 
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import type { CachedChannel } from '@/services/data/ChannelService';
@@ -21,155 +19,136 @@ type ExploreSuggestionsProfileRowProps = {
   profile: ProfileViewWithOrbyt;
   queryClient: QueryClient;
   goToProfile: (did: string) => void;
-  onFollow: (profile: ProfileViewWithOrbyt) => void;
+  onFollow?: (profile: ProfileViewWithOrbyt) => void;
 };
 
-export const ExploreSuggestionsProfileRow = React.memo(
-  ({ profile, queryClient, goToProfile, onFollow }: ExploreSuggestionsProfileRowProps) => {
-    const followStoreState = useFollowStore(state => state.follows.get(profile.did));
-    const isFollowing = followStoreState?.isFollowing ?? !!profile.viewer?.following;
+export const ExploreSuggestionsProfileRow = ({
+  profile,
+  queryClient,
+  goToProfile,
+  onFollow,
+}: ExploreSuggestionsProfileRowProps) => {
+  const isFollowing = !!profile.viewer?.following;
 
-    const handleFollowPress = useCallback(() => {
-      onFollow(profile);
-    }, [onFollow, profile]);
-
-    const handlePress = useCallback(() => {
-      prefetchProfileThenOpen(profile, queryClient, goToProfile);
-    }, [profile, queryClient, goToProfile]);
-
-    return (
-      <AuthorItem
-        handle={profile.handle || ''}
-        did={profile.did}
-        avatar={profile.avatar}
-        size="large"
-        showArrow={false}
-        showFollowButton={!isFollowing}
-        isFollowing={isFollowing}
-        onFollowPress={handleFollowPress}
-        onPress={handlePress}
-        backgroundColor={Colors.transparent}
-        textColor={Colors.neutral[50]}
-        nameFontWeight="Figtree-Bold"
-        handleAsDisplayName
-        style={styles.authorItemStyle}
-      />
-    );
-  }
-);
+  return (
+    <AuthorItem
+      handle={profile.handle || ''}
+      did={profile.did}
+      avatar={profile.avatar}
+      size="large"
+      showArrow={false}
+      showFollowButton={!isFollowing}
+      isFollowing={isFollowing}
+      onFollowPress={onFollow ? () => onFollow(profile) : undefined}
+      onPress={() => prefetchProfileThenOpen(profile, queryClient, goToProfile)}
+      backgroundColor={Colors.transparent}
+      textColor={Colors.neutral[50]}
+      nameFontWeight="Figtree-Bold"
+      handleAsDisplayName
+      style={styles.authorItemStyle}
+    />
+  );
+};
 ExploreSuggestionsProfileRow.displayName = 'ExploreSuggestionsProfileRow';
 
-const ProfilesFeedRenderer = React.memo(
-  ({
-    profiles,
-    isLoading,
-    onProfilePress: _onProfilePress,
-    onFollow,
-    bottomPadding = 0,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-  }: {
-    profiles: ProfileViewWithOrbyt[];
-    isLoading?: boolean;
-    onProfilePress?: (profile: ProfileViewWithOrbyt) => void;
-    onFollow?: (profile: ProfileViewWithOrbyt) => void;
-    bottomPadding?: number;
-    hasNextPage?: boolean;
-    isFetchingNextPage?: boolean;
-    fetchNextPage?: () => void;
-  }) => {
-    const { t } = useTranslation();
-    const queryClient = useQueryClient();
-    const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
+const ProfilesFeedRenderer = ({
+  profiles,
+  isLoading,
+  onProfilePress: _onProfilePress,
+  onFollow,
+  bottomPadding = 0,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
+}: {
+  profiles: ProfileViewWithOrbyt[];
+  isLoading?: boolean;
+  onProfilePress?: (profile: ProfileViewWithOrbyt) => void;
+  onFollow?: (profile: ProfileViewWithOrbyt) => void;
+  bottomPadding?: number;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  fetchNextPage?: () => void;
+}) => {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
-    const handleLoadMore = useCallback(() => {
-      if (hasNextPage && !isFetchingNextPage && fetchNextPage) {
-        fetchNextPage();
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage && fetchNextPage) {
+      fetchNextPage();
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainerFull}>
+        <ActivityIndicator size="large" color={Colors.neutral[50]} />
+      </View>
+    );
+  }
+
+  return (
+    <FlashList
+      data={profiles}
+      keyExtractor={profile => `profile-${profile.did || profile.handle}`}
+      renderItem={({ item: profile }) => (
+        <ExploreSuggestionsProfileRow
+          profile={profile}
+          queryClient={queryClient}
+          goToProfile={goToProfile}
+          onFollow={onFollow}
+        />
+      )}
+      contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
+      showsVerticalScrollIndicator={
+        profiles.length >= SCROLL_INDICATOR_CONSTANTS.SEARCH_RESULTS_MIN_ITEMS
       }
-    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-    const renderEmptyProfiles = useCallback(
-      () => (
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      onEndReached={handleLoadMore}
+      onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+      maintainVisibleContentPosition={{
+        disabled: false,
+        autoscrollToTopThreshold: undefined,
+      }}
+      ListEmptyComponent={() => (
         <View style={styles.emptyTabContent}>
           <Text style={styles.emptyTabText}>{t('feed.noPeopleFound')}</Text>
         </View>
-      ),
-      [t]
-    );
-
-    const renderProfileItem = useCallback(
-      ({ item: profile }: { item: ProfileViewWithOrbyt }) => {
-        return (
-          <ExploreSuggestionsProfileRow
-            profile={profile}
-            queryClient={queryClient}
-            goToProfile={goToProfile}
-            onFollow={onFollow ?? (() => {})}
-          />
-        );
-      },
-      [onFollow, queryClient, goToProfile]
-    );
-
-    if (isLoading) {
-      return (
-        <View style={styles.loadingContainerFull}>
-          <ActivityIndicator size="large" color={Colors.neutral[50]} />
-        </View>
-      );
-    }
-
-    return (
-      <FlashList
-        data={profiles}
-        keyExtractor={profile => `profile-${profile.did || profile.handle}`}
-        renderItem={renderProfileItem}
-        contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
-        showsVerticalScrollIndicator={
-          profiles.length >= SCROLL_INDICATOR_CONSTANTS.SEARCH_RESULTS_MIN_ITEMS
-        }
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-        maintainVisibleContentPosition={{
-          disabled: false,
-          autoscrollToTopThreshold: undefined,
-        }}
-        ListEmptyComponent={renderEmptyProfiles}
-      />
-    );
-  }
-);
+      )}
+    />
+  );
+};
 ProfilesFeedRenderer.displayName = 'ProfilesFeedRenderer';
 
-const ChannelsFeedRenderer = React.memo(
-  ({
-    channels,
-    isLoading,
-    onChannelPress,
-    bottomPadding = 0,
-  }: {
-    channels: CachedChannel[];
-    isLoading?: boolean;
-    onChannelPress?: (channel: CachedChannel) => void;
-    bottomPadding?: number;
-  }) => {
-    const { t } = useTranslation();
-    const { navigateToChannel: goToChannel } = useProfileChannelNavigation();
+const ChannelsFeedRenderer = ({
+  channels,
+  isLoading,
+  onChannelPress,
+  bottomPadding = 0,
+}: {
+  channels: CachedChannel[];
+  isLoading?: boolean;
+  onChannelPress?: (channel: CachedChannel) => void;
+  bottomPadding?: number;
+}) => {
+  const { t } = useTranslation();
+  const { navigateToChannel: goToChannel } = useProfileChannelNavigation();
 
-    const renderEmptyChannels = useCallback(
-      () => (
-        <View style={styles.emptyTabContent}>
-          <Text style={styles.emptyTabText}>{t('feed.noFeedsFound')}</Text>
-        </View>
-      ),
-      [t]
+  if (isLoading) {
+    return (
+      <View style={[styles.loadingContainer, styles.flexOne]}>
+        <ActivityIndicator size="large" color={Colors.neutral[50]} />
+      </View>
     );
+  }
 
-    const renderChannelItem = useCallback(
-      ({ item: channel }: { item: CachedChannel }) => {
+  return (
+    <FlashList
+      data={channels}
+      keyExtractor={channel => `channel-${channel.uri || channel.cid}`}
+      renderItem={({ item: channel }) => {
         const slug = extractFeedSlug(channel.uri);
         return (
           <AuthorItem
@@ -182,204 +161,174 @@ const ChannelsFeedRenderer = React.memo(
             showFollowButton={false}
             isFollowing={false}
             rectangularAvatar={true}
-            onPress={() => {
-              if (onChannelPress) {
-                onChannelPress(channel);
-              } else {
-                navigateToEncodedChannelUri(channel.uri, goToChannel);
-              }
-            }}
+            onPress={() =>
+              onChannelPress
+                ? onChannelPress(channel)
+                : navigateToEncodedChannelUri(channel.uri, goToChannel)
+            }
             backgroundColor={Colors.transparent}
             nameFontWeight="Figtree-Bold"
             style={styles.authorItemStyle}
           />
         );
-      },
-      [onChannelPress, goToChannel]
-    );
-
-    if (isLoading) {
-      return (
-        <View style={[styles.loadingContainer, styles.flexOne]}>
-          <ActivityIndicator size="large" color={Colors.neutral[50]} />
+      }}
+      contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
+      showsVerticalScrollIndicator={
+        channels.length >= SCROLL_INDICATOR_CONSTANTS.SEARCH_RESULTS_MIN_ITEMS
+      }
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      ListEmptyComponent={() => (
+        <View style={styles.emptyTabContent}>
+          <Text style={styles.emptyTabText}>{t('feed.noFeedsFound')}</Text>
         </View>
-      );
-    }
+      )}
+    />
+  );
+};
+ChannelsFeedRenderer.displayName = 'ChannelsFeedRenderer';
 
-    return (
+const RecentlyVisitedFeedRenderer = ({
+  profiles,
+  channels,
+  onProfilePress,
+  onChannelPress,
+  bottomPadding = 0,
+}: {
+  profiles: ProfileViewWithOrbyt[];
+  channels: CachedChannel[];
+  onProfilePress?: (profile: ProfileViewWithOrbyt) => void;
+  onChannelPress?: (channel: CachedChannel) => void;
+  bottomPadding?: number;
+}) => {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const { navigateToProfile: goToProfile, navigateToChannel: goToChannel } =
+    useProfileChannelNavigation();
+
+  const combinedItems = [...profiles, ...channels];
+  return (
+    <View style={styles.flexOne}>
       <FlashList
-        data={channels}
-        keyExtractor={channel => `channel-${channel.uri || channel.cid}`}
-        renderItem={renderChannelItem}
+        data={combinedItems}
+        keyExtractor={item => ('handle' in item ? `p-${item.did}` : `c-${item.uri}`)}
+        renderItem={({ item }) => {
+          const isProfile = 'handle' in item;
+          const slug = !isProfile ? extractFeedSlug(item.uri) : null;
+          const handle = isProfile ? item.handle : slug || '';
+          const displayName = isProfile ? undefined : slug || item.displayName;
+          const onPress = isProfile
+            ? () =>
+                onProfilePress
+                  ? onProfilePress(item)
+                  : prefetchProfileThenOpen(item, queryClient, goToProfile)
+            : () =>
+                onChannelPress
+                  ? onChannelPress(item)
+                  : navigateToEncodedChannelUri(item.uri, goToChannel);
+
+          return (
+            <AuthorItem
+              handle={handle || ''}
+              did={isProfile ? item.did : item.did}
+              displayName={displayName}
+              avatar={isProfile ? item.avatar : item.avatar}
+              size="large"
+              showArrow={false}
+              showFollowButton={false}
+              isFollowing={false}
+              rectangularAvatar={!isProfile}
+              handleAsDisplayName={isProfile}
+              onPress={onPress}
+              backgroundColor={Colors.transparent}
+              nameFontWeight="Figtree-Bold"
+              style={styles.authorItemStyle}
+            />
+          );
+        }}
         contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
         showsVerticalScrollIndicator={
-          channels.length >= SCROLL_INDICATOR_CONSTANTS.SEARCH_RESULTS_MIN_ITEMS
+          combinedItems.length >= SCROLL_INDICATOR_CONSTANTS.SEARCH_RESULTS_MIN_ITEMS
         }
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        ListEmptyComponent={renderEmptyChannels}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyTabContent}>
+            <Text style={styles.emptyTabText}>{t('feed.noRecentVisits')}</Text>
+          </View>
+        )}
       />
-    );
-  }
-);
-ChannelsFeedRenderer.displayName = 'ChannelsFeedRenderer';
-
-const RecentlyVisitedFeedRenderer = React.memo(
-  ({
-    profiles,
-    channels,
-    onProfilePress,
-    onChannelPress,
-    bottomPadding = 0,
-  }: {
-    profiles: ProfileViewWithOrbyt[];
-    channels: CachedChannel[];
-    onProfilePress?: (profile: ProfileViewWithOrbyt) => void;
-    onChannelPress?: (channel: CachedChannel) => void;
-    bottomPadding?: number;
-  }) => {
-    const { t } = useTranslation();
-    const queryClient = useQueryClient();
-    const { navigateToProfile: goToProfile, navigateToChannel: goToChannel } =
-      useProfileChannelNavigation();
-
-    const renderItem = useCallback(
-      ({ item }: { item: ProfileViewWithOrbyt | CachedChannel }) => {
-        const isProfile = 'handle' in item;
-        const slug = !isProfile ? extractFeedSlug(item.uri) : null;
-        const handle = isProfile ? item.handle : slug || '';
-        // Channels only: pass displayName. Profiles use handleAsDisplayName.
-        const displayName = isProfile ? undefined : slug || item.displayName;
-        const onPress = isProfile
-          ? () =>
-              onProfilePress
-                ? onProfilePress(item)
-                : prefetchProfileThenOpen(item, queryClient, goToProfile)
-          : () =>
-              onChannelPress
-                ? onChannelPress(item)
-                : navigateToEncodedChannelUri(item.uri, goToChannel);
-
-        return (
-          <AuthorItem
-            handle={handle || ''}
-            did={isProfile ? item.did : item.did}
-            displayName={displayName}
-            avatar={isProfile ? item.avatar : item.avatar}
-            size="large"
-            showArrow={false}
-            showFollowButton={false}
-            isFollowing={false}
-            rectangularAvatar={!isProfile}
-            handleAsDisplayName={isProfile}
-            onPress={onPress}
-            backgroundColor={Colors.transparent}
-            nameFontWeight="Figtree-Bold"
-            style={styles.authorItemStyle}
-          />
-        );
-      },
-      [onProfilePress, onChannelPress, queryClient, goToProfile, goToChannel]
-    );
-
-    const renderEmpty = useCallback(
-      () => (
-        <View style={styles.emptyTabContent}>
-          <Text style={styles.emptyTabText}>{t('feed.noRecentVisits')}</Text>
-        </View>
-      ),
-      [t]
-    );
-
-    const combinedItems = [...profiles, ...channels];
-    return (
-      <View style={styles.flexOne}>
-        <FlashList
-          data={combinedItems}
-          keyExtractor={item => ('handle' in item ? `p-${item.did}` : `c-${item.uri}`)}
-          renderItem={renderItem}
-          contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
-          showsVerticalScrollIndicator={
-            combinedItems.length >= SCROLL_INDICATOR_CONSTANTS.SEARCH_RESULTS_MIN_ITEMS
-          }
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          ListEmptyComponent={renderEmpty}
-        />
-      </View>
-    );
-  }
-);
+    </View>
+  );
+};
 RecentlyVisitedFeedRenderer.displayName = 'RecentlyVisitedFeedRenderer';
 
-export const SearchFeedRenderer = React.memo(
-  ({
-    feedOption,
-    profiles,
-    channels,
-    isLoading,
-    onProfilePress,
-    onChannelPress,
-    onFollow,
-    recentlyVisitedProfiles,
-    recentlyVisitedChannels,
-    bottomPadding = 0,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-  }: {
-    feedOption: ExploreSearchTabId;
-    profiles: ProfileViewWithOrbyt[];
-    channels: CachedChannel[];
-    isLoading?: boolean;
-    onProfilePress?: (profile: ProfileViewWithOrbyt) => void;
-    onChannelPress?: (channel: CachedChannel) => void;
-    onFollow?: (profile: ProfileViewWithOrbyt) => void;
-    recentlyVisitedProfiles?: ProfileViewWithOrbyt[];
-    recentlyVisitedChannels?: CachedChannel[];
-    bottomPadding?: number;
-    hasNextPage?: boolean;
-    isFetchingNextPage?: boolean;
-    fetchNextPage?: () => void;
-  }) => {
-    switch (feedOption) {
-      case 'recently-visited':
-        return (
-          <RecentlyVisitedFeedRenderer
-            profiles={recentlyVisitedProfiles || []}
-            channels={recentlyVisitedChannels || []}
-            onProfilePress={onProfilePress}
-            onChannelPress={onChannelPress}
-            bottomPadding={bottomPadding}
-          />
-        );
-      case 'profiles':
-        return (
-          <ProfilesFeedRenderer
-            profiles={profiles}
-            isLoading={isLoading}
-            onProfilePress={onProfilePress}
-            onFollow={onFollow}
-            bottomPadding={bottomPadding}
-            hasNextPage={hasNextPage}
-            isFetchingNextPage={isFetchingNextPage}
-            fetchNextPage={fetchNextPage}
-          />
-        );
-      case 'channels':
-        return (
-          <ChannelsFeedRenderer
-            channels={channels}
-            isLoading={isLoading}
-            onChannelPress={onChannelPress}
-            bottomPadding={bottomPadding}
-          />
-        );
-      default: {
-        const _exhaustive: never = feedOption;
-        return _exhaustive;
-      }
+export const SearchFeedRenderer = ({
+  feedOption,
+  profiles,
+  channels,
+  isLoading,
+  onProfilePress,
+  onChannelPress,
+  onFollow,
+  recentlyVisitedProfiles,
+  recentlyVisitedChannels,
+  bottomPadding = 0,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
+}: {
+  feedOption: ExploreSearchTabId;
+  profiles: ProfileViewWithOrbyt[];
+  channels: CachedChannel[];
+  isLoading?: boolean;
+  onProfilePress?: (profile: ProfileViewWithOrbyt) => void;
+  onChannelPress?: (channel: CachedChannel) => void;
+  onFollow?: (profile: ProfileViewWithOrbyt) => void;
+  recentlyVisitedProfiles?: ProfileViewWithOrbyt[];
+  recentlyVisitedChannels?: CachedChannel[];
+  bottomPadding?: number;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  fetchNextPage?: () => void;
+}) => {
+  switch (feedOption) {
+    case 'recently-visited':
+      return (
+        <RecentlyVisitedFeedRenderer
+          profiles={recentlyVisitedProfiles || []}
+          channels={recentlyVisitedChannels || []}
+          onProfilePress={onProfilePress}
+          onChannelPress={onChannelPress}
+          bottomPadding={bottomPadding}
+        />
+      );
+    case 'profiles':
+      return (
+        <ProfilesFeedRenderer
+          profiles={profiles}
+          isLoading={isLoading}
+          onProfilePress={onProfilePress}
+          onFollow={onFollow}
+          bottomPadding={bottomPadding}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          fetchNextPage={fetchNextPage}
+        />
+      );
+    case 'channels':
+      return (
+        <ChannelsFeedRenderer
+          channels={channels}
+          isLoading={isLoading}
+          onChannelPress={onChannelPress}
+          bottomPadding={bottomPadding}
+        />
+      );
+    default: {
+      const _exhaustive: never = feedOption;
+      return _exhaustive;
     }
   }
-);
+};
 SearchFeedRenderer.displayName = 'SearchFeedRenderer';

@@ -15,7 +15,6 @@ import type { OrbytProfileRecord, ProfileViewWithOrbyt } from '../services/api/t
 import { isOrbytChannel } from '../utils/channels/orbyt';
 import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
-import { useFollowStore } from './followStore';
 import { queryKeys } from '../utils/query/queryKeys';
 import {
   loadPersistedColors,
@@ -1504,8 +1503,6 @@ export const useUserStore = create<UserState>()(
           try {
             usePostInteractionStore.getState().clearInteractions();
 
-            useFollowStore.getState().clearFollows();
-
             const { useProfileInteractionStore } = await import('./profileInteractionStore');
             useProfileInteractionStore.getState().clearAll();
 
@@ -1663,19 +1660,6 @@ export const useUserStore = create<UserState>()(
               } else {
                 // Fire bootstrap in background — feed shows skeleton until ready
                 void get().bootstrapUserFeedSettings(activeAccountDid);
-
-                // Initialize subscription store in background after interactions complete
-                requestIdleCallback(
-                  async () => {
-                    try {
-                      const { useSubscriptionStore } = await import('./subscriptionStore');
-                      await useSubscriptionStore.getState().initialize();
-                    } catch {
-                      // Silent failure - subscriptions are not critical
-                    }
-                  },
-                  { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-                );
               }
             } else {
               set({ authStatus: 'unauthenticated', authErrorCode: 'none' });
