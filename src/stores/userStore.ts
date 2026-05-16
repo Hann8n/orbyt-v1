@@ -28,7 +28,7 @@ import {
 import { hydrateOrbytChannels } from '../services/OrbytChannelsService';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
 import { setAtprotoSession } from '../services/api/agentBridge';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
+import { Platform } from 'react-native';
 
 export type SessionRestoreOutcome = 'ok' | 'reauth_required' | 'transient_failure' | 'cancelled';
 export type AuthStatus =
@@ -122,7 +122,8 @@ function restoreSessionWithRefresh(did: string): Promise<OAuthSession> {
   return promise;
 }
 
-export const isIosLiquidGlassAvailable = isLiquidGlassAvailable();
+export const isIosLiquidGlassAvailable =
+  Platform.OS === 'ios' && parseFloat(Platform.Version as string) >= 26;
 
 function seedCurrentUserProfileCache(
   did: string,
