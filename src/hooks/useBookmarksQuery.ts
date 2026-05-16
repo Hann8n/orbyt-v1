@@ -28,7 +28,7 @@ export function useBookmarksQuery(): void {
     gcTime: 60 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
-    refetchOnReconnect: false,
+    refetchOnReconnect: 'always',
   });
 
   useEffect(() => {

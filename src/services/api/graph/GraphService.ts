@@ -5,7 +5,6 @@
 
 import { AtUri } from '@atproto/api';
 import { AtprotoCore } from '../core';
-import { deduplicateRequest } from '../inFlightDedup';
 import type { ProfileViewBasic, ProfileView, FollowersResponse, FollowingResponse } from '../types';
 import { posthog } from '../../../config/posthog';
 
@@ -23,13 +22,10 @@ export class GraphService {
       return `at://did:plc:offline-debug/app.bsky.graph.follow/mock-follow-${Date.now()}`;
     }
 
-    const cacheKey = `follow:${did}`;
-    return deduplicateRequest(cacheKey, async () => {
-      const { api } = await AtprotoCore.getApiClient();
-      const response = await api.follow(did);
-      posthog.capture('user_followed', { followed_did: did });
-      return response.uri;
-    });
+    const { api } = await AtprotoCore.getApiClient();
+    const response = await api.follow(did);
+    posthog.capture('user_followed', { followed_did: did });
+    return response.uri;
   }
 
   /**
@@ -46,33 +42,22 @@ export class GraphService {
       return true;
     }
 
-    const cacheKey = `unfollow:${did}`;
-    return deduplicateRequest(cacheKey, async () => {
-      const { api } = await AtprotoCore.getApiClient();
-
-      try {
-        let uri = followUri?.trim();
-        const isPlaceholder = !uri || uri === 'at://placeholder';
-
-        if (isPlaceholder) {
-          const profileResponse = await api.app.bsky.actor.getProfile({ actor: did });
-          if (!profileResponse.data.viewer?.following) {
-            return false;
-          }
-          uri = profileResponse.data.viewer.following;
-        }
-        if (!uri) {
-          return false;
-        }
-
-        await api.deleteFollow(uri);
-
-        posthog.capture('user_unfollowed', { unfollowed_did: did });
-        return true;
-      } catch (_error: unknown) {
-        return false;
+    const { api } = await AtprotoCore.getApiClient();
+    try {
+      let uri = followUri?.trim();
+      const isPlaceholder = !uri || uri === 'at://placeholder';
+      if (isPlaceholder) {
+        const profileResponse = await api.app.bsky.actor.getProfile({ actor: did });
+        if (!profileResponse.data.viewer?.following) return false;
+        uri = profileResponse.data.viewer.following;
       }
-    });
+      if (!uri) return false;
+      await api.deleteFollow(uri);
+      posthog.capture('user_unfollowed', { unfollowed_did: did });
+      return true;
+    } catch (_error: unknown) {
+      return false;
+    }
   }
 
   /**

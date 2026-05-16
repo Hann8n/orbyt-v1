@@ -88,6 +88,7 @@ export const queryKeys = {
   profiles: {
     all: profilesBase,
     detail: (did: string) => [...profilesBase, 'detail', did] as const,
+    byHandle: (handle: string) => [...profilesBase, 'byHandle', handle.toLowerCase()] as const,
     lists: () => [...profilesBase, 'list'] as const,
     list: (filters?: string) =>
       filters

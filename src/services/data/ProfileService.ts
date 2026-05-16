@@ -6,6 +6,7 @@ import {
   useQuery,
   useMutation,
   useQueryClient,
+  skipToken,
   QueryClient,
   QueryKey,
   UseQueryResult,
@@ -197,9 +198,13 @@ class ProfileService {
     }
   }
 
-  static async precacheCurrentUserProfile(): Promise<void> {
+  static async precacheCurrentUserProfile(qc: QueryClient = globalQueryClient): Promise<void> {
     if (!this.currentUserDid) return;
-    this.getProfileByDid(this.currentUserDid);
+    await qc.prefetchQuery({
+      queryKey: profileKeys.detail(this.currentUserDid),
+      queryFn: () => ProfileService.getProfileByDid(this.currentUserDid!),
+      staleTime: PROFILE_CACHE_EXPIRY,
+    });
   }
 }
 
@@ -221,9 +226,8 @@ export function useProfileByDid(
   const staleTime = getProfileStaleTime(cachedProfile);
 
   return useQuery<ProfileViewWithOrbyt | null, Error>({
-    queryKey: did ? profileKeys.detail(did) : ['profiles', 'detail', ''],
-    queryFn: async () => (did ? ProfileService.getProfileByDid(did) : null),
-    enabled: !!did,
+    queryKey: profileKeys.detail(did ?? ''),
+    queryFn: did ? () => ProfileService.getProfileByDid(did) : skipToken,
     staleTime,
     gcTime: PROFILE_CACHE_EXPIRY * 2,
     refetchOnWindowFocus: options.refetchOnWindowFocus ?? true,
@@ -262,18 +266,16 @@ export function useProfile(
   const queryClient = useQueryClient();
 
   return useQuery<ProfileViewWithOrbyt | null, Error>({
-    queryKey: handle
-      ? ['profiles', 'byHandle', handle.toLowerCase()]
-      : ['profiles', 'byHandle', ''],
-    queryFn: async () => {
-      if (!handle) return null;
-      const profile = await ProfileService.getProfile(handle);
-      if (profile?.did) {
-        queryClient.setQueryData(profileKeys.detail(profile.did), profile);
-      }
-      return profile;
-    },
-    enabled: !!handle,
+    queryKey: queryKeys.profiles.byHandle(handle ?? ''),
+    queryFn: handle
+      ? async () => {
+          const profile = await ProfileService.getProfile(handle);
+          if (profile?.did) {
+            queryClient.setQueryData(profileKeys.detail(profile.did), profile);
+          }
+          return profile;
+        }
+      : skipToken,
     staleTime: PROFILE_CACHE_EXPIRY,
     gcTime: PROFILE_CACHE_EXPIRY * 2,
     refetchOnWindowFocus: false,

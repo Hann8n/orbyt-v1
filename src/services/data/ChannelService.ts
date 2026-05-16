@@ -1,6 +1,5 @@
 import { AtprotoFeedService } from '../api/feed/FeedService';
-import { extractColorsFromImage, darkenColor } from '../../utils/formatting/colors';
-import { useQuery, useQueryClient, UseQueryResult, QueryClient } from '@tanstack/react-query';
+import { useQuery, skipToken, UseQueryResult, QueryClient } from '@tanstack/react-query';
 import { Colors } from '../../theme';
 import {
   isOrbytChannel,
@@ -73,7 +72,7 @@ class ChannelService {
       const orbytChannel = getChannelBySlug(slug);
       if (!orbytChannel) return null;
 
-      return await this.createOrbytChannelCache(orbytChannel);
+      return this.createOrbytChannelCache(orbytChannel);
     }
 
     if (uriOrFeed.startsWith('hashtag:')) {
@@ -83,7 +82,7 @@ class ChannelService {
       const orbytChannel = getChannelBySlug(slug);
       if (!orbytChannel) return null;
 
-      return await this.createOrbytChannelCache(orbytChannel);
+      return this.createOrbytChannelCache(orbytChannel);
     }
 
     if (!isValidAtUri(uriOrFeed)) {
@@ -98,7 +97,7 @@ class ChannelService {
 
     const orbytChannel = getChannelByUri(uri);
     if (orbytChannel) {
-      return await this.createOrbytChannelCache(orbytChannel);
+      return this.createOrbytChannelCache(orbytChannel);
     }
 
     if (!isValidAtUri(uri)) {
@@ -111,41 +110,14 @@ class ChannelService {
         return null;
       }
 
-      let channelColors = undefined;
-      const avatarUrl = channel.view?.avatar || channel.view?.creator?.avatar || undefined;
-      if (avatarUrl) {
-        try {
-          const extractedColors = await extractColorsFromImage(avatarUrl);
-          const darkenedBackground = darkenColor(extractedColors.backgroundColor, 0.5);
-          channelColors = {
-            backgroundColor: darkenedBackground,
-            foregroundColor: '#FFFFFF',
-            accentColor: extractedColors.accentColor || Colors.black,
-            statusBarStyle: 'light' as const,
-          };
-        } catch (_e) {
-          channelColors = {
-            backgroundColor: Colors.black,
-            foregroundColor: '#FFFFFF',
-            accentColor: Colors.black,
-            statusBarStyle: 'light' as const,
-          };
-        }
-      } else {
-        channelColors = {
-          backgroundColor: Colors.black,
-          foregroundColor: '#FFFFFF',
-          accentColor: Colors.black,
-          statusBarStyle: 'light' as const,
-        };
-      }
-
-      const subscriberCount = channel.view?.likeCount || 0;
-
       const channelUri = channel.view?.uri;
       if (!channelUri) {
         return null;
       }
+
+      const avatarUrl = channel.view?.avatar || channel.view?.creator?.avatar || undefined;
+      const subscriberCount = channel.view?.likeCount || 0;
+
       const cacheObject: CachedChannel = {
         uri: channelUri,
         cid: channel.view?.cid,
@@ -158,23 +130,12 @@ class ChannelService {
         subscriberCount,
         indexedAt: channel.view?.indexedAt,
         isOrbytChannel: isOrbytChannel(channelUri),
-        channelColors: channelColors
-          ? {
-              backgroundColor: channelColors.backgroundColor,
-              foregroundColor: channelColors.foregroundColor,
-              accentColor: channelColors.accentColor,
-              statusBarStyle:
-                channelColors.statusBarStyle === 'light' ||
-                channelColors.statusBarStyle === 'dark'
-                  ? channelColors.statusBarStyle
-                  : 'light',
-            }
-          : {
-              backgroundColor: Colors.black,
-              foregroundColor: '#FFFFFF',
-              accentColor: '#00D4FF',
-              statusBarStyle: 'light' as const,
-            },
+        channelColors: {
+          backgroundColor: Colors.black,
+          foregroundColor: '#FFFFFF',
+          accentColor: Colors.black,
+          statusBarStyle: 'light' as const,
+        },
         lastUpdated: Date.now(),
       };
 
@@ -185,47 +146,10 @@ class ChannelService {
   }
 
 
-  private static async createOrbytChannelCache(
+  private static createOrbytChannelCache(
     orbytChannel: import('../../utils/channels/orbyt').OrbytChannel
-  ): Promise<CachedChannel> {
-    const avatarUrl = orbytChannel.mediaUrl;
-
-    let channelColors:
-      | {
-          backgroundColor: string;
-          foregroundColor: string;
-          accentColor: string;
-          statusBarStyle: 'light';
-        }
-      | undefined;
-    if (avatarUrl) {
-      try {
-        const extractedColors = await extractColorsFromImage(avatarUrl);
-        const darkenedBackground = darkenColor(extractedColors.backgroundColor, 0.5);
-        channelColors = {
-          backgroundColor: darkenedBackground,
-          foregroundColor: '#FFFFFF',
-          accentColor: extractedColors.accentColor || Colors.black,
-          statusBarStyle: 'light' as const,
-        };
-      } catch (_e) {
-        channelColors = {
-          backgroundColor: Colors.black,
-          foregroundColor: '#FFFFFF',
-          accentColor: Colors.black,
-          statusBarStyle: 'light' as const,
-        };
-      }
-    } else {
-      channelColors = {
-        backgroundColor: Colors.black,
-        foregroundColor: '#FFFFFF',
-        accentColor: Colors.black,
-        statusBarStyle: 'light' as const,
-      };
-    }
-
-    const cacheObject: CachedChannel = {
+  ): CachedChannel {
+    return {
       uri: orbytChannel.uri,
       cid: '',
       did: 'did:plc:2xrqztnmzlckb3xfuuukupso',
@@ -238,36 +162,32 @@ class ChannelService {
           orbytChannel.description || '',
           orbytChannel.descriptionTranslations
         ) || '',
-      avatar: avatarUrl,
+      avatar: orbytChannel.mediaUrl,
       likeCount: 0,
       subscriberCount: 0,
       indexedAt: new Date().toISOString(),
       isOrbytChannel: true,
-      channelColors,
+      channelColors: {
+        backgroundColor: Colors.black,
+        foregroundColor: '#FFFFFF',
+        accentColor: Colors.black,
+        statusBarStyle: 'light' as const,
+      },
       lastUpdated: Date.now(),
     };
-
-    return cacheObject;
   }
 }
 
 export function useChannel(uri: string | null | undefined): UseQueryResult<CachedChannel | null> {
-  const queryClient = useQueryClient();
-
   return useQuery({
     queryKey: queryKeys.channels.detail(uri || ''),
-    queryFn: () => ChannelService.getChannel(uri || ''),
-    enabled: !!uri,
+    queryFn: uri ? () => ChannelService.getChannel(uri) : skipToken,
     staleTime: 30 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
     networkMode: 'offlineFirst',
-    initialData: () => {
-      if (!uri) return undefined;
-      return queryClient.getQueryData<CachedChannel>(queryKeys.channels.detail(uri));
-    },
   });
 }
 

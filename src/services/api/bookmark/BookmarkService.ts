@@ -8,7 +8,6 @@ import { AppBskyFeedDefs, AtUri } from '@atproto/api';
 const FEED_POST_COLLECTION = 'app.bsky.feed.post';
 import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
-import { deduplicateRequest } from '../inFlightDedup';
 import type { BookmarksResponse, ExtendedPostView } from '../types';
 
 export class BookmarkService {
@@ -19,20 +18,10 @@ export class BookmarkService {
    * @returns The post URI (bookmark URI not needed since deleteBookmark uses post URI)
    */
   static async createBookmark(uri: string, cid: string): Promise<string> {
-    const cacheKey = `bookmark:create:${uri}:${cid}`;
-    return deduplicateRequest(cacheKey, async () => {
-      await AtprotoCore.ensureSession();
-      const { api } = await AtprotoCore.getApiClient();
-
-      await api.app.bsky.bookmark.createBookmark({
-        uri,
-        cid,
-      });
-
-      // The bookmark is successfully created. We don't need the bookmark URI
-      // since deleteBookmark uses the post URI. Return the post URI for consistency.
-      return uri;
-    });
+    await AtprotoCore.ensureSession();
+    const { api } = await AtprotoCore.getApiClient();
+    await api.app.bsky.bookmark.createBookmark({ uri, cid });
+    return uri;
   }
 
   /**
@@ -40,16 +29,9 @@ export class BookmarkService {
    * @param postUri - The URI of the bookmark to delete
    */
   static async deleteBookmark(postUri: string): Promise<void> {
-    const cacheKey = `bookmark:delete:${postUri}`;
-    return deduplicateRequest(cacheKey, async () => {
-      await AtprotoCore.ensureSession();
-      const { api } = await AtprotoCore.getApiClient();
-
-      // The deleteBookmark API expects the post URI (same as createBookmark)
-      await api.app.bsky.bookmark.deleteBookmark({
-        uri: postUri,
-      });
-    });
+    await AtprotoCore.ensureSession();
+    const { api } = await AtprotoCore.getApiClient();
+    await api.app.bsky.bookmark.deleteBookmark({ uri: postUri });
   }
 
   /**

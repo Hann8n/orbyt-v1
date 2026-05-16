@@ -1,7 +1,7 @@
 import { AppBskyActorDefs, AppBskyFeedPost } from '@atproto/api';
 
 import { useProfileByDid } from '../../../../../services/data/ProfileService';
-import { isCurrentUser } from '../../../../../stores/profileInteractionStore';
+import { isCurrentUser } from '../../../../../utils/atproto/isCurrentUser';
 import { getProfileColors, type ProfileColorScheme } from '../../../../../utils/formatting/colors';
 import { getChannelBySlug } from '../../../../../utils/channels/orbyt';
 import type { ExtendedPostView } from '../../../../../services/api/types';

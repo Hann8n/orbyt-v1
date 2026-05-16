@@ -8,11 +8,7 @@ export function useDeletePostMutation() {
   return useMutation<boolean, Error, string>({
     mutationFn: (postUri: string) => AtprotoFeedService.deletePost(postUri),
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.feed.all, refetchType: 'active' });
-    },
-
-    onError: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.feed.all, refetchType: 'active' });
     },
   });

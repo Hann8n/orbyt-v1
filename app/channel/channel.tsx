@@ -25,10 +25,9 @@ import FeedPager from '@/components/features/feed/FeedPager';
 import { Colors } from '@/theme';
 
 import { useChannelColors, useChannel } from '@/services/data/ChannelService';
-import { queryKeys } from '@/utils/query/queryKeys';
-import ProfileService from '@/services/data/ProfileService';
+import { prefetchProfile } from '@/services/data/ProfileService';
 import { useUserStore } from '@/stores/userStore';
-import { extractColorsFromImage, darkenColor, hexToRGBA } from '@/utils/formatting/colors';
+import { hexToRGBA } from '@/utils/formatting/colors';
 import { useVisibilityRouteIsActive } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getEffectiveTopInset } from '@/utils/device/screen';
@@ -37,7 +36,6 @@ import { logger } from '@/utils/logger';
 import type { ViewMode } from '@/types';
 import type { FeedPagerRef } from '@/utils/navigation/tabRefs';
 import { useQueryClient } from '@tanstack/react-query';
-import type { CachedChannel } from '@/services/data/ChannelService';
 
 type ChannelCategoryTab = 'top' | 'latest';
 
@@ -130,41 +128,11 @@ const Channel: React.FC = () => {
     ),
   };
 
-  // Back-fill colors for stale cache entries that pre-date color extraction in ChannelService.
-  // New fetches always include colors, so this only fires for old cached data.
-  useEffect(() => {
-    if (!channelData?.avatar || channelData.channelColors) return;
-
-    extractColorsFromImage(channelData.avatar)
-      .then(colors => {
-        queryClient.setQueryData<CachedChannel>(
-          queryKeys.channels.detail(channelData.uri),
-          prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              channelColors: {
-                backgroundColor: darkenColor(colors.backgroundColor, 0.5),
-                foregroundColor: '#FFFFFF',
-                accentColor: colors.accentColor || Colors.black,
-                statusBarStyle: 'light' as const,
-              },
-            };
-          }
-        );
-      })
-      .catch(error => {
-        logger.error('Error extracting channel colors', error, { component: 'Channel' });
-      });
-  }, [channelData?.uri, channelData?.avatar, channelData?.channelColors, queryClient]);
-
   useEffect(() => {
     if (channelData?.creator?.handle) {
-      ProfileService.getProfile(channelData.creator.handle).catch(error => {
-        logger.warn('Error preloading channel creator profile', { component: 'Channel', error });
-      });
+      void prefetchProfile(queryClient, channelData.creator.handle);
     }
-  }, [channelData?.creator?.handle]);
+  }, [channelData?.creator?.handle, queryClient]);
 
   const channelHeaderData = (() => {
     if (!channelData) return null;

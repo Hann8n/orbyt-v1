@@ -27,7 +27,7 @@ import { formatHandle } from '../../utils/formatting/handles';
 import { useQueryClient } from '@tanstack/react-query';
 import { itemSizeConfig, sharedItemStyles, sharedListRowStyles } from './ItemStyles';
 import { useUserStore } from '../../stores/userStore';
-import { isCurrentUser } from '../../stores/profileInteractionStore';
+import { isCurrentUser } from '../../utils/atproto/isCurrentUser';
 import { BlurView } from 'expo-blur';
 
 interface AuthorItemProps {

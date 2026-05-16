@@ -39,7 +39,7 @@ import { ChatService } from '../../../services/api/chat/ChatService';
 import { useUserStore } from '../../../stores/userStore';
 import { Colors } from '../UI';
 import AuthorItem from '../AuthorItem';
-import { isCurrentUser } from '../../../stores/profileInteractionStore';
+import { isCurrentUser } from '../../../utils/atproto/isCurrentUser';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { exploreScreenStyles } from '../../features/explore/ExploreScreenStyles';
 import { Shadows } from '../../../theme';

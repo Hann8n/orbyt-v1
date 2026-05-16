@@ -74,7 +74,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
 
   const { currentUser } = useCurrentUser();
 
-  const [profileError, setProfileError] = useState<string | null>(null);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const didLongPressMenuRef = useRef(false);
 
@@ -155,14 +154,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
 
   const profileDid = profileData?.did ?? undefined;
 
-  const refreshProfileMetadata = async () => {
-    setProfileError(null);
-    try {
-      await refetchProfile();
-    } catch {
-      setProfileError(t('profile.failedToRefresh'));
-    }
-  };
+  const refreshProfileMetadata = () => refetchProfile();
 
   const isOwnProfileView = (() => {
     if (isViewingOwnProfile) return true;
@@ -194,7 +186,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   }, [profileFeedOptions, activeTab]);
 
   const showErrorScreen =
-    (isProfileFetchError || profileError || isExternalProfileMissing) && !didQuery.isFetching;
+    (isProfileFetchError || isExternalProfileMissing) && !didQuery.isFetching;
 
   const renderErrorScreen = (
     <ProfileChannelErrorScreen
@@ -202,7 +194,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
       subtitle={
         providedIdentifier
           ? t('profile.notFoundFor', { identifier: providedIdentifier })
-          : profileError || t('profile.retrieveFailed')
+          : t('profile.retrieveFailed')
       }
       onRetry={refreshProfileMetadata}
       onGoBack={providedIdentifier ? () => router.back() : undefined}
@@ -293,29 +285,26 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
 
     requestIdleCallback(
       () => {
-        const repostsQueryKey = queryKeys.feed.infinite('reposts', profileDid);
-        if (!queryClient.getQueryData(repostsQueryKey)) {
-          queryClient
-            .prefetchInfiniteQuery<
-              FeedResponse,
-              Error,
-              InfiniteData<FeedResponse, string | null>,
-              ReturnType<typeof queryKeys.feed.infinite>,
-              string | null
-            >({
-              queryKey: repostsQueryKey,
-              queryFn: ({ pageParam }) =>
-                feedService.fetchFeed(
-                  'reposts',
-                  profileDid,
-                  (pageParam ?? undefined) as string | undefined
-                ),
-              initialPageParam: null,
-              getNextPageParam: (lastPage: FeedResponse) => lastPage?.cursor ?? null,
-              staleTime: FEED_CONFIG.STALE_TIME,
-            })
-            .catch(() => {});
-        }
+        queryClient
+          .prefetchInfiniteQuery<
+            FeedResponse,
+            Error,
+            InfiniteData<FeedResponse, string | null>,
+            ReturnType<typeof queryKeys.feed.infinite>,
+            string | null
+          >({
+            queryKey: queryKeys.feed.infinite('reposts', profileDid),
+            queryFn: ({ pageParam }) =>
+              feedService.fetchFeed(
+                'reposts',
+                profileDid,
+                (pageParam ?? undefined) as string | undefined
+              ),
+            initialPageParam: null,
+            getNextPageParam: (lastPage: FeedResponse) => lastPage?.cursor ?? null,
+            staleTime: FEED_CONFIG.STALE_TIME,
+          })
+          .catch(() => {});
       },
       { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
     );

@@ -1504,9 +1504,6 @@ export const useUserStore = create<UserState>()(
           try {
             usePostInteractionStore.getState().clearInteractions();
 
-            const { useProfileInteractionStore } = await import('./profileInteractionStore');
-            useProfileInteractionStore.getState().clearAll();
-
             queryClient.removeQueries({ queryKey: queryKeys.moderation.all });
           } catch (error) {
             logger.error('Error clearing caches', error, { component: 'userStore' });

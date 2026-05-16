@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next';
 
 import type { ExtendedFeedViewPost, ProfileViewWithOrbyt } from '@/services/api/types';
-import { isCurrentUser } from '@/stores/profileInteractionStore';
+import { isCurrentUser } from '@/utils/atproto/isCurrentUser';
 import type { UserState } from '@/stores/userStore';
 import type { CachedChannel } from '@/services/data/ChannelService';
 import type { SearchFeedPost } from './types';

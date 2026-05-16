@@ -12,7 +12,7 @@ import { MinusSquareCuteFilledIcon } from './Icon';
 import ListHeader from './ListHeader';
 import AuthorItem from './AuthorItem';
 import { useFollowMutation } from '../../services/data/ProfileService';
-import { isCurrentUser } from '../../stores/profileInteractionStore';
+import { isCurrentUser } from '../../utils/atproto/isCurrentUser';
 import { useUserStore } from '../../stores/userStore';
 import { FontFamily, Typography } from '@/utils/components/typography';
 

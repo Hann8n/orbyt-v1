@@ -9,7 +9,6 @@ import type { MenuAction } from '@react-native-menu/menu';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { getProfileColors } from '../../../utils/formatting/colors';
-import { useProfileFlags } from '../../../stores/profileInteractionStore';
 import { useOrbytColors } from '../../../services/colors';
 import VerificationBadge from '../../features/badging/VerificationBadge';
 import BotBadge from '../../features/badging/BotBadge';
@@ -159,13 +158,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     Alert.alert(t('a11y.betaTester'), message, [{ text: t('common.ok') }]);
   }, [joinDate, profileData, t]);
 
-  // Block status and flags (used for avatar blur only; actions moved to ProfileScreen)
-  // Use moderation flags directly from ProfileView viewer fields
-  // Fallback to store flags for optimistic updates during mutations
-  const { flags } = useProfileFlags(profileData?.did, profileData?.handle);
-  const isBlocked =
-    !!(profileData?.viewer?.blocking || profileData?.viewer?.blockingByList) ||
-    (flags?.isBlocked ?? false);
+  const isBlocked = !!(profileData?.viewer?.blocking || profileData?.viewer?.blockingByList);
   const blockingByList = profileData?.viewer?.blockingByList;
 
   const handleListPress = useCallback(async () => {
