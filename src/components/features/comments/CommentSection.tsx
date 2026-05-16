@@ -37,6 +37,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { useModalStore } from '../../../stores/modalStore';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 import { useLikeMutation } from '@/hooks/useLikeMutation';
+import { useQueryClient } from '@tanstack/react-query';
+import type { FeedResponse } from '../../../services/api/types';
 
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { Colors } from '../../../theme';
@@ -55,8 +57,37 @@ import { CommentLikeItem } from './CommentLikeItem';
 import KlipyGifPickerSheet from './KlipyGifPickerSheet';
 import type { Comment, Like, ExtendedPostView } from '../../../services/api/types';
 import type { KlipyItem } from '../../../services/klipy/KlipyService';
+import type { InfiniteData } from '@tanstack/react-query';
 
 type HeaderLikeState = { isLiked: boolean; likeCount: number; likeUri?: string };
+
+/**
+ * Read the like state for a post from the feed cache.
+ * This ensures the header like button shows the correct state when opening comments.
+ */
+function readPostFromFeedCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  postUri: string
+): HeaderLikeState {
+  const feedData = queryClient.getQueryData<InfiniteData<FeedResponse>>(queryKeys.feed.all);
+
+  if (!feedData) {
+    return { isLiked: false, likeCount: 0, likeUri: undefined };
+  }
+
+  for (const page of feedData.pages) {
+    for (const item of page.feed) {
+      if (item.post.uri === postUri) {
+        const { likeCount, viewer } = item.post;
+        const likeUri = viewer && typeof viewer.like === 'string' ? viewer.like : undefined;
+        const isLiked = !!likeUri;
+        return { isLiked, likeCount: likeCount ?? 0, likeUri };
+      }
+    }
+  }
+
+  return { isLiked: false, likeCount: 0, likeUri: undefined };
+}
 
 import {
   ensureCommentUploadImage,
@@ -271,6 +302,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const { currentUser } = useUserStore();
   const { data: currentUserProfile } = useProfileByDid(currentUser?.did ?? null);
+  const queryClient = useQueryClient();
 
   const likeMutation = useLikeMutation();
 
@@ -280,15 +312,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     likeUri: undefined,
   });
 
-  // Reset local like state when a different post is presented.
+  // Read like state from feed cache when post URI changes
   useEffect(() => {
     if (!post?.uri) return;
-    setHeaderLikeState({
-      isLiked: false,
-      likeCount: 0,
-      likeUri: undefined,
-    });
-  }, [post?.uri]);
+    setHeaderLikeState(readPostFromFeedCache(queryClient, post.uri));
+  }, [post?.uri, queryClient]);
 
   const headerHeartScale = useSharedValue(1);
   const headerHeartStyle = useAnimatedStyle(() => ({
