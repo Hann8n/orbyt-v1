@@ -1,0 +1,11 @@
+echo "🔍 Running pre-push checks..."
+
+echo "📦 Running type check..."
+yarn type-check
+if [ $? -ne 0 ]; then
+  echo "❌ Type check failed"
+  exit 1
+fi
+
+echo "✅ Pre-push checks passed!"
+echo "💡 Run 'yarn check' periodically for full validation (tests, knip, expo-doctor)"
