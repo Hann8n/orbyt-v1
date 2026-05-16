@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 import { BORDER_RADIUS } from '@/utils/constants';
 import { Colors, Shadows } from '@/theme';
 import { androidTextFix } from '@/utils/styling/platformText';
-import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
+import { FontFamily, Typography } from '@/utils/components/typography';
 
 export const exploreScreenStyles = StyleSheet.create({
   container: {
@@ -197,7 +197,7 @@ export const exploreScreenStyles = StyleSheet.create({
   },
   horizontalChannelLabel: {
     color: Colors.neutral[50],
-    fontSize: fontSizeFor(22),
+    fontSize: Typography.sizes.h2,
     fontFamily: FontFamily.bold,
     textTransform: 'lowercase',
   },
@@ -210,7 +210,7 @@ export const exploreScreenStyles = StyleSheet.create({
   },
   channelName: {
     color: Colors.neutral[50],
-    fontSize: fontSizeFor(17),
+    fontSize: Typography.sizes.title,
     fontFamily: FontFamily.bold,
     flexShrink: 1,
     textTransform: 'lowercase',

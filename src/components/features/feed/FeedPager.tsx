@@ -28,7 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { FeedPagerRef } from '../../../utils/navigation/tabRefs';
 import { useTabBarVisibility } from '../../../context/FeedIndicatorContext';
-import { FontFamily, Typography } from '@/utils/components/typography';
+import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
 // Define the feed options type
 export type FeedOption = string;
@@ -267,7 +267,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
 
   const indicatorBaseFontSize =
     typeof indicatorFontSize === 'number' && indicatorFontSize > 0
-      ? indicatorFontSize
+      ? fontSizeFor(indicatorFontSize)
       : isTablet
         ? Typography.sizes.h3
         : Typography.sizes.title;

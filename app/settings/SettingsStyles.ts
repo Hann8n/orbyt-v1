@@ -6,7 +6,7 @@ import { BORDER_RADIUS, LAYOUT_INSETS } from '@/utils/constants';
 const SETTINGS_SURFACE_BG = Colors.neutral[975];
 /** Raised rows / cards on settings surface (matches `OptionsButton` fill). */
 const SETTINGS_ELEVATED_BG = Colors.neutral[925];
-import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
+import { FontFamily, Typography } from '@/utils/components/typography';
 import {
   settingsCategoryChipContainer,
   settingsCompactActionContainer,
@@ -124,7 +124,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   groupedLabelText: {
     color: Colors.neutral[200],
-    fontSize: fontSizeFor(13),
+    fontSize: Typography.sizes.caption,
     fontFamily: FontFamily.medium,
   },
 

@@ -32,6 +32,7 @@ import { setupReactQueryLifecycleBridge } from '@/utils/query/lifecycle';
 import { LocaleSync } from '@/i18n/LocaleSync';
 import { useSentryUserSync } from '@/hooks/useSentryUserSync';
 import * as Sentry from '@sentry/react-native';
+import { useResponsiveTypography } from '@/utils/components/typography';
 
 const navigationIntegration = Sentry.reactNavigationIntegration({
   enableTimeToInitialDisplay: true,
@@ -303,6 +304,9 @@ export default Sentry.wrap(function RootLayout() {
   useEffect(() => {
     navigationIntegration.registerNavigationContainer(navRef);
   }, [navRef]);
+
+  // Ensure typography scale updates when dimensions or font scale changes
+  useResponsiveTypography();
 
   const isAuthenticated = useUserStore(selectIsSessionValid);
   const initializeUserState = useUserStore(state => state.initializeUserState);

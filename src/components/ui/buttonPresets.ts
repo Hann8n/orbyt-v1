@@ -2,7 +2,7 @@ import type { TextStyle, ViewStyle } from 'react-native';
 import { Colors, Shadows } from '@/theme';
 import { BORDER_RADIUS } from '@/utils/constants';
 import { hexToRGBA } from '@/utils/formatting/colors';
-import { FontFamily, Typography, fontSizeFor, lineHeightFor } from '@/utils/components/typography';
+import { FontFamily, Typography } from '@/utils/components/typography';
 
 export const buttonContentCenter: ViewStyle = {
   flexDirection: 'row',
@@ -146,7 +146,7 @@ export const toolbarNextContainer: ViewStyle = {
 
 export const toolbarNextLabel: TextStyle = {
   color: Colors.black,
-  fontSize: fontSizeFor(17),
+  fontSize: Typography.sizes.title,
   fontFamily: FontFamily.bold,
   fontWeight: '600',
   includeFontPadding: false,
@@ -168,8 +168,8 @@ export const headerCancelContainer: ViewStyle = {
 
 /** Shared typography for edit-modal style header pills (Cancel / Save); only color differs per side. */
 const headerChromeLabelBase: TextStyle = {
-  fontSize: fontSizeFor(17),
-  lineHeight: lineHeightFor(fontSizeFor(17)),
+  fontSize: Typography.sizes.title,
+  lineHeight: Typography.lineHeights.title,
   fontFamily: FontFamily.semibold,
   textAlign: 'center',
   includeFontPadding: false,
@@ -180,7 +180,7 @@ const headerChromeLabelBase: TextStyle = {
  * Without this, a short icon (e.g. check) yields a shorter inner layout and the squircle can clip the pill.
  */
 export const headerChromePillInnerSlot: ViewStyle = {
-  minHeight: lineHeightFor(fontSizeFor(17)),
+  minHeight: Typography.lineHeights.title,
   justifyContent: 'center',
   alignItems: 'center',
 };

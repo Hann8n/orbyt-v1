@@ -12,6 +12,7 @@ import { SquircleView } from './Squircle';
 import { Colors } from './UI';
 import { SearchBanner, useSearchTrigger } from './usersearch';
 import type { ProfileViewBasic } from '../../services/api/types';
+import { fontSizeFor, lineHeightFor } from '../../utils/components/typography';
 
 interface MentionInputWithSearchProps {
   value: string;
@@ -172,8 +173,8 @@ const styles = StyleSheet.create({
   },
   textInput: {
     color: Colors.neutral[50],
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: fontSizeFor(16),
+    lineHeight: lineHeightFor(fontSizeFor(16)),
     padding: 0,
     margin: 0,
   },

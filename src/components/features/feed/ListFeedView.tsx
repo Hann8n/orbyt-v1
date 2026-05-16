@@ -16,6 +16,7 @@ import {
   Platform,
   ActivityIndicator,
   RefreshControl,
+  Text,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView as RNScreensSafeAreaView } from 'react-native-screens/experimental';
@@ -72,7 +73,7 @@ import { ExtendedFeedViewPost } from '../../../services/api/types';
 import { isFeedHeaderItem } from '../../../types';
 import { useFeedVisibility } from '../../../core/visibility/hooks';
 import { useTranslation } from 'react-i18next';
-import { TypographyText } from '@/utils/components/typography';
+import { Typography, FontFamily } from '@/utils/components/typography';
 
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as ComponentType<
   FlashListProps<FeedListItem> & { ref?: Ref<FlashListRef<FeedListItem>> }
@@ -225,15 +226,19 @@ const EndOfFeedOverscrollHint = memo(
     return (
       <Animated.View pointerEvents="none" style={hintContainerStyle}>
         <View style={styles.endOfFeedOverscrollInner}>
-          <TypographyText
-            variant="body"
-            weight="medium"
-            color={labelColor}
-            align="center"
-            style={styles.endOfFeedLabel}
+          <Text
+            style={[
+              styles.endOfFeedLabel,
+              {
+                fontSize: Typography.sizes.body,
+                fontFamily: FontFamily.medium,
+                color: labelColor,
+                textAlign: 'center',
+              },
+            ]}
           >
             {t('feed.thatsAllForNow')}
-          </TypographyText>
+          </Text>
         </View>
       </Animated.View>
     );

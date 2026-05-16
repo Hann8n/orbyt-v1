@@ -1,6 +1,6 @@
-import { Dimensions, PixelRatio } from 'react-native';
+import { Dimensions, PixelRatio, useWindowDimensions } from 'react-native';
+import { useEffect } from 'react';
 import { classifyDevice } from '@/utils/device/screen';
-import { Colors } from '../../theme';
 
 const LAYOUT_SCALE_DAMPING = 0.5;
 const LAYOUT_SCALE_MAX = 1.08;
@@ -10,12 +10,12 @@ const LAYOUT_SCALE_MIN = 0.97;
  * Calculate responsive scale factor for typography.
  * Balances user's system font scale (accessibility) with device dimensions.
  */
-const getTypographyScale = (): number => {
-  const { width, height } = Dimensions.get('window');
-  const { isTablet, isSmallPhone } = classifyDevice(width, height);
+const getTypographyScale = (width?: number, height?: number, fontScaleOverride?: number): number => {
+  const dims = width && height ? { width, height } : Dimensions.get('window');
+  const { isTablet, isSmallPhone } = classifyDevice(dims.width, dims.height);
 
   // Get user's system font scale (respects accessibility settings)
-  const fontScale = PixelRatio.getFontScale();
+  const fontScale = fontScaleOverride ?? PixelRatio.getFontScale();
 
   // For small phones, use user's font scale only (no dimension penalty)
   if (isSmallPhone) {
@@ -25,8 +25,8 @@ const getTypographyScale = (): number => {
   // Dimension-based scaling for other devices
   const BASE_WIDTH = 390;
   const BASE_HEIGHT = 844;
-  const rawScale = Math.min(width / BASE_WIDTH, height / BASE_HEIGHT);
-  const aspectRatio = height / width;
+  const rawScale = Math.min(dims.width / BASE_WIDTH, dims.height / BASE_HEIGHT);
+  const aspectRatio = dims.height / dims.width;
   const isTallScreen = aspectRatio > 2.1;
 
   // Device type adjustments
@@ -61,11 +61,11 @@ export const FontFamily: Record<FontWeightToken, string> = {
 };
 
 // Scale helper - uses current SCALE value
-export const fontSizeFor = (base: number): number => Math.round(base * SCALE);
+export const fontSizeFor = (base: number): number => PixelRatio.roundToNearestPixel(Math.round(base * SCALE));
 
 // Update scale dynamically (call when dimensions or font scale changes)
-const updateTypographyScale = (): void => {
-  const newScale = getTypographyScale();
+const updateTypographyScale = (width?: number, height?: number, fontScale?: number): void => {
+  const newScale = getTypographyScale(width, height, fontScale);
   if (newScale === SCALE) return;
   SCALE = newScale;
   _cachedSizes = computeSizes();
@@ -260,63 +260,14 @@ export const TextStyles = {
   },
 } as const;
 
-// Optional standardized Text component for consistent usage
-import React, { useLayoutEffect } from 'react';
-import { Text as RNText, TextProps as RNTextProps, StyleSheet, useWindowDimensions } from 'react-native';
-
-const useResponsiveTypography = () => {
+// Hook to subscribe to font scale and dimension changes.
+// useWindowDimensions automatically updates when screen size or font scale changes per React Native docs.
+export const useResponsiveTypography = () => {
   const { width, height, fontScale } = useWindowDimensions();
-  useLayoutEffect(() => {
-    updateTypographyScale();
+
+  useEffect(() => {
+    updateTypographyScale(width, height, fontScale);
   }, [width, height, fontScale]);
+
   return Typography;
 };
-
-export interface TypographyTextProps extends RNTextProps {
-  variant?: TextVariant;
-  weight?: FontWeightToken;
-  color?: string;
-  align?: 'left' | 'center' | 'right';
-}
-
-export const TypographyText: React.FC<TypographyTextProps> = ({
-  variant = 'body',
-  weight,
-  color = Colors.neutral[50],
-  align,
-  style,
-  children,
-  ...rest
-}) => {
-  const typo = useResponsiveTypography();
-  const resolvedSize = typo.sizes[variant];
-  const resolvedLineHeight = typo.lineHeights[variant];
-  const resolvedWeight = weight || typo.defaultWeight[variant];
-
-  return (
-    <RNText
-      {...rest}
-      style={[
-        styles.base,
-        {
-          fontSize: resolvedSize,
-          lineHeight: resolvedLineHeight,
-          fontFamily: FontFamily[resolvedWeight],
-          color,
-          textAlign: align,
-        },
-        style,
-      ]}
-    >
-      {children}
-    </RNText>
-  );
-};
-
-const styles = StyleSheet.create({
-  base: {
-    // Keep default text rendering consistent across the app
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-  },
-});

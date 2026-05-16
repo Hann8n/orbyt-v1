@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { BORDER_RADIUS, ICON_SIZES } from '@/utils/constants';
-import { FontFamily, Typography, fontSizeFor, TextStyles } from '@/utils/components/typography';
+import { FontFamily, Typography, TextStyles } from '@/utils/components/typography';
 import { Colors } from '@/theme';
 
 /** Avatar column width on Chats + Notifications activity lists. */
@@ -11,7 +11,7 @@ const ACTIVITY_LIST_AVATAR_GAP = 12;
 export const ACTIVITY_LIST_TEXT_LEADING = ACTIVITY_LIST_AVATAR_SIZE + ACTIVITY_LIST_AVATAR_GAP;
 
 /** Preview / secondary line body — shared by Chats and Notifications rows. */
-const ACTIVITY_LIST_PREVIEW_FONT_SIZE = fontSizeFor(16);
+const ACTIVITY_LIST_PREVIEW_FONT_SIZE = Typography.sizes.body;
 
 /** Muted-conversation bell — between `ICON_SIZES.SMALL` and `MEDIUM`. */
 export const ACTIVITY_LIST_MUTED_ICON_SIZE = 18;

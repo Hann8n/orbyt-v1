@@ -28,6 +28,7 @@ import {
   retryPillLabel,
   shape,
 } from './buttonPresets';
+import { fontSizeFor } from '@/utils/components/typography';
 import { Image } from 'expo-image';
 import { Modal as RNModal } from 'react-native';
 // SafeAreaView is imported elsewhere; no direct usage in this module
@@ -354,56 +355,56 @@ export const Avatar: React.FC<AvatarProps> = ({
     let letterSpacing: number;
 
     if (avatarSize <= 24) {
-      fontSize = 7;
+      fontSize = fontSizeFor(7);
       paddingH = 2;
       paddingV = 1;
       borderRadius = 3;
       letterSpacing = 0.3;
     } else if (avatarSize <= 32) {
-      fontSize = 8;
+      fontSize = fontSizeFor(8);
       paddingH = 2.5;
       paddingV = 1;
       borderRadius = 3.5;
       letterSpacing = 0.35;
     } else if (avatarSize <= 40) {
-      fontSize = 9;
+      fontSize = fontSizeFor(9);
       paddingH = 3;
       paddingV = 1.5;
       borderRadius = 4;
       letterSpacing = 0.4;
     } else if (avatarSize <= 48) {
-      fontSize = 10;
+      fontSize = fontSizeFor(10);
       paddingH = 3.5;
       paddingV = 1.5;
       borderRadius = 4.5;
       letterSpacing = 0.45;
     } else if (avatarSize <= 56) {
-      fontSize = 11;
+      fontSize = fontSizeFor(11);
       paddingH = 4;
       paddingV = 2;
       borderRadius = 5;
       letterSpacing = 0.5;
     } else if (avatarSize <= 64) {
-      fontSize = 12;
+      fontSize = fontSizeFor(12);
       paddingH = 4.5;
       paddingV = 2;
       borderRadius = 5.5;
       letterSpacing = 0.55;
     } else if (avatarSize <= 80) {
-      fontSize = 13;
+      fontSize = fontSizeFor(13);
       paddingH = 5;
       paddingV = 2.5;
       borderRadius = 6;
       letterSpacing = 0.6;
     } else if (avatarSize <= 100) {
-      fontSize = 14;
+      fontSize = fontSizeFor(14);
       paddingH = 6;
       paddingV = 3;
       borderRadius = 7;
       letterSpacing = 0.65;
     } else {
       // For very large avatars (100+)
-      fontSize = 15;
+      fontSize = fontSizeFor(15);
       paddingH = 7;
       paddingV = 3;
       borderRadius = 8;

@@ -8,7 +8,7 @@ import { SquircleNativePressable } from '../../ui/Squircle';
 import { ListViewIcon, GridViewIcon, DownSmallFillIcon } from '../../ui/Icon';
 import type { ViewMode } from '../../../types';
 import { Colors } from '../../../theme';
-import { Typography } from '../../../utils/components/typography';
+import { Typography, fontSizeFor } from '../../../utils/components/typography';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 
 export interface TabOption {
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   },
   tabTextComments: {
     fontFamily: Typography.families.black,
-    fontSize: 18,
+    fontSize: fontSizeFor(18),
   },
 });
 

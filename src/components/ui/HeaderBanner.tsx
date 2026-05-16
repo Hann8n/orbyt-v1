@@ -5,7 +5,7 @@ import { SquircleNativePressable } from './Squircle';
 import { Image } from 'expo-image';
 import { Colors } from '../../theme';
 import { hexToRGBA } from '../../utils/formatting/colors';
-import { FontFamily, Typography } from '../../utils/components/typography';
+import { FontFamily, Typography, fontSizeFor } from '../../utils/components/typography';
 import { Header } from '../../services/OrbytBannerService';
 import Animated, {
   useAnimatedScrollHandler,
@@ -246,7 +246,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                     style={[
                       styles.headerTitle,
                       header.titleColor ? { color: header.titleColor } : undefined,
-                      header.titleFontSize ? { fontSize: header.titleFontSize } : undefined,
+                      header.titleFontSize ? { fontSize: fontSizeFor(header.titleFontSize) } : undefined,
                       header.titleOpacity !== undefined
                         ? { opacity: header.titleOpacity }
                         : undefined,
@@ -263,7 +263,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                     style={[
                       styles.headerSubtitle,
                       header.subtitleColor ? { color: header.subtitleColor } : undefined,
-                      header.subtitleFontSize ? { fontSize: header.subtitleFontSize } : undefined,
+                      header.subtitleFontSize ? { fontSize: fontSizeFor(header.subtitleFontSize) } : undefined,
                       header.subtitleOpacity !== undefined
                         ? { opacity: header.subtitleOpacity }
                         : undefined,
@@ -324,7 +324,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                       style={[
                         styles.headerTitle,
                         header.titleColor ? { color: header.titleColor as string } : null,
-                        header.titleFontSize ? { fontSize: header.titleFontSize } : null,
+                        header.titleFontSize ? { fontSize: fontSizeFor(header.titleFontSize) } : null,
                         header.titleOpacity !== undefined ? { opacity: header.titleOpacity } : null,
                       ]}
                       numberOfLines={1}
@@ -339,7 +339,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                       style={[
                         styles.headerSubtitle,
                         header.subtitleColor ? { color: header.subtitleColor as string } : null,
-                        header.subtitleFontSize ? { fontSize: header.subtitleFontSize } : null,
+                        header.subtitleFontSize ? { fontSize: fontSizeFor(header.subtitleFontSize) } : null,
                         header.subtitleOpacity !== undefined
                           ? { opacity: header.subtitleOpacity }
                           : null,
