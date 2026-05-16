@@ -1,1 +1,8 @@
+# Branch protection: prevent commits directly to main/master
+branch=$(git rev-parse --abbrev-ref HEAD)
+if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+  echo "❌ Do not commit directly to $branch. Please create a feature branch."
+  exit 1
+fi
+
 cd "$(dirname "$0")/.." && node node_modules/lint-staged/bin/lint-staged.js
