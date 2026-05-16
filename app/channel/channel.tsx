@@ -213,7 +213,7 @@ const Channel: React.FC = memo(() => {
       avatar: channelData.avatar || '',
       likeCount,
       isOwner: false,
-      creator: channelData.creator || null,
+      creator: channelData.creator,
     };
   }, [channelData, uri, t]);
 

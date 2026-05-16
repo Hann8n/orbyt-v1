@@ -14,13 +14,12 @@ import { hydrateOrbytChannels } from '../OrbytChannelsService';
 import { resolveLocalizedText } from '@/i18n/resolveLocalizedText';
 import { queryKeys } from '@/utils/query/queryKeys';
 import { isValidAtUri } from '../../utils/atproto/uriValidation';
-// Image.resolveAssetSource replaced with expo-asset
 
 export interface CachedChannel {
   uri: string;
   cid: string;
   did: string;
-  creator: {
+  creator?: {
     did: string;
     handle: string;
     displayName?: string;
@@ -32,24 +31,23 @@ export interface CachedChannel {
   likeCount?: number;
   subscriberCount?: number;
   indexedAt: string;
-  isOrbytChannel?: boolean; // True if this is an orbyt-managed channel (getorbyt.com feed)
+  isOrbytChannel?: boolean;
   channelColors?: {
     backgroundColor: string;
     foregroundColor: string;
-    accentColor?: string; // Add accent color for vibrant UI elements
+    accentColor?: string;
     statusBarStyle: 'light' | 'dark';
   };
-  lastUpdated: number; // timestamp
+  lastUpdated: number;
 }
 
-// Type for channel colors returned by the hook
 export interface ChannelColorScheme {
   backgroundColor: string;
   foregroundColor: string;
   textColor: string;
   primaryColor: string;
   secondaryColor: string;
-  accentColor: string; // Add accent color for vibrant UI elements
+  accentColor: string;
   statusBarStyle: 'light' | 'dark';
 }
 
@@ -112,37 +110,30 @@ class ChannelService {
     if (!uriOrFeed) return null;
     await this.ensureChannelsHydrated();
 
-    // Handle known orbyt channel URIs (including local-style URIs if configured remotely)
     if (isOrbytChannel(uriOrFeed)) {
       const slug = extractFeedSlug(uriOrFeed);
       if (!slug) return null;
 
-      // Look up orbyt channel by slug
       const orbytChannel = getChannelBySlug(slug);
       if (!orbytChannel) return null;
 
-      // Create channel object from orbyt channel config
       return await this.createOrbytChannelCache(orbytChannel);
     }
 
-    // Handle hashtag feeds (legacy support for normalized orbyt channels)
     if (uriOrFeed.startsWith('hashtag:')) {
       const slug = hashtagToChannelSlug(uriOrFeed);
       if (!slug) return null;
 
-      // Look up orbyt channel by slug
       const orbytChannel = getChannelBySlug(slug);
       if (!orbytChannel) return null;
 
       return await this.createOrbytChannelCache(orbytChannel);
     }
 
-    // Handle feed generator URIs (both orbyt and external)
     if (!isValidAtUri(uriOrFeed)) {
       return null;
     }
 
-    // Fetch from API or orbyt channel config
     return this.fetchAndCacheChannel(uriOrFeed);
   }
 
@@ -152,18 +143,15 @@ class ChannelService {
   private static async fetchAndCacheChannel(uri: string): Promise<CachedChannel | null> {
     if (!uri) return null;
 
-    // Check if this is an orbyt channel - if so, get data from API-managed channels.
     const orbytChannel = getChannelByUri(uri);
     if (orbytChannel) {
       return await this.createOrbytChannelCache(orbytChannel);
     }
 
-    // Validate URI format - must be a valid at-uri for feed generators
     if (!isValidAtUri(uri)) {
       return null;
     }
 
-    // Async operations already run off the main thread - no delay needed
     try {
       const channel = await AtprotoFeedService.getFeedGenerator(uri);
       if (!channel) {
@@ -171,40 +159,34 @@ class ChannelService {
       }
 
       let channelColors = undefined;
-      // Robust avatar extraction - all properties are on channel.view
       const avatarUrl = channel.view?.avatar || channel.view?.creator?.avatar || undefined;
       if (avatarUrl) {
         try {
-          // Use the improved extractColorsFromImage function for better color extraction
           const extractedColors = await extractColorsFromImage(avatarUrl);
-          // Darken the background color to ensure it's always darker
           const darkenedBackground = darkenColor(extractedColors.backgroundColor, 0.5);
           channelColors = {
             backgroundColor: darkenedBackground,
-            foregroundColor: '#FFFFFF', // Always use white text for channels
-            accentColor: extractedColors.accentColor || Colors.black, // Accent to black
+            foregroundColor: '#FFFFFF',
+            accentColor: extractedColors.accentColor || Colors.black,
             statusBarStyle: 'light' as const,
           };
         } catch (_e) {
-          // Set fallback colors if extraction fails
           channelColors = {
             backgroundColor: Colors.black,
             foregroundColor: '#FFFFFF',
-            accentColor: Colors.black, // Accent to black
+            accentColor: Colors.black,
             statusBarStyle: 'light' as const,
           };
         }
       } else {
-        // Set fallback colors if no avatar
         channelColors = {
           backgroundColor: Colors.black,
           foregroundColor: '#FFFFFF',
-          accentColor: Colors.black, // Accent to black
+          accentColor: Colors.black,
           statusBarStyle: 'light' as const,
         };
       }
 
-      // Get subscriber count (number of likes on the feed generator post)
       const subscriberCount = channel.view?.likeCount || 0;
 
       const channelUri = channel.view?.uri;
@@ -218,11 +200,11 @@ class ChannelService {
         creator: channel.view?.creator,
         displayName: channel.view?.displayName,
         description: channel.view?.description,
-        avatar: avatarUrl, // Use the avatarUrl variable directly
+        avatar: avatarUrl,
         likeCount: channel.view?.likeCount,
         subscriberCount,
         indexedAt: channel.view?.indexedAt,
-        isOrbytChannel: isOrbytChannel(channelUri), // Check if this is an orbyt channel
+        isOrbytChannel: isOrbytChannel(channelUri),
         channelColors:
           this.readPersistedColors(channelUri) ||
           (channelColors
@@ -262,20 +244,17 @@ class ChannelService {
   ): Promise<void> {
     if (!uri) return;
 
-    // Persist only user-selected colors; React Query will refetch/rehydrate.
     this.writePersistedColors(uri, { backgroundColor, accentColor });
   }
 
   /**
    * Create a cached channel object from orbyt channel definition
-   * This allows us to use hashtag feeds instead of feed generators
    */
   private static async createOrbytChannelCache(
     orbytChannel: import('../../utils/channels/orbyt').OrbytChannel
   ): Promise<CachedChannel> {
     const avatarUrl = orbytChannel.mediaUrl;
 
-    // Extract colors from avatar if available
     let channelColors:
       | {
           backgroundColor: string;
@@ -295,7 +274,6 @@ class ChannelService {
           statusBarStyle: 'light' as const,
         };
       } catch (_e) {
-        // Fallback colors
         channelColors = {
           backgroundColor: Colors.black,
           foregroundColor: '#FFFFFF',
@@ -304,7 +282,6 @@ class ChannelService {
         };
       }
     } else {
-      // Default colors if no avatar
       channelColors = {
         backgroundColor: Colors.black,
         foregroundColor: '#FFFFFF',
@@ -313,17 +290,11 @@ class ChannelService {
       };
     }
 
-    // Create cache object - use URI for compatibility, but we'll use hashtag for feeds
     const cacheObject: CachedChannel = {
       uri: orbytChannel.uri,
-      cid: '', // Not needed for orbyt channels
-      did: 'did:plc:2xrqztnmzlckb3xfuuukupso', // Default orbyt DID
-      creator: {
-        did: 'did:plc:2xrqztnmzlckb3xfuuukupso',
-        handle: 'getorbyt.com',
-        displayName: 'orbyt',
-        avatar: undefined,
-      },
+      cid: '',
+      did: 'did:plc:2xrqztnmzlckb3xfuuukupso',
+      creator: undefined,
       displayName:
         resolveLocalizedText(orbytChannel.displayName, orbytChannel.displayNameTranslations) ||
         orbytChannel.displayName,
@@ -331,10 +302,10 @@ class ChannelService {
         resolveLocalizedText(
           orbytChannel.description || '',
           orbytChannel.descriptionTranslations
-        ) || '', // Use description from orbytChannels
+        ) || '',
       avatar: avatarUrl,
-      likeCount: 0, // Not applicable for hashtag channels
-      subscriberCount: 0, // Not applicable for hashtag channels
+      likeCount: 0,
+      subscriberCount: 0,
       indexedAt: new Date().toISOString(),
       isOrbytChannel: true,
       channelColors: this.readPersistedColors(orbytChannel.uri) || channelColors,
@@ -353,8 +324,8 @@ export function useChannel(uri: string | null | undefined): UseQueryResult<Cache
     queryKey: queryKeys.channels.detail(uri || ''),
     queryFn: () => ChannelService.getChannel(uri || ''),
     enabled: !!uri,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000
   });
 }
 
@@ -364,7 +335,6 @@ export function useChannel(uri: string | null | undefined): UseQueryResult<Cache
 export function useChannelColors(uriOrFeed: string | null | undefined) {
   const { data: channel } = useChannel(uriOrFeed);
 
-  // Return default colors if URI/feed is not valid (accepts local channel URIs, hashtag feeds, and feed generator URIs)
   if (
     !uriOrFeed ||
     (!uriOrFeed.startsWith('hashtag:') &&
@@ -397,12 +367,12 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
 
   const colors: ChannelColorScheme = {
     backgroundColor: channel?.channelColors?.backgroundColor || Colors.black,
-    foregroundColor: '#FFFFFF', // Always use white text for channels
-    textColor: Colors.neutral[50], // Always use white text for channels
+    foregroundColor: '#FFFFFF',
+    textColor: Colors.neutral[50],
     primaryColor: channel?.channelColors?.backgroundColor || Colors.black,
-    secondaryColor: Colors.neutral[50], // Always use white text for channels
-    accentColor: channel?.channelColors?.accentColor || Colors.black, // Accent to black
-    statusBarStyle: 'light', // Always use light status bar for channels
+    secondaryColor: Colors.neutral[50],
+    accentColor: channel?.channelColors?.accentColor || Colors.black,
+    statusBarStyle: 'light',
   };
 
   return {
@@ -443,7 +413,6 @@ export function useChannelColorsMutation() {
       return { uri, backgroundColor, foregroundColor, accentColor };
     },
     onSuccess: (_, { uri }) => {
-      // Invalidate the specific channel query to refetch with new colors
       queryClient.invalidateQueries({ queryKey: queryKeys.channels.detail(uri) });
     },
   });
