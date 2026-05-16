@@ -256,7 +256,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
           };
         },
       };
-    }, []);
+    }, [currentTab]);
 
     const listFeedViewRef = useRef<ListFeedViewRef>(null);
 
