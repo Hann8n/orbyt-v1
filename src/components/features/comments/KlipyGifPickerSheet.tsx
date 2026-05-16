@@ -5,12 +5,18 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  Animated,
   Platform,
   Alert,
   Share,
   type ListRenderItem,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import * as WebBrowser from 'expo-web-browser';
@@ -57,7 +63,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
   onClose,
 }) => {
   const { t } = useTranslation();
-  const scrollY = useMemo(() => new Animated.Value(0), []);
+  const scrollY = useSharedValue(0);
   const [query, setQuery] = useState('');
   const [kindFilter, setKindFilter] = useState<KlipyKind>('gif');
   const trimmed = query.trim();
@@ -273,11 +279,14 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
     ],
     [t]
   );
-  const tabsOpacity = scrollY.interpolate({
-    inputRange: [0, 20, 40],
-    outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: event => {
+      scrollY.value = event.contentOffset.y;
+    },
   });
+  const tabsAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [0, 20, 40], [1, 1, 0], Extrapolation.CLAMP),
+  }));
 
   return (
     <AppTrueSheet
@@ -327,7 +336,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
           keyExtractor={keyExtractor}
           numColumns={GRID_COLUMNS}
           ListHeaderComponent={
-            <Animated.View style={[styles.tabsBarContainer, { opacity: tabsOpacity }]}>
+            <Animated.View style={[styles.tabsBarContainer, tabsAnimatedStyle]}>
               <TabNavigation
                 tabs={tabs}
                 activeTab={kindFilter}
@@ -343,9 +352,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
           onEndReachedThreshold={0.8}
           contentContainerStyle={styles.listContent}
           scrollEventThrottle={16}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-            useNativeDriver: true,
-          })}
+          onScroll={onScroll}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={

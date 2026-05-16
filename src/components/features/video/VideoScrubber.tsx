@@ -45,9 +45,7 @@ const SCRUBBER_TOTAL_HEIGHT = SCRUBBER_TOUCH_AREA_HEIGHT + SCRUBBER_BAR_HEIGHT;
 const SCRUBBER_TRACK_CONTAINER_HEIGHT = 34;
 const SCRUBBER_BAR_HEIGHT_RANGE_PX = 5;
 const SCRUBBER_BAR_BASE_OPACITY = 0.5;
-// When video is actively playing (not user-seeking), make the leading progress line brighter.
 const SCRUBBER_BAR_PLAYING_OPACITY = 0.9;
-// Reduce the inactive/background track opacity so it's less visually prominent.
 const SCRUBBER_TRACK_OPACITY = 0.2;
 
 function VideoScrubberActive({
@@ -76,7 +74,6 @@ function VideoScrubberActive({
     activeRef.current = active;
   }, [active]);
 
-  // Reset local UI state only - never affects player or playback
   useEffect(() => {
     if (!active) {
       scheduleOnUI(() => {
@@ -89,7 +86,6 @@ function VideoScrubberActive({
         seekingAnimationSV.set(0);
       });
     } else if (active && player) {
-      // Read-only sync - never affects playback
       try {
         const currentTime = player.currentTime;
         const isPlaying = player.playing;
@@ -101,12 +97,11 @@ function VideoScrubberActive({
           }
         });
       } catch (_error) {
-        // Silently ignore - scrubber never blocks
+        // ignored
       }
     }
   }, [active, player, isSeekingSV, isPlayingSV, currentTimeSV, seekProgressSV, seekingAnimationSV]);
 
-  // Reset local UI state when player changes - never affects player
   useEffect(() => {
     if (player !== playerRef.current) {
       scheduleOnUI(() => {
@@ -197,7 +192,6 @@ function VideoScrubberActive({
     return () => sub.remove();
   }, [player, active, isSeekingSV, isPlayingSV, currentTimeSV, durationSV]);
 
-  // Sync seekingAnimationSV to UI store using same threshold as overlay (0.2)
   useAnimatedReaction(
     () => seekingAnimationSV.get() >= 0.2,
     (isScrubbing, prevIsScrubbing) => {
@@ -244,8 +238,6 @@ function VideoScrubberActive({
     }
   }, [player]);
 
-  // Non-blocking seek - never interferes with playback state.
-  // expo-video's currentTime setter is already non-blocking.
   const seekTo = useCallback(
     (time: number) => {
       if (!player) return;
@@ -267,13 +259,12 @@ function VideoScrubberActive({
           });
         }, 50);
       } catch (_error) {
-        // Silently ignore - scrubber never blocks or interferes with playback
+        // ignored
       }
     },
     [player, isSeekingSV, seekingAnimationSV, currentTimeSV]
   );
 
-  // Lightweight gesture handler — purely UI, never blocks or interferes with playback.
   const scrubPanGesture = useMemo(() => {
     const gesture = Gesture.Pan()
       .onStart(() => {

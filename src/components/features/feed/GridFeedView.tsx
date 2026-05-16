@@ -24,7 +24,6 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
-  useDerivedValue,
   useAnimatedScrollHandler,
 } from 'react-native-reanimated';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
@@ -174,6 +173,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     },
     ref
   ) => {
+    'use no memo';
     const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
     const profileColors = getProfileColors(backgroundColor, secondaryColor);
     const flashListRef = useRef<FlashListRef<ExtendedFeedViewPost>>(null);
@@ -201,29 +201,23 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
     const scrollOffsetYSV = useSharedValue(0);
     const fadeDist = useScrollTracking ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
-    const contentScrollProgressSV = useDerivedValue(() =>
-      fadeDist > 0 ? Math.max(0, Math.min(1, scrollOffsetYSV.value / fadeDist)) : 0
-    );
 
     const scrollHandler = useAnimatedScrollHandler({
       onScroll: event => {
-        'worklet';
         const y = event.contentOffset.y;
-        /* eslint-disable react-hooks/immutability -- SharedValue.value in worklet */
         scrollOffsetYSV.value = y;
         if (contentScrollProgressOutput && fadeDist > 0) {
           contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
         }
-        /* eslint-enable react-hooks/immutability */
       },
     });
 
-    const handleHeaderLayout = (e: LayoutChangeEvent) => {
+    const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
       const h = Math.round(e.nativeEvent.layout.height);
-      if (h > 0 && h !== headerHeight) {
-        requestAnimationFrame(() => setHeaderHeight(h));
+      if (h > 0) {
+        setHeaderHeight(prev => (prev === h ? prev : h));
       }
-    };
+    }, []);
 
     useImperativeHandle(
       ref,
@@ -324,11 +318,8 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 
     const feedScrollMotion = useMemo<FeedScrollMotionValue | null>(() => {
       if (!useScrollTracking) return null;
-      return {
-        scrollOffsetYSV,
-        contentScrollProgressSV,
-      };
-    }, [useScrollTracking, scrollOffsetYSV, contentScrollProgressSV]);
+      return { scrollOffsetYSV };
+    }, [useScrollTracking, scrollOffsetYSV]);
 
     const feedScrollLayout = useMemo<FeedScrollLayoutValue | null>(() => {
       if (!useScrollTracking) return null;

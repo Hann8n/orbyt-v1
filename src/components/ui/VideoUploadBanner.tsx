@@ -181,7 +181,6 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
       };
     },
     (current, previous) => {
-      'worklet';
       if (!scrollY) return;
 
       if (current.atTop !== previous?.atTop) {

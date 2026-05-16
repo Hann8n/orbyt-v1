@@ -121,7 +121,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   useAnimatedReaction(
     () => (contentScrollProgressSV?.value ?? 0) < 0.25,
     (useProfile, prev) => {
-      'worklet';
       if (prev === null || useProfile !== prev) {
         scheduleOnRN(setUseProfileStatusBar, useProfile);
       }

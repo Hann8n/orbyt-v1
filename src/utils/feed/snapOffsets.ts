@@ -46,9 +46,9 @@ export function buildListSnapToOffsets({
     for (let i = 0; i < itemCount; i++) {
       if (useHeaderPitch) {
         const baseOffset = headerHeight + i * itemSpacing;
-        offsets[i + 1] = baseOffset - headerSnapAdjust;
+        offsets[i + 1] = Math.round(baseOffset - headerSnapAdjust);
       } else {
-        offsets[i + 1] = i * itemSpacing - snapTopInset;
+        offsets[i + 1] = Math.round(i * itemSpacing - snapTopInset);
       }
     }
 
@@ -57,7 +57,7 @@ export function buildListSnapToOffsets({
 
   const offsets = new Array<number>(itemCount);
   for (let i = 0; i < itemCount; i++) {
-    offsets[i] = i * itemSpacing - snapTopInset;
+    offsets[i] = Math.round(i * itemSpacing - snapTopInset);
   }
   return offsets;
 }

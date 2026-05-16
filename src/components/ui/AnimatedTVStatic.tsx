@@ -48,18 +48,14 @@ const AnimatedTVStatic: React.FC<AnimatedTVStaticProps> = ({
   const spriteSheet = useImage(SPRITE_SHEET);
   const animationStartedRef = useRef(false);
 
-  // Calculate dimensions once - this runs on UI thread via worklet
   const dimensions = useDerivedValue(() => {
-    'worklet';
     if (!spriteSheet) return { frameSize: 0, scale: 1 };
     const sheetSize = spriteSheet.width();
     const frameSize = sheetSize / FRAMES_PER_ROW;
     return { frameSize, scale: size / frameSize };
   }, [spriteSheet, size]);
 
-  // Calculate sprite position - all worklet calculations run on UI thread
   const imageX = useDerivedValue(() => {
-    'worklet';
     if (!spriteSheet) return 0;
     const idx = Math.floor(frameIndex.value) % TOTAL_FRAMES;
     const col = idx % FRAMES_PER_ROW;
@@ -67,7 +63,6 @@ const AnimatedTVStatic: React.FC<AnimatedTVStaticProps> = ({
   }, [frameIndex, spriteSheet, dimensions]);
 
   const imageY = useDerivedValue(() => {
-    'worklet';
     if (!spriteSheet) return 0;
     const idx = Math.floor(frameIndex.value) % TOTAL_FRAMES;
     const row = Math.floor(idx / FRAMES_PER_ROW);
@@ -75,19 +70,15 @@ const AnimatedTVStatic: React.FC<AnimatedTVStaticProps> = ({
   }, [frameIndex, spriteSheet, dimensions]);
 
   const imageWidth = useDerivedValue(() => {
-    'worklet';
     if (!spriteSheet) return size;
     return spriteSheet.width() * dimensions.value.scale;
   }, [spriteSheet, size, dimensions]);
 
   const imageHeight = useDerivedValue(() => {
-    'worklet';
     if (!spriteSheet) return size;
     return spriteSheet.width() * dimensions.value.scale;
   }, [spriteSheet, size, dimensions]);
 
-  // Initialize animation when sprite sheet loads
-  // Reanimated animations already run on UI thread, no need for runOnUI
   useEffect(() => {
     if (!spriteSheet || !autoPlay || animationStartedRef.current) {
       return;
@@ -95,7 +86,6 @@ const AnimatedTVStatic: React.FC<AnimatedTVStaticProps> = ({
 
     animationStartedRef.current = true;
 
-    // Start animation loop - frameIndex starts at 0, showing first frame immediately
     frameIndex.value = withRepeat(
       withSequence(
         ...Array.from({ length: TOTAL_FRAMES }, (_, i) =>
@@ -108,7 +98,6 @@ const AnimatedTVStatic: React.FC<AnimatedTVStaticProps> = ({
   }, [spriteSheet, autoPlay, frameIndex]);
 
   // Always render Canvas to avoid layout shifts, but only show image when ready
-  // This prevents the glitch from empty canvas appearing
   return (
     <Canvas style={[{ width: size, height: size }, style]}>
       {spriteSheet && (

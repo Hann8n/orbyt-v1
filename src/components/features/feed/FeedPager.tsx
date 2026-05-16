@@ -112,7 +112,6 @@ function FeedIndicatorItem({
   pressableStyle,
 }: FeedIndicatorItemProps) {
   const animatedStyle = useAnimatedStyle(() => {
-    'worklet';
     const baseProgress = pageScrollProgress.value;
     const isActive = Math.round(baseProgress) === feedIndex;
     const distance = Math.abs(baseProgress - feedIndex);
@@ -212,9 +211,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   // Derive current feed option from current index
   const currentFeedOption = feedOptions[currentFeedIndex] || feedOptions[0] || 'following';
 
-  // Animated style for feed bar - runs on UI thread
   const feedBarAnimatedStyle = useAnimatedStyle(() => {
-    'worklet';
     const visible = tabBarVisibility.value > 0.5;
     return {
       opacity: withTiming(visible ? 1 : 0, { duration: 200 }),
@@ -403,7 +400,6 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 2,
     backgroundColor: Colors.transparent,
-    // Opacity is controlled by controlsAnimatedStyle
   },
   indicatorContainer: {
     flexDirection: 'row',

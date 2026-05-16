@@ -539,13 +539,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     });
 
     if (idx >= 0 && idx < flattenedComments.length) {
-      setTimeout(() => {
-        try {
-          commentsListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.5 });
-        } catch {
-          // ignore
-        }
-      }, 600);
+      requestAnimationFrame(() => {
+        commentsListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.5 });
+      });
     }
   }, [scrollToCommentUri, flattenedComments, commentsLoading]);
 

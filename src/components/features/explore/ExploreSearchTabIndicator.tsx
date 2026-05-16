@@ -27,7 +27,6 @@ export const ExploreSearchTabIndicator = React.memo(
 
     const fontSize = Typography.sizes.h3;
     const animatedStyle = useAnimatedStyle(() => {
-      'worklet';
       const progress = indicatorScrollProgress.value;
       const isActive = Math.round(progress) === tabIndex;
       const distance = Math.abs(progress - tabIndex);

@@ -57,7 +57,6 @@ export function useVideoCardGesture({
   }, [postUri, heartScale, heartOpacity]);
 
   // Heartbeat pattern: quick beat, slight dip, second beat, then fade out.
-  // Worklet — runs on the UI thread directly from gesture callbacks, no thread hop needed.
   const animateHeart = useCallback(() => {
     'worklet';
     heartScale.value = 0;
@@ -79,9 +78,6 @@ export function useVideoCardGesture({
     );
   }, [heartScale, heartOpacity]);
 
-  // RNGH gesture: exclusive between double-tap and single-tap (double-tap takes priority),
-  // then race with long-press. Recognition runs on the UI thread; scheduleOnRN bridges to
-  // the JS thread only when a gesture is confirmed (no overhead during idle scroll).
   const gesture = useMemo(() => {
     const doubleTap = Gesture.Tap()
       .numberOfTaps(2)

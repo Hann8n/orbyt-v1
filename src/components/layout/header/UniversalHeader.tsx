@@ -42,12 +42,6 @@ import { TextWithLinks } from '../../ui/TextWithLinks';
 import { AppBskyRichtextFacet } from '@atproto/api';
 import { useDetailHeaderScrollPresentation } from './useDetailHeaderScrollPresentation';
 
-/**
- * Large header implementation for feeds and detail screens. ProfileHeader and ChannelHeader are
- * the primary “detail” entry points; scroll-linked dim/fade for those flows lives in
- * `useDetailHeaderScrollPresentation`.
- */
-
 const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
 const TABBED_HEADER_BACKGROUND_CUTOFF = 20;
 
@@ -211,7 +205,6 @@ const ActionButton = memo<{
 
     // Animated style for smooth background color transition
     const animatedButtonStyle = useAnimatedStyle(() => {
-      'worklet';
       return {
         backgroundColor: interpolateColor(animationProgress.value, [0, 1], [unfilledBg, textColor]),
         opacity: action.disabled ? 0.4 : 1,
@@ -220,12 +213,10 @@ const ActionButton = memo<{
 
     // Content crossfade (UI thread): linear blend so reversing direction mirrors the same curve in time.
     const unfilledContentOpacityStyle = useAnimatedStyle(() => {
-      'worklet';
       return { opacity: 1 - animationProgress.value };
     });
 
     const filledContentOpacityStyle = useAnimatedStyle(() => {
-      'worklet';
       return { opacity: animationProgress.value };
     });
 
@@ -458,7 +449,6 @@ const ActionButton = memo<{
       );
     }, [action, contentColor, renderLabeledActionRow]);
 
-    // Only apply animated follow fill in non-glass mode.
     const isFollowButton = action.id === 'follow';
     const shouldAnimate =
       !canUseLiquidGlass &&
@@ -1171,11 +1161,9 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     );
   }, [backgroundImage, imageSource, backgroundContainerStyle, backgroundOverlayStyle, hasTabs]);
 
-  // Extract custom description from children
   const customDescription = useMemo(() => {
     if (!children) return null;
 
-    // If children is an array, look for the first element that might be a description
     if (Array.isArray(children)) {
       return children.find(
         child =>
@@ -1188,7 +1176,6 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       );
     }
 
-    // If children is a single element, check if it's a description
     if (
       React.isValidElement(children) &&
       children.type &&
@@ -1203,7 +1190,6 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     return null;
   }, [children]);
 
-  // Filter out description from children for additional content
   const additionalChildren = useMemo(() => {
     if (!children) return null;
 
@@ -1325,7 +1311,6 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   return (
     <Animated.View style={headerStyle} pointerEvents="box-none" collapsable={false}>
       {backgroundImageComponent}
-      {/* Shadow gradient shim - always visible, positioned just above background image */}
       {showShadowGradient && (
         <View style={shadowGradientStyle} pointerEvents="none">
           <Image

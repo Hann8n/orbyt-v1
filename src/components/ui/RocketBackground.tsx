@@ -40,7 +40,6 @@ const RocketBackground: React.FC = () => {
   const animationStartedRef = useRef(false);
 
   const dimensions = useDerivedValue(() => {
-    'worklet';
     if (!spriteSheet) return { frameSize: 0, scale: 1 };
     const sheetWidth = spriteSheet.width();
     const sheetHeight = spriteSheet.height();
@@ -50,7 +49,6 @@ const RocketBackground: React.FC = () => {
   }, [spriteSheet, screenWidth, screenHeight]);
 
   const imageX = useDerivedValue(() => {
-    'worklet';
     if (!spriteSheet) return 0;
     const idx = Math.floor(frameIndex.value) % TOTAL_FRAMES;
     const col = idx % FRAMES_PER_ROW;
@@ -59,20 +57,17 @@ const RocketBackground: React.FC = () => {
   }, [frameIndex, spriteSheet, dimensions, screenWidth]);
 
   const imageY = useDerivedValue(() => {
-    'worklet';
     if (!spriteSheet) return 0;
     const scaledHeight = spriteSheet.height() * dimensions.value.scale;
     return (screenHeight - scaledHeight) / 2;
   }, [spriteSheet, screenHeight, dimensions]);
 
   const imageWidth = useDerivedValue(() => {
-    'worklet';
     if (!spriteSheet) return screenWidth;
     return spriteSheet.width() * dimensions.value.scale;
   }, [spriteSheet, screenWidth, dimensions]);
 
   const imageHeight = useDerivedValue(() => {
-    'worklet';
     if (!spriteSheet) return screenHeight;
     return spriteSheet.height() * dimensions.value.scale;
   }, [spriteSheet, screenHeight, dimensions]);

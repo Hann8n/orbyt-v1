@@ -22,7 +22,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView as RNScreensSafeAreaView } from 'react-native-screens/experimental';
 import Animated, {
   useSharedValue,
-  useDerivedValue,
   useAnimatedScrollHandler,
   useAnimatedReaction,
   useAnimatedStyle,
@@ -273,6 +272,7 @@ function ListFeedViewComponent({
   onHashtagPress,
   ref,
 }: ListFeedViewProps & { ref?: Ref<ListFeedViewRef> }) {
+    'use no memo';
     const resolvedViewMode = viewMode ?? 'list';
 
     const insets = useSafeAreaInsets();
@@ -310,7 +310,6 @@ function ListFeedViewComponent({
     useAnimatedReaction(
       () => scrollOffsetYSV.value,
       (y, prevY) => {
-        'worklet';
         if (!listSurfaceActive) return;
         const cy = Math.max(0, y);
         const py = prevY === null ? cy : Math.max(0, prevY);
@@ -450,9 +449,7 @@ function ListFeedViewComponent({
         if (isFeedHeaderItem(item)) {
           return <View onLayout={(e) => {
             const h = Math.round(e.nativeEvent.layout.height);
-            if (h > 0 && h !== headerHeight) {
-              setHeaderHeight(h);
-            }
+            if (h > 0) setHeaderHeight(prev => (prev === h ? prev : h));
           }}>{item.component}</View>;
         }
 
@@ -476,7 +473,7 @@ function ListFeedViewComponent({
         );
       },
 
-      [headerHeight]
+      []
     );
 
 
@@ -532,22 +529,17 @@ function ListFeedViewComponent({
       isHeaderFeed,
     ]);
 
-    const handleFeedLayout = (e: LayoutChangeEvent) => {
+    const handleFeedLayout = useCallback((e: LayoutChangeEvent) => {
       const h = Math.round(e.nativeEvent.layout.height);
       if (h > 0) {
         setFeedLayoutHeight(prev => (prev === h ? prev : h));
       }
-    };
+    }, []);
 
     const fadeDist = hasHeader ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
-    const contentScrollProgressSV = useDerivedValue(() =>
-      fadeDist > 0 ? Math.max(0, Math.min(1, scrollOffsetYSV.value / fadeDist)) : 0
-    );
 
     const scrollHandler = useAnimatedScrollHandler({
       onScroll: event => {
-        'worklet';
-
         const y = Math.max(0, event.contentOffset.y);
         scrollOffsetYSV.value = y;
 
@@ -580,8 +572,8 @@ function ListFeedViewComponent({
     }, [itemSpacing, hasHeader, headerHeight, isHeaderFeed, snapTopInset]);
 
     const feedScrollMotion = useMemo<FeedScrollMotionValue>(
-      () => ({ scrollOffsetYSV, contentScrollProgressSV, scrollFadeParamsSV }),
-      [scrollOffsetYSV, contentScrollProgressSV, scrollFadeParamsSV]
+      () => ({ scrollOffsetYSV, scrollFadeParamsSV }),
+      [scrollOffsetYSV, scrollFadeParamsSV]
     );
 
     const feedScrollLayout = useMemo<FeedScrollLayoutValue>(
@@ -690,7 +682,7 @@ function ListFeedViewComponent({
           Platform.OS === 'ios'
             ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
             : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID,
-        disableIntervalMomentum: true,
+        disableIntervalMomentum: snapToIntervalValue != null,
         scrollEventThrottle: APP_CONSTANTS.SCROLL_THROTTLE,
         onScroll: scrollHandler,
         onEndReached: onLoadMore,

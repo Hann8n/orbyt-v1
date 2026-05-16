@@ -9,7 +9,6 @@ export interface ScrollFadeParams {
 
 export interface FeedScrollMotionValue {
   scrollOffsetYSV: SharedValue<number>;
-  contentScrollProgressSV?: SharedValue<number>;
   scrollFadeParamsSV?: SharedValue<ScrollFadeParams>;
 }
 
