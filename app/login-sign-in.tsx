@@ -18,7 +18,6 @@ import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { SquircleView } from '@/components/ui/Squircle';
 import { useAuth } from '@/stores/userStore';
 import { isUserCancellation } from '@/utils/errors/errorHandler';
-import { posthog } from '@/config/posthog';
 import { ActorService } from '@/services/api/actor/ActorService';
 import type { ProfileViewBasic } from '@/services/api/types';
 import { queryKeys } from '@/utils/query/queryKeys';
@@ -136,14 +135,6 @@ export default function LoginSignInModal() {
 
     try {
       await signIn(trimmedHandle);
-      posthog.identify(trimmedHandle, {
-        $set: { handle: trimmedHandle },
-        $set_once: { first_sign_in_date: new Date().toISOString() },
-      });
-      posthog.capture('user_signed_in', {
-        handle: trimmedHandle,
-        is_add_account: isAddAccount,
-      });
       if (isAddAccount) {
         router.dismissTo('/(tabs)/home');
       }

@@ -8,7 +8,6 @@ import {
 } from 'react-native-vision-camera';
 
 import { logger } from '@/utils/logger';
-import { posthog } from '@/config/posthog';
 import { useCreateSegmentsStore } from '@/stores/createSegmentsStore';
 
 const toFileUri = (path: string): string => (path.startsWith('file://') ? path : `file://${path}`);
@@ -133,7 +132,6 @@ export function useSegmentRecorder({
 
       if (error) {
         logger.error('[Camera] recording error', { message: error.message });
-        posthog.capture('camera_error', { message: error.message });
       } else if (filePath && !stale) {
         const clamped = Math.min(
           active.capturedDuration,

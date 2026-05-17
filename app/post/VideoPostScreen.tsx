@@ -56,7 +56,6 @@ import {
   getLocalizedChannelDisplayName,
 } from '@/utils/channels/orbyt';
 import type { SubscribedChannel } from '@/stores/userStore';
-import { posthog } from '@/config/posthog';
 import VerticalListSheet, {
   VerticalListButton,
   TrueSheet,
@@ -817,13 +816,6 @@ const VideoPostScreen: React.FC = () => {
         channelSlug,
       };
 
-      posthog.capture('video_post_submitted', {
-        has_description: (description?.length || 0) > 0,
-        description_length: description?.length || 0,
-        has_content_warnings: allContentWarnings.length > 0,
-        has_channel: !!channelSlug,
-        comment_filter: commentFilter || 'all',
-      });
       router.replace('/(tabs)/home');
 
       (async () => {

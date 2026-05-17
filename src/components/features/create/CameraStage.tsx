@@ -5,7 +5,6 @@ import { Camera, type CameraDevice, type CameraVideoOutput } from 'react-native-
 import * as Haptics from 'expo-haptics';
 
 import { logger } from '@/utils/logger';
-import { posthog } from '@/config/posthog';
 import OnionSkinOverlay from './OnionSkinOverlay';
 import DeletePreviewOverlay from './DeletePreviewOverlay';
 
@@ -64,7 +63,6 @@ const CameraStage: React.FC<Props> = ({
         enableSmoothAutoFocus={Platform.OS === 'ios'}
         onError={e => {
           logger.error('[Camera] error', { message: e?.message });
-          posthog.capture('camera_error', { message: e?.message });
         }}
       />
       {isDeletePreviewActive && deletePreviewUri ? (

@@ -4,7 +4,6 @@
 import { XRPCError } from '@atproto/api';
 import { AtprotoCore } from '../core';
 import { getAtprotoBridge } from '../agentBridge';
-import { posthog } from '../../../config/posthog';
 import { logger } from '../../../utils/logger';
 import type { Interaction } from '../types';
 import {
@@ -65,7 +64,6 @@ export async function likePost(uri: string, cid: string): Promise<string> {
   const { agent } = getAtprotoBridge();
   if (!agent) throw new Error('No authenticated user');
   const result = await agent.like(uri, cid);
-  posthog.capture('video_liked', { post_uri: uri });
   return result.uri;
 }
 
@@ -84,7 +82,6 @@ export async function deleteLike(likeUri: string): Promise<void> {
   const { agent } = getAtprotoBridge();
   if (!agent) throw new Error('No authenticated user');
   await agent.deleteLike(likeUri);
-  posthog.capture('video_unliked', { post_uri: likeUri });
 }
 
 /**
@@ -104,7 +101,6 @@ export async function repostPost(uri: string, cid: string): Promise<string> {
   const { agent } = getAtprotoBridge();
   if (!agent) throw new Error('No authenticated user');
   const result = await agent.repost(uri, cid);
-  posthog.capture('video_reposted', { post_uri: uri });
   return result.uri;
 }
 

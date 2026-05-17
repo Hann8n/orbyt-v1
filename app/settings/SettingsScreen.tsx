@@ -18,7 +18,6 @@ import { useRouter } from 'expo-router';
 import { useAccountSwitcher } from '@/stores/modalStore';
 import type { ViewMode } from '@/types';
 import { FontFamily, Typography } from '@/utils/components/typography';
-import { posthog } from '@/config/posthog';
 
 const SettingsScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -57,8 +56,6 @@ const SettingsScreen: React.FC = () => {
               eventProperties.handle = currentUser.handle;
             }
 
-            posthog.capture('user_signed_out', eventProperties);
-            posthog.reset();
             await onLogout(false);
           } catch (_error) {
             Alert.alert(t('common.error'), t('errors.logoutFailed'));

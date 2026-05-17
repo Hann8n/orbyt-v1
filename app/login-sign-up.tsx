@@ -12,7 +12,6 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { SquircleView } from '@/components/ui/Squircle';
 import { isUserCancellation } from '@/utils/errors/errorHandler';
-import { posthog } from '@/config/posthog';
 
 const DEFAULT_PDS = 'https://bsky.social';
 
@@ -85,9 +84,6 @@ export default function LoginSignUpModal() {
     setIsSigningUp(true);
     try {
       await signUp(identifier);
-      posthog.capture('user_signed_up', {
-        pds: identifier,
-      });
     } catch (err) {
       if (!isUserCancellation(err)) {
         setError(t('auth.signUpFailed'));
