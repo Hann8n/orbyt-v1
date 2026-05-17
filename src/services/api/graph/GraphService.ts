@@ -6,7 +6,6 @@
 import { AtUri } from '@atproto/api';
 import { AtprotoCore } from '../core';
 import type { ProfileViewBasic, ProfileView, FollowersResponse, FollowingResponse } from '../types';
-import { posthog } from '../../../config/posthog';
 
 export class GraphService {
   /**
@@ -24,7 +23,6 @@ export class GraphService {
 
     const { api } = await AtprotoCore.getApiClient();
     const response = await api.follow(did);
-    posthog.capture('user_followed', { followed_did: did });
     return response.uri;
   }
 
@@ -53,7 +51,6 @@ export class GraphService {
       }
       if (!uri) return false;
       await api.deleteFollow(uri);
-      posthog.capture('user_unfollowed', { unfollowed_did: did });
       return true;
     } catch (_error: unknown) {
       return false;

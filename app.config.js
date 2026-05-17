@@ -170,8 +170,6 @@ module.exports = {
     eas: {
       projectId: '67a8dfaf-4d9a-4d5d-bf99-1df4e4619bc8',
     },
-    posthogProjectToken: process.env.POSTHOG_PROJECT_TOKEN,
-    posthogHost: process.env.POSTHOG_HOST,
   },
   owner: 'orbyt',
 };

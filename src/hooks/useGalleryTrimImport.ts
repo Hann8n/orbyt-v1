@@ -5,7 +5,6 @@ import * as ImagePicker from 'expo-image-picker';
 import VideoTrim, { closeEditor, isValidFile, showEditor, type Spec } from 'react-native-clip-trim';
 
 import { Colors } from '@/theme';
-import { posthog } from '@/config/posthog';
 import { useCreateSegmentsStore } from '@/stores/createSegmentsStore';
 
 const toFileUri = (path: string): string => (path.startsWith('file://') ? path : `file://${path}`);
@@ -87,8 +86,6 @@ export function useGalleryTrimImport({
       }
 
       setIsLoadingFromGallery(false);
-      posthog.capture('video_gallery_selected', { duration_ms: asset.duration ?? null });
-
       showEditor(asset.uri, {
         maxDuration: Platform.OS === 'ios' ? available : available * 1000,
         saveToPhoto: false,

@@ -31,7 +31,6 @@ import { hydrateAccountsWithCachedProfiles } from '@/utils/atproto/accountSwitch
 import { hexToRGBA } from '@/utils/formatting/colors';
 import RocketBackground from '@/components/ui/RocketBackground';
 import { isUserCancellation } from '@/utils/errors/errorHandler';
-import { posthog } from '@/config/posthog';
 import { FontFamily, Typography } from '@/utils/components/typography';
 
 // Login logo: PNG 4x on Android (avoids SVG stroke clipping), SVG on iOS
@@ -151,13 +150,6 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
 
     try {
       await switchAccount(account.did);
-      posthog.identify(account.did, {
-        $set: { handle: account.handle },
-      });
-      posthog.capture('account_switched', {
-        did: account.did,
-        handle: account.handle,
-      });
       if (onAccountSwitch) {
         await onAccountSwitch(account);
       }

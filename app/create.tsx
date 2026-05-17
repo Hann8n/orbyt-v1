@@ -28,7 +28,6 @@ import { useVisionCameraScreenActive } from '@/hooks/useVisionCameraScreenActive
 import { useCreateSegmentsStore } from '@/stores/createSegmentsStore';
 import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
 import { Colors } from '@/theme';
-import { posthog } from '@/config/posthog';
 import { getBottomNavBarHeight } from '@/utils/device/screen';
 
 const CreateScreen: React.FC = () => {
@@ -214,7 +213,6 @@ const CreateScreen: React.FC = () => {
       if (store.segments.length === 0) return;
 
       const videoSegments = store.toVideoSegments();
-      posthog.capture('video_recorded', { segment_count: videoSegments.length });
 
       if (videoSegments.length === 1) {
         const uri =
