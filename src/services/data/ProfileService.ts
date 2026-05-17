@@ -2,6 +2,7 @@ import { ActorService } from '../api/actor/ActorService';
 import { GraphService } from '../api/graph/GraphService';
 import { RepoService } from '../api/repo/RepoService';
 import { NotificationService } from '../api/notification/NotificationService';
+import { logger } from '../../utils/logger';
 import {
   useQuery,
   useMutation,
@@ -86,7 +87,9 @@ class ProfileService {
           qc.setQueryData(queryKeys.profiles.detail(profile.did), profile);
         }
       }
-    } catch {}
+    } catch (error) {
+      logger.error('Failed to set query data for profiles', error);
+    }
   }
 
   static async getProfile(handle: string): Promise<ProfileViewWithOrbyt | null> {
@@ -167,7 +170,9 @@ class ProfileService {
           qc.setQueryData(queryKeys.profiles.detail(profile.did), profile);
         }
       }
-    } catch {}
+    } catch (error) {
+      logger.error('Failed to set query data for profiles', error);
+    }
   }
 }
 
@@ -541,7 +546,9 @@ export function useProfileUpdateMutation() {
         });
 
         queryClient.invalidateQueries({ queryKey: profileKeys.detail(did) });
-      } catch {}
+      } catch (error) {
+        logger.error('Failed to set query data for profiles', error);
+      }
     },
     onError: (_error, _variables, context) => {
       if (context?.previousProfile && context?.did) {

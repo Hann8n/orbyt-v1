@@ -327,17 +327,15 @@ export class ActorService {
 
     // upsertProfile may pass undefined when validation fails; pre-fetch as fallback
     let manuallyFetchedProfile: AppBskyActorProfile.Record | undefined;
-    try {
-      const repo = AtprotoCore.getCurrentUserDid();
-      if (repo) {
-        const existingRecordResponse = await api.com.atproto.repo
-          .getRecord({ repo, collection: 'app.bsky.actor.profile', rkey: 'self' })
-          .catch(() => undefined);
-        if (existingRecordResponse?.data?.value) {
-          manuallyFetchedProfile = existingRecordResponse.data.value as AppBskyActorProfile.Record;
-        }
+    const repo = AtprotoCore.getCurrentUserDid();
+    if (repo) {
+      const existingRecordResponse = await api.com.atproto.repo
+        .getRecord({ repo, collection: 'app.bsky.actor.profile', rkey: 'self' })
+        .catch(() => undefined);
+      if (existingRecordResponse?.data?.value) {
+        manuallyFetchedProfile = existingRecordResponse.data.value as AppBskyActorProfile.Record;
       }
-    } catch {}
+    }
 
     await api.upsertProfile((existingProfile: AppBskyActorProfile.Record | undefined) => {
       let profileToUse = existingProfile || manuallyFetchedProfile;
@@ -374,18 +372,16 @@ export class ActorService {
         if (!uploadedBlob) throw new Error('Upload result does not contain a blob reference');
 
         let manuallyFetchedProfileForAvatar: AppBskyActorProfile.Record | undefined;
-        try {
-          const repo = AtprotoCore.getCurrentUserDid();
-          if (repo) {
-            const existingRecordResponse = await apiForUpload.com.atproto.repo
-              .getRecord({ repo, collection: 'app.bsky.actor.profile', rkey: 'self' })
-              .catch(() => undefined);
-            if (existingRecordResponse?.data?.value) {
-              manuallyFetchedProfileForAvatar = existingRecordResponse.data
-                .value as AppBskyActorProfile.Record;
-            }
+        const repo = AtprotoCore.getCurrentUserDid();
+        if (repo) {
+          const existingRecordResponse = await apiForUpload.com.atproto.repo
+            .getRecord({ repo, collection: 'app.bsky.actor.profile', rkey: 'self' })
+            .catch(() => undefined);
+          if (existingRecordResponse?.data?.value) {
+            manuallyFetchedProfileForAvatar = existingRecordResponse.data
+              .value as AppBskyActorProfile.Record;
           }
-        } catch {}
+        }
 
         await apiForUpload.upsertProfile(
           (existingProfile: AppBskyActorProfile.Record | undefined) => {
