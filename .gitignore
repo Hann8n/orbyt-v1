@@ -1,9 +1,6 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
 # dependencies
 node_modules/
 
-# Expo
 .expo/
 dist/
 web-build/
@@ -16,31 +13,24 @@ web-build/
 *.key
 *.mobileprovision
 
-# Native builds when using Prebuild/EAS
 /android
 /ios
 
-# Yarn
 .yarn/cache/
 .yarn/install-state.gz
 
-# Metro
 .metro-health-check*
 
-# debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
 .DS_Store
 *.pem
 
-# local env files
 .env
 .env*.local
 
-# typescript
 *.tsbuildinfo
 
 # OAuth private keys (never commit these!)
@@ -49,21 +39,18 @@ private-keys.json
 docs/BYTE_REVERSE_ENGINEERING_INSIGHTS.md
 docs/BYTE_FEATURE_PARITY_ANALYSIS.md
 
-# Android keystore credentials (never commit!)
+# Android keystore credentials
 **/keystore.properties
 
-# Testing
 .reassure/
 coverage/
 .jest-cache/
 
-# AltStore ADP build artifacts (download, extract, host externally)
+# AltStore ADP build artifacts
 adp-extracted/
 orbyt-adp-*.zip
 
-# Perf exports (generated Expo/Metro artifacts)
+# Perf exports
 perf/export/
 
-.env.local
-
-.env.local
+.build-version.json
