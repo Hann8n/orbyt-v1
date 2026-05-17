@@ -8,7 +8,6 @@ import {
   useQueryClient,
   skipToken,
   QueryClient,
-  QueryKey,
   UseQueryResult,
 } from '@tanstack/react-query';
 import { useEffect } from 'react';
@@ -32,7 +31,6 @@ export function isLiveStatus(status?: StatusView): boolean {
 
 function getStatusExpirationTime(status?: StatusView): number | null {
   if (!status?.expiresAt) return null;
-
   try {
     return new Date(status.expiresAt).getTime();
   } catch {
@@ -42,13 +40,11 @@ function getStatusExpirationTime(status?: StatusView): number | null {
 
 function getProfileStaleTime(profile: ProfileViewWithOrbyt | null | undefined): number {
   if (!profile?.status) return PROFILE_CACHE_EXPIRY;
-
   const expirationTime = getStatusExpirationTime(profile.status);
   if (expirationTime) {
     const timeUntilExpiration = expirationTime - Date.now();
     return Math.max(60 * 1000, timeUntilExpiration + 60 * 1000);
   }
-
   return PROFILE_CACHE_EXPIRY;
 }
 
@@ -56,77 +52,45 @@ const profileKeys = queryKeys.profiles;
 const PROFILE_CACHE_EXPIRY = 24 * 60 * 60 * 1000;
 
 class ProfileService {
-  private static currentUserDid: string | null = null;
-  private static currentUserHandle: string | null = null;
-
-  static getQueryKey(did: string): QueryKey {
-    return profileKeys.detail(did);
-  }
-
-  static get cacheExpiry(): number {
-    return PROFILE_CACHE_EXPIRY;
-  }
-
-  static setCurrentUserDid(did: string) {
-    this.currentUserDid = did;
-  }
-
-  static getCurrentUserDid(): string | null {
-    return this.currentUserDid;
-  }
-
-  static setCurrentUserHandle(handle: string) {
-    this.currentUserHandle = handle;
-  }
-
-  static getCurrentUserHandle(): string | null {
-    return this.currentUserHandle;
-  }
-
   static async getProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {
-    if (!did) return null;
-
-    if (!isValidDid(did)) {
-      return null;
-    }
-
+    if (!did || !isValidDid(did)) return null;
     const profile = await ActorService.getProfileByDid(did);
-    if (!profile) {
-      throw new Error('Failed to fetch profile by DID');
-    }
-
+    if (!profile) throw new Error('Failed to fetch profile by DID');
     return profile;
   }
 
-  static async batchGetProfiles(handles: string[]): Promise<ProfileViewWithOrbyt[]> {
-    if (!handles || handles.length === 0) {
-      return [];
+  static async warmProfileCache(
+    actors: Array<{ handle?: string; did?: string } | null | undefined>,
+    qc: QueryClient = globalQueryClient
+  ): Promise<void> {
+    const handleToDid = new Map<string, string>();
+    const uncachedHandles: string[] = [];
+    for (const actor of actors) {
+      const handle = actor?.handle?.toLowerCase();
+      const did = actor?.did;
+      if (!handle || !did) continue;
+      const cached = qc.getQueryData<ProfileViewWithOrbyt>(queryKeys.profiles.detail(did));
+      if (!cached) {
+        qc.setQueryData(queryKeys.profiles.detail(did), actor);
+      }
+      if ((!cached || !('postsCount' in cached)) && !handleToDid.has(handle)) {
+        handleToDid.set(handle, did);
+        uncachedHandles.push(handle);
+      }
     }
-
-    const uniqueHandles = Array.from(
-      new Set(handles.map(h => h?.toLowerCase()).filter(h => !!h && typeof h === 'string'))
-    );
-
+    if (!uncachedHandles.length) return;
     try {
-      return await ActorService.getProfilesInBatch(uniqueHandles);
-    } catch (_error) {
-      return [];
-    }
-  }
-
-  static async batchGetProfilesByDid(dids: string[]): Promise<ProfileViewWithOrbyt[]> {
-    if (!dids || dids.length === 0) return [];
-    const uniqueDids = Array.from(new Set(dids.filter((d): d is string => !!d)));
-    try {
-      return await ActorService.getProfilesInBatch(uniqueDids);
-    } catch {
-      return [];
-    }
+      const profiles = await ActorService.getProfilesInBatch(uncachedHandles);
+      for (const profile of profiles) {
+        if (profile.did) {
+          qc.setQueryData(queryKeys.profiles.detail(profile.did), profile);
+        }
+      }
+    } catch {}
   }
 
   static async getProfile(handle: string): Promise<ProfileViewWithOrbyt | null> {
     if (!handle) return null;
-
     let cleanHandle = handle.trim().toLowerCase();
     if (cleanHandle.includes('://') || cleanHandle.includes('/')) {
       const parts = cleanHandle.split('/');
@@ -137,16 +101,11 @@ class ProfileService {
         }
       }
     }
-
     if (cleanHandle !== 'verifier' && cleanHandle !== 'bsky.app' && !cleanHandle.includes('.')) {
       return null;
     }
-
     const profile = await ActorService.getProfile(cleanHandle);
-    if (!profile) {
-      throw new Error('Failed to fetch profile by handle');
-    }
-
+    if (!profile) throw new Error('Failed to fetch profile by handle');
     return profile;
   }
 
@@ -160,14 +119,22 @@ class ProfileService {
     const uncachedHandles: string[] = [];
 
     for (const item of feedItems) {
-      const handle = item.post?.author?.handle?.toLowerCase();
-      const did = item.post?.author?.did;
+      const author = item.post?.author;
+      const handle = author?.handle?.toLowerCase();
+      const did = author?.did;
       if (!handle || !did) continue;
-      if (qc.getQueryData(queryKeys.profiles.detail(did))) continue;
-      if (!handleToDid.has(handle)) {
-        handleToDid.set(handle, did);
-        uncachedHandles.push(handle);
+
+      const cached = qc.getQueryData<ProfileViewWithOrbyt>(queryKeys.profiles.detail(did));
+      if (!cached) {
+        qc.setQueryData(queryKeys.profiles.detail(did), author);
       }
+      if (!cached || !('postsCount' in cached)) {
+        if (!handleToDid.has(handle)) {
+          handleToDid.set(handle, did);
+          uncachedHandles.push(handle);
+        }
+      }
+
       if (
         item.reason &&
         '$type' in item.reason &&
@@ -177,7 +144,13 @@ class ProfileService {
         const repostHandle = by?.handle?.toLowerCase();
         const repostDid = by?.did;
         if (repostHandle && repostDid && !handleToDid.has(repostHandle)) {
-          if (!qc.getQueryData(queryKeys.profiles.detail(repostDid))) {
+          const repostCached = qc.getQueryData<ProfileViewWithOrbyt>(
+            queryKeys.profiles.detail(repostDid)
+          );
+          if (!repostCached) {
+            qc.setQueryData(queryKeys.profiles.detail(repostDid), by);
+          }
+          if (!repostCached || !('postsCount' in repostCached)) {
             handleToDid.set(repostHandle, repostDid);
             uncachedHandles.push(repostHandle);
           }
@@ -196,23 +169,12 @@ class ProfileService {
       }
     } catch {}
   }
-
-  static async precacheCurrentUserProfile(qc: QueryClient = globalQueryClient): Promise<void> {
-    if (!this.currentUserDid) return;
-    await qc.prefetchQuery({
-      queryKey: profileKeys.detail(this.currentUserDid),
-      queryFn: () => ProfileService.getProfileByDid(this.currentUserDid!),
-      staleTime: PROFILE_CACHE_EXPIRY,
-    });
-  }
 }
 
 export function useProfileByDid(
   did: string | null | undefined,
   options: {
     refetchOnWindowFocus?: boolean;
-    refetchOnMount?: boolean;
-    refetchOnReconnect?: boolean;
     refetchInterval?: number | false;
     refetchIntervalInBackground?: boolean;
     placeholderData?: ProfileViewWithOrbyt | null;
@@ -229,12 +191,8 @@ export function useProfileByDid(
     queryFn: did ? () => ProfileService.getProfileByDid(did) : skipToken,
     staleTime,
     gcTime: PROFILE_CACHE_EXPIRY * 2,
-    refetchOnWindowFocus: options.refetchOnWindowFocus ?? true,
-    refetchOnMount: options.refetchOnMount ?? false,
-    refetchOnReconnect: options.refetchOnReconnect ?? false,
-    refetchInterval: options.refetchInterval,
-    refetchIntervalInBackground: options.refetchIntervalInBackground ?? false,
-    placeholderData: options.placeholderData,
+    refetchOnReconnect: false,
+    ...options,
   });
 }
 
@@ -246,15 +204,10 @@ export function useBatchProfilesByDid(
 
   return useQuery<ProfileViewWithOrbyt[], Error>({
     queryKey,
-    queryFn: async () => {
-      if (validDids.length === 0) return [];
-      return ProfileService.batchGetProfilesByDid(validDids);
-    },
+    queryFn: validDids.length > 0 ? () => ActorService.getProfilesInBatch(validDids) : skipToken,
     enabled: validDids.length > 0,
     staleTime: PROFILE_CACHE_EXPIRY,
     gcTime: PROFILE_CACHE_EXPIRY * 2,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
     refetchOnReconnect: false,
   });
 }
@@ -277,8 +230,6 @@ export function useProfile(
       : skipToken,
     staleTime: PROFILE_CACHE_EXPIRY,
     gcTime: PROFILE_CACHE_EXPIRY * 2,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
     refetchOnReconnect: false,
   });
 }
@@ -391,7 +342,6 @@ export function useBlockMutation() {
       } else {
         await GraphService.unblockUser(did);
       }
-
       return { did, handle, isBlocked };
     },
     onMutate: async ({ did, handle: _handle, isBlocked }) => {
@@ -422,16 +372,8 @@ export function useBlockMutation() {
       }
     },
     onSuccess: (_data, { did }) => {
-      // Invalidate feed queries immediately to refresh posts visibility
       queryClient.invalidateQueries({ queryKey: ['feed'], refetchType: 'active' });
-
-      // Delay profile refetch to ensure server has processed (only inactive queries)
-      setTimeout(() => {
-        queryClient.invalidateQueries({
-          queryKey: profileKeys.detail(did),
-          refetchType: 'inactive',
-        });
-      }, 2000);
+      queryClient.invalidateQueries({ queryKey: profileKeys.detail(did), refetchType: 'inactive' });
     },
   });
 }
@@ -481,13 +423,8 @@ export function useMuteMutation() {
       }
     },
     onSuccess: (_, { did }) => {
-      // Invalidate feed queries immediately to refresh posts visibility
       queryClient.invalidateQueries({ queryKey: ['feed'], refetchType: 'active' });
-
-      // Delay profile refetch to ensure server has processed the change
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: profileKeys.detail(did), refetchType: 'active' });
-      }, 500);
+      queryClient.invalidateQueries({ queryKey: profileKeys.detail(did), refetchType: 'active' });
     },
   });
 }
@@ -511,7 +448,6 @@ export function useProfileUpdateMutation() {
         };
       };
     }) => {
-      // Handle custom colors - update orbyt profile record
       if (updates.customColors) {
         await RepoService.updateOrbytProfileColors(
           updates.customColors.backgroundColor,
@@ -519,14 +455,12 @@ export function useProfileUpdateMutation() {
         );
       }
 
-      // Create a copy of updates without customColors for AtprotoService
       const profileUpdates = {
         displayName: updates.displayName,
         description: updates.description,
         avatar: updates.avatar,
       };
 
-      // Only call updateProfile if there are non-color updates
       let updatedProfile;
       if (
         updates.displayName !== undefined ||
@@ -539,12 +473,9 @@ export function useProfileUpdateMutation() {
       return { handle, updatedProfile, updatedColors: !!updates.customColors };
     },
     onMutate: async ({ handle, updates }) => {
-      // Get profile to find DID (API always provides DID)
       const profile = await ProfileService.getProfile(handle).catch(() => null);
       const did = profile?.did;
-      if (!did) {
-        throw new Error('Profile not found or missing DID');
-      }
+      if (!did) throw new Error('Profile not found or missing DID');
 
       await queryClient.cancelQueries({ queryKey: profileKeys.detail(did) });
 
@@ -552,7 +483,6 @@ export function useProfileUpdateMutation() {
         profileKeys.detail(did)
       );
 
-      // Optimistically update the query cache
       if (previousProfile) {
         const optimistic: ProfileViewWithOrbyt = {
           ...previousProfile,
@@ -581,13 +511,10 @@ export function useProfileUpdateMutation() {
         const did = context?.did;
         if (!did) return;
 
-        // If colors were updated, update orbyt record in cache
         if (updatedColors) {
           const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
-
           if (prev && updates.customColors) {
-            // Update the profile with new colors in the centralized orbytColors field
-            const updated: ProfileViewWithOrbyt = {
+            queryClient.setQueryData(profileKeys.detail(did), {
               ...prev,
               orbytColors: {
                 backgroundColor: updates.customColors.backgroundColor,
@@ -595,42 +522,26 @@ export function useProfileUpdateMutation() {
                 joinedAt: prev.orbytColors?.joinedAt ?? new Date().toISOString(),
                 isBeta: prev.orbytColors?.isBeta ?? false,
               },
-            };
-
-            // Update React Query cache immediately
-            queryClient.setQueryData(profileKeys.detail(did), updated);
+            });
           } else {
-            // Fallback: invalidate to trigger refetch
             queryClient.invalidateQueries({ queryKey: profileKeys.detail(did) });
           }
           return;
         }
 
-        if (!updatedProfile) {
-          return; // Skip if no profile was updated
-        }
+        if (!updatedProfile) return;
 
-        // Merge server-updated fields into the query cache immediately
         const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
+        if (!prev) return;
 
-        if (!prev) {
-          return; // Skip if no previous data
-        }
-
-        // Merge updated profile data
-        const merged: ProfileViewWithOrbyt = {
+        queryClient.setQueryData(profileKeys.detail(did), {
           ...prev,
           ...(updatedProfile as ProfileView),
-          orbytRecord: prev.orbytRecord, // Preserve orbyt record
-        };
+          orbytRecord: prev.orbytRecord,
+        });
 
-        queryClient.setQueryData(profileKeys.detail(did), merged);
-
-        // Still invalidate to ensure freshness against server
         queryClient.invalidateQueries({ queryKey: profileKeys.detail(did) });
-      } catch {
-        // Silently handle errors
-      }
+      } catch {}
     },
     onError: (_error, _variables, context) => {
       if (context?.previousProfile && context?.did) {
@@ -640,10 +551,6 @@ export function useProfileUpdateMutation() {
   });
 }
 
-/**
- * Hook to update activity subscription with React Query integration
- * React Query cache is the single source of truth for subscription state
- */
 export function useSubscriptionMutation() {
   const queryClient = useQueryClient();
 
@@ -721,7 +628,7 @@ export function useStatusExpirationMonitor(
 
     const expirationTime = getStatusExpirationTime(profile.status);
     if (expirationTime) {
-      const timeUntilExpiration = expirationTime - Date.now() + 60 * 1000; // 1 min buffer
+      const timeUntilExpiration = expirationTime - Date.now() + 60 * 1000;
 
       if (timeUntilExpiration <= 0) {
         invalidate();
@@ -759,9 +666,8 @@ export async function prefetchProfile(
 
   if (partialProfile && did) {
     const existing = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
-
     if (!existing) {
-      const partialProfileData: Partial<ProfileViewWithOrbyt> = {
+      queryClient.setQueryData(profileKeys.detail(did), {
         did,
         handle: partialProfile.handle,
         displayName: partialProfile.displayName,
@@ -769,9 +675,7 @@ export async function prefetchProfile(
         description: partialProfile.description,
         verification: partialProfile.verification,
         status: partialProfile.status,
-      };
-
-      queryClient.setQueryData(profileKeys.detail(did), partialProfileData as ProfileViewWithOrbyt);
+      } as ProfileViewWithOrbyt);
     }
   }
 

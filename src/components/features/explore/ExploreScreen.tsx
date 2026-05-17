@@ -11,7 +11,7 @@ import { FlashList, FlashListRef } from '@shopify/flash-list';
 import Reanimated, { useSharedValue, FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { navigateToEncodedChannelUri } from '@/utils/navigation/navigateEncodedChannel';
-import ProfileService, { useFollowMutation } from '@/services/data/ProfileService';
+import { useFollowMutation } from '@/services/data/ProfileService';
 import { useQueryClient } from '@tanstack/react-query';
 import { Icon } from '@/components/ui/UI';
 import HeaderBanner from '@/components/ui/HeaderBanner';
@@ -127,12 +127,6 @@ const ExploreScreen: React.FC = () => {
     },
     [followMutation]
   );
-
-  React.useEffect(() => {
-    if (currentUser?.did) {
-      ProfileService.setCurrentUserDid(currentUser.did);
-    }
-  }, [currentUser?.did]);
 
   const { data: fetchedHeaders = [], isPending: isHeadersPending } = useHeaders();
 

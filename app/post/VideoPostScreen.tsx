@@ -41,8 +41,6 @@ import { FULLSCREEN_BUFFER_OPTIONS, DEFAULT_VIDEO_ASPECT_RATIO } from '@/utils/v
 import { Colors } from '@/theme';
 import { FontFamily, Typography, TextStyles } from '@/utils/components/typography';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import { useCurrentUser } from '@/stores/userStore';
-import ProfileService from '@/services/data/ProfileService';
 import { AtprotoFeedService } from '@/services/api/feed/FeedService';
 import VideoProcessingService from '@/services/video/VideoProcessingService';
 import { logger } from '@/utils/logger';
@@ -552,9 +550,6 @@ const VideoPostScreen: React.FC = () => {
 
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // User store hooks
-  const { currentUser } = useCurrentUser();
-
   // Fade-in animation for smooth screen entry
   const fadeOpacity = useSharedValue(0);
   const headerFadeOpacity = useSharedValue(0);
@@ -582,13 +577,6 @@ const VideoPostScreen: React.FC = () => {
 
   // Rich text search input ref for description modal
   const descriptionInputRef = useRef<TextInput | null>(null);
-
-  useEffect(() => {
-    // Set current user handle in ProfileCache when userStore changes
-    if (currentUser?.handle) {
-      ProfileService.setCurrentUserHandle(currentUser.handle);
-    }
-  }, [currentUser?.handle, currentUser?.did]);
 
   const activeVideoPath = mergedVideoPath || videoPath;
 
