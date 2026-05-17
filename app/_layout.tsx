@@ -1,7 +1,7 @@
 import '@/i18n';
 import React, { useEffect } from 'react';
 import { View, StyleSheet, StatusBar, Platform } from 'react-native';
-import { Stack, usePathname, useNavigationContainerRef } from 'expo-router';
+import { Stack, useNavigationContainerRef } from 'expo-router';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -285,7 +285,6 @@ export default Sentry.wrap(function RootLayout() {
   const initializeUserState = useUserStore(state => state.initializeUserState);
   const clearBookmarks = useBookmarkStore(state => state.clearBookmarks);
   const isInitializingAuth = useUserStore(state => state.isInitializingAuth);
-  const _pathname = usePathname();
 
   useEffect(() => {
     if (Platform.OS === 'android') {
