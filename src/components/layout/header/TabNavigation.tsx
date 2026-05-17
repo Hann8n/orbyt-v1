@@ -303,6 +303,7 @@ const styles = StyleSheet.create({
   tabTextComments: {
     fontFamily: Typography.families.black,
     fontSize: fontSizeFor(18),
+    textTransform: 'lowercase',
   },
 });
 

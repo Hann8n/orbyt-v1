@@ -1,13 +1,5 @@
 #!/bin/bash
 
-# Unified build workflow script
-# Clears caches, increments build numbers, and builds Android AAB and/or iOS archive locally
-# Usage: build-all.sh [ios|android|all]
-#   ios     - Build only iOS
-#   android - Build only Android
-#   all     - Build both (default)
-
-# Don't use set -e - we want to handle errors explicitly and show verbose output
 set +e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,7 +7,6 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$PROJECT_DIR"
 
-# Parse platform argument
 PLATFORM="${1:-all}"
 if [[ "$PLATFORM" != "ios" && "$PLATFORM" != "android" && "$PLATFORM" != "all" ]]; then
   echo "❌ Invalid platform: $PLATFORM"
@@ -23,7 +14,6 @@ if [[ "$PLATFORM" != "ios" && "$PLATFORM" != "android" && "$PLATFORM" != "all" ]
   exit 1
 fi
 
-# Progress indicator function
 spinner() {
   local pid=$1
   local message=$2
@@ -35,118 +25,12 @@ spinner() {
     local spinstr=$temp${spinstr%"$temp"}
     sleep $delay
   done
-  # Don't print success here - let the caller handle it based on exit code
   printf "\r  %s " "$message"
 }
 
-echo "🚀 Starting unified build workflow..."
-echo ""
-
-# Step 1: Clear all caches
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Step 1: Clearing caches"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-bash "$SCRIPT_DIR/clear-cache.sh" "$PLATFORM"
-echo ""
-
-# Step 2: Increment build numbers
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Step 2: Incrementing build numbers"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-npx tsx scripts/update-version.ts increment-build
-echo ""
-
-# Step 3: Ensure native directories exist
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Step 3: Preparing native projects"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-# Prebuild Android if needed
-if [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]]; then
-  # Always run prebuild for Android to ensure config plugins run (they configure dependencies)
-  # Prebuild is safe to run multiple times - it updates configs without destroying custom code
-  echo "  Running Android prebuild (ensures plugins configure dependencies)..."
-  BUILD_LOG="/tmp/build_output_$$.log"
-  npx expo prebuild --platform android > "$BUILD_LOG" 2>&1 &
-  PREBUILD_PID=$!
-  spinner $PREBUILD_PID "Running Android prebuild"
-  wait $PREBUILD_PID
-  PREBUILD_EXIT=$?
-  if [ $PREBUILD_EXIT -ne 0 ]; then
-    echo "[✗]"
-    echo ""
-    echo "❌ Android prebuild failed with exit code $PREBUILD_EXIT"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "Full output:"
-    if [ -f "$BUILD_LOG" ]; then
-      cat "$BUILD_LOG"
-    else
-      echo "  (No log file found at $BUILD_LOG)"
-    fi
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    rm -f "$BUILD_LOG"
-    exit 1
-  fi
-  echo "[✓]"
-  rm -f "$BUILD_LOG"
-fi
-
-# Prebuild iOS if needed
-if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
-  if [ ! -d "ios" ]; then
-    echo "  Generating iOS native project..."
-    BUILD_LOG="/tmp/build_output_$$.log"
-    npx expo prebuild --platform ios > "$BUILD_LOG" 2>&1 &
-    PREBUILD_PID=$!
-    spinner $PREBUILD_PID "Running iOS prebuild"
-    wait $PREBUILD_PID
-    PREBUILD_EXIT=$?
-    if [ $PREBUILD_EXIT -ne 0 ]; then
-      echo "[✗]"
-      echo ""
-      echo "❌ iOS prebuild failed with exit code $PREBUILD_EXIT"
-      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      echo "Full output:"
-      if [ -f "$BUILD_LOG" ]; then
-        cat "$BUILD_LOG"
-      else
-        echo "  (No log file found at $BUILD_LOG)"
-      fi
-      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      rm -f "$BUILD_LOG"
-      exit 1
-    fi
-    echo "[✓]"
-    rm -f "$BUILD_LOG"
-  else
-    echo "  iOS native project exists, skipping prebuild"
-    # Sync version and build number from app.json to iOS project files
-    echo "  Syncing version from app.json to iOS project..."
-    APP_VERSION=$(node -p "require('./app.json').expo.version")
-    BUILD_NUMBER=$(node -p "require('./app.json').expo.ios?.buildNumber || '1'" 2>/dev/null || echo "1")
-    
-    if [ -n "$APP_VERSION" ] && [[ "$OSTYPE" == "darwin"* ]]; then
-      # Update Info.plist CFBundleShortVersionString and CFBundleVersion
-      if [ -f "ios/orbyt/Info.plist" ]; then
-        /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" ios/orbyt/Info.plist 2>/dev/null || true
-        /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/orbyt/Info.plist 2>/dev/null || true
-      fi
-      
-      # Update project.pbxproj MARKETING_VERSION and CURRENT_PROJECT_VERSION
-      if [ -f "ios/orbyt.xcodeproj/project.pbxproj" ]; then
-        sed -i '' "s/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = $APP_VERSION;/g" ios/orbyt.xcodeproj/project.pbxproj 2>/dev/null || true
-        sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" ios/orbyt.xcodeproj/project.pbxproj 2>/dev/null || true
-      fi
-      echo "  ✅ Synced version to $APP_VERSION (build $BUILD_NUMBER)"
-    fi
-  fi
-fi
-echo ""
-
-# Step 4: Build Android AAB
-if [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]]; then
+build_android() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "Step 4: Building Android AAB"
+  echo "Building Android AAB"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   bash "$SCRIPT_DIR/ensure-android-keystore-props.sh" || exit 1
   if [ ! -f "$PROJECT_DIR/android/keystore.properties" ]; then
@@ -154,77 +38,69 @@ if [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]]; then
     echo "   ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD"
     echo "   Optional: ANDROID_KEYSTORE_PATH (default: .backup/orbyt-upload-key.keystore)"
     echo "   Copy .env.example to .env and fill in your keystore credentials."
-    exit 1
+    return 1
   fi
   if [ -d "android" ]; then
-  cd android
-  echo "  Building (this may take several minutes)..."
-  BUILD_LOG="/tmp/build_output_$$.log"
-  # Run gradle and capture output
-  ./gradlew bundleRelease > "$BUILD_LOG" 2>&1 &
-  GRADLE_PID=$!
-  spinner $GRADLE_PID "Building Android AAB"
-  wait $GRADLE_PID
-  GRADLE_EXIT=$?
-  cd ..
-  
-  # Check exit code and show appropriate output
-  if [ $GRADLE_EXIT -eq 0 ]; then
-    echo "[✓]"
-    echo "✅ Android AAB built successfully!"
-    echo "   Location: android/app/build/outputs/bundle/release/app-release.aab"
-    rm -f "$BUILD_LOG"
-  else
-    echo "[✗]"
-    echo ""
-    echo "❌ Android build failed with exit code $GRADLE_EXIT"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "Full build output:"
-    if [ -f "$BUILD_LOG" ]; then
-      cat "$BUILD_LOG"
+    cd android
+    echo "  Building (this may take several minutes)..."
+    BUILD_LOG="/tmp/build_output_android_$$.log"
+    ./gradlew bundleRelease > "$BUILD_LOG" 2>&1 &
+    GRADLE_PID=$!
+    spinner $GRADLE_PID "Building Android AAB"
+    wait $GRADLE_PID
+    GRADLE_EXIT=$?
+    cd ..
+    
+    if [ $GRADLE_EXIT -eq 0 ]; then
+      echo "[✓]"
+      echo "✅ Android AAB built successfully!"
+      echo "   Location: android/app/build/outputs/bundle/release/app-release.aab"
+      rm -f "$BUILD_LOG"
+      return 0
     else
-      echo "  (No log file found at $BUILD_LOG)"
+      echo "[✗]"
+      echo ""
+      echo "❌ Android build failed with exit code $GRADLE_EXIT"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo "Full build output:"
+      if [ -f "$BUILD_LOG" ]; then
+        cat "$BUILD_LOG"
+      else
+        echo "  (No log file found at $BUILD_LOG)"
+      fi
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      rm -f "$BUILD_LOG"
+      return 1
     fi
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    rm -f "$BUILD_LOG"
-    exit 1
-  fi
   else
     echo "❌ Android directory not found. Run prebuild first."
-    exit 1
+    return 1
   fi
-  echo ""
-fi
+}
 
-# Step 5: Build iOS Archive
-if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
+build_ios() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "Step 5: Building iOS Archive"
+  echo "Building iOS Archive"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
   if [[ "$OSTYPE" != "darwin"* ]]; then
     echo "⚠️  iOS builds require macOS. Skipping iOS build."
-    echo ""
-    echo "✅ Build workflow complete"
-    exit 0
+    return 0
   fi
 
   if [ ! -d "ios" ]; then
     echo "❌ iOS directory not found. Run prebuild first."
-    exit 1
+    return 1
   fi
 
-  # Find the workspace and project
   WORKSPACE_PATH=$(find ios -name "*.xcworkspace" -type d | head -1)
   PROJECT_PATH=$(find ios -name "*.xcodeproj" -type d -not -path "*/Pods/*" | head -1)
   
   if [ -z "$WORKSPACE_PATH" ] && [ -z "$PROJECT_PATH" ]; then
     echo "❌ Could not find Xcode workspace or project. Run prebuild first."
-    exit 1
+    return 1
   fi
 
-  # Always try to find the app scheme from the main project first (not Pods)
-  # This ensures we get the actual app target, not a Pod dependency
   SCHEME_NAME=""
   if [ -n "$PROJECT_PATH" ]; then
     SCHEME_NAME=$(xcodebuild -list -project "$PROJECT_PATH" 2>/dev/null | \
@@ -232,9 +108,7 @@ if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
       grep -v "^[[:space:]]*$" | head -1 | xargs)
   fi
   
-  # If no scheme found in project, try workspace (but filter out Pod schemes)
   if [ -z "$SCHEME_NAME" ] && [ -n "$WORKSPACE_PATH" ]; then
-    # Get all schemes and filter out known Pod/library schemes
     SCHEME_NAME=$(xcodebuild -list -workspace "$WORKSPACE_PATH" 2>/dev/null | \
       grep -A 100 "Schemes:" | grep -v "Schemes:" | \
       grep -v "^[[:space:]]*$" | \
@@ -247,11 +121,9 @@ if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
     echo "   Found workspace: ${WORKSPACE_PATH:-none}"
     echo "   Found project: ${PROJECT_PATH:-none}"
     echo "   Please ensure your iOS project has a scheme configured."
-    exit 1
+    return 1
   fi
   
-  # Determine if we should use workspace or project for building
-  # Always use workspace if available (required for CocoaPods), otherwise use project
   if [ -n "$WORKSPACE_PATH" ]; then
     USE_WORKSPACE=true
   else
@@ -262,43 +134,36 @@ if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
   echo "  Scheme: $SCHEME_NAME"
   echo ""
 
-  # Ensure CocoaPods are installed (required when using workspace)
   if [ "$USE_WORKSPACE" = true ] && [ -f "ios/Podfile" ]; then
     echo "  Running pod install..."
     (cd ios && pod install)
     if [ $? -ne 0 ]; then
       echo "❌ pod install failed. Fix the errors above and try again."
-      exit 1
+      return 1
     fi
     echo "  ✅ pod install complete"
     echo ""
   fi
 
-  # Use Xcode's default Archives location so it appears in Organizer
-  # Format: ~/Library/Developer/Xcode/Archives/YYYY-MM-DD/AppName YYYY-MM-DD HH.MM.SS.xcarchive
   ARCHIVES_DIR="$HOME/Library/Developer/Xcode/Archives"
   ARCHIVE_DATE=$(date +%Y-%m-%d)
   ARCHIVE_TIME=$(date +%H.%M.%S)
   ARCHIVE_DATE_DIR="$ARCHIVES_DIR/$ARCHIVE_DATE"
   
-  # Get app name for archive name
   APP_NAME=$(node -p "require('./app.json').expo.name" 2>/dev/null || echo "orbyt")
   ARCHIVE_NAME="${APP_NAME} ${ARCHIVE_DATE} ${ARCHIVE_TIME}.xcarchive"
-  ARCHIVE_PATH="$ARCHIVE_DATE_DIR/$ARCHIVE_NAME"
+  export ARCHIVE_PATH="$ARCHIVE_DATE_DIR/$ARCHIVE_NAME"
   
-  # Create archives directory if it doesn't exist
   mkdir -p "$ARCHIVE_DATE_DIR"
   
   echo "  Archive will be saved to: $ARCHIVE_PATH"
   echo "  (This will appear in Xcode Organizer)"
   echo ""
 
-  # Build and archive with proper settings
   echo "  Building and archiving (this may take several minutes)..."
   echo "  Note: Archives require valid code signing setup."
-  BUILD_LOG="/tmp/build_output_$$.log"
+  BUILD_LOG="/tmp/build_output_ios_$$.log"
   
-  # DEVELOPMENT_TEAM: use env var, or expo.ios.developmentTeam from app.json
   TEAM_ID="${DEVELOPMENT_TEAM}"
   if [ -z "$TEAM_ID" ]; then
     TEAM_ID=$(node -p "require('./app.json').expo?.ios?.developmentTeam || ''" 2>/dev/null | tr -d '\n' || true)
@@ -307,11 +172,6 @@ if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
   BUILD_SETTINGS="CODE_SIGN_STYLE=Automatic"
   [ -n "$TEAM_ID" ] && BUILD_SETTINGS="DEVELOPMENT_TEAM=$TEAM_ID $BUILD_SETTINGS"
   
-  # Build command with best practices:
-  # - Use workspace if available (required for CocoaPods)
-  # - Allow provisioning updates for automatic signing
-  # - Set SDK to iphoneos
-  # - Use Release configuration
   if [ "$USE_WORKSPACE" = true ]; then
     xcodebuild archive \
       -workspace "$WORKSPACE_PATH" \
@@ -341,10 +201,8 @@ if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
   wait $XCODE_PID
   XCODE_EXIT=$?
 
-  # Check exit code AND verify archive actually contains the app bundle
   ARCHIVE_VALID=0
   if [ $XCODE_EXIT -eq 0 ]; then
-    # Verify the archive actually contains an app bundle
     APP_BUNDLE=$(find "$ARCHIVE_PATH/Products/Applications" -name "*.app" -type d -maxdepth 2 2>/dev/null | head -1)
     
     if [ -z "$APP_BUNDLE" ]; then
@@ -391,7 +249,7 @@ if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
       echo "   3. Review any errors in the Xcode UI"
       echo "   4. Ensure code signing is configured: Signing & Capabilities tab"
       rm -f "$BUILD_LOG"
-      exit 1
+      return 1
     fi
   fi
 
@@ -406,6 +264,7 @@ if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
     echo "   2. Select your archive → Distribute App"
     echo "   3. Choose distribution method (App Store, Ad Hoc, etc.)"
     rm -f "$BUILD_LOG"
+    return 0
   else
     echo "[✗]"
     echo ""
@@ -427,8 +286,145 @@ if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
     echo "   3. Try archiving manually in Xcode for detailed error messages"
     echo "   4. Verify scheme builds the app target, not a library/framework"
     rm -f "$BUILD_LOG"
+    return 1
+  fi
+}
+
+echo "🚀 Starting unified build workflow..."
+echo ""
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Step 1: Incrementing build numbers"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+npx tsx scripts/update-version.ts increment-build
+echo ""
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Step 2: Preparing native projects"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]]; then
+  echo "  Running Android prebuild (ensures plugins configure dependencies)..."
+  BUILD_LOG="/tmp/build_output_$$.log"
+  npx expo prebuild --platform android > "$BUILD_LOG" 2>&1 &
+  PREBUILD_PID=$!
+  spinner $PREBUILD_PID "Running Android prebuild"
+  wait $PREBUILD_PID
+  PREBUILD_EXIT=$?
+  if [ $PREBUILD_EXIT -ne 0 ]; then
+    echo "[✗]"
+    echo ""
+    echo "❌ Android prebuild failed with exit code $PREBUILD_EXIT"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Full output:"
+    if [ -f "$BUILD_LOG" ]; then
+      cat "$BUILD_LOG"
+    else
+      echo "  (No log file found at $BUILD_LOG)"
+    fi
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    rm -f "$BUILD_LOG"
     exit 1
   fi
+  echo "[✓]"
+  rm -f "$BUILD_LOG"
+fi
+
+if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
+  if [ ! -d "ios" ]; then
+    echo "  Generating iOS native project..."
+    BUILD_LOG="/tmp/build_output_$$.log"
+    npx expo prebuild --platform ios > "$BUILD_LOG" 2>&1 &
+    PREBUILD_PID=$!
+    spinner $PREBUILD_PID "Running iOS prebuild"
+    wait $PREBUILD_PID
+    PREBUILD_EXIT=$?
+    if [ $PREBUILD_EXIT -ne 0 ]; then
+      echo "[✗]"
+      echo ""
+      echo "❌ iOS prebuild failed with exit code $PREBUILD_EXIT"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo "Full output:"
+      if [ -f "$BUILD_LOG" ]; then
+        cat "$BUILD_LOG"
+      else
+        echo "  (No log file found at $BUILD_LOG)"
+      fi
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      rm -f "$BUILD_LOG"
+      exit 1
+    fi
+    echo "[✓]"
+    rm -f "$BUILD_LOG"
+  else
+    echo "  iOS native project exists, skipping prebuild"
+    echo "  Syncing version from app.json to iOS project..."
+    APP_VERSION=$(node -p "require('./app.json').expo.version")
+    BUILD_NUMBER=$(node -p "require('./app.json').expo.ios?.buildNumber || '1'" 2>/dev/null || echo "1")
+    
+    if [ -n "$APP_VERSION" ] && [[ "$OSTYPE" == "darwin"* ]]; then
+      if [ -f "ios/orbyt/Info.plist" ]; then
+        /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" ios/orbyt/Info.plist 2>/dev/null || true
+        /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/orbyt/Info.plist 2>/dev/null || true
+      fi
+      
+      if [ -f "ios/orbyt.xcodeproj/project.pbxproj" ]; then
+        sed -i '' "s/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = $APP_VERSION;/g" ios/orbyt.xcodeproj/project.pbxproj 2>/dev/null || true
+        sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" ios/orbyt.xcodeproj/project.pbxproj 2>/dev/null || true
+      fi
+      echo "  ✅ Synced version to $APP_VERSION (build $BUILD_NUMBER)"
+    fi
+  fi
+fi
+echo ""
+
+if [[ "$PLATFORM" == "all" ]]; then
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Step 3: Building Android and iOS in parallel"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  
+  build_android &
+  ANDROID_PID=$!
+  
+  build_ios &
+  IOS_PID=$!
+  
+  wait $ANDROID_PID
+  ANDROID_EXIT=$?
+  
+  wait $IOS_PID
+  IOS_EXIT=$?
+  
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Build Results:"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  if [ $ANDROID_EXIT -eq 0 ]; then
+    echo "✅ Android: SUCCESS"
+  else
+    echo "❌ Android: FAILED"
+  fi
+  
+  if [ $IOS_EXIT -eq 0 ]; then
+    echo "✅ iOS: SUCCESS"
+  else
+    echo "❌ iOS: FAILED"
+  fi
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  
+  if [ $ANDROID_EXIT -ne 0 ] || [ $IOS_EXIT -ne 0 ]; then
+    exit 1
+  fi
+elif [[ "$PLATFORM" == "android" ]]; then
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Step 3: Building Android AAB"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  build_android || exit 1
+elif [[ "$PLATFORM" == "ios" ]]; then
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Step 3: Building iOS Archive"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  build_ios || exit 1
 fi
 
 echo ""
@@ -441,6 +437,10 @@ if [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]]; then
   echo "   Android AAB: android/app/build/outputs/bundle/release/app-release.aab"
 fi
 if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
-  echo "   iOS Archive: $ARCHIVE_PATH"
+  if [[ -n "$ARCHIVE_PATH" ]]; then
+    echo "   iOS Archive: $ARCHIVE_PATH"
+  else
+    echo "   iOS Archive: See build output above for location"
+  fi
   echo "   Open in Organizer: Xcode → Window → Organizer"
 fi

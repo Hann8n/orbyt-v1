@@ -1,125 +1,75 @@
 #!/usr/bin/env node
 
-/**
- * Script to manage native build numbers in app.json
- *
- * Android versionCode uses UTC date encoding: YYYYMMDD00–YYMMDD99 (100 builds/day max).
- * Migrates from legacy integer codes by jumping to today's base when appropriate.
- *
- * Usage:
- *   tsx scripts/update-version.ts increment-build   # Next Android versionCode + matching iOS buildNumber
- *   tsx scripts/update-version.ts get-build   # Get current build numbers
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 
-const APP_JSON_PATH = path.join(__dirname, '..', 'app.json');
+const BUILD_VERSION_PATH = path.join(__dirname, '..', '.build-version.json');
+const APP_CONFIG_JS_PATH = path.join(__dirname, '..', 'app.config.js');
 
-interface AppJson {
-  expo: {
-    ios?: {
-      buildNumber?: string;
-      [key: string]: unknown;
-    };
-    android?: {
-      versionCode?: number;
-      [key: string]: unknown;
-    };
-    [key: string]: unknown;
-  };
+interface BuildVersion {
+  buildNumber: number;
 }
 
-function readAppJson(): AppJson {
-  const content = fs.readFileSync(APP_JSON_PATH, 'utf-8');
+function readBuildVersion(): BuildVersion {
+  if (!fs.existsSync(BUILD_VERSION_PATH)) {
+    const initial = { buildNumber: 1 };
+    fs.writeFileSync(BUILD_VERSION_PATH, JSON.stringify(initial, null, 2), 'utf-8');
+    return initial;
+  }
+  const content = fs.readFileSync(BUILD_VERSION_PATH, 'utf-8');
   return JSON.parse(content);
 }
 
-function writeAppJson(appJson: AppJson): void {
-  const content = JSON.stringify(appJson, null, 2);
-  fs.writeFileSync(APP_JSON_PATH, content, 'utf-8');
+function writeBuildVersion(buildVersion: BuildVersion): void {
+  const content = JSON.stringify(buildVersion, null, 2);
+  fs.writeFileSync(BUILD_VERSION_PATH, content, 'utf-8');
 }
 
-/** Calendar day as YYYYMMDD in UTC. */
-function yyyymmddUtc(d: Date): number {
-  return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
-}
-
-/** Next Android versionCode: date-based, strictly increasing, 100 slots per UTC day. */
-function nextDateBasedVersionCode(currentVersionCode: number): number {
-  const now = new Date();
-  const todayBase = yyyymmddUtc(now) * 100;
-  const todayMax = todayBase + 99;
-
-  if (currentVersionCode < todayBase) {
-    return Math.max(currentVersionCode + 1, todayBase);
-  }
-  if (currentVersionCode < todayMax) {
-    return currentVersionCode + 1;
-  }
-  const tomorrow = new Date(now);
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-  return yyyymmddUtc(tomorrow) * 100;
-}
-
-function incrementBuildNumbers(): { versionCode: number; buildNumber: string } {
-  const appJson = readAppJson();
-
-  const currentVersionCode = (appJson.expo.android?.versionCode as number) || 0;
-  const newVersionCode = nextDateBasedVersionCode(currentVersionCode);
-  const newBuildNumber = String(newVersionCode);
-
-  // Ensure ios and android objects exist
-  if (!appJson.expo.ios) {
-    appJson.expo.ios = {};
-  }
-  if (!appJson.expo.android) {
-    appJson.expo.android = {};
+function updateAppConfigJs(buildNumber: number): void {
+  if (!fs.existsSync(APP_CONFIG_JS_PATH)) {
+    throw new Error(`${APP_CONFIG_JS_PATH} not found`);
   }
 
-  // Update values
-  appJson.expo.android.versionCode = newVersionCode;
-  appJson.expo.ios.buildNumber = newBuildNumber;
+  const content = fs.readFileSync(APP_CONFIG_JS_PATH, 'utf-8');
+  const buildNumberStr = String(buildNumber);
 
-  writeAppJson(appJson);
+  let updated = content.replace(/(buildNumber:\s*)'[^']*'/, `$1'${buildNumberStr}'`);
 
-  return {
-    versionCode: newVersionCode,
-    buildNumber: newBuildNumber,
-  };
+  updated = updated.replace(/(versionCode:\s*)\d+/, `$1${buildNumber}`);
+
+  fs.writeFileSync(APP_CONFIG_JS_PATH, updated, 'utf-8');
 }
 
-function getBuildNumbers(): { versionCode: number | undefined; buildNumber: string | undefined } {
-  const appJson = readAppJson();
-  return {
-    versionCode: appJson.expo.android?.versionCode as number | undefined,
-    buildNumber: appJson.expo.ios?.buildNumber as string | undefined,
-  };
+function incrementBuildNumbers(): { buildNumber: number } {
+  const buildVersion = readBuildVersion();
+  const newBuildNumber = buildVersion.buildNumber + 1;
+
+  buildVersion.buildNumber = newBuildNumber;
+  writeBuildVersion(buildVersion);
+  updateAppConfigJs(newBuildNumber);
+
+  return { buildNumber: newBuildNumber };
 }
 
-// Main
+function getBuildNumbers(): { buildNumber: number } {
+  const buildVersion = readBuildVersion();
+  return { buildNumber: buildVersion.buildNumber };
+}
+
 const command = process.argv[2];
 
 switch (command) {
   case 'increment-build': {
-    const { versionCode, buildNumber } = incrementBuildNumbers();
-    console.log(`✅ Incremented build numbers:`);
-    console.log(`   Android versionCode: ${versionCode}`);
-    console.log(`   iOS buildNumber: ${buildNumber}`);
+    const { buildNumber } = incrementBuildNumbers();
+    console.log(`✅ Incremented build number: ${buildNumber}`);
+    console.log(`   Updated app.config.js with new build number`);
     process.exit(0);
     break;
   }
   case 'get-build': {
-    const { versionCode, buildNumber } = getBuildNumbers();
-    if (versionCode !== undefined && buildNumber !== undefined) {
-      console.log(`Android versionCode: ${versionCode}`);
-      console.log(`iOS buildNumber: ${buildNumber}`);
-      process.exit(0);
-    } else {
-      console.error('❌ Build numbers not found in app.json');
-      console.error('   Run "increment-build" to initialize them');
-      process.exit(1);
-    }
+    const { buildNumber } = getBuildNumbers();
+    console.log(`Current build number: ${buildNumber}`);
+    process.exit(0);
     break;
   }
   default:
