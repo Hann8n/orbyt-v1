@@ -222,22 +222,14 @@ const EndOfFeedOverscrollHint = memo(
         ),
       [hintLayoutStyle, animatedStyle]
     );
+    const labelStyle = useMemo(
+      () => StyleSheet.compose(styles.endOfFeedLabel, { color: labelColor }),
+      [labelColor]
+    );
     return (
       <Animated.View pointerEvents="none" style={hintContainerStyle}>
         <View style={styles.endOfFeedOverscrollInner}>
-          <Text
-            style={[
-              styles.endOfFeedLabel,
-              {
-                fontSize: Typography.sizes.body,
-                fontFamily: FontFamily.medium,
-                color: labelColor,
-                textAlign: 'center',
-              },
-            ]}
-          >
-            {t('feed.thatsAllForNow')}
-          </Text>
+          <Text style={labelStyle}>{t('feed.thatsAllForNow')}</Text>
         </View>
       </Animated.View>
     );
@@ -291,8 +283,6 @@ function ListFeedViewComponent({
     snapOrigin: 0,
     firstVideoIdx: 0,
   });
-  const localProgressSV = useSharedValue(0);
-  const progressOutput = useRef(contentScrollProgressOutput ?? localProgressSV).current;
 
   const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
 
@@ -494,7 +484,7 @@ function ListFeedViewComponent({
       );
     },
 
-    []
+    [handleHeaderLayout]
   );
 
   const itemSpacing = useMemo(() => cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP, [cardHeight]);
@@ -553,31 +543,34 @@ function ListFeedViewComponent({
     }
   }, []);
 
-  const fadeDist = isHeaderFeed ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
+  const scrollHandler = useAnimatedScrollHandler(
+    {
+      onScroll: event => {
+        const y = Math.max(0, event.contentOffset.y);
+        scrollOffsetYSV.value = y;
 
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: event => {
-      const y = Math.max(0, event.contentOffset.y);
-      scrollOffsetYSV.value = y;
+        if (contentScrollProgressOutput) {
+          contentScrollProgressOutput.set(
+            Math.max(0, Math.min(1, y / SCROLL_CONSTANTS.HEADER_FADE_DISTANCE))
+          );
+        }
 
-      if (fadeDist > 0) {
-        progressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
-      }
-
-      const contentH = event.contentSize?.height ?? 0;
-      const layoutH = event.layoutMeasurement?.height ?? 0;
-      const maxY = Math.max(0, contentH - layoutH);
-      const overscrollPastEnd = y - maxY;
-      if (endOfFeedEnabledSV.value < 0.5) {
-        endOfFeedOverscrollOpacitySV.value = 0;
-      } else {
-        endOfFeedOverscrollOpacitySV.value = Math.max(
-          0,
-          Math.min(1, overscrollPastEnd / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX)
-        );
-      }
+        const contentH = event.contentSize?.height ?? 0;
+        const layoutH = event.layoutMeasurement?.height ?? 0;
+        const maxY = Math.max(0, contentH - layoutH);
+        const overscrollPastEnd = y - maxY;
+        if (endOfFeedEnabledSV.value < 0.5) {
+          endOfFeedOverscrollOpacitySV.value = 0;
+        } else {
+          endOfFeedOverscrollOpacitySV.value = Math.max(
+            0,
+            Math.min(1, overscrollPastEnd / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX)
+          );
+        }
+      },
     },
-  });
+    [contentScrollProgressOutput]
+  );
 
   useEffect(() => {
     const headerSnapAdjust = isHeaderFeed ? snapTopInset : 0;
@@ -891,6 +884,9 @@ const styles = StyleSheet.create({
   },
   endOfFeedLabel: {
     letterSpacing: 0.5,
+    fontSize: Typography.sizes.body,
+    fontFamily: FontFamily.medium,
+    textAlign: 'center',
   },
 });
 

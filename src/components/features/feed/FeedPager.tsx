@@ -210,6 +210,12 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   // Derive current feed option from current index
   const currentFeedOption = feedOptions[currentFeedIndex] || feedOptions[0] || 'following';
 
+  // Animate header back to visible when switching tabs
+  useEffect(() => {
+    if (!contentScrollProgressOutput) return;
+    contentScrollProgressOutput.set(withTiming(0, { duration: 150 }));
+  }, [currentFeedIndex, contentScrollProgressOutput]);
+
   const feedBarAnimatedStyle = useAnimatedStyle(() => {
     const visible = tabBarVisibility.value > 0.5;
     return {
@@ -311,9 +317,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
         secondaryColor={secondaryColor}
         viewMode={viewMode}
         onViewModeChange={onViewModeChange}
-        contentScrollProgressOutput={
-          index === currentFeedIndex ? contentScrollProgressOutput : undefined
-        }
+        contentScrollProgressOutput={contentScrollProgressOutput}
         onRetryFeed={NOOP}
         queryOptions={feedQueryOptions}
         isVisible={isVisible && index === currentFeedIndex}
