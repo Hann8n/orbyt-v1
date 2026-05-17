@@ -135,8 +135,6 @@ export function useFeed(
     gcTime: queryOptions.gcTime ?? FEED_CONFIG.GC_TIME,
     retry: FEED_CONFIG.MAX_RETRIES,
     retryDelay: FEED_CONFIG.RETRY_DELAY,
-    refetchOnWindowFocus: queryOptions.refetchOnWindowFocus ?? false,
-    refetchOnMount: queryOptions.refetchOnMount ?? false,
     refetchOnReconnect: queryOptions.refetchOnReconnect ?? false,
     refetchInterval: queryOptions.refetchInterval,
     refetchIntervalInBackground: queryOptions.refetchIntervalInBackground ?? false,

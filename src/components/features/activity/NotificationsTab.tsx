@@ -813,13 +813,6 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
   // Load moderation prefs so getModerationOpts can build ModerationOpts for moderateNotification
   useModerationSettings(currentUser?.did ?? undefined);
 
-  // Initialize current user for ProfileCache on mount - use store instead of API call
-  useEffect(() => {
-    if (currentUser?.did && currentUser?.handle) {
-      ProfileService.setCurrentUserHandle(currentUser.handle);
-    }
-  }, [currentUser?.did, currentUser?.handle]);
-
   // Mark notifications as seen when the tab is focused
   useFocusEffect(
     useCallback(() => {
@@ -938,17 +931,9 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
     fetchNextPage,
   ]);
 
-  // Prefetch author profiles when notifications load
   useEffect(() => {
     if (notifications.length === 0) return;
-    const handles = Array.from(
-      new Set(
-        notifications
-          .map(n => n.author?.handle?.toLowerCase())
-          .filter((h): h is string => !!h?.trim())
-      )
-    );
-    if (handles.length > 0) ProfileService.batchGetProfiles(handles).catch(() => {});
+    void ProfileService.warmProfileCache(notifications.map(n => n.author));
   }, [notifications]);
 
   const handleLoadMore = useCallback(() => {
