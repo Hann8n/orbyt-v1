@@ -70,8 +70,8 @@ const VideoGridItem: React.FC<{
   const thumbnailUrl = videoView?.thumbnail || null;
   const shouldBlur = !!(item.contentListUI?.blur || item.contentMediaUI?.blur);
 
-  const handlePress = () => onPress?.(index);
-  const flattenedStyle = StyleSheet.flatten([styles.gridItem, style]);
+  const handlePress = useCallback(() => onPress?.(index), [onPress, index]);
+  const flattenedStyle = useMemo(() => StyleSheet.flatten([styles.gridItem, style]), [style]);
 
   const validThumbnailUrl =
     thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim() !== ''
@@ -79,12 +79,16 @@ const VideoGridItem: React.FC<{
       : null;
 
   const recyclingKey = item.post?.uri || item.post?.cid || `item-${index}`;
+  const imageSource = useMemo(
+    () => (validThumbnailUrl ? { uri: validThumbnailUrl } : null),
+    [validThumbnailUrl]
+  );
 
   const cellContent = (
     <>
-      {validThumbnailUrl && !shouldBlur && (
+      {imageSource && !shouldBlur && (
         <Image
-          source={{ uri: validThumbnailUrl }}
+          source={imageSource}
           style={styles.thumbnail}
           contentFit="contain"
           recyclingKey={recyclingKey}
@@ -110,7 +114,7 @@ const VideoGridItem: React.FC<{
   }
 
   return (
-    <NativePressable style={[styles.gridItem, style]} onPress={handlePress}>
+    <NativePressable style={flattenedStyle} onPress={handlePress}>
       {cellContent}
     </NativePressable>
   );
@@ -194,19 +198,20 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         : 0;
     const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
     const scrollOffsetYSV = useSharedValue(0);
-    const fadeDist = useScrollTracking ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
-    const localProgressSV = useSharedValue(0);
-    const progressOutput = useRef(contentScrollProgressOutput ?? localProgressSV).current;
-
-    const scrollHandler = useAnimatedScrollHandler({
-      onScroll: event => {
-        const y = event.contentOffset.y;
-        scrollOffsetYSV.value = y;
-        if (fadeDist > 0) {
-          progressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
-        }
+    const scrollHandler = useAnimatedScrollHandler(
+      {
+        onScroll: event => {
+          const y = event.contentOffset.y;
+          scrollOffsetYSV.value = y;
+          if (contentScrollProgressOutput) {
+            contentScrollProgressOutput.set(
+              Math.max(0, Math.min(1, y / SCROLL_CONSTANTS.HEADER_FADE_DISTANCE))
+            );
+          }
+        },
       },
-    });
+      [contentScrollProgressOutput]
+    );
 
     const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
       const h = Math.round(e.nativeEvent.layout.height);
