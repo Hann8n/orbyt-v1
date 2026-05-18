@@ -22,7 +22,7 @@ export const AppTrueSheet = function AppTrueSheet({
   variant = 'default',
   ...rest
 }: AppTrueSheetProps & {
-  ref?: React.RefObject<TrueSheet>;
+  ref?: React.Ref<TrueSheet>;
 }) {
   const defaults = { ...DEFAULT_SHEET_PROPS };
 

@@ -119,7 +119,7 @@ export const SquircleNativePressable = function SquircleNativePressable({
   style,
   ...props
 }: NativePressableProps & {
-  ref?: React.RefObject<ElementRef<typeof NativePressable>>;
+  ref?: React.Ref<ElementRef<typeof NativePressable>>;
 }) {
   const { container, inner } = splitStyle(style as StyleProp<ViewStyle>);
   const fillInnerPressable = shouldFillInnerPressable(container);

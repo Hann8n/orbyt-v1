@@ -157,7 +157,7 @@ const FeedPager = function FeedPager({
   pullToRefreshEnabled = false,
   onPullToRefreshExtra,
 }: FeedPagerProps & {
-  ref: React.RefObject<FeedPagerRef>;
+  ref?: React.Ref<FeedPagerRef>;
 }) {
   const { t } = useTranslation();
   const { screenWidth: width, isTablet } = useDeviceLayout();

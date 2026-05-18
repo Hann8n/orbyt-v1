@@ -22,7 +22,7 @@ export const SearchSwipePager = ({
   renderTabContent,
   pages,
 }: SearchSwipePagerProps & {
-  ref: React.RefObject<SearchSwipePagerRef>;
+  ref?: React.Ref<SearchSwipePagerRef>;
 }) => {
   const pagerViewRef = useRef<PagerView>(null);
   const activeIndex = pages.indexOf(activeTab);

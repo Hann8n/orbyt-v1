@@ -390,7 +390,7 @@ const ChatsTab = ({
   ref,
   chatFilter,
 }: ChatsTabProps & {
-  ref: React.RefObject<ScrollToTopRef>;
+  ref?: React.Ref<ScrollToTopRef>;
 }) => {
   const { t } = useTranslation();
   const listRef = useRef<FlashListRef<ConvoView>>(null);

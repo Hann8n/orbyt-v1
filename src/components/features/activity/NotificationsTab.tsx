@@ -780,7 +780,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
 );
 NotificationItem.displayName = 'NotificationItem';
 
-const NotificationsTab = ({ ref, ..._ }) => {
+const NotificationsTab = ({ ref }: { ref?: React.Ref<{ scrollToTop: () => void }> }) => {
   const { t } = useTranslation();
   const flashListRef = useRef<FlashListRef<EnrichedNotification>>(null);
 
