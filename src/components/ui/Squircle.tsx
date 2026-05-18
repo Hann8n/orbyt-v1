@@ -27,6 +27,8 @@ export const SquircleButton = function SquircleButton({
   ref,
   cornerSmoothing = CORNER_SMOOTHING,
   ...props
+}: React.ComponentProps<typeof _SquircleButton> & {
+  ref?: React.Ref<typeof _SquircleButton>;
 }) {
   return <_SquircleButton ref={ref} cornerSmoothing={cornerSmoothing} {...props} />;
 };
@@ -117,7 +119,7 @@ export const SquircleNativePressable = function SquircleNativePressable({
   style,
   ...props
 }: NativePressableProps & {
-  ref: React.RefObject<ElementRef<typeof NativePressable>>;
+  ref?: React.RefObject<ElementRef<typeof NativePressable>>;
 }) {
   const { container, inner } = splitStyle(style as StyleProp<ViewStyle>);
   const fillInnerPressable = shouldFillInnerPressable(container);
