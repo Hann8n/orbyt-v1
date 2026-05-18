@@ -897,7 +897,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               showsVerticalScrollIndicator={
                 flattenedComments.length >= SCROLL_INDICATOR_CONSTANTS.COMMENTS_MIN_ITEMS
               }
-              nestedScrollEnabled
               scrollEventThrottle={16}
               onScroll={handleListScroll}
               onEndReached={onEndReachedComments}
@@ -918,7 +917,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               showsVerticalScrollIndicator={
                 likes.length >= SCROLL_INDICATOR_CONSTANTS.COMMENTS_MIN_ITEMS
               }
-              nestedScrollEnabled
               scrollEventThrottle={16}
               onScroll={handleListScroll}
               onEndReached={onEndReachedLikes}

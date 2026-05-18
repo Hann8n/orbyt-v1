@@ -17,7 +17,6 @@ import {
   ACTIVITY_LIST_MUTED_ICON_SIZE,
   ACTIVITY_LIST_SENT_BY_ME_ICON_SIZE,
   ACTIVITY_LIST_STREAK_ICON_SIZE,
-  ACTIVITY_LIST_TEXT_LEADING,
   activityListSharedStyles,
 } from './ActivityListStyles';
 import { View, Text, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
@@ -31,9 +30,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { Colors } from '../../../theme';
-import { OptionsButton } from '../../../components/ui/OptionsButton';
 import { Avatar } from '../../../components/ui/UI';
-import Icon, {
+import { SquircleNativePressable } from '../../../components/ui/Squircle';
+import {
+  shape,
+  buttonContentCenter,
+  buttonSizeContainer,
+  buttonVariantContainer,
+  buttonVariantLabel,
+  buttonLabelBase,
+  buttonDisabledOpacity,
+} from '../../../components/ui/buttonPresets';
+import {
+  ArrowRightFillIcon,
   FlameFillIcon,
   FireFillIcon,
   MutedChatIcon,
@@ -41,18 +50,15 @@ import Icon, {
 } from '../../../components/ui/Icon';
 import { VerificationBadge, BotBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
-import { getBottomNavBarHeight } from '../../../utils/device/screen';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { chatReactQueryOptions } from '../../../utils/query/chatQueryOptions';
-import ChatSettingsSheet from './ChatSettingsSheet';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { getActiveStreak, isStreakActive } from '../../../utils/chat/streak';
 import type { ProfileViewBasic, RecordValue } from '../../../services/api/types';
-import ActivitySegmentedChips from './ActivitySegmentedChips';
 import { itemSizeConfig } from '@/components/ui/ItemStyles';
 
 type ConvoView = ChatBskyConvoDefs.ConvoView;
@@ -331,32 +337,51 @@ const ConversationItem = React.memo<ConversationItemProps>(
         </View>
         {isRequest ? (
           <View style={styles.requestActions}>
-            <View style={styles.requestOptionButtonWrap}>
-              <OptionsButton
-                label={thisAccepting ? t('common.accepting') : t('common.accept')}
-                onPress={handleAccept}
-                disabled={thisAccepting || thisDeclining}
-                linkType="none"
-                style={styles.requestOptionButton}
-                containerStyle={[
-                  styles.requestOptionButtonInner,
-                  styles.requestOptionButtonCenter,
-                  styles.requestOptionButtonAcceptBg,
+            <SquircleNativePressable
+              onPress={handleAccept}
+              disabled={thisAccepting || thisDeclining}
+              style={[
+                shape.compact,
+                buttonContentCenter,
+                buttonSizeContainer.small,
+                buttonVariantContainer.success,
+                styles.requestActionButton,
+                (thisAccepting || thisDeclining) && buttonDisabledOpacity,
+              ]}
+            >
+              <Text
+                style={[
+                  buttonLabelBase,
+                  buttonVariantLabel.success,
+                  styles.requestActionButtonText,
+                  styles.requestActionButtonAcceptText,
                 ]}
-                textStyle={[styles.requestOptionButtonText, styles.requestOptionButtonAcceptText]}
-              />
-            </View>
-            <View style={styles.requestOptionButtonWrap}>
-              <OptionsButton
-                label={thisDeclining ? t('common.declining') : t('common.decline')}
-                onPress={handleDecline}
-                disabled={thisAccepting || thisDeclining}
-                linkType="none"
-                style={styles.requestOptionButton}
-                containerStyle={[styles.requestOptionButtonInner, styles.requestOptionButtonCenter]}
-                textStyle={styles.requestOptionButtonText}
-              />
-            </View>
+              >
+                {thisAccepting ? t('common.accepting') : t('common.accept')}
+              </Text>
+            </SquircleNativePressable>
+            <SquircleNativePressable
+              onPress={handleDecline}
+              disabled={thisAccepting || thisDeclining}
+              style={[
+                shape.compact,
+                buttonContentCenter,
+                buttonSizeContainer.small,
+                buttonVariantContainer.secondary,
+                styles.requestActionButton,
+                (thisAccepting || thisDeclining) && buttonDisabledOpacity,
+              ]}
+            >
+              <Text
+                style={[
+                  buttonLabelBase,
+                  buttonVariantLabel.secondary,
+                  styles.requestActionButtonText,
+                ]}
+              >
+                {thisDeclining ? t('common.declining') : t('common.decline')}
+              </Text>
+            </SquircleNativePressable>
           </View>
         ) : null}
       </View>
@@ -367,49 +392,58 @@ ConversationItem.displayName = 'ConversationItem';
 
 const SCROLL_AT_TOP_THRESHOLD = 80;
 
-type ChatSegment = 'all' | 'unread' | 'requests';
-
-const SEGMENT_OPTIONS: { value: ChatSegment; labelKey: string }[] = [
-  { value: 'all', labelKey: 'chat.all' },
-  { value: 'unread', labelKey: 'chat.unread' },
-  { value: 'requests', labelKey: 'chat.requests' },
-];
-
-function segmentToFilter(segment: ChatSegment): ListConvosFilter {
-  if (segment === 'requests') return { status: 'request' };
-  if (segment === 'unread') return { status: 'accepted', readState: 'unread' };
-  return { status: 'accepted' };
-}
+const RequestsBannerItem: React.FC<{ count: number; hasUnseen: boolean }> = ({
+  count,
+  hasUnseen,
+}) => {
+  const { t } = useTranslation();
+  const router = useRouter();
+  return (
+    <NativePressable
+      onPress={() => router.push('/(tabs)/activity/requests')}
+      style={styles.requestsBanner}
+    >
+      <Text style={styles.requestsBannerLabel}>{t('chat.requests')}</Text>
+      <View style={[styles.requestsBannerPill, hasUnseen && styles.requestsBannerPillUnseen]}>
+        <Text style={[styles.requestsBannerCount, hasUnseen && styles.requestsBannerCountUnseen]}>
+          {count}
+        </Text>
+        <ArrowRightFillIcon
+          size={16}
+          color={hasUnseen ? Colors.neutral[950] : Colors.neutral[400]}
+        />
+      </View>
+    </NativePressable>
+  );
+};
 
 export interface ChatsTabProps {
-  /** Optional initial filter (e.g. from /chat/requests page). Segment bar uses this to set initial selection. */
   chatFilter?: ListConvosFilter;
+  requestsCount?: number;
+  hasUnseenRequests?: boolean;
 }
 
 const ChatsTab = ({
   ref,
   chatFilter,
+  requestsCount,
+  hasUnseenRequests = false,
 }: ChatsTabProps & {
   ref?: React.Ref<ScrollToTopRef>;
 }) => {
   const { t } = useTranslation();
+  const { bottom } = useSafeAreaInsets();
   const listRef = useRef<FlashListRef<ConvoView>>(null);
   const scrollOffsetRef = useRef(0);
   const previousFirstConvoIdRef = useRef<string | undefined>(undefined);
   const navigation = useRouter();
   const queryClient = useQueryClient();
-  const insets = useSafeAreaInsets();
-  const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const [isUserRefreshing, setIsUserRefreshing] = useState(false);
 
-  const [showChatSettingsSheet, setShowChatSettingsSheet] = useState(false);
-  const [segment, setSegment] = useState<ChatSegment>(() => {
-    if (chatFilter?.status === 'request') return 'requests';
-    if (chatFilter?.readState === 'unread') return 'unread';
-    return 'all';
-  });
-
-  const effectiveFilter = useMemo(() => segmentToFilter(segment), [segment]);
+  const effectiveFilter = useMemo<ListConvosFilter>(
+    () => chatFilter ?? { status: 'accepted' },
+    [chatFilter]
+  );
 
   const { mutate: acceptConvo } = useMutation({
     mutationFn: (convoId: string) => ChatService.acceptConvo(convoId),
@@ -574,34 +608,10 @@ const ChatsTab = ({
     if (hasNextPage && !isFetchingNextPage) fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const listHeaderComponent = useMemo(
-    () => (
-      <View style={styles.segmentRow}>
-        <ActivitySegmentedChips
-          options={SEGMENT_OPTIONS.map(opt => ({
-            key: opt.value,
-            label: t(opt.labelKey),
-            selected: segment === opt.value,
-            onPress: () => setSegment(opt.value),
-          }))}
-          containerStyle={styles.segmentChipsWrap}
-          trackStyle={styles.segmentChipsTrack}
-        />
-        <NativePressable
-          onPress={() => setShowChatSettingsSheet(true)}
-          style={styles.segmentGearButton}
-        >
-          <Icon name="settings_2" size={22} color={Colors.neutral[50]} />
-        </NativePressable>
-      </View>
-    ),
-    [segment, t]
-  );
-
   const emptyMessage =
-    segment === 'unread'
+    chatFilter?.readState === 'unread'
       ? t('chat.allCaughtUp')
-      : segment === 'requests'
+      : chatFilter?.status === 'request'
         ? t('chat.noRequests')
         : t('chat.noChatsYet');
 
@@ -612,18 +622,22 @@ const ChatsTab = ({
         style={activityListSharedStyles.listContainer}
         contentContainerStyle={[
           activityListSharedStyles.listContentContainer,
-          { paddingBottom: bottomNavBarHeight + 5 },
+          { paddingBottom: bottom },
         ]}
         contentInsetAdjustmentBehavior="never"
         data={isError ? [] : conversations}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         getItemType={getItemType}
+        ListHeaderComponent={
+          requestsCount && requestsCount > 0 ? (
+            <RequestsBannerItem count={requestsCount} hasUnseen={hasUnseenRequests} />
+          ) : null
+        }
         ItemSeparatorComponent={ChatDivider}
         drawDistance={400}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        ListHeaderComponent={listHeaderComponent}
         refreshControl={
           <RefreshControl
             refreshing={isUserRefreshing && isRefetching && !isFetchingNextPage}
@@ -661,10 +675,6 @@ const ChatsTab = ({
           ) : null
         }
       />
-      <ChatSettingsSheet
-        visible={showChatSettingsSheet}
-        onDismiss={() => setShowChatSettingsSheet(false)}
-      />
     </>
   );
 };
@@ -673,25 +683,6 @@ ChatsTab.displayName = 'ChatsTab';
 export default ChatsTab;
 
 const styles = StyleSheet.create({
-  segmentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 8,
-  },
-  segmentChipsWrap: {
-    flexShrink: 1,
-  },
-  segmentChipsTrack: {
-    backgroundColor: Colors.neutral[975],
-  },
-  segmentGearButton: {
-    paddingVertical: 8,
-    paddingLeft: 12,
-    paddingRight: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   conversationItem: {
     flexDirection: 'column',
     paddingVertical: 10,
@@ -699,6 +690,7 @@ const styles = StyleSheet.create({
   conversationItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
   },
   mutedIconWrap: {
     marginLeft: 6,
@@ -738,35 +730,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     marginTop: 10,
-    paddingLeft: ACTIVITY_LIST_TEXT_LEADING,
+    paddingHorizontal: 10,
   },
-  requestOptionButtonWrap: {
+  requestActionButton: {
     flex: 1,
-  },
-  requestOptionButton: {
-    marginHorizontal: 0,
-    marginBottom: 0,
-  },
-  requestOptionButtonInner: {
     paddingVertical: 6,
-    paddingHorizontal: 14,
-    minHeight: 34,
-    justifyContent: 'center',
   },
-  requestOptionButtonCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  requestActionButtonText: {
+    fontSize: Typography.sizes.body,
+    fontFamily: FontFamily.bold,
   },
-  requestOptionButtonText: {
-    fontSize: Typography.sizes.subtitle,
-    fontFamily: FontFamily.medium,
-    textAlign: 'center',
-  },
-  requestOptionButtonAcceptBg: {
-    backgroundColor: Colors.brand.teal,
-  },
-  requestOptionButtonAcceptText: {
-    color: Colors.neutral[975],
+  requestActionButtonAcceptText: {
+    color: Colors.black,
   },
   unreadDotWrap: {
     width: 8,
@@ -792,5 +767,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
+  },
+  requestsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingLeft: 16,
+    paddingRight: 10,
+    backgroundColor: Colors.neutral[925],
+  },
+  requestsBannerLabel: {
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.bold,
+    color: Colors.neutral[50],
+  },
+  requestsBannerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: Colors.neutral[800],
+  },
+  requestsBannerPillUnseen: {
+    backgroundColor: Colors.teal[400],
+  },
+  requestsBannerCount: {
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.bold,
+    color: Colors.neutral[400],
+  },
+  requestsBannerCountUnseen: {
+    color: Colors.neutral[950],
   },
 });

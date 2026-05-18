@@ -61,7 +61,7 @@ export default function TabsLayout() {
 
         <NativeTabs.Trigger name="activity">
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/inbox_2_cute.png')} />
-          <NativeTabs.Trigger.Label hidden>{t('tabs.activity')}</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label hidden>{t('tabs.chats')}</NativeTabs.Trigger.Label>
           {totalUnreadCount > 0 && (
             <NativeTabs.Trigger.Badge>
               {totalUnreadCount > 99 ? '99+' : totalUnreadCount.toString()}

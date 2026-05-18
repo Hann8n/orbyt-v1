@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, Text, StyleProp, ViewStyle } from 'react-native';
+import { View, StyleSheet, Text, StyleProp, ViewStyle, useWindowDimensions } from 'react-native';
 import { MenuView } from '@react-native-menu/menu';
 import type { MenuAction } from '@react-native-menu/menu';
 import { NativePressable } from '../../ui/NativePressable';
@@ -8,7 +8,7 @@ import { SquircleNativePressable } from '../../ui/Squircle';
 import { ListViewIcon, GridViewIcon, DownSmallFillIcon } from '../../ui/Icon';
 import type { ViewMode } from '../../../types';
 import { Colors } from '../../../theme';
-import { Typography, fontSizeFor } from '../../../utils/components/typography';
+import { Typography } from '../../../utils/components/typography';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 
 export interface TabOption {
@@ -50,6 +50,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   variant = 'header',
   dropdown = false,
 }) => {
+  const { fontScale } = useWindowDimensions();
+  const tabGap = 12 * fontScale;
   const handleViewModeChange = (mode: ViewMode) => {
     if (onViewModeChange) {
       onViewModeChange(mode);
@@ -105,7 +107,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
         {(reserveViewToggleSpace || (showViewToggle && onViewModeChange)) && (
           <View style={styles.viewToggleArea}>
             {showViewToggle && onViewModeChange && (
-              <View style={styles.viewToggleContainer}>
+              <View style={[styles.viewToggleContainer, { gap: tabGap }]}>
                 <SquircleNativePressable
                   style={[
                     styles.viewToggleButton,
@@ -140,7 +142,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
   return (
     <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
-      <View style={styles.tabsRow}>
+      <View style={[styles.tabsRow, { gap: tabGap }]}>
         {tabs.map(tab => (
           <NativePressable
             key={tab.id}
@@ -176,7 +178,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
       {(reserveViewToggleSpace || (showViewToggle && onViewModeChange)) && (
         <View style={styles.viewToggleArea}>
           {showViewToggle && onViewModeChange && (
-            <View style={styles.viewToggleContainer}>
+            <View style={[styles.viewToggleContainer, { gap: tabGap }]}>
               <NativePressable
                 style={[
                   styles.viewToggleButton,
@@ -222,11 +224,9 @@ const styles = StyleSheet.create({
   tabsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     flex: 1,
   },
   tabOption: {
-    paddingRight: 8,
     minHeight: 36,
     justifyContent: 'center',
   },
@@ -256,7 +256,6 @@ const styles = StyleSheet.create({
   viewToggleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     marginTop: 2,
   },
   viewToggleButton: {
@@ -264,6 +263,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.FULL,
   },
   activeViewToggleButton: {},
+
   headerStyle: {
     paddingVertical: 12,
     marginTop: 4,
@@ -276,7 +276,6 @@ const styles = StyleSheet.create({
   dropdownButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 0,
     paddingVertical: 8,
     minHeight: 36,
   },
@@ -302,7 +301,7 @@ const styles = StyleSheet.create({
   },
   tabTextComments: {
     fontFamily: Typography.families.black,
-    fontSize: fontSizeFor(18),
+    fontSize: Typography.sizes.title,
     textTransform: 'lowercase',
   },
 });

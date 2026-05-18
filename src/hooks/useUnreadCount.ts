@@ -6,8 +6,9 @@ import { QUERY_CONSTANTS } from '../utils/constants';
 import { queryKeys } from '../utils/query/queryKeys';
 import { chatReactQueryOptions } from '../utils/query/chatQueryOptions';
 
-/** Matches ChatsTab default "all" segment — shared React Query cache for listConvos. */
+/** Matches ChatsTab default "chats" segment — shared React Query cache for listConvos. */
 const CHAT_LIST_FILTER_ACCEPTED = { status: 'accepted' as const };
+const CHAT_LIST_FILTER_REQUESTS = { status: 'request' as const };
 
 export const useUnreadCount = () => {
   const sessionValid = useUserStore(selectIsSessionValid);
@@ -39,11 +40,46 @@ export const useUnreadCount = () => {
         .reduce((sum, c) => sum + (c.muted ? 0 : c.unreadCount), 0),
   });
 
+  // Two selects on the same query key — RQ deduplicates the network request.
+  const { data: requestsCount = 0 } = useInfiniteQuery({
+    queryKey: queryKeys.chat.conversations.list(undefined, CHAT_LIST_FILTER_REQUESTS),
+    queryFn: async ({ pageParam }) =>
+      ChatService.listConvos(pageParam as string | null, CHAT_LIST_FILTER_REQUESTS),
+    initialPageParam: null as string | null,
+    getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
+    enabled: sessionValid,
+    staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    ...chatReactQueryOptions,
+    select: data => data.pages.flatMap(p => p.conversations ?? []).length,
+  });
+
+  const { data: hasUnseenRequests = false } = useInfiniteQuery({
+    queryKey: queryKeys.chat.conversations.list(undefined, CHAT_LIST_FILTER_REQUESTS),
+    queryFn: async ({ pageParam }) =>
+      ChatService.listConvos(pageParam as string | null, CHAT_LIST_FILTER_REQUESTS),
+    initialPageParam: null as string | null,
+    getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
+    enabled: sessionValid,
+    staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    ...chatReactQueryOptions,
+    select: data => data.pages.flatMap(p => p.conversations ?? []).some(c => c.unreadCount > 0),
+  });
+
   const totalUnreadCount = notificationsCount + messagesCount;
 
   return {
     notificationsCount,
     messagesCount,
+    requestsCount,
+    hasUnseenRequests,
     totalUnreadCount,
     hasUnread: totalUnreadCount > 0,
   };

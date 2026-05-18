@@ -18,11 +18,11 @@ import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AtprotoCore } from '../../../services/api/core';
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { NotificationService } from '../../../services/api/notification/NotificationService';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
 import ProfileService, { prefetchProfile } from '../../../services/data/ProfileService';
@@ -30,7 +30,6 @@ import { Colors } from '../../../theme';
 import { Avatar } from '../../../components/ui/UI';
 import { VerificationBadge, BotBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
-import { getBottomNavBarHeight } from '../../../utils/device/screen';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { useCommentSection } from '../../../stores/modalStore';
@@ -94,9 +93,7 @@ const NotificationLoading = () => (
 );
 
 // Divider component for notifications
-const NotificationDivider = () => (
-  <View style={[activityListSharedStyles.dividerInset, styles.dividerTrailingBleed]} />
-);
+const NotificationDivider = () => <View style={activityListSharedStyles.dividerInset} />;
 
 // Post kind type
 type PostKind = 'video' | 'image' | 'external' | 'record' | 'text';
@@ -782,6 +779,7 @@ NotificationItem.displayName = 'NotificationItem';
 
 const NotificationsTab = ({ ref }: { ref?: React.Ref<{ scrollToTop: () => void }> }) => {
   const { t } = useTranslation();
+  const { bottom } = useSafeAreaInsets();
   const flashListRef = useRef<FlashListRef<EnrichedNotification>>(null);
 
   // Expose scrollToTop method
@@ -796,9 +794,6 @@ const NotificationsTab = ({ ref }: { ref?: React.Ref<{ scrollToTop: () => void }
   );
   const navigation = useRouter();
   const queryClient = useQueryClient();
-  const insets = useSafeAreaInsets();
-  const bottomNavBarHeight = getBottomNavBarHeight(insets);
-
   // Get current user from store instead of API call
   const currentUser = useUserStore(state => state.currentUser);
 
@@ -979,8 +974,9 @@ const NotificationsTab = ({ ref }: { ref?: React.Ref<{ scrollToTop: () => void }
       style={activityListSharedStyles.listContainer}
       contentContainerStyle={[
         activityListSharedStyles.listContentContainer,
-        { paddingBottom: bottomNavBarHeight + 5 },
+        { paddingBottom: bottom },
       ]}
+      contentInsetAdjustmentBehavior="never"
       data={isError ? [] : visibleNotifications}
       extraData={postDataMap.size}
       renderItem={renderNotificationContent}
@@ -1038,14 +1034,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingVertical: 10,
+    paddingHorizontal: 10,
   },
   notificationLeftContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-start',
-  },
-  dividerTrailingBleed: {
-    marginRight: -10,
   },
   notificationContentTail: {
     marginRight: 12,
