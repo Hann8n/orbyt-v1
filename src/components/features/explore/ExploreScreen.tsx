@@ -1,14 +1,22 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
-import { View, StyleSheet, TextInput, StatusBar, Platform } from 'react-native';
+import { View, StyleSheet, TextInput, StatusBar, Platform, Text } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
-import Reanimated, { useSharedValue, FadeIn, FadeOut } from 'react-native-reanimated';
+import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import {
+  TabView,
+  TabBar,
+  type SceneRendererProps,
+  type NavigationState,
+  type Route,
+  type TabDescriptor,
+} from 'react-native-tab-view';
 
 import { navigateToEncodedChannelUri } from '@/utils/navigation/navigateEncodedChannel';
 import { useFollowMutation } from '@/services/data/ProfileService';
@@ -21,10 +29,10 @@ const GRADIENT_SHIM = require('@/assets/embed-video-gradient-shim.png');
 import { SearchIcon } from '@/components/ui/Icon';
 import { Colors } from '@/theme';
 import EmptyFeed from '@/components/features/feed/EmptyFeed';
-import { getBottomNavBarHeight } from '@/utils/device/screen';
+
 import { HeaderService, useHeaders, type Header } from '@/services/OrbytBannerService';
 import { useFeed } from '@/hooks/useFeed';
-import { isIosLiquidGlassAvailable, useUserStore } from '@/stores/userStore';
+import { useUserStore } from '@/stores/userStore';
 import type { ExtendedFeedViewPost } from '@/services/api/types';
 import { useOrbytChannels } from '@/services/OrbytChannelsService';
 import { useVisitHistory } from '@/hooks/useVisitHistory';
@@ -41,8 +49,6 @@ import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import type { CachedChannel } from '@/services/data/ChannelService';
 import { prefetchProfileThenOpen } from './prefetchProfileThenOpen';
 import { exploreScreenStyles as styles } from './ExploreScreenStyles';
-import { SearchSwipePager } from './SearchSwipePager';
-import type { SearchSwipePagerRef } from './SearchSwipePager';
 import { SearchFeedRenderer, ExploreSuggestionsProfileRow } from './ExploreSearchResults';
 import { OrbytChannelsGrid } from './OrbytChannelsGrid';
 import {
@@ -51,7 +57,6 @@ import {
 } from './ExploreSuggestionSectionChrome';
 import { ExploreSpotlightCarousel } from './ExploreSpotlightCarousel';
 import { ExploreSectionLoading, ExploreTopSpacer } from './exploreListChrome';
-import { ExploreSearchTabIndicator } from './ExploreSearchTabIndicator';
 import { mapSearchFeedToResults } from './exploreSearchMapper';
 import { useExploreSuggestionsQueries } from './useExploreSuggestionsQueries';
 import { useExploreTabRefs } from './useExploreTabRefs';
@@ -62,13 +67,13 @@ import {
   getExploreTopChromeSpacerHeight,
 } from './exploreLayout';
 import { EXPLORE_HEADER_BANNER_ASPECT_RATIO } from './exploreConstants';
+import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
 const ExploreScreen: React.FC = () => {
   const { t } = useTranslation();
   const flashListRef = useRef<FlashListRef<ListItem> | null>(null);
   const currentUser = useUserStore(state => state.currentUser);
   const searchInputRef = useRef<TextInput | null>(null);
-  const searchPagerRef = useRef<SearchSwipePagerRef>(null);
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
@@ -92,27 +97,16 @@ const ExploreScreen: React.FC = () => {
   const { debouncedQuery, clearPendingDebounce, setDebouncedQuery } =
     useExploreSearchDebounce(searchQuery);
 
-  const indicatorScrollProgress = useSharedValue(0);
-  const handleSearchPageIndexChange = useCallback(
-    (index: number) => {
-      // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue write
-      indicatorScrollProgress.value = index;
-    },
-    [indicatorScrollProgress]
-  );
-
   const queryClient = useQueryClient();
   const { navigateToProfile: goToProfile, navigateToChannel: goToChannel } =
     useProfileChannelNavigation();
 
   const followMutation = useFollowMutation();
   const insets = useSafeAreaInsets();
-  const { isCompact, screenWidth, screenHeight } = useDeviceLayout();
+  const { screenWidth, screenHeight } = useDeviceLayout();
   const [hasHeaderBannerError, setHasHeaderBannerError] = useState<boolean>(false);
 
-  const bottomPadding = isIosLiquidGlassAvailable
-    ? getBottomNavBarHeight(insets, isCompact) + 10
-    : getBottomNavBarHeight(insets, isCompact);
+  const bottomPadding = insets.bottom;
 
   const handleFollow = useCallback(
     (profile: Profile) => {
@@ -199,9 +193,63 @@ const ExploreScreen: React.FC = () => {
     }
   }, [pages, activeTab]);
 
-  const handleIndicatorTap = useCallback((tabId: ExploreSearchTabId) => {
-    searchPagerRef.current?.setPage(tabId);
-  }, []);
+  const searchTabIndex = useMemo(() => Math.max(0, pages.indexOf(activeTab)), [pages, activeTab]);
+
+  const searchRoutes: Route[] = useMemo(
+    () =>
+      pages.map(tabId => ({
+        key: tabId,
+        title:
+          tabId === 'recently-visited'
+            ? t('feed.recentlyVisited')
+            : tabId === 'profiles'
+              ? t('feed.people')
+              : t('feed.feeds'),
+      })),
+    [pages, t]
+  );
+
+  const searchTabCommonOptions = useMemo<TabDescriptor<Route>>(
+    () => ({
+      sceneStyle: styles.searchResultsContainer,
+      label: ({ color, labelText }) => (
+        <Text
+          style={{
+            color,
+            fontSize: Typography.sizes.h3,
+            fontFamily: FontFamily.black,
+            includeFontPadding: false,
+          }}
+        >
+          {labelText}
+        </Text>
+      ),
+    }),
+    []
+  );
+
+  const renderSearchTabBar = useCallback(
+    (
+      props: SceneRendererProps & {
+        navigationState: NavigationState<Route>;
+        options: Record<string, TabDescriptor<Route>> | undefined;
+      }
+    ) => (
+      <TabBar
+        {...props}
+        style={styles.indicatorContainer}
+        tabStyle={styles.indicatorItem}
+        contentContainerStyle={styles.searchTabBarContent}
+        activeColor={Colors.neutral[50]}
+        inactiveColor={Colors.neutral[500]}
+        renderIndicator={() => null}
+        scrollEnabled
+        gap={fontSizeFor(10)}
+        pressOpacity={0.7}
+      />
+    ),
+    []
+  );
 
   const resetExploreSearch = useCallback(() => {
     clearPendingDebounce();
@@ -482,28 +530,19 @@ const ExploreScreen: React.FC = () => {
               style={[styles.exploreSearchResultsTopInset, { height: exploreSearchChromeHeight }]}
               pointerEvents="none"
             />
-            <View style={styles.indicatorContainer}>
-              {pages.map((tabId, tabIndex) => (
-                <ExploreSearchTabIndicator
-                  key={tabId}
-                  tabId={tabId}
-                  tabIndex={tabIndex}
-                  onPress={() => handleIndicatorTap(tabId)}
-                  indicatorScrollProgress={indicatorScrollProgress}
-                  t={t}
-                />
-              ))}
-            </View>
-            <View style={styles.searchContentWrapper}>
-              <SearchSwipePager
-                ref={searchPagerRef}
-                activeTab={activeTab}
-                onActiveTabChange={setActiveTab}
-                onPageIndexChange={handleSearchPageIndexChange}
-                pages={pages}
-                renderTabContent={renderSearchTabContent}
-              />
-            </View>
+            <TabView
+              navigationState={{ index: searchTabIndex, routes: searchRoutes }}
+              renderScene={({ route }) => renderSearchTabContent(route.key as ExploreSearchTabId)}
+              onIndexChange={nextIndex => setActiveTab(pages[nextIndex] ?? pages[0])}
+              renderTabBar={renderSearchTabBar}
+              swipeEnabled={true}
+              initialLayout={{ width: screenWidth }}
+              lazy
+              lazyPreloadDistance={1}
+              style={styles.searchContentWrapper}
+              commonOptions={searchTabCommonOptions}
+              overScrollMode="never"
+            />
           </SafeAreaView>
         </Reanimated.View>
       )}

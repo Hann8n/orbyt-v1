@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 import { BORDER_RADIUS } from '@/utils/constants';
 import { Colors, Shadows } from '@/theme';
 import { androidTextFix } from '@/utils/styling/platformText';
-import { FontFamily, Typography } from '@/utils/components/typography';
+import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
 export const exploreScreenStyles = StyleSheet.create({
   container: {
@@ -303,30 +303,25 @@ export const exploreScreenStyles = StyleSheet.create({
     width: '100%',
   },
   indicatorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 15,
-    paddingTop: 2,
-    paddingBottom: 4,
-    gap: 16,
     backgroundColor: Colors.black,
+    elevation: 0,
+    boxShadow: 'none',
+  },
+  searchTabBarContent: {
+    paddingHorizontal: fontSizeFor(15),
+    paddingTop: fontSizeFor(4),
+    paddingBottom: fontSizeFor(4),
   },
   indicatorItem: {
-    paddingVertical: 4,
-    paddingHorizontal: 0,
+    width: 'auto',
+    paddingVertical: 0,
+    paddingHorizontal: fontSizeFor(4),
+    minHeight: 0,
   },
   searchResultsContainer: {
     flex: 1,
     backgroundColor: Colors.black,
   },
-  pagerView: {
-    flex: 1,
-  },
-  pagerPage: {
-    flex: 1,
-  },
-
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',

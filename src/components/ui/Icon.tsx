@@ -1126,7 +1126,7 @@ const SendPlaneFillIcon: React.FC<{
   );
 };
 
-const InboxIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({
+export const InboxIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({
   size,
   color,
   style,

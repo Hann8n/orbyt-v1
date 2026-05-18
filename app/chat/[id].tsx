@@ -51,7 +51,16 @@ import Icon, {
   ThoughtCuteFilledIcon,
 } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/UI';
-import { OptionsButton } from '@/components/ui/OptionsButton';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
+import {
+  shape,
+  buttonContentCenter,
+  buttonSizeContainer,
+  buttonVariantContainer,
+  buttonVariantLabel,
+  buttonLabelBase,
+  buttonDisabledOpacity,
+} from '@/components/ui/buttonPresets';
 import VerticalListSheet, { VerticalListButton } from '@/components/ui/VerticalListSheet';
 import AuthorItem from '@/components/ui/AuthorItem';
 import { itemSizeConfig, sharedItemStyles } from '@/components/ui/ItemStyles';
@@ -2102,51 +2111,72 @@ export default function ChatScreen() {
         <KeyboardStickyView>
           {needsAccept ? (
             <View style={styles.acceptBar}>
-              <OptionsButton
-                label={acceptConvoMutation.isPending ? t('common.accepting') : t('common.accept')}
+              <SquircleNativePressable
                 onPress={() => acceptConvoMutation.mutate()}
                 disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
-                linkType="none"
-                style={styles.acceptBarOptionButton}
-                containerStyle={[
-                  styles.acceptBarOptionButtonInner,
-                  styles.acceptBarOptionButtonCenter,
-                  styles.acceptBarButtonAcceptBg,
+                style={[
+                  shape.compact,
+                  buttonContentCenter,
+                  buttonSizeContainer.medium,
+                  buttonVariantContainer.success,
+                  (acceptConvoMutation.isPending || leaveConvoMutation.isPending) &&
+                    buttonDisabledOpacity,
                 ]}
-                textStyle={[styles.acceptBarOptionButtonText, styles.acceptBarButtonAcceptText]}
-              />
-              <View style={styles.acceptBarRowActions}>
-                <View style={styles.acceptBarOptionButtonWrap}>
-                  <OptionsButton
-                    label={t('chat.reportOrBlock')}
-                    onPress={() => TrueSheet.present('chat-report-or-block')}
-                    disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
-                    destructive
-                    linkType="none"
-                    style={styles.acceptBarOptionButton}
-                    containerStyle={[
-                      styles.acceptBarOptionButtonInner,
-                      styles.acceptBarOptionButtonCenter,
+              >
+                <Text
+                  style={[
+                    buttonLabelBase,
+                    buttonVariantLabel.success,
+                    styles.acceptBarButtonText,
+                    styles.acceptBarButtonAcceptText,
+                  ]}
+                >
+                  {acceptConvoMutation.isPending ? t('common.accepting') : t('common.accept')}
+                </Text>
+              </SquircleNativePressable>
+              <View style={styles.acceptBarSecondaryRow}>
+                <SquircleNativePressable
+                  onPress={() => leaveConvoMutation.mutate()}
+                  disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
+                  style={[
+                    shape.compact,
+                    buttonContentCenter,
+                    buttonSizeContainer.small,
+                    buttonVariantContainer.secondary,
+                    styles.acceptBarSecondaryButton,
+                    (acceptConvoMutation.isPending || leaveConvoMutation.isPending) &&
+                      buttonDisabledOpacity,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      buttonLabelBase,
+                      buttonVariantLabel.secondary,
+                      styles.acceptBarButtonText,
                     ]}
-                    textStyle={styles.acceptBarOptionButtonText}
-                  />
-                </View>
-                <View style={styles.acceptBarOptionButtonWrap}>
-                  <OptionsButton
-                    label={
-                      leaveConvoMutation.isPending ? t('common.declining') : t('common.decline')
-                    }
-                    onPress={() => leaveConvoMutation.mutate()}
-                    disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
-                    linkType="none"
-                    style={styles.acceptBarOptionButton}
-                    containerStyle={[
-                      styles.acceptBarOptionButtonInner,
-                      styles.acceptBarOptionButtonCenter,
-                    ]}
-                    textStyle={styles.acceptBarOptionButtonText}
-                  />
-                </View>
+                  >
+                    {leaveConvoMutation.isPending ? t('common.declining') : t('common.decline')}
+                  </Text>
+                </SquircleNativePressable>
+                <SquircleNativePressable
+                  onPress={() => TrueSheet.present('chat-report-or-block')}
+                  disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
+                  style={[
+                    shape.compact,
+                    buttonContentCenter,
+                    buttonSizeContainer.small,
+                    buttonVariantContainer.danger,
+                    styles.acceptBarSecondaryButton,
+                    (acceptConvoMutation.isPending || leaveConvoMutation.isPending) &&
+                      buttonDisabledOpacity,
+                  ]}
+                >
+                  <Text
+                    style={[buttonLabelBase, buttonVariantLabel.danger, styles.acceptBarButtonText]}
+                  >
+                    {t('chat.reportOrBlock')}
+                  </Text>
+                </SquircleNativePressable>
               </View>
             </View>
           ) : (
@@ -2195,41 +2225,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 8,
-    gap: 10,
+    gap: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.neutral[975],
+    borderTopColor: Colors.neutral[800],
     backgroundColor: Colors.black,
   },
-  acceptBarButtonAcceptBg: {
-    backgroundColor: Colors.brand.teal,
+  acceptBarButtonText: {
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.bold,
   },
   acceptBarButtonAcceptText: {
     color: Colors.black,
   },
-  acceptBarRowActions: {
+  acceptBarSecondaryRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 10,
   },
-  acceptBarOptionButtonWrap: {
+  acceptBarSecondaryButton: {
     flex: 1,
-  },
-  acceptBarOptionButton: {
-    marginHorizontal: 0,
-    marginBottom: 0,
-  },
-  acceptBarOptionButtonInner: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  acceptBarOptionButtonCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  acceptBarOptionButtonText: {
-    textAlign: 'center',
   },
   headerLeft: {
     width: 88,

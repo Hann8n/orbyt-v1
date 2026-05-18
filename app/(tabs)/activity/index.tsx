@@ -1,157 +1,153 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { tabRefs } from '@/utils/navigation/tabRefs';
-import { View, StyleSheet, StatusBar } from 'react-native';
-import type { Edge } from 'react-native-safe-area-context';
-import { NativePressable } from '@/components/ui/NativePressable';
-import PagerView from 'react-native-pager-view';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  type SharedValue,
-} from 'react-native-reanimated';
+import { View, StyleSheet, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  TabView,
+  TabBar,
+  type SceneRendererProps,
+  type NavigationState,
+  type Route,
+  type TabDescriptor,
+} from 'react-native-tab-view';
 
 import { Colors } from '@/theme';
 import ChatsTab from '@/components/features/activity/ChatsTab';
 import NotificationsTab from '@/components/features/activity/NotificationsTab';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
-import { FontFamily, TextStyles } from '@/utils/components/typography';
-
-// Tab label keys (resolved via t() in component)
-const TAB_LABEL_KEYS: { [key: string]: string } = {
-  chats: 'tabs.chats',
-  notifications: 'tabs.notifications',
-};
-
-// Indicator item component that uses shared value directly
-const ActivityIndicatorItem = React.memo(function ActivityIndicatorItem({
-  tabIndex,
-  pageScrollProgress,
-  label,
-  onPress,
-  badge,
-}: {
-  tabIndex: number;
-  pageScrollProgress: SharedValue<number>;
-  label: string;
-  onPress: () => void;
-  badge?: React.ReactNode;
-}) {
-  const fontSize = TextStyles.sectionHeader.fontSize;
-  const animatedStyle = useAnimatedStyle(() => {
-    'worklet';
-    const baseProgress = pageScrollProgress.value;
-    const roundedProgress = Math.round(baseProgress);
-    const isActive = roundedProgress === tabIndex;
-    const distance = Math.abs(baseProgress - tabIndex);
-    const opacity = isActive ? 1 : Math.max(0.3, 1 - distance * 0.4);
-    const color = isActive ? Colors.neutral[50] : Colors.neutral[500];
-
-    return {
-      color,
-      fontSize,
-      marginRight: 8,
-      fontWeight: 'bold' as const,
-      fontFamily: FontFamily.black,
-      opacity,
-    };
-  }, [tabIndex, fontSize]);
-
-  return (
-    <NativePressable onPress={onPress} style={styles.indicatorItem}>
-      <View style={styles.badgeContainer}>
-        <Animated.Text style={animatedStyle}>{label}</Animated.Text>
-        {badge}
-      </View>
-    </NativePressable>
-  );
-});
+import { FontFamily, TextStyles, fontSizeFor } from '@/utils/components/typography';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
+import { getEffectiveTopInset } from '@/utils/device/screen';
 
 const ActivityScreen: React.FC = () => {
   const { t } = useTranslation();
-  const pageScrollProgress = useSharedValue(0);
-  const pagerViewRef = useRef<PagerView>(null);
-  const { notificationsCount, messagesCount } = useUnreadCount();
+  const { screenWidth } = useDeviceLayout();
+  const [index, setIndex] = useState(0);
+  const { top } = useSafeAreaInsets();
+  const topInset = getEffectiveTopInset(top);
+  const { notificationsCount, messagesCount, requestsCount, hasUnseenRequests } = useUnreadCount();
 
-  const pages = useMemo<Array<'chats' | 'notifications'>>(() => ['notifications', 'chats'], []);
-  const safeAreaEdges = useMemo<Edge[]>(() => ['top'], []);
   const notificationsTabRef = useRef<typeof tabRefs.activity>(null);
   const chatsTabRef = useRef<typeof tabRefs.activity>(null);
 
+  const routes = useMemo<Route[]>(
+    () => [
+      { key: 'notifications', title: t('tabs.notifications') },
+      { key: 'chats', title: t('tabs.chats') },
+    ],
+    [t]
+  );
+
+  // Clamp index if the requests tab disappears while the user is on it
+  const safeIndex = Math.min(index, routes.length - 1);
+
+  const tabOptions = useMemo(
+    () => ({
+      notifications: {
+        badge: notificationsCount > 0 ? () => <View style={styles.badgeDot} /> : undefined,
+      },
+      chats: {
+        badge: messagesCount > 0 ? () => <View style={styles.badgeDot} /> : undefined,
+      },
+    }),
+    [notificationsCount, messagesCount]
+  );
+
+  const activityCommonOptions = useMemo<TabDescriptor<Route>>(
+    () => ({
+      sceneStyle: styles.scene,
+      label: ({ color, labelText }) => (
+        <Text
+          style={{
+            color,
+            fontSize: TextStyles.sectionHeader.fontSize,
+            fontFamily: FontFamily.black,
+            includeFontPadding: false,
+          }}
+        >
+          {labelText}
+        </Text>
+      ),
+    }),
+    []
+  );
+
+  const handleIndexChange = useCallback((nextIndex: number) => {
+    setIndex(nextIndex);
+    if (nextIndex === 0 && notificationsTabRef.current) {
+      tabRefs.activity = notificationsTabRef.current;
+    } else if (nextIndex === 1 && chatsTabRef.current) {
+      tabRefs.activity = chatsTabRef.current;
+    }
+  }, []);
+
+  const renderScene = useCallback(
+    ({ route }: SceneRendererProps & { route: Route }) => {
+      if (route.key === 'notifications') {
+        return (
+          <NotificationsTab
+            ref={r => {
+              notificationsTabRef.current = r;
+            }}
+          />
+        );
+      }
+      if (route.key === 'chats') {
+        return (
+          <ChatsTab
+            ref={r => {
+              chatsTabRef.current = r;
+            }}
+            chatFilter={{ status: 'accepted' }}
+            requestsCount={requestsCount}
+            hasUnseenRequests={hasUnseenRequests}
+          />
+        );
+      }
+      return null;
+    },
+    [requestsCount, hasUnseenRequests]
+  );
+
+  const renderTabBar = useCallback(
+    (
+      props: SceneRendererProps & {
+        navigationState: NavigationState<Route>;
+        options: Record<string, TabDescriptor<Route>> | undefined;
+      }
+    ) => (
+      <TabBar
+        {...props}
+        style={styles.tabBar}
+        tabStyle={styles.tabItem}
+        contentContainerStyle={[styles.tabBarContent, { paddingTop: topInset + fontSizeFor(4) }]}
+        activeColor={Colors.neutral[50]}
+        inactiveColor={Colors.neutral[500]}
+        renderIndicator={() => null}
+        scrollEnabled
+        gap={fontSizeFor(10)}
+        pressOpacity={0.7}
+      />
+    ),
+    [topInset]
+  );
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
-
-      {/* Header with animated tab indicators */}
-      <SafeAreaView edges={safeAreaEdges} style={styles.headerSafeArea}>
-        <View style={styles.headerSection}>
-          <View style={styles.tabSection}>
-            <View style={styles.indicatorContainer}>
-              {pages.map(tabId => {
-                const tabIndex = pages.indexOf(tabId);
-                const badge =
-                  tabId === 'notifications' && Number(notificationsCount) > 0 ? (
-                    <View style={styles.badge} />
-                  ) : tabId === 'chats' && Number(messagesCount) > 0 ? (
-                    <View style={styles.badge} />
-                  ) : undefined;
-
-                return (
-                  <ActivityIndicatorItem
-                    key={tabId}
-                    tabIndex={tabIndex}
-                    pageScrollProgress={pageScrollProgress}
-                    label={TAB_LABEL_KEYS[tabId] ? t(TAB_LABEL_KEYS[tabId]) : tabId}
-                    onPress={() => {
-                      const targetIndex = pages.indexOf(tabId);
-                      if (targetIndex >= 0 && pagerViewRef.current) {
-                        pagerViewRef.current.setPage(targetIndex);
-                      }
-                    }}
-                    badge={badge}
-                  />
-                );
-              })}
-            </View>
-          </View>
-        </View>
-      </SafeAreaView>
-
-      {/* Tab Content - setPage on tap (animated); indicator only from onPageSelected */}
-      <View style={styles.activityContainer}>
-        <PagerView
-          ref={pagerViewRef}
-          style={styles.pagerView}
-          initialPage={0}
-          onPageSelected={e => {
-            const index = e.nativeEvent.position;
-            pageScrollProgress.value = index;
-            if (index === 0 && notificationsTabRef.current) {
-              tabRefs.activity = notificationsTabRef.current;
-            } else if (index === 1 && chatsTabRef.current) {
-              tabRefs.activity = chatsTabRef.current;
-            }
-          }}
-          scrollEnabled={true}
-          pageMargin={0}
-        >
-          <View key="notifications" style={styles.pagerPage} collapsable={false}>
-            <NotificationsTab
-              ref={r => {
-                notificationsTabRef.current = r;
-              }}
-            />
-          </View>
-          <View key="chats" style={styles.pagerPage} collapsable={false}>
-            <ChatsTab
-              ref={r => {
-                chatsTabRef.current = r;
-              }}
-            />
-          </View>
-        </PagerView>
-      </View>
+      <TabView
+        navigationState={{ index: safeIndex, routes }}
+        renderScene={renderScene}
+        onIndexChange={handleIndexChange}
+        renderTabBar={renderTabBar}
+        initialLayout={{ width: screenWidth }}
+        lazy
+        lazyPreloadDistance={1}
+        commonOptions={activityCommonOptions}
+        options={tabOptions}
+        overScrollMode="never"
+        style={styles.container}
+      />
     </View>
   );
 };
@@ -162,62 +158,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.black,
-    overflow: 'hidden',
   },
-  headerSection: {
-    backgroundColor: Colors.black,
-    paddingHorizontal: 10,
-    paddingBottom: 0,
-    paddingTop: 0,
-    zIndex: 1,
-  },
-  headerSafeArea: {
+  scene: {
     backgroundColor: Colors.black,
   },
-  tabSection: {
-    marginTop: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
+  tabBar: {
+    backgroundColor: Colors.black,
+    elevation: 0,
+    boxShadow: 'none',
   },
-  indicatorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 4,
-    paddingBottom: 4,
-    minHeight: 48,
-    flex: 1,
+  tabBarContent: {
+    paddingHorizontal: fontSizeFor(10),
+    paddingBottom: fontSizeFor(4),
   },
-  indicatorItem: {
-    paddingHorizontal: 4,
+  tabItem: {
+    width: 'auto',
+    paddingHorizontal: fontSizeFor(4),
+    paddingVertical: 0,
+    minHeight: 0,
   },
-  badgeContainer: {
-    position: 'relative',
-    paddingRight: 2,
-    paddingTop: 2,
-  },
-  badge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
+  badgeDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
     backgroundColor: Colors.teal[600],
     borderWidth: 2,
     borderColor: Colors.black,
-  },
-  activityContainer: {
-    flex: 1,
-    backgroundColor: Colors.black,
-  },
-  pagerView: {
-    flex: 1,
-  },
-  pagerPage: {
-    width: '100%',
-    height: '100%',
   },
 });

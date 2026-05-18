@@ -27,9 +27,7 @@ export const ACTIVITY_LIST_SENT_BY_ME_ICON_SIZE = ICON_SIZES.SMALL;
  * Compose with local styles for tab-specific layout (e.g. thumbnail margin).
  */
 export const activityListSharedStyles = StyleSheet.create({
-  listContentContainer: {
-    paddingHorizontal: 10,
-  },
+  listContentContainer: {},
   profileImage: {
     width: ACTIVITY_LIST_AVATAR_SIZE,
     height: ACTIVITY_LIST_AVATAR_SIZE,
@@ -99,7 +97,7 @@ export const activityListSharedStyles = StyleSheet.create({
   dividerInset: {
     height: 1,
     backgroundColor: Colors.neutral[925],
-    marginLeft: ACTIVITY_LIST_TEXT_LEADING,
+    marginLeft: ACTIVITY_LIST_TEXT_LEADING + 10,
   },
   listContainer: {
     flex: 1,

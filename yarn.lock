@@ -11922,7 +11922,7 @@ __metadata:
     react-native-emoji-chooser: "npm:^0.1.11"
     react-native-fast-video-merge: "file:packages/react-native-fast-video-merge"
     react-native-gesture-handler: "npm:~2.30.0"
-    react-native-image-colors: "npm:^2.5.0"
+    react-native-image-colors: "npm:2.6.0"
     react-native-keyboard-controller: "npm:1.21.7"
     react-native-mmkv: "npm:3.3.3"
     react-native-nano-icons: "npm:^0.1.8"
@@ -11934,8 +11934,9 @@ __metadata:
     react-native-safe-area-context: "npm:~5.6.2"
     react-native-screens: "npm:~4.23.0"
     react-native-svg: "npm:15.15.3"
+    react-native-tab-view: "npm:^4.3.0"
     react-native-url-polyfill: "npm:^3.0.0"
-    react-native-vision-camera: "npm:^5.0.1"
+    react-native-vision-camera: "npm:5.0.6"
     react-native-webview: "npm:13.16.0"
     react-native-worklets: "npm:0.7.4"
     react-refresh: "npm:^0.18.0"
@@ -12746,7 +12747,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-image-colors@npm:^2.5.0":
+"react-native-image-colors@npm:2.6.0":
   version: 2.6.0
   resolution: "react-native-image-colors@npm:2.6.0"
   dependencies:
@@ -12934,6 +12935,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-tab-view@npm:^4.3.0":
+  version: 4.3.0
+  resolution: "react-native-tab-view@npm:4.3.0"
+  dependencies:
+    use-latest-callback: "npm:^0.2.4"
+  peerDependencies:
+    react: ">= 18.2.0"
+    react-native: "*"
+    react-native-pager-view: ">= 6.0.0"
+  checksum: 10c0/7b2b2272fe70110dec0688589cb189141ab45e7fb68f0b374b010de5616d9fc25c09ef00716cf872dc3464cbef1edccae67cd3629b182f9a38efb88f8682fbc6
+  languageName: node
+  linkType: hard
+
 "react-native-url-polyfill@npm:^3.0.0":
   version: 3.0.0
   resolution: "react-native-url-polyfill@npm:3.0.0"
@@ -12945,7 +12959,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-vision-camera@npm:^5.0.1":
+"react-native-vision-camera@npm:5.0.6":
   version: 5.0.6
   resolution: "react-native-vision-camera@npm:5.0.6"
   peerDependencies:

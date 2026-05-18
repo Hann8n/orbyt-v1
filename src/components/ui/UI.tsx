@@ -63,11 +63,14 @@ export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'dan
 
 export type ButtonSize = 'small' | 'medium' | 'large';
 
+export type ButtonShape = 'pill' | 'rounded' | 'control' | 'compact';
+
 interface ButtonProps {
   title: string;
   onPress: () => void;
   variant?: ButtonVariant;
   size?: ButtonSize;
+  buttonShape?: ButtonShape;
   disabled?: boolean;
   loading?: boolean;
   icon?: string;
@@ -76,11 +79,12 @@ interface ButtonProps {
   textStyle?: TextStyle;
 }
 
-const Button: React.FC<ButtonProps> = ({
+export const Button: React.FC<ButtonProps> = ({
   title,
   onPress,
   variant = 'primary',
   size = 'medium',
+  buttonShape = 'rounded',
   disabled = false,
   loading = false,
   icon,
@@ -90,7 +94,7 @@ const Button: React.FC<ButtonProps> = ({
 }) => {
   const buttonStyle = [
     buttonContentCenter,
-    shape.pill,
+    shape[buttonShape],
     buttonSizeContainer[size],
     buttonVariantContainer[variant],
     (disabled || loading) && buttonDisabledOpacity,

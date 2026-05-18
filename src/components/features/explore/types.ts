@@ -5,10 +5,6 @@ import type { CachedChannel } from '@/services/data/ChannelService';
 /** Explore search / pager tab identifiers */
 export type ExploreSearchTabId = 'recently-visited' | 'profiles' | 'channels';
 
-export interface SearchSwipePagerRef {
-  setPage: (tabId: ExploreSearchTabId) => void;
-}
-
 /** Type aliases for SDK types used in explore */
 export type Profile = ProfileViewWithOrbyt;
 export type Channel = CachedChannel;
