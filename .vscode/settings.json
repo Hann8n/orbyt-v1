@@ -1,8 +1,0 @@
-{
-  "chat.tools.terminal.autoApprove": {
-    "/^node <<'NODE'\nconst fs=require\\('fs'\\);\nconst d=JSON\\.parse\\(fs\\.readFileSync\\('/Users/jack/Downloads/profiling-data\\.04-12-2026\\.22-05-28\\.json','utf8'\\)\\);\nconst snaps=d\\.dataForRoots\\[0\\]\\.snapshots;\nconst nodeById=new Map\\(\\);\nconst parent=new Map\\(\\);\nfor\\(const \\[id,node\\] of snaps\\)\\{\n  nodeById\\.set\\(id,node\\);\n\\}\nfor\\(const \\[id,node\\] of snaps\\)\\{\n  for\\(const c of node\\.children\\|\\|\\[\\]\\)\\{ if\\(!parent\\.has\\(c\\)\\) parent\\.set\\(c,id\\);\\} \n\\}\nfunction chain\\(id\\)\\{\n  const out=\\[\\];let cur=id;let guard=0;\n  while\\(cur!=null && guard\\+\\+<50\\)\\{\n    const n=nodeById\\.get\\(cur\\);out\\.push\\(`\\$\\{cur\\}:\\$\\{n\\?\\.displayName\\|\\|'\\(anon\\)'\\}`\\);cur=parent\\.get\\(cur\\);\n  \\}\n  return out;\n\\}\nfor\\(const id of \\[15779,15778,15776,392,17121,19226\\]\\)\\{\n  console\\.log\\('\\\\nCHAIN for',id\\);\n  console\\.log\\(chain\\(id\\)\\.slice\\(0,18\\)\\.join\\(' <- '\\)\\);\n\\}\nNODE$/": {
-      "approve": true,
-      "matchCommandLine": true
-    }
-  }
-}

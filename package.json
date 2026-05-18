@@ -106,7 +106,7 @@
     "react-native-emoji-chooser": "^0.1.11",
     "react-native-fast-video-merge": "file:packages/react-native-fast-video-merge",
     "react-native-gesture-handler": "~2.30.0",
-    "react-native-image-colors": "^2.5.0",
+    "react-native-image-colors": "2.6.0",
     "react-native-keyboard-controller": "1.21.7",
     "react-native-mmkv": "3.3.3",
     "react-native-nano-icons": "^0.1.8",
@@ -119,7 +119,7 @@
     "react-native-screens": "~4.23.0",
     "react-native-svg": "15.15.3",
     "react-native-url-polyfill": "^3.0.0",
-    "react-native-vision-camera": "^5.0.1",
+    "react-native-vision-camera": "5.0.6",
     "react-native-webview": "13.16.0",
     "react-native-worklets": "0.7.4",
     "zustand": "^5.0.10"
