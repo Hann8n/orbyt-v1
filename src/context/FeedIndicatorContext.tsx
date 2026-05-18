@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, use, useMemo } from 'react';
 import { useSharedValue, SharedValue } from 'react-native-reanimated';
 
 type TabBarContextValue = {
@@ -22,11 +22,11 @@ export const TabBarProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [tabBarVisibility]
   );
 
-  return <TabBarContext.Provider value={contextValue}>{children}</TabBarContext.Provider>;
+  return <TabBarContext value={contextValue}>{children}</TabBarContext>;
 };
 
 export const useTabBarVisibility = () => {
-  const context = useContext(TabBarContext);
+  const context = use(TabBarContext);
   if (!context) {
     throw new Error('useTabBarVisibility must be used within TabBarProvider');
   }
