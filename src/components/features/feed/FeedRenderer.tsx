@@ -6,10 +6,10 @@
  */
 
 import React, {
-  forwardRef,
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -82,243 +82,245 @@ interface FeedRendererProps {
   onPullToRefreshExtra?: () => Promise<unknown>;
 }
 
-const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
-  (
-    {
-      feedOption,
-      userDid,
-      headerComponent,
-      backgroundColor = Colors.black,
-      secondaryColor,
-      onRetryFeed,
-      queryOptions = {},
-      isVisible = true,
-      viewMode = 'list',
-      onViewModeChange,
-      contentScrollProgressOutput,
-      hasTabBar: hasTabBarProp,
-      // Search props
-      hasNextPage: searchHasNextPage,
-      isFetchingNextPage: searchIsFetchingNextPage,
-      fetchNextPage: searchFetchNextPage,
-      forceError = false,
-      ListComponent,
-      zoomTargetPostUri,
-      pullToRefreshEnabled = false,
-      onPullToRefreshExtra,
-    },
-    ref
-  ) => {
-    const resolvedBackgroundColor = backgroundColor ?? Colors.black;
+const FeedRendererComponent = ({
+  ref,
+  feedOption,
+  userDid,
+  headerComponent,
+  backgroundColor = Colors.black,
+  secondaryColor,
+  onRetryFeed,
+  queryOptions = {},
+  isVisible = true,
+  viewMode = 'list',
+  onViewModeChange,
+  contentScrollProgressOutput,
+  hasTabBar: hasTabBarProp,
 
-    const isSearchFeed = feedOption === 'search';
+  // Search props
+  hasNextPage: searchHasNextPage,
 
-    const memoizedQueryOptions = useMemo(() => {
-      const { enabled: providedEnabled, ...restOptions } = queryOptions ?? {};
+  isFetchingNextPage: searchIsFetchingNextPage,
+  fetchNextPage: searchFetchNextPage,
+  forceError = false,
+  ListComponent,
+  zoomTargetPostUri,
+  pullToRefreshEnabled = false,
+  onPullToRefreshExtra,
+}: FeedRendererProps & {
+  ref?: React.Ref<ListFeedViewRef>;
+}) => {
+  const resolvedBackgroundColor = backgroundColor ?? Colors.black;
 
-      const computedEnabled =
-        typeof providedEnabled === 'boolean' ? providedEnabled : !isSearchFeed;
+  const isSearchFeed = feedOption === 'search';
 
-      return {
-        enabled: computedEnabled,
-        ...restOptions,
-      };
-    }, [queryOptions, isSearchFeed]);
+  const memoizedQueryOptions = useMemo(() => {
+    const { enabled: providedEnabled, ...restOptions } = queryOptions ?? {};
 
-    const feedQuery = useFeed(feedOption, userDid, memoizedQueryOptions);
+    const computedEnabled = typeof providedEnabled === 'boolean' ? providedEnabled : !isSearchFeed;
 
-    const searchFeedQuery = useSearchFeed(
-      searchHasNextPage,
-      searchIsFetchingNextPage,
-      searchFetchNextPage
-    );
+    return {
+      enabled: computedEnabled,
+      ...restOptions,
+    };
+  }, [queryOptions, isSearchFeed]);
 
-    const sourceFeed = isSearchFeed ? searchFeedQuery.feed : feedQuery.feed;
-    const isPending = isSearchFeed ? false : feedQuery.isPending;
-    const isError = isSearchFeed ? false : feedQuery.isError;
-    const isFetchingNextPage = isSearchFeed
-      ? searchFeedQuery.isFetchingNextPage
-      : feedQuery.isFetchingNextPage;
-    const hasNextPage = isSearchFeed ? searchFeedQuery.hasNextPage : feedQuery.hasNextPage;
-    const fetchNextPage = isSearchFeed ? searchFeedQuery.fetchNextPage : feedQuery.fetchNextPage;
-    const refetch = isSearchFeed ? noopFeedRefetch : feedQuery.refetch;
-    const isPaused = isSearchFeed ? searchFeedQuery.isPaused : feedQuery.isPaused;
-    const isProfileFeed = isSearchFeed ? false : feedQuery.isProfileFeed;
-    const dataUpdatedAt = isSearchFeed ? 0 : feedQuery.dataUpdatedAt;
+  const feedQuery = useFeed(feedOption, userDid, memoizedQueryOptions);
 
-    const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
+  const searchFeedQuery = useSearchFeed(
+    searchHasNextPage,
+    searchIsFetchingNextPage,
+    searchFetchNextPage
+  );
 
-    const feed = useMemo(() => {
-      return sourceFeed.filter(item => {
-        const uri = (item as { post?: { uri?: string } }).post?.uri;
-        if (uri && reportedPostUris.has(uri)) return false;
-        return true;
-      });
-    }, [sourceFeed, reportedPostUris]);
+  const sourceFeed = isSearchFeed ? searchFeedQuery.feed : feedQuery.feed;
+  const isPending = isSearchFeed ? false : feedQuery.isPending;
+  const isError = isSearchFeed ? false : feedQuery.isError;
+  const isFetchingNextPage = isSearchFeed
+    ? searchFeedQuery.isFetchingNextPage
+    : feedQuery.isFetchingNextPage;
+  const hasNextPage = isSearchFeed ? searchFeedQuery.hasNextPage : feedQuery.hasNextPage;
+  const fetchNextPage = isSearchFeed ? searchFeedQuery.fetchNextPage : feedQuery.fetchNextPage;
+  const refetch = isSearchFeed ? noopFeedRefetch : feedQuery.refetch;
+  const isPaused = isSearchFeed ? searchFeedQuery.isPaused : feedQuery.isPaused;
+  const isProfileFeed = isSearchFeed ? false : feedQuery.isProfileFeed;
+  const dataUpdatedAt = isSearchFeed ? 0 : feedQuery.dataUpdatedAt;
 
-    const finalIsError = forceError || isError;
+  const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
 
-    const handleRetry = useCallback(() => {
-      refetch();
-      onRetryFeed?.();
-    }, [refetch, onRetryFeed]);
+  const feed = useMemo(() => {
+    return sourceFeed.filter(item => {
+      const uri = (item as { post?: { uri?: string } }).post?.uri;
+      if (uri && reportedPostUris.has(uri)) return false;
+      return true;
+    });
+  }, [sourceFeed, reportedPostUris]);
 
-    const handleLoadMore = useCallback(() => {
-      if (hasNextPage && !isFetchingNextPage && isVisible) {
-        fetchNextPage();
-      }
-    }, [hasNextPage, isFetchingNextPage, isVisible, fetchNextPage]);
+  const finalIsError = forceError || isError;
 
-    const router = useRouter();
-    const routerRef = useRef(router);
+  const handleRetry = useCallback(() => {
+    refetch();
+    onRetryFeed?.();
+  }, [refetch, onRetryFeed]);
+
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage && isVisible) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, isVisible, fetchNextPage]);
+
+  const router = useRouter();
+  const routerRef = useRef(router);
+
+  const currentTab = useCurrentDetailNavTab();
+  const currentTabRef = useRef(currentTab);
+
+  const gridStateRef = useRef({ feed, feedOption, userDid });
+
+  useLayoutEffect(() => {
     routerRef.current = router;
-
-    const currentTab = useCurrentDetailNavTab();
-    const currentTabRef = useRef(currentTab);
     currentTabRef.current = currentTab;
-
-    const gridStateRef = useRef({ feed, feedOption, userDid });
     gridStateRef.current = { feed, feedOption, userDid };
+  });
 
-    const getTab = (): DetailNavTab => currentTabRef.current;
+  const getTab = (): DetailNavTab => currentTabRef.current;
 
-    const handleHashtagPress = useCallback((hashtag: string) => {
+  const handleHashtagPress = useCallback((hashtag: string) => {
+    routerRef.current.push({
+      pathname: `/(tabs)/${getTab()}/feed` as const,
+      params: { feedOption: `hashtag:${hashtag}`, initialPostUri: '' },
+    });
+  }, []);
+
+  const handleGridItemPress = useCallback((index: number) => {
+    const s = gridStateRef.current;
+    if (index >= 0 && index < s.feed.length) {
+      if (s.feedOption === 'search') feedService.setCurrentFeed(s.feed);
+      const item = s.feed[index] as FeedItem;
+      const initialPostUri = item?.post?.uri ?? '';
       routerRef.current.push({
         pathname: `/(tabs)/${getTab()}/feed` as const,
-        params: { feedOption: `hashtag:${hashtag}`, initialPostUri: '' },
+        params: {
+          feedOption: s.feedOption || 'search',
+          ...(s.userDid ? { userDid: s.userDid } : {}),
+          initialPostUri,
+        },
       });
-    }, []);
+    }
+  }, []);
 
-    const handleGridItemPress = useCallback((index: number) => {
-      const s = gridStateRef.current;
-      if (index >= 0 && index < s.feed.length) {
-        if (s.feedOption === 'search') feedService.setCurrentFeed(s.feed);
-        const item = s.feed[index] as FeedItem;
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+
+  const handlePullToRefresh = useCallback(async () => {
+    if (isSearchFeed) return;
+    setPullRefreshing(true);
+    try {
+      const feedPromise = Promise.resolve(refetch());
+      const extraPromise = onPullToRefreshExtra ? onPullToRefreshExtra() : Promise.resolve();
+      await Promise.all([feedPromise, extraPromise]);
+    } finally {
+      setPullRefreshing(false);
+    }
+  }, [isSearchFeed, refetch, onPullToRefreshExtra]);
+
+  const pullToRefresh = useMemo(() => {
+    if (!pullToRefreshEnabled || isSearchFeed) return undefined;
+    return {
+      refreshing: pullRefreshing,
+      onRefresh: handlePullToRefresh,
+    };
+  }, [pullToRefreshEnabled, isSearchFeed, pullRefreshing, handlePullToRefresh]);
+
+  const gridFeedModalZoomConfig: GridFeedModalZoomConfig = useMemo(() => {
+    return {
+      onBeforeNavigate: (index: number) => {
+        const s = gridStateRef.current;
+        if (s.feedOption === 'search' && index >= 0 && index < s.feed.length) {
+          feedService.setCurrentFeed(s.feed);
+        }
+      },
+      buildHref: (index: number) => {
+        const s = gridStateRef.current;
+        const item = s.feed[index] as FeedItem | undefined;
         const initialPostUri = item?.post?.uri ?? '';
-        routerRef.current.push({
+        return {
           pathname: `/(tabs)/${getTab()}/feed` as const,
           params: {
             feedOption: s.feedOption || 'search',
             ...(s.userDid ? { userDid: s.userDid } : {}),
             initialPostUri,
           },
-        });
-      }
-    }, []);
+        };
+      },
+    };
+  }, [currentTab]);
 
-    const [pullRefreshing, setPullRefreshing] = useState(false);
+  const listFeedViewRef = useRef<ListFeedViewRef>(null);
 
-    const handlePullToRefresh = useCallback(async () => {
-      if (isSearchFeed) return;
-      setPullRefreshing(true);
-      try {
-        const feedPromise = Promise.resolve(refetch());
-        const extraPromise = onPullToRefreshExtra ? onPullToRefreshExtra() : Promise.resolve();
-        await Promise.all([feedPromise, extraPromise]);
-      } finally {
-        setPullRefreshing(false);
-      }
-    }, [isSearchFeed, refetch, onPullToRefreshExtra]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToTop: () => listFeedViewRef.current?.scrollToTop(),
+    }),
+    []
+  );
 
-    const pullToRefresh = useMemo(() => {
-      if (!pullToRefreshEnabled || isSearchFeed) return undefined;
-      return {
-        refreshing: pullRefreshing,
-        onRefresh: handlePullToRefresh,
-      };
-    }, [pullToRefreshEnabled, isSearchFeed, pullRefreshing, handlePullToRefresh]);
+  const prevFirstUriRef = useRef(feed[0]?.post?.uri ?? null);
+  const prevDataUpdatedAtRef = useRef(dataUpdatedAt);
+  useEffect(() => {
+    const currentFirstUri = feed[0]?.post?.uri ?? null;
+    if (
+      dataUpdatedAt !== prevDataUpdatedAtRef.current &&
+      feed.length > 0 &&
+      currentFirstUri !== prevFirstUriRef.current
+    ) {
+      listFeedViewRef.current?.scrollToTop();
+    }
+    prevFirstUriRef.current = currentFirstUri;
+    prevDataUpdatedAtRef.current = dataUpdatedAt;
+  }, [dataUpdatedAt, feed]);
 
-    const gridFeedModalZoomConfig: GridFeedModalZoomConfig = useMemo(() => {
-      return {
-        onBeforeNavigate: (index: number) => {
-          const s = gridStateRef.current;
-          if (s.feedOption === 'search' && index >= 0 && index < s.feed.length) {
-            feedService.setCurrentFeed(s.feed);
-          }
-        },
-        buildHref: (index: number) => {
-          const s = gridStateRef.current;
-          const item = s.feed[index] as FeedItem | undefined;
-          const initialPostUri = item?.post?.uri ?? '';
-          return {
-            pathname: `/(tabs)/${getTab()}/feed` as const,
-            params: {
-              feedOption: s.feedOption || 'search',
-              ...(s.userDid ? { userDid: s.userDid } : {}),
-              initialPostUri,
-            },
-          };
-        },
-      };
-    }, [currentTab]);
+  const feedView = (
+    <ListFeedView
+      ref={listFeedViewRef}
+      feed={feed}
+      headerComponent={headerComponent}
+      backgroundColor={backgroundColor}
+      secondaryColor={secondaryColor}
+      feedOption={feedOption}
+      userDid={userDid}
+      onLoadMore={handleLoadMore}
+      hasNextPage={hasNextPage}
+      onRetry={handleRetry}
+      isProfileFeed={isProfileFeed}
+      isVisible={isVisible}
+      viewMode={viewMode}
+      onViewModeChange={onViewModeChange}
+      contentScrollProgressOutput={contentScrollProgressOutput}
+      hasTabBar={hasTabBarProp}
+      ListComponent={ListComponent}
+      onGridItemPress={handleGridItemPress}
+      gridFeedModalZoomConfig={gridFeedModalZoomConfig}
+      zoomTargetPostUri={zoomTargetPostUri}
+      onHashtagPress={handleHashtagPress}
+      isFetchingNextPage={isFetchingNextPage}
+      isLoading={isSearchFeed ? false : isPending}
+      isError={isSearchFeed ? false : finalIsError}
+      isPaused={isPaused}
+      pullToRefresh={pullToRefresh}
+    />
+  );
 
-    const listFeedViewRef = useRef<ListFeedViewRef>(null);
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        scrollToTop: () => listFeedViewRef.current?.scrollToTop(),
-      }),
-      []
-    );
-
-    const prevFirstUriRef = useRef(feed[0]?.post?.uri ?? null);
-    const prevDataUpdatedAtRef = useRef(dataUpdatedAt);
-    useEffect(() => {
-      const currentFirstUri = feed[0]?.post?.uri ?? null;
-      if (
-        dataUpdatedAt !== prevDataUpdatedAtRef.current &&
-        feed.length > 0 &&
-        currentFirstUri !== prevFirstUriRef.current
-      ) {
-        listFeedViewRef.current?.scrollToTop();
-      }
-      prevFirstUriRef.current = currentFirstUri;
-      prevDataUpdatedAtRef.current = dataUpdatedAt;
-    }, [dataUpdatedAt, feed]);
-
-    const feedView = (
-      <ListFeedView
-        ref={listFeedViewRef}
-        feed={feed}
-        headerComponent={headerComponent}
-        backgroundColor={backgroundColor}
-        secondaryColor={secondaryColor}
-        feedOption={feedOption}
-        userDid={userDid}
-        onLoadMore={handleLoadMore}
-        hasNextPage={hasNextPage}
-        onRetry={handleRetry}
-        isProfileFeed={isProfileFeed}
-        isVisible={isVisible}
-        viewMode={viewMode}
-        onViewModeChange={onViewModeChange}
-        contentScrollProgressOutput={contentScrollProgressOutput}
-        hasTabBar={hasTabBarProp}
-        ListComponent={ListComponent}
-        onGridItemPress={handleGridItemPress}
-        gridFeedModalZoomConfig={gridFeedModalZoomConfig}
-        zoomTargetPostUri={zoomTargetPostUri}
-        onHashtagPress={handleHashtagPress}
-        isFetchingNextPage={isFetchingNextPage}
-        isLoading={isSearchFeed ? false : isPending}
-        isError={isSearchFeed ? false : finalIsError}
-        isPaused={isPaused}
-        pullToRefresh={pullToRefresh}
-      />
-    );
-
-    const containerStyle = useMemo(
-      () => StyleSheet.compose(styles.container, { backgroundColor: resolvedBackgroundColor }),
-      [resolvedBackgroundColor]
-    );
-    return (
-      <FollowProvider>
-        <View style={containerStyle}>{feedView}</View>
-      </FollowProvider>
-    );
-  }
-);
+  const containerStyle = useMemo(
+    () => StyleSheet.compose(styles.container, { backgroundColor: resolvedBackgroundColor }),
+    [resolvedBackgroundColor]
+  );
+  return (
+    <FollowProvider>
+      <View style={containerStyle}>{feedView}</View>
+    </FollowProvider>
+  );
+};
 FeedRendererComponent.displayName = 'FeedRenderer';
 
 const FeedRenderer = FeedRendererComponent;

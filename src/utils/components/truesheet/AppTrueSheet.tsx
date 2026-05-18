@@ -1,10 +1,3 @@
-/**
- * App-wide TrueSheet wrapper that applies consistent defaults.
- * Use for all sheets — applies DEFAULT_SHEET_PROPS (neutral surface, grabber, auto detents).
- * Override any prop (like detents or grabber) as needed.
- */
-
-import { forwardRef } from 'react';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import type { TrueSheetProps } from '@lodev09/react-native-true-sheet';
 import { DEFAULT_SHEET_PROPS, SHEET_VARIANTS } from './trueSheetPresets';
@@ -24,10 +17,13 @@ export interface AppTrueSheetProps extends Omit<TrueSheetProps, 'ref'> {
  * AppTrueSheet applies DEFAULT_SHEET_PROPS and optional variant overrides.
  * Passed props override defaults. Refs are forwarded for present/dismiss.
  */
-export const AppTrueSheet = forwardRef<TrueSheet, AppTrueSheetProps>(function AppTrueSheet(
-  { variant = 'default', ...rest },
-  ref
-) {
+export const AppTrueSheet = function AppTrueSheet({
+  ref,
+  variant = 'default',
+  ...rest
+}: AppTrueSheetProps & {
+  ref: React.RefObject<TrueSheet>;
+}) {
   const defaults = { ...DEFAULT_SHEET_PROPS };
 
   if (variant === 'sendToPicker') {
@@ -41,4 +37,4 @@ export const AppTrueSheet = forwardRef<TrueSheet, AppTrueSheetProps>(function Ap
   }
 
   return <TrueSheet ref={ref} {...defaults} {...rest} />;
-});
+};

@@ -1,10 +1,10 @@
-import React, { forwardRef, type ElementRef } from 'react';
+import React, { type ElementRef } from 'react';
 import {
   SquircleView as _SquircleView,
   SquircleButton as _SquircleButton,
 } from 'react-native-resquircle';
-import type { SquircleViewProps, SquircleButtonProps } from 'react-native-resquircle';
-import type { PressableProps, ViewStyle, StyleProp } from 'react-native';
+import type { SquircleViewProps } from 'react-native-resquircle';
+import type { ViewStyle, StyleProp } from 'react-native';
 import { StyleSheet } from 'react-native';
 import { NativePressable, type NativePressableProps } from './NativePressable';
 import { CORNER_SMOOTHING } from '../../utils/constants';
@@ -23,12 +23,13 @@ export const SquircleView: React.FC<SquircleViewProps> = ({
  * Accepts all Pressable props (style, onPress, disabled, etc.) and handles press feedback natively.
  * API is identical to NativePressable for clean component swaps.
  */
-export const SquircleButton = forwardRef<
-  ElementRef<typeof _SquircleButton>,
-  SquircleButtonProps & PressableProps
->(function SquircleButton({ cornerSmoothing = CORNER_SMOOTHING, ...props }, ref) {
+export const SquircleButton = function SquircleButton({
+  ref,
+  cornerSmoothing = CORNER_SMOOTHING,
+  ...props
+}) {
   return <_SquircleButton ref={ref} cornerSmoothing={cornerSmoothing} {...props} />;
-});
+};
 
 /** Style keys applied to the outer `SquircleView`; fill/padding stay on inner `NativePressable` for press dimming. */
 const SQUIRCLE_CONTAINER_KEYS = new Set<string>([
@@ -111,10 +112,13 @@ function shouldFillInnerPressable(container: ViewStyle): boolean {
 /** Same API as `NativePressable`; outer squircle clips shape, inner carries fill so iOS press dim works. */
 const CLIP_STYLE: ViewStyle = { overflow: 'hidden' };
 
-export const SquircleNativePressable = forwardRef<
-  ElementRef<typeof NativePressable>,
-  NativePressableProps
->(function SquircleNativePressable({ style, ...props }, ref) {
+export const SquircleNativePressable = function SquircleNativePressable({
+  ref,
+  style,
+  ...props
+}: NativePressableProps & {
+  ref: React.RefObject<ElementRef<typeof NativePressable>>;
+}) {
   const { container, inner } = splitStyle(style as StyleProp<ViewStyle>);
   const fillInnerPressable = shouldFillInnerPressable(container);
   return (
@@ -122,7 +126,7 @@ export const SquircleNativePressable = forwardRef<
       <NativePressable ref={ref} style={[fillInnerPressable && styles.fill, inner]} {...props} />
     </SquircleView>
   );
-});
+};
 
 const styles = StyleSheet.create({
   fill: {

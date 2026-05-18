@@ -5,7 +5,6 @@ import {
   useLayoutEffect,
   useState,
   useMemo,
-  forwardRef,
   useImperativeHandle,
   type ReactNode,
 } from 'react';
@@ -133,33 +132,33 @@ function FeedIndicatorItem({
   );
 }
 
-const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
-  {
-    initialFeed = 'following',
-    feedOptions: feedOptionsProp,
-    feedLabels: feedLabelsProp,
-    userDid,
-    currentFeed,
-    onFeedChange,
-    forceError = false,
-    applySafeArea = false,
-    indicatorFontSize,
-    showFeedIndicator = true,
-    scrollEnabled = true,
-    headerComponent,
-    backgroundColor,
-    secondaryColor,
-    viewMode,
-    onViewModeChange,
-    contentScrollProgressOutput,
-    queryOptions: queryOptionsProp,
-    isVisible = true,
-    controlStatusBar = true,
-    pullToRefreshEnabled = false,
-    onPullToRefreshExtra,
-  },
-  ref
-) {
+const FeedPager = function FeedPager({
+  ref,
+  initialFeed = 'following',
+  feedOptions: feedOptionsProp,
+  feedLabels: feedLabelsProp,
+  userDid,
+  currentFeed,
+  onFeedChange,
+  forceError = false,
+  applySafeArea = false,
+  indicatorFontSize,
+  showFeedIndicator = true,
+  scrollEnabled = true,
+  headerComponent,
+  backgroundColor,
+  secondaryColor,
+  viewMode,
+  onViewModeChange,
+  contentScrollProgressOutput,
+  queryOptions: queryOptionsProp,
+  isVisible = true,
+  controlStatusBar = true,
+  pullToRefreshEnabled = false,
+  onPullToRefreshExtra,
+}: FeedPagerProps & {
+  ref: React.RefObject<FeedPagerRef>;
+}) {
   const { t } = useTranslation();
   const { screenWidth: width, isTablet } = useDeviceLayout();
   const pagerViewRef = useRef<PagerView>(null);
@@ -409,7 +408,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
       </PagerView>
     </View>
   );
-});
+};
 
 const styles = StyleSheet.create({
   container: {

@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import { View } from 'react-native';
 import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view';
 import type { ExploreSearchTabId, SearchSwipePagerRef } from './types';
@@ -14,61 +14,68 @@ type SearchSwipePagerProps = {
   pages: ExploreSearchTabId[];
 };
 
-export const SearchSwipePager = forwardRef<SearchSwipePagerRef, SearchSwipePagerProps>(
-  ({ activeTab, onActiveTabChange, onPageIndexChange, renderTabContent, pages }, ref) => {
-    const pagerViewRef = useRef<PagerView>(null);
-    const activeIndex = pages.indexOf(activeTab);
+export const SearchSwipePager = ({
+  ref,
+  activeTab,
+  onActiveTabChange,
+  onPageIndexChange,
+  renderTabContent,
+  pages,
+}: SearchSwipePagerProps & {
+  ref: React.RefObject<SearchSwipePagerRef>;
+}) => {
+  const pagerViewRef = useRef<PagerView>(null);
+  const activeIndex = pages.indexOf(activeTab);
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        setPage: (tabId: ExploreSearchTabId) => {
-          const targetIndex = pages.indexOf(tabId);
-          if (targetIndex >= 0 && pagerViewRef.current) {
-            pagerViewRef.current.setPage(targetIndex);
-          }
-        },
-      }),
-      [pages]
-    );
-
-    const handlePageSelected = useCallback(
-      (event: PagerViewOnPageSelectedEvent) => {
-        const index = event.nativeEvent.position;
-        onPageIndexChange?.(index);
-        const tab = pages[index];
-        if (tab && tab !== activeTab) {
-          onActiveTabChange(tab);
+  useImperativeHandle(
+    ref,
+    () => ({
+      setPage: (tabId: ExploreSearchTabId) => {
+        const targetIndex = pages.indexOf(tabId);
+        if (targetIndex >= 0 && pagerViewRef.current) {
+          pagerViewRef.current.setPage(targetIndex);
         }
       },
-      [activeTab, pages, onActiveTabChange, onPageIndexChange]
-    );
+    }),
+    [pages]
+  );
 
-    useEffect(() => {
-      const idx = pages.indexOf(activeTab);
-      if (idx >= 0 && pagerViewRef.current) {
-        pagerViewRef.current.setPage(idx);
+  const handlePageSelected = useCallback(
+    (event: PagerViewOnPageSelectedEvent) => {
+      const index = event.nativeEvent.position;
+      onPageIndexChange?.(index);
+      const tab = pages[index];
+      if (tab && tab !== activeTab) {
+        onActiveTabChange(tab);
       }
-    }, [activeTab, pages]);
+    },
+    [activeTab, pages, onActiveTabChange, onPageIndexChange]
+  );
 
-    return (
-      <View style={styles.searchResultsContainer}>
-        <PagerView
-          ref={pagerViewRef}
-          style={styles.pagerView}
-          initialPage={activeIndex >= 0 ? activeIndex : 0}
-          onPageSelected={handlePageSelected}
-          scrollEnabled={true}
-          pageMargin={0}
-        >
-          {pages.map(page => (
-            <View key={page} style={styles.pagerPage}>
-              {renderTabContent(page)}
-            </View>
-          ))}
-        </PagerView>
-      </View>
-    );
-  }
-);
+  useEffect(() => {
+    const idx = pages.indexOf(activeTab);
+    if (idx >= 0 && pagerViewRef.current) {
+      pagerViewRef.current.setPage(idx);
+    }
+  }, [activeTab, pages]);
+
+  return (
+    <View style={styles.searchResultsContainer}>
+      <PagerView
+        ref={pagerViewRef}
+        style={styles.pagerView}
+        initialPage={activeIndex >= 0 ? activeIndex : 0}
+        onPageSelected={handlePageSelected}
+        scrollEnabled={true}
+        pageMargin={0}
+      >
+        {pages.map(page => (
+          <View key={page} style={styles.pagerPage}>
+            {renderTabContent(page)}
+          </View>
+        ))}
+      </PagerView>
+    </View>
+  );
+};
 SearchSwipePager.displayName = 'SearchSwipePager';

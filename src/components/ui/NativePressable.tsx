@@ -1,4 +1,3 @@
-import { forwardRef } from 'react';
 import { Platform, Pressable, type PressableProps, type View } from 'react-native';
 import { NATIVE_PRESSABLE_ACTIVE_OPACITY } from '@/utils/constants';
 
@@ -19,17 +18,17 @@ export type NativePressableProps = PressableProps & {
  * Platform-default press visuals: Material ripple on Android, opacity fade on iOS.
  * Uses Pressable on both platforms (Fabric-native; TouchableOpacity is old-arch).
  */
-export const NativePressable = forwardRef<View, NativePressableProps>(function NativePressable(
-  {
-    style,
-    children,
-    androidRippleBorderless = false,
-    activeOpacity = NATIVE_PRESSABLE_ACTIVE_OPACITY,
-    android_ripple: androidRippleFromProps,
-    ...rest
-  },
-  ref
-) {
+export const NativePressable = function NativePressable({
+  ref,
+  style,
+  children,
+  androidRippleBorderless = false,
+  activeOpacity = NATIVE_PRESSABLE_ACTIVE_OPACITY,
+  android_ripple: androidRippleFromProps,
+  ...rest
+}: NativePressableProps & {
+  ref?: React.Ref<View>;
+}) {
   if (Platform.OS === 'android') {
     return (
       <Pressable
@@ -61,4 +60,4 @@ export const NativePressable = forwardRef<View, NativePressableProps>(function N
       {children}
     </Pressable>
   );
-});
+};
