@@ -3,26 +3,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const BUILD_VERSION_PATH = path.join(__dirname, '..', '.build-version.json');
 const APP_CONFIG_JS_PATH = path.join(__dirname, '..', 'app.config.js');
 
-interface BuildVersion {
-  buildNumber: number;
-}
-
-function readBuildVersion(): BuildVersion {
-  if (!fs.existsSync(BUILD_VERSION_PATH)) {
-    const initial = { buildNumber: 1 };
-    fs.writeFileSync(BUILD_VERSION_PATH, JSON.stringify(initial, null, 2), 'utf-8');
-    return initial;
-  }
-  const content = fs.readFileSync(BUILD_VERSION_PATH, 'utf-8');
-  return JSON.parse(content);
-}
-
-function writeBuildVersion(buildVersion: BuildVersion): void {
-  const content = JSON.stringify(buildVersion, null, 2);
-  fs.writeFileSync(BUILD_VERSION_PATH, content, 'utf-8');
+function readAppConfig(): any {
+  // Delete require cache to ensure fresh read
+  delete require.cache[require.resolve(APP_CONFIG_JS_PATH)];
+  return require(APP_CONFIG_JS_PATH);
 }
 
 function updateAppConfigJs(buildNumber: number): void {
@@ -34,26 +20,25 @@ function updateAppConfigJs(buildNumber: number): void {
   const buildNumberStr = String(buildNumber);
 
   let updated = content.replace(/(buildNumber:\s*)'[^']*'/, `$1'${buildNumberStr}'`);
-
   updated = updated.replace(/(versionCode:\s*)\d+/, `$1${buildNumber}`);
 
   fs.writeFileSync(APP_CONFIG_JS_PATH, updated, 'utf-8');
 }
 
 function incrementBuildNumbers(): { buildNumber: number } {
-  const buildVersion = readBuildVersion();
-  const newBuildNumber = buildVersion.buildNumber + 1;
+  const config = readAppConfig();
+  const currentBuildNumber = parseInt(config.ios?.buildNumber || '1', 10);
+  const newBuildNumber = currentBuildNumber + 1;
 
-  buildVersion.buildNumber = newBuildNumber;
-  writeBuildVersion(buildVersion);
   updateAppConfigJs(newBuildNumber);
 
   return { buildNumber: newBuildNumber };
 }
 
 function getBuildNumbers(): { buildNumber: number } {
-  const buildVersion = readBuildVersion();
-  return { buildNumber: buildVersion.buildNumber };
+  const config = readAppConfig();
+  const buildNumber = parseInt(config.ios?.buildNumber || '1', 10);
+  return { buildNumber };
 }
 
 const command = process.argv[2];

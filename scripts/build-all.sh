@@ -150,7 +150,7 @@ build_ios() {
   ARCHIVE_TIME=$(date +%H.%M.%S)
   ARCHIVE_DATE_DIR="$ARCHIVES_DIR/$ARCHIVE_DATE"
   
-  APP_NAME=$(node -p "require('./app.json').expo.name" 2>/dev/null || echo "orbyt")
+  APP_NAME=$(node -e "const config = require('./app.config.js'); console.log(config.name);" 2>/dev/null || echo "orbyt")
   ARCHIVE_NAME="${APP_NAME} ${ARCHIVE_DATE} ${ARCHIVE_TIME}.xcarchive"
   export ARCHIVE_PATH="$ARCHIVE_DATE_DIR/$ARCHIVE_NAME"
   
@@ -166,7 +166,7 @@ build_ios() {
   
   TEAM_ID="${DEVELOPMENT_TEAM}"
   if [ -z "$TEAM_ID" ]; then
-    TEAM_ID=$(node -p "require('./app.json').expo?.ios?.developmentTeam || ''" 2>/dev/null | tr -d '\n' || true)
+    TEAM_ID=$(node -e "const config = require('./app.config.js'); console.log(config.ios?.appleTeamId || '');" 2>/dev/null | tr -d '\n' || true)
   fi
   [ "$TEAM_ID" = "undefined" ] && TEAM_ID=""
   BUILD_SETTINGS="CODE_SIGN_STYLE=Automatic"
@@ -358,9 +358,9 @@ if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
     rm -f "$BUILD_LOG"
   else
     echo "  iOS native project exists, skipping prebuild"
-    echo "  Syncing version from app.json to iOS project..."
-    APP_VERSION=$(node -p "require('./app.json').expo.version")
-    BUILD_NUMBER=$(node -p "require('./app.json').expo.ios?.buildNumber || '1'" 2>/dev/null || echo "1")
+    echo "  Syncing version from app.config.js to iOS project..."
+    APP_VERSION=$(node -e "const config = require('./app.config.js'); console.log(config.version);")
+    BUILD_NUMBER=$(node -e "const config = require('./app.config.js'); console.log(config.ios?.buildNumber || '1');" 2>/dev/null || echo "1")
     
     if [ -n "$APP_VERSION" ] && [[ "$OSTYPE" == "darwin"* ]]; then
       if [ -f "ios/orbyt/Info.plist" ]; then
