@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, use, useMemo } from 'react';
 import { useFollowMutation } from '../services/data/ProfileService';
 import { useUserStore } from '../stores/userStore';
 import type { UserState } from '../stores/userStore';
@@ -16,11 +16,11 @@ export const FollowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const value = useMemo(() => ({ followMutation, currentUser }), [followMutation, currentUser]);
 
-  return <FollowContext.Provider value={value}>{children}</FollowContext.Provider>;
+  return <FollowContext value={value}>{children}</FollowContext>;
 };
 
 export const useFollowContext = () => {
-  const context = useContext(FollowContext);
+  const context = use(FollowContext);
   if (!context) {
     throw new Error('useFollowContext must be used within a FollowProvider');
   }

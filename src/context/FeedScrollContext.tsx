@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, use } from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 
 export interface ScrollFadeParams {
@@ -31,12 +31,12 @@ export function FeedScrollProvider({
   children: React.ReactNode;
 }) {
   return (
-    <FeedScrollMotionContext.Provider value={motion}>
-      <FeedScrollLayoutContext.Provider value={layout}>{children}</FeedScrollLayoutContext.Provider>
-    </FeedScrollMotionContext.Provider>
+    <FeedScrollMotionContext value={motion}>
+      <FeedScrollLayoutContext value={layout}>{children}</FeedScrollLayoutContext>
+    </FeedScrollMotionContext>
   );
 }
 
 export function useFeedScrollMotion(): FeedScrollMotionValue | null {
-  return useContext(FeedScrollMotionContext);
+  return use(FeedScrollMotionContext);
 }
