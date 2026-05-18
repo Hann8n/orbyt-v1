@@ -1,11 +1,4 @@
-import React, {
-  useCallback,
-  useMemo,
-  useEffect,
-  forwardRef,
-  useImperativeHandle,
-  useRef,
-} from 'react';
+import React, { useCallback, useMemo, useEffect, useImperativeHandle, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BORDER_RADIUS,
@@ -25,7 +18,6 @@ import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
-import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AtprotoCore } from '../../../services/api/core';
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
@@ -788,7 +780,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
 );
 NotificationItem.displayName = 'NotificationItem';
 
-const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
+const NotificationsTab = ({ ref }: { ref?: React.Ref<{ scrollToTop: () => void }> }) => {
   const { t } = useTranslation();
   const flashListRef = useRef<FlashListRef<EnrichedNotification>>(null);
 
@@ -1036,7 +1028,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
       }
     />
   );
-});
+};
 NotificationsTab.displayName = 'NotificationsTab';
 
 export default NotificationsTab;

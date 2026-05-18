@@ -3,7 +3,6 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  forwardRef,
   useImperativeHandle,
   useRef,
   useState,
@@ -387,7 +386,12 @@ export interface ChatsTabProps {
   chatFilter?: ListConvosFilter;
 }
 
-const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref) => {
+const ChatsTab = ({
+  ref,
+  chatFilter,
+}: ChatsTabProps & {
+  ref?: React.Ref<ScrollToTopRef>;
+}) => {
   const { t } = useTranslation();
   const listRef = useRef<FlashListRef<ConvoView>>(null);
   const scrollOffsetRef = useRef(0);
@@ -663,7 +667,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
       />
     </>
   );
-});
+};
 ChatsTab.displayName = 'ChatsTab';
 
 export default ChatsTab;
