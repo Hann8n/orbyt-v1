@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BORDER_RADIUS, SCROLL_CONSTANTS } from '../../utils/constants';
-import { View, Text, StyleSheet, Dimensions, Linking, Platform, FlatList } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Linking,
+  Platform,
+  FlatList,
+  useWindowDimensions,
+} from 'react-native';
 import { SquircleNativePressable } from './Squircle';
 import { Image } from 'expo-image';
 import { Colors } from '../../theme';
@@ -18,13 +26,50 @@ interface HeaderBannerProps {
   headers: Header[];
   onHeaderPress?: (header: Header) => void;
   onImageError?: (header: Header) => void;
-  height?: number; // Optional override for banner height
-  backgroundColor?: string; // Optional background color for the header container
+  height?: number;
+  backgroundColor?: string;
 }
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const HEADER_HEIGHT = screenHeight * 0.3; // Top 30% of the display height
-const HEADER_WIDTH = screenWidth; // Full width
+const HeaderItemTextContent: React.FC<{ header: Header }> = ({ header }) => {
+  const titleEl = !!header.title && (
+    <Text
+      style={[
+        styles.headerTitle,
+        header.titleColor ? { color: header.titleColor } : undefined,
+        header.titleFontSize ? { fontSize: fontSizeFor(header.titleFontSize) } : undefined,
+        header.titleOpacity !== undefined ? { opacity: header.titleOpacity } : undefined,
+      ]}
+      numberOfLines={1}
+    >
+      {header.title}
+    </Text>
+  );
+  const subtitleEl = !!header.subtitle && (
+    <Text
+      style={[
+        styles.headerSubtitle,
+        header.subtitleColor ? { color: header.subtitleColor } : undefined,
+        header.subtitleFontSize ? { fontSize: fontSizeFor(header.subtitleFontSize) } : undefined,
+        header.subtitleOpacity !== undefined ? { opacity: header.subtitleOpacity } : undefined,
+      ]}
+      numberOfLines={1}
+    >
+      {header.subtitle}
+    </Text>
+  );
+  const order = header.textOrder ?? 'subtitle-first';
+  return order === 'title-first' ? (
+    <>
+      {titleEl}
+      {subtitleEl}
+    </>
+  ) : (
+    <>
+      {subtitleEl}
+      {titleEl}
+    </>
+  );
+};
 
 function normalizeHexColor(hex: string): string | null {
   const normalized = hex.trim();
@@ -103,6 +148,12 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
     [onHeaderPress]
   );
 
+  const { width: bannerWidth } = useWindowDimensions();
+  const bannerWidthSV = useSharedValue(bannerWidth);
+  useEffect(() => {
+    bannerWidthSV.value = bannerWidth;
+  }, [bannerWidth, bannerWidthSV]);
+
   const hasHeaders = useMemo(() => Array.isArray(headers) && headers.length > 0, [headers]);
   const isCarousel = hasHeaders && headers.length > 1;
 
@@ -154,7 +205,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
         backgroundColor: firstColor,
       };
     }
-    const indexProgress = scrollX.value / HEADER_WIDTH;
+    const indexProgress = scrollX.value / bannerWidthSV.value;
     return {
       backgroundColor: interpolateColor(indexProgress, inputRange, slideColors),
     };
@@ -213,9 +264,10 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
     }
   }, [hasHeaders, headers]);
 
+  const containerHeight = height ?? Math.round(bannerWidth * (2 / 3));
+
   const renderItem = useCallback(
-    ({ item }: { item: Header }) => {
-      const header = item;
+    ({ item: header }: { item: Header }) => {
       const headerOverlayStyle = header.bottomShimEnabled
         ? {
             backgroundColor: colorWithOpacity(
@@ -228,7 +280,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
       return (
         <SquircleNativePressable
           key={header.id}
-          style={styles.headerItem}
+          style={[styles.headerItem, { width: bannerWidth }]}
           onPress={() => handleHeaderPress(header)}
         >
           <Image
@@ -240,63 +292,13 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
           />
           <View style={[styles.headerOverlay, headerOverlayStyle]}>
             <View style={styles.textContainer}>
-              {(() => {
-                const titleEl = !!header.title && (
-                  <Text
-                    style={[
-                      styles.headerTitle,
-                      header.titleColor ? { color: header.titleColor } : undefined,
-                      header.titleFontSize
-                        ? { fontSize: fontSizeFor(header.titleFontSize) }
-                        : undefined,
-                      header.titleOpacity !== undefined
-                        ? { opacity: header.titleOpacity }
-                        : undefined,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {header.title}
-                  </Text>
-                );
-
-                const subtitleText = header.subtitle;
-                const descriptionEl = !!subtitleText && (
-                  <Text
-                    style={[
-                      styles.headerSubtitle,
-                      header.subtitleColor ? { color: header.subtitleColor } : undefined,
-                      header.subtitleFontSize
-                        ? { fontSize: fontSizeFor(header.subtitleFontSize) }
-                        : undefined,
-                      header.subtitleOpacity !== undefined
-                        ? { opacity: header.subtitleOpacity }
-                        : undefined,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {subtitleText}
-                  </Text>
-                );
-
-                const order = header.textOrder || 'subtitle-first';
-                return order === 'title-first' ? (
-                  <>
-                    {titleEl}
-                    {descriptionEl}
-                  </>
-                ) : (
-                  <>
-                    {descriptionEl}
-                    {titleEl}
-                  </>
-                );
-              })()}
+              <HeaderItemTextContent header={header} />
             </View>
           </View>
         </SquircleNativePressable>
       );
     },
-    [handleHeaderPress, handleImageError]
+    [bannerWidth, handleHeaderPress, handleImageError]
   );
 
   if (!hasHeaders) {
@@ -306,11 +308,11 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
   if (!isCarousel) {
     const header = headers[0];
     return (
-      <View style={[styles.container, height ? { height } : null, { backgroundColor }]}>
+      <View style={[styles.container, { height: containerHeight, backgroundColor }]}>
         <View style={styles.headersContainer}>
           <SquircleNativePressable
             key={header.id}
-            style={styles.headerItem}
+            style={[styles.headerItem, { width: bannerWidth }]}
             onPress={() => handleHeaderPress(header)}
           >
             <Image
@@ -322,55 +324,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
             />
             <View style={styles.headerOverlay}>
               <View style={styles.textContainer}>
-                {(() => {
-                  const titleEl = !!header.title && (
-                    <Text
-                      style={[
-                        styles.headerTitle,
-                        header.titleColor ? { color: header.titleColor as string } : null,
-                        header.titleFontSize
-                          ? { fontSize: fontSizeFor(header.titleFontSize) }
-                          : null,
-                        header.titleOpacity !== undefined ? { opacity: header.titleOpacity } : null,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {header.title}
-                    </Text>
-                  );
-
-                  const subtitleText = header.subtitle;
-                  const descriptionEl = !!subtitleText && (
-                    <Text
-                      style={[
-                        styles.headerSubtitle,
-                        header.subtitleColor ? { color: header.subtitleColor as string } : null,
-                        header.subtitleFontSize
-                          ? { fontSize: fontSizeFor(header.subtitleFontSize) }
-                          : null,
-                        header.subtitleOpacity !== undefined
-                          ? { opacity: header.subtitleOpacity }
-                          : null,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {subtitleText}
-                    </Text>
-                  );
-
-                  const order = header.textOrder || 'subtitle-first';
-                  return order === 'title-first' ? (
-                    <>
-                      {titleEl}
-                      {descriptionEl}
-                    </>
-                  ) : (
-                    <>
-                      {descriptionEl}
-                      {titleEl}
-                    </>
-                  );
-                })()}
+                <HeaderItemTextContent header={header} />
               </View>
             </View>
           </SquircleNativePressable>
@@ -380,7 +334,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
   }
 
   return (
-    <View style={[styles.container, height ? { height } : null, { backgroundColor }]}>
+    <View style={[styles.container, { height: containerHeight, backgroundColor }]}>
       <Animated.FlatList
         ref={listRef}
         data={loopedData}
@@ -389,7 +343,6 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        snapToAlignment="start"
         decelerationRate={
           Platform.OS === 'ios'
             ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
@@ -399,8 +352,8 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         getItemLayout={(_data: ArrayLike<Header> | null | undefined, index: number) => ({
-          length: HEADER_WIDTH,
-          offset: HEADER_WIDTH * index,
+          length: bannerWidth,
+          offset: bannerWidth * index,
           index,
         })}
         onScroll={onScroll}
@@ -436,7 +389,6 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    height: HEADER_HEIGHT,
     width: '100%',
     position: 'relative',
     marginBottom: 0,
@@ -446,7 +398,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   headerItem: {
-    width: HEADER_WIDTH,
     height: '100%',
     marginRight: 0,
     borderRadius: 0,
