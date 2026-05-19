@@ -9,10 +9,8 @@ import { BackArrowIcon } from '@/components/ui/Icon';
 import { Colors } from '@/theme';
 import { FollowProvider } from '@/context/FollowContext';
 import { VideoItem } from '@/components/features/feed/VideoItem';
-import { IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING } from '@/components/features/feed/feedViewShared';
 import { feedService } from '@/services/FeedService';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import { isIosLiquidGlassAvailable } from '@/stores/userStore';
 import { getVideoCardHeight } from '@/utils/video/helpers';
 import type { EdgeInsets } from 'react-native-safe-area-context';
 import { useFeedVisibility } from '@/core/visibility/hooks';
@@ -37,76 +35,35 @@ const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
   canPlay,
 }: PlaybackProps) {
   const { screenWidth, screenHeight } = useDeviceLayout();
-  const hasTabBar = true;
-  const useManualIosGlassTabPaddingLayout = hasTabBar && isIosLiquidGlassAvailable;
-
-  const viewableAreaHeight = (() => {
-    if (!hasTabBar) {
-      const maxViewport = Math.max(0, screenHeight - insets.bottom);
-      return maxViewport;
-    }
-    if (useManualIosGlassTabPaddingLayout) {
-      return screenHeight;
-    }
-    // For non-liquid glass, don't subtract status bar - only subtract bottom inset
-    return Math.max(0, screenHeight - insets.bottom);
-  })();
-
-  const cardHeight = useManualIosGlassTabPaddingLayout
-    ? getVideoCardHeight(screenWidth, screenHeight)
-    : viewableAreaHeight;
+  const cardHeight = getVideoCardHeight(screenWidth, screenHeight);
+  const cardWidth = (cardHeight * 9) / 16;
 
   const topInset = typeof insets.top === 'number' ? insets.top : 0;
   const bottomInset = typeof insets.bottom === 'number' ? insets.bottom : 0;
 
-  const cardWidth = (() => {
-    if (!useManualIosGlassTabPaddingLayout) return screenWidth;
-    return (cardHeight * 9) / 16;
-  })();
-
   const safeAreaVideoAreaStyle = {
     paddingTop: topInset,
-    paddingBottom:
-      bottomInset + (useManualIosGlassTabPaddingLayout ? IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING : 0),
+    paddingBottom: bottomInset,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
   };
 
-  const cardContainerStyle = {
-    width: cardWidth,
-    height: cardHeight,
-    overflow: 'hidden' as const,
-  };
-
   return (
     <View style={styles.videoArea}>
-      {useManualIosGlassTabPaddingLayout ? (
-        <View style={[safeAreaVideoAreaStyle, styles.videoAreaLiquidGlassInner]}>
-          <View style={cardContainerStyle}>
-            <VideoItem
-              feedItem={feedItem}
-              post={feedItem.post}
-              height={cardHeight}
-              feedOption={FEED_OPTION}
-              isVisible={true}
-              canPlay={canPlay}
-              index={0}
-              isAppleZoomTarget={Platform.OS === 'ios'}
-            />
-          </View>
+      <View style={[safeAreaVideoAreaStyle, styles.videoAreaInner]}>
+        <View style={{ width: cardWidth, height: cardHeight, overflow: 'hidden' }}>
+          <VideoItem
+            feedItem={feedItem}
+            post={feedItem.post}
+            height={cardHeight}
+            feedOption={FEED_OPTION}
+            isVisible={true}
+            canPlay={canPlay}
+            index={0}
+            isAppleZoomTarget={Platform.OS === 'ios'}
+          />
         </View>
-      ) : (
-        <VideoItem
-          feedItem={feedItem}
-          post={feedItem.post}
-          height={cardHeight}
-          feedOption={FEED_OPTION}
-          isVisible={true}
-          canPlay={canPlay}
-          index={0}
-          isAppleZoomTarget={Platform.OS === 'ios'}
-        />
-      )}
+      </View>
     </View>
   );
 });
@@ -174,7 +131,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  videoAreaLiquidGlassInner: {
+  videoAreaInner: {
     flex: 1,
   },
   backButton: {

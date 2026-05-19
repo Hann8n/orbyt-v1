@@ -1,70 +1,29 @@
-type ListSnapOffsetsParams = {
-  snapDisabledCompactLiquidGlass: boolean;
-  snapWaitHeaderLayout: boolean;
-  listSnapUsesInterval: boolean;
-  isHeaderFeed: boolean;
-  headerHeight: number;
-  cardHeight: number;
-  itemCount: number;
-  itemSpacing: number;
-  snapTopInset: number;
-};
+import { FEED_VIEW_CONSTANTS } from '@/components/features/feed/feedViewShared';
+
+export function buildSimpleSnapOffsets(
+  headerHeight: number,
+  cardHeight: number,
+  itemCount: number
+): number[] {
+  const interval = cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
+  return Array.from({ length: itemCount + 1 }, (_, i) =>
+    i === 0 ? 0 : Math.round(headerHeight + (i - 1) * interval)
+  );
+}
 
 type GridSnapOffsetsParams = {
   useScrollTracking: boolean;
   headerHeight: number;
   isHeaderFeed: boolean;
-  snapTopInset: number;
   itemCount: number;
   numColumns: number;
   itemSpacing: number;
 };
 
-export function buildListSnapToOffsets({
-  snapDisabledCompactLiquidGlass,
-  snapWaitHeaderLayout,
-  listSnapUsesInterval,
-  isHeaderFeed,
-  headerHeight,
-  cardHeight,
-  itemCount,
-  itemSpacing,
-  snapTopInset,
-}: ListSnapOffsetsParams): number[] | undefined {
-  if (snapDisabledCompactLiquidGlass || snapWaitHeaderLayout || listSnapUsesInterval) {
-    return undefined;
-  }
-
-  if (isHeaderFeed) {
-    const useHeaderPitch = headerHeight > 0 && cardHeight > 0;
-    const headerSnapAdjust = snapTopInset;
-    const offsets = new Array<number>(itemCount + 1);
-    offsets[0] = 0;
-
-    for (let i = 0; i < itemCount; i++) {
-      if (useHeaderPitch) {
-        const baseOffset = headerHeight + i * itemSpacing;
-        offsets[i + 1] = Math.round(baseOffset - headerSnapAdjust);
-      } else {
-        offsets[i + 1] = Math.round(i * itemSpacing - snapTopInset);
-      }
-    }
-
-    return offsets;
-  }
-
-  const offsets = new Array<number>(itemCount);
-  for (let i = 0; i < itemCount; i++) {
-    offsets[i] = Math.round(i * itemSpacing - snapTopInset);
-  }
-  return offsets;
-}
-
 export function buildGridSnapToOffsets({
   useScrollTracking,
   headerHeight,
   isHeaderFeed,
-  snapTopInset,
   itemCount,
   numColumns,
   itemSpacing,
@@ -72,12 +31,12 @@ export function buildGridSnapToOffsets({
   if (!useScrollTracking) return undefined;
   if (headerHeight <= 0) return [0];
 
-  const firstRowY = headerHeight - (isHeaderFeed ? snapTopInset : 0);
+  const firstRowY = isHeaderFeed ? headerHeight : headerHeight;
   const rowCount = itemCount === 0 ? 0 : Math.ceil(itemCount / numColumns);
   const offsets: number[] = [0];
 
   for (let row = 0; row < rowCount; row++) {
-    offsets.push(firstRowY + row * itemSpacing);
+    offsets.push(Math.round(firstRowY + row * itemSpacing));
   }
 
   return offsets;

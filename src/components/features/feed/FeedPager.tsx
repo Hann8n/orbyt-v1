@@ -24,7 +24,6 @@ import { NanoIcon } from '../../ui/NanoIcon';
 import { Colors } from '../../../theme';
 import FeedRenderer from './FeedRenderer';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { FeedPagerRef } from '../../../utils/navigation/tabRefs';
 import { useTabBarVisibility } from '../../../context/FeedIndicatorContext';
@@ -94,7 +93,7 @@ const FeedPager = function FeedPager({
   currentFeed,
   onFeedChange,
   forceError = false,
-  applySafeArea = false,
+  applySafeArea: _applySafeArea = false,
   indicatorFontSize,
   showFeedIndicator = true,
   scrollEnabled = true,
@@ -116,7 +115,6 @@ const FeedPager = function FeedPager({
   const { fontScale } = useWindowDimensions();
   const { isTablet, screenWidth } = useDeviceLayout();
   const feedRendererRefs = useRef<{ [key: string]: ListFeedViewRef | null }>({});
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const tabBarVisibility = useTabBarVisibility();
 
@@ -256,11 +254,11 @@ const FeedPager = function FeedPager({
       right: 0,
       zIndex: 2,
       backgroundColor: Colors.transparent,
-      top: applySafeArea ? 12 + insets.top : 12,
+      top: 12,
       opacity: withTiming(visible ? 1 : 0, { duration: 200 }),
       transform: [{ translateY: withTiming(visible ? 0 : -18, { duration: 200 }) }],
     };
-  }, [tabBarVisibility, applySafeArea, insets.top]);
+  }, [tabBarVisibility]);
 
   const handleCreatePress = useCallback(() => {
     router.navigate('/create');

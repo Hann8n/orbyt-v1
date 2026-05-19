@@ -1,7 +1,7 @@
 import { useCallback, useImperativeHandle, forwardRef, memo, useRef, useEffect } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
 import { queryKeys } from '@/utils/query/queryKeys';
 import FeedPager from '@/components/features/feed/FeedPager';
@@ -85,19 +85,21 @@ const HomeScreen = memo(
     return (
       <View style={styles.container}>
         <VideoUploadBanner topInset={insets.top} applySafeArea={true} />
-        {shouldGateHomeFeed ? (
-          <View style={styles.bootstrapLoadingContainer}>
-            <ActivityIndicator size="large" color={Colors.neutral[50]} />
-          </View>
-        ) : (
-          <FeedPager
-            ref={feedPagerRef}
-            currentFeed={currentFeed}
-            onFeedChange={handleFeedChange}
-            applySafeArea={true}
-            isVisible={isRouteFocused}
-          />
-        )}
+        <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+          {shouldGateHomeFeed ? (
+            <View style={styles.bootstrapLoadingContainer}>
+              <ActivityIndicator size="large" color={Colors.neutral[50]} />
+            </View>
+          ) : (
+            <FeedPager
+              ref={feedPagerRef}
+              currentFeed={currentFeed}
+              onFeedChange={handleFeedChange}
+              applySafeArea={true}
+              isVisible={isRouteFocused}
+            />
+          )}
+        </SafeAreaView>
       </View>
     );
   })
@@ -107,8 +109,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.black,
-    // Prevent white lines at edges when scrolling under tab bar
     overflow: 'hidden',
+  },
+  safeArea: {
+    flex: 1,
   },
   bootstrapLoadingContainer: {
     flex: 1,

@@ -49,7 +49,7 @@ export default function TabsLayout() {
         disableTransparentOnScrollEdge={true}
         shadowColor={Colors.black}
       >
-        <NativeTabs.Trigger name="home" disableAutomaticContentInsets>
+        <NativeTabs.Trigger name="home">
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/home_3_cute.png')} />
           <NativeTabs.Trigger.Label hidden>{t('tabs.home')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
