@@ -9,7 +9,7 @@ module.exports = {
     supportsTablet: false,
     bundleIdentifier: 'com.getorbyt.app',
     appleTeamId: 'D8VXFBV8SJ',
-    buildNumber: '6',
+    buildNumber: '7',
     icon: './src/assets/AppIcons/iOS/Orbyt.icon',
     infoPlist: {
       CFBundleDevelopmentRegion: 'en',
@@ -32,7 +32,7 @@ module.exports = {
       backgroundColor: '#05070a',
     },
     package: 'com.getorbyt.app',
-    versionCode: 6,
+    versionCode: 7,
     permissions: ['INTERNET', 'CAMERA', 'RECORD_AUDIO'],
   },
   web: {
