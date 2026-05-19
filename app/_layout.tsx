@@ -1,6 +1,7 @@
 import '@/i18n';
 import React, { useEffect } from 'react';
-import { View, StyleSheet, StatusBar, Platform } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Stack, useNavigationContainerRef } from 'expo-router';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -205,12 +206,7 @@ function RootNavigator() {
 
   return (
     <View style={styles.rootView}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor="transparent"
-        translucent={Platform.OS === 'android'}
-        hidden={false}
-      />
+      <StatusBar style="light" />
       <Stack
         screenOptions={{
           headerShown: false,

@@ -1,10 +1,8 @@
-import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
+import React, { memo, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StatusBar, StyleProp, ViewStyle } from 'react-native';
+import { Alert, StyleProp, ViewStyle } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
-import { useIsFocused } from '@react-navigation/native';
-import { useAnimatedReaction, type SharedValue } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+import type { SharedValue } from 'react-native-reanimated';
 import type { MenuAction } from '@react-native-menu/menu';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
@@ -13,7 +11,7 @@ import { useOrbytColors } from '../../../services/colors';
 import VerificationBadge from '../../features/badging/VerificationBadge';
 import BotBadge from '../../features/badging/BotBadge';
 import BetaBadge from '../../features/badging/BetaBadge';
-import { getStatusBarStyle } from '../../../utils/formatting/colors';
+import { useProfileStatusBar } from '@/hooks/useProfileStatusBar';
 import { RichText } from '@atproto/api';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { openListInBluesky } from '../../../utils/links/bluesky';
@@ -112,21 +110,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       { text: t('common.ok') },
     ]);
   }, [t]);
-
-  const isFocused = useIsFocused();
-  // Same scroll progress as header (contentScrollProgressSV); use profile status bar at top, app default when scrolled.
-  // Only scheduleOnRN when the decision flips (not every frame) so we don't cross the bridge on every scroll tick.
-  const [useProfileStatusBar, setUseProfileStatusBar] = useState(true);
-
-  useAnimatedReaction(
-    () => (contentScrollProgressSV?.value ?? 0) < 0.25,
-    (useProfile, prev) => {
-      if (prev === null || useProfile !== prev) {
-        scheduleOnRN(setUseProfileStatusBar, useProfile);
-      }
-    },
-    [contentScrollProgressSV]
-  );
 
   // Merge profile payload + query colors, but prefer query for canonical Orbyt API fields.
   const { data: orbytColorsFromQuery } = useOrbytColors(did);
@@ -257,17 +240,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     [profileColors.backgroundColor, profileColors.textColor]
   );
 
-  // Profile status bar: used when at top; when scrolled we use app default so status bar transitions with header
-  const profileStatusBarStyle = useMemo(() => {
-    if (!controlStatusBar) return 'light-content';
-    const style = getStatusBarStyle(profileColors.backgroundColor);
-    return style === 'light' ? 'light-content' : 'dark-content';
-  }, [controlStatusBar, profileColors.backgroundColor]);
-
-  const effectiveBarStyle = useProfileStatusBar ? profileStatusBarStyle : 'light-content';
-  const effectiveBackgroundColor = useProfileStatusBar
-    ? dynamicColors.backgroundColor
-    : 'transparent';
+  // Profile status bar: imperative API for zero re-render overhead
+  useProfileStatusBar(profileColors.textColor, controlStatusBar, contentScrollProgressSV);
 
   useEffect(() => {
     onColorsChange?.(dynamicColors);
@@ -275,13 +249,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   return (
     <>
-      {controlStatusBar && isFocused && (
-        <StatusBar
-          barStyle={effectiveBarStyle}
-          backgroundColor={effectiveBackgroundColor}
-          translucent={true}
-        />
-      )}
       <UniversalHeader
         content={headerContent}
         backgroundColor={dynamicColors.backgroundColor}

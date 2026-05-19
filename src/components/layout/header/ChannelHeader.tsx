@@ -5,7 +5,6 @@ import {
   View,
   StyleSheet,
   Text,
-  StatusBar,
   useWindowDimensions,
   type StyleProp,
   type ViewStyle,
@@ -17,7 +16,8 @@ import { useChannelColors } from '../../../services/data/ChannelService';
 import { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon, STROKE_WIDTH_THICK } from '../../ui/Icon';
 import { NativePressable } from '../../ui/NativePressable';
 import type { ViewMode } from '../../../types';
-import { hexToRGBA, getStatusBarStyle, isColorDark } from '../../../utils/formatting/colors';
+import { hexToRGBA, isColorDark } from '../../../utils/formatting/colors';
+import { useProfileStatusBar } from '@/hooks/useProfileStatusBar';
 import { Colors } from '../../../theme';
 import { FontFamily, TextStyles } from '../../../utils/components/typography';
 import { useChannelSubscriptions } from '../../../stores/userStore';
@@ -199,11 +199,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   // Get channel colors from cache
   const { colors: channelColors } = useChannelColors(channel?.id || channel?.uri);
 
-  // Ensure text color is always light for better readability on gradients
-  const safeTextColor = useMemo(() => {
-    // Force light text for channels to ensure readability on gradient backgrounds
-    return Colors.neutral[50];
-  }, []);
+  const safeTextColor = Colors.neutral[50];
 
   const safeBackgroundColor = Colors.black;
 
@@ -273,11 +269,8 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     };
   }, [channel, goToProfile, safeTextColor, isOrbyt]);
 
-  // Determine status bar style based on background color brightness
-  const statusBarStyle = useMemo(() => {
-    const style = getStatusBarStyle(safeBackgroundColor);
-    return style === 'light' ? 'light-content' : 'dark-content';
-  }, [safeBackgroundColor]);
+  // Status bar: imperative API for zero re-render overhead
+  useProfileStatusBar(safeTextColor, true, contentScrollProgressSV);
 
   // Check if this is a category channel (hashtag feed) - postable orbyt channels have tabs
   const hasTabs = useMemo(() => {
@@ -326,11 +319,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 
   return (
     <>
-      <StatusBar
-        barStyle={statusBarStyle}
-        backgroundColor={safeBackgroundColor}
-        translucent={true}
-      />
       <UniversalHeader
         content={headerContent}
         backgroundColor={safeBackgroundColor}

@@ -9,9 +9,9 @@ import {
   Alert,
   Platform,
   ScrollView,
-  StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { GlassView } from 'expo-glass-effect';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
@@ -143,43 +143,46 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
     [insets]
   );
 
-  const handleSavedAccountLogin = async (account: SavedAccount) => {
-    setIsLoading(true);
-    setOAuthError(null);
-    clearAuthError();
+  const handleSavedAccountLogin = useCallback(
+    async (account: SavedAccount) => {
+      setIsLoading(true);
+      setOAuthError(null);
+      clearAuthError();
 
-    try {
-      await switchAccount(account.did);
-      if (onAccountSwitch) {
-        await onAccountSwitch(account);
-      }
-    } catch (error) {
-      setIsLoading(false);
-      if (isUserCancellation(error)) return;
-
-      if (error instanceof AuthFlowError && error.kind === 'reauth_required') {
-        try {
-          await signIn(account.originalIdentifier);
-          await switchAccount(account.did);
-          if (onAccountSwitch) {
-            await onAccountSwitch(account);
-          }
-          await loadSavedAccounts();
-        } catch {
-          Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
-            { text: t('common.ok') },
-          ]);
+      try {
+        await switchAccount(account.did);
+        if (onAccountSwitch) {
+          await onAccountSwitch(account);
         }
-        return;
-      }
+      } catch (error) {
+        setIsLoading(false);
+        if (isUserCancellation(error)) return;
 
-      Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
-        { text: t('common.ok') },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        if (error instanceof AuthFlowError && error.kind === 'reauth_required') {
+          try {
+            await signIn(account.originalIdentifier);
+            await switchAccount(account.did);
+            if (onAccountSwitch) {
+              await onAccountSwitch(account);
+            }
+            await loadSavedAccounts();
+          } catch {
+            Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
+              { text: t('common.ok') },
+            ]);
+          }
+          return;
+        }
+
+        Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
+          { text: t('common.ok') },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [clearAuthError, loadSavedAccounts, onAccountSwitch, signIn, switchAccount, t]
+  );
 
   const renderSavedAccountsBottom = () => (
     <View style={styles.savedAccountsBottom}>
@@ -312,7 +315,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
 
   const renderContent = () => (
     <View style={styles.backgroundImage}>
-      <StatusBar hidden />
+      <StatusBar style="auto" hidden />
       <RocketBackground />
       <View
         style={[
