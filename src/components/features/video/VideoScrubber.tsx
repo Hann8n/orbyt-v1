@@ -14,6 +14,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnUI, scheduleOnRN } from 'react-native-worklets';
+import { useEvent } from 'expo';
 import { type VideoPlayer } from 'expo-video';
 import { formatTime } from '../../../utils/formatting/time';
 import { Colors } from '../../../theme';
@@ -67,6 +68,8 @@ function VideoScrubberActive({
   const isSeekingSV = useSharedValue(false);
   const isPlayingSV = useSharedValue(false);
   const seekProgressSV = useSharedValue(0);
+  const playerStatusEvent = useEvent(player!, 'statusChange', { status: 'idle' as const });
+
   const playerRef = useRef(player);
   const activeRef = useRef(active);
 
@@ -135,12 +138,12 @@ function VideoScrubberActive({
   }, [player, active, duration, durationSV]);
 
   // Enable timeUpdate events only while the scrubber is active so we don't pay bridge traffic
-  // on every feed player. VideoCard initialises timeUpdateEventInterval=0; we set it here.
+  // on every feed player. playerStatusEvent is included so the interval is re-applied after
+  // replaceAsync resets it (fires readyToPlay → this effect re-runs).
   useEffect(() => {
     if (!player) return;
-    // expo-video player is an imperative SDK handle; this is its documented configuration API.
     player.timeUpdateEventInterval = active ? SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS : 0;
-  }, [player, active]);
+  }, [player, active, playerStatusEvent]);
 
   // Track playing state so the continuous animation can be paused/resumed correctly.
   useEffect(() => {
@@ -384,20 +387,14 @@ function VideoScrubberActive({
     opacity: overlayOpacitySV.value,
   }));
 
-  const composedTimeStyle = useMemo(
-    () => StyleSheet.compose(styles.timeContainer, timeStyle),
-    [timeStyle]
-  );
+  const composedTimeStyle = useMemo(() => [styles.timeContainer, timeStyle], [timeStyle]);
   const composedTrackContainerStyle = useMemo(
-    () => StyleSheet.compose(styles.trackContainer, trackContainerStyle),
+    () => [styles.trackContainer, trackContainerStyle],
     [trackContainerStyle]
   );
-  const composedTrackBarStyle = useMemo(
-    () => StyleSheet.compose(styles.trackBar, trackBarStyle),
-    [trackBarStyle]
-  );
+  const composedTrackBarStyle = useMemo(() => [styles.trackBar, trackBarStyle], [trackBarStyle]);
   const composedProgressBarStyle = useMemo(
-    () => StyleSheet.compose(styles.progressBar, progressBarStyle),
+    () => [styles.progressBar, progressBarStyle],
     [progressBarStyle]
   );
 

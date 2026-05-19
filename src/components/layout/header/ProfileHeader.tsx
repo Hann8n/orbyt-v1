@@ -115,7 +115,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   const isFocused = useIsFocused();
   // Same scroll progress as header (contentScrollProgressSV); use profile status bar at top, app default when scrolled.
-  // Only runOnJS when the decision flips (not every frame) so we don't cross the bridge on every scroll tick.
+  // Only scheduleOnRN when the decision flips (not every frame) so we don't cross the bridge on every scroll tick.
   const [useProfileStatusBar, setUseProfileStatusBar] = useState(true);
 
   useAnimatedReaction(

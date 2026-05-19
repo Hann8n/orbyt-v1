@@ -88,7 +88,6 @@ const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
               post={feedItem.post}
               height={cardHeight}
               feedOption={FEED_OPTION}
-              isVisible={true}
               canPlay={canPlay}
               index={0}
               isAppleZoomTarget={Platform.OS === 'ios'}
@@ -101,7 +100,6 @@ const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
           post={feedItem.post}
           height={cardHeight}
           feedOption={FEED_OPTION}
-          isVisible={true}
           canPlay={canPlay}
           index={0}
           isAppleZoomTarget={Platform.OS === 'ios'}

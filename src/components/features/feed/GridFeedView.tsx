@@ -163,7 +163,6 @@ function GridFeedView({
   pullToRefresh,
   ref,
 }: GridFeedViewProps) {
-  'use no memo';
   const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
   const profileColors = getProfileColors(backgroundColor, secondaryColor);
   const flashListRef = useRef<FlashListRef<ExtendedFeedViewPost>>(null);

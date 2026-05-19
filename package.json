@@ -113,7 +113,7 @@
     "react-native-nitro-image": "^0.13.1",
     "react-native-nitro-modules": "^0.35.4",
     "react-native-pager-view": "8.0.0",
-    "react-native-reanimated": "4.2.1",
+    "react-native-reanimated": "4.3.1",
     "react-native-resquircle": "^1.0.1",
     "react-native-safe-area-context": "~5.6.2",
     "react-native-screens": "~4.23.0",
@@ -122,7 +122,7 @@
     "react-native-url-polyfill": "^3.0.0",
     "react-native-vision-camera": "5.0.6",
     "react-native-webview": "13.16.0",
-    "react-native-worklets": "0.7.4",
+    "react-native-worklets": "0.8.0",
     "zustand": "^5.0.10"
   },
   "devDependencies": {
@@ -200,5 +200,11 @@
       "node node_modules/prettier/bin/prettier.cjs --write"
     ]
   },
-  "packageManager": "yarn@4.14.1"
+  "packageManager": "yarn@4.14.1",
+  "reanimated": {
+    "staticFeatureFlags": {
+      "USE_COMMIT_HOOK_ONLY_FOR_REACT_COMMITS": true,
+      "IOS_SYNCHRONOUSLY_UPDATE_UI_PROPS": true
+    }
+  }
 }
