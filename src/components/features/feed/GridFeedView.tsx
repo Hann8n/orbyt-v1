@@ -31,14 +31,12 @@ import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import EmptyFeed from './EmptyFeed';
 import {
   FEED_VIEW_CONSTANTS,
-  IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING,
   getEmptyFeedType,
   getFeedItemKey,
   getProfileColors,
   getPullToRefreshTintColor,
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
-import { isIosLiquidGlassAvailable } from '@/stores/userStore';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
 import type {
   FeedScrollLayoutValue,
@@ -135,8 +133,6 @@ interface GridFeedViewProps {
   isLoading?: boolean;
   ListComponent?: React.ComponentType<unknown> | null;
   contentScrollProgressOutput?: SharedValue<number>;
-  snapTopInset: number;
-  useNativeTabBottomSafeArea?: boolean;
   pullToRefresh?: ListFeedPullToRefresh;
   ref?: Ref<ListFeedViewRef>;
 }
@@ -158,8 +154,6 @@ function GridFeedView({
   isLoading = false,
   ListComponent,
   contentScrollProgressOutput,
-  snapTopInset,
-  useNativeTabBottomSafeArea = false,
   pullToRefresh,
   ref,
 }: GridFeedViewProps) {
@@ -242,27 +236,16 @@ function GridFeedView({
   const itemWidth = windowWidth / numColumns;
   const itemHeight = itemWidth / DEFAULT_VIDEO_ASPECT_RATIO;
   const itemSpacing = itemHeight + FEED_VIEW_CONSTANTS.GRID_CELL_GAP;
-  const extraBottomPadding = isIosLiquidGlassAvailable ? IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING : 0;
-
   const gridSnapToOffsets = useMemo(() => {
     return buildGridSnapToOffsets({
       useScrollTracking,
       headerHeight,
       isHeaderFeed,
-      snapTopInset,
       itemCount: feed.length,
       numColumns,
       itemSpacing,
     });
-  }, [
-    useScrollTracking,
-    headerHeight,
-    isHeaderFeed,
-    snapTopInset,
-    feed.length,
-    numColumns,
-    itemSpacing,
-  ]);
+  }, [useScrollTracking, headerHeight, isHeaderFeed, feed.length, numColumns, itemSpacing]);
 
   const feedItemCount = feed.length;
   const renderGridItem = useCallback(
@@ -377,7 +360,7 @@ function GridFeedView({
         {
           backgroundColor: Colors.transparent,
           ...(feed.length > 0 && {
-            paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom + extraBottomPadding,
+            paddingBottom: insets.bottom,
           }),
         },
       ]}

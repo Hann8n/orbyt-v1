@@ -17,8 +17,6 @@ export const FEED_VIEW_CONSTANTS = {
   HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y: 10,
 } as const;
 
-export const IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING = 12;
-
 export const isHeaderFeed = (feedOption: string, headerComponent?: ReactNode): boolean =>
   Boolean(headerComponent) || isValidAtUri(feedOption);
 
