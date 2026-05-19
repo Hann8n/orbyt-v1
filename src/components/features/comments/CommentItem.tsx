@@ -385,7 +385,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
     if (isAnimating.current) return;
     isAnimating.current = true;
 
-    // Quick scale up and down animation
     heartScale.value = withSpring(1.3, { duration: 150 }, () => {
       heartScale.value = withSpring(1, { duration: 150 }, () => {
         isAnimating.current = false;

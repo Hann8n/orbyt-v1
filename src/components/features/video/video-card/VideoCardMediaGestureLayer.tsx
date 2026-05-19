@@ -1,14 +1,7 @@
 import { type ComponentProps } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
-import Animated from 'react-native-reanimated';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { VideoView as ExpoVideoView } from 'expo-video';
 import type { VideoPlayer } from 'expo-video';
@@ -34,8 +27,8 @@ export interface VideoCardMediaGestureLayerProps {
   loadingLabel: string;
   onFirstFrameRender: () => void;
   surfaceType: 'textureView' | undefined;
-  textDimAnimatedStyle: StyleProp<ViewStyle>;
-  heartAnimatedStyle: StyleProp<ViewStyle>;
+  textDimAnimatedStyle: ReturnType<typeof useAnimatedStyle>;
+  heartAnimatedStyle: ReturnType<typeof useAnimatedStyle>;
   /**
    * Decode-priority hint for the poster `<Image>`. Active-row posters get
    * 'high' so they decode before any neighbours that are merely in the
