@@ -7,15 +7,14 @@ import {
   StyleSheet,
   Alert,
   Platform,
-  Dimensions,
   ScrollView,
   KeyboardAvoidingView,
   TextInput,
   Modal,
-  StatusBar,
   Keyboard,
   ActivityIndicator,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import Animated, {
@@ -1100,41 +1099,26 @@ const VideoPostScreen: React.FC = () => {
   // Reset selection when modal opens to fix cursor alignment
   useEffect(() => {
     if (!showDescriptionInputModal) return undefined;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       setDescriptionSelection({ start: description.length, end: description.length });
     }, 100);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [showDescriptionInputModal, description.length]);
 
   // Fixed container size with 9:16 aspect ratio
   const containerWidth = VIDEO_WIDTH;
   const containerHeight = containerWidth / DEFAULT_VIDEO_ASPECT_RATIO;
 
-  // Add orientation state
-  const getOrientation = () => {
-    const { width, height } = Dimensions.get('window');
-    return width > height ? 'landscape' : 'portrait';
-  };
-
-  const [orientation, setOrientation] = useState(getOrientation());
   const insets = useSafeAreaInsets();
-  const { screenWidth, isTablet, isSmallPhone: isSmallDevice } = useDeviceLayout();
-
-  useEffect(() => {
-    const onChange = ({ window }: { window: { width: number; height: number } }) => {
-      const { width, height } = window;
-      setOrientation(width > height ? 'landscape' : 'portrait');
-    };
-    const sub = Dimensions.addEventListener('change', onChange);
-    return () => sub?.remove();
-  }, []);
+  const { screenWidth, screenHeight, isTablet, isSmallPhone: isSmallDevice } = useDeviceLayout();
+  const orientation = screenWidth > screenHeight ? 'landscape' : 'portrait';
 
   const headerButtonTopStyle = { top: isSmallDevice ? 5 : insets.top + 4 };
 
   // Render header (StatusBar transparent, header buttons keep safe area) - shared between portrait and landscape
   const renderHeader = () => (
     <>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <StatusBar style="light" translucent />
       <Animated.View
         style={[
           styles.headerButton,
@@ -1341,7 +1325,7 @@ const VideoPostScreen: React.FC = () => {
   if (orientation === 'landscape' && isTablet) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+        <StatusBar style="light" translucent />
         <Animated.View style={[styles.landscapeContainer, fadeAnimatedStyle]}>
           {/* Left: Info Side */}
           <View style={styles.landscapeInfoSide}>
@@ -1889,12 +1873,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   descriptionInputPreview: {
-    color: Colors.neutral[200],
-    fontFamily: FontFamily.regular,
-    fontSize: Typography.sizes.body,
-    lineHeight: Typography.lineHeights.body,
-  },
-  descriptionInputPreviewNormal: {
     color: Colors.neutral[200],
     fontFamily: FontFamily.regular,
     fontSize: Typography.sizes.body,

@@ -150,12 +150,12 @@ describe('hexToRGBA', () => {
 });
 
 describe('getStatusBarStyle', () => {
-  it('returns light for dark backgrounds', () => {
-    expect(getStatusBarStyle('#000000')).toBe('light');
+  it('returns dark for dark foreground (text) color', () => {
+    expect(getStatusBarStyle('#000000')).toBe('dark');
   });
 
-  it('returns dark for light backgrounds', () => {
-    expect(getStatusBarStyle('#ffffff')).toBe('dark');
+  it('returns light for light foreground (text) color', () => {
+    expect(getStatusBarStyle('#ffffff')).toBe('light');
   });
 });
 

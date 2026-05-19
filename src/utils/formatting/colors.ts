@@ -84,8 +84,8 @@ export const enhanceColorSaturation = (hex: string, saturationBoost: number = 1.
 // Color scheme helpers
 // ---------------------------------------------------------------------------
 
-export const getStatusBarStyle = (backgroundColor: string): 'light' | 'dark' =>
-  isColorDark(backgroundColor) ? 'light' : 'dark';
+export const getStatusBarStyle = (foregroundColor: string): 'light' | 'dark' =>
+  isColorDark(foregroundColor) ? 'dark' : 'light';
 
 /** Inactive tab bar icon/label color. */
 export const TAB_BAR_INACTIVE_TINT = blendColors(Colors.neutral[200], Colors.neutral[300], 0.5);
@@ -196,7 +196,7 @@ export function getProfileColors(
     textColor,
     primaryColor: backgroundColor,
     secondaryColor: textColor,
-    statusBarStyle: getStatusBarStyle(backgroundColor),
+    statusBarStyle: getStatusBarStyle(textColor),
   };
 }
 
@@ -288,7 +288,7 @@ export async function extractColorsFromImage(imageUrl: string): Promise<{
       foregroundColor,
       textColor: foregroundColor,
       accentColor: accentColor || foregroundColor,
-      statusBarStyle: isColorDark(backgroundColor) ? 'light' : 'dark',
+      statusBarStyle: isColorDark(foregroundColor) ? 'dark' : 'light',
     };
   } catch {
     return {

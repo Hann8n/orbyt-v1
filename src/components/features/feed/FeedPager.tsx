@@ -8,7 +8,8 @@ import {
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, StatusBar, Text, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Text, useWindowDimensions } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { NativePressable } from '@/components/ui/NativePressable';
 import Animated, { useAnimatedStyle, withTiming, type SharedValue } from 'react-native-reanimated';
 import {
@@ -314,7 +315,7 @@ const FeedPager = function FeedPager({
 
   return (
     <>
-      {controlStatusBar && <StatusBar barStyle="light-content" backgroundColor={Colors.black} />}
+      {controlStatusBar && <StatusBar style="light" />}
       <TabView
         navigationState={{ index, routes }}
         renderScene={renderScene}
