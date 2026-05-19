@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import { View, StyleSheet, TextInput, StatusBar, Platform, Text } from 'react-native';
@@ -8,7 +8,12 @@ import { Image } from 'expo-image';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
-import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import {
   TabView,
   TabBar,
@@ -261,6 +266,24 @@ const ExploreScreen: React.FC = () => {
   }, [clearPendingDebounce, setDebouncedQuery]);
 
   const isSearching = isSearchFocused || debouncedQuery.length > 0;
+
+  const searchOverlayOpacity = useSharedValue(0);
+  useEffect(() => {
+    searchOverlayOpacity.value = withTiming(isSearching ? 1 : 0, {
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [isSearching, searchOverlayOpacity]);
+
+  const searchOverlayStyle = useAnimatedStyle(() => ({
+    opacity: searchOverlayOpacity.value,
+    pointerEvents: searchOverlayOpacity.value > 0 ? 'auto' : 'none',
+  }));
+
+  const gradientStyle = useAnimatedStyle(() => ({
+    opacity: 1 - searchOverlayOpacity.value,
+  }));
+
   const useLiquidGlassSearchBar =
     Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
 
@@ -504,6 +527,8 @@ const ExploreScreen: React.FC = () => {
           data={suggestionsList}
           keyExtractor={exploreListKeyExtractor}
           renderItem={renderExploreItem}
+          getItemType={item => item.type}
+          contentInsetAdjustmentBehavior="never"
           contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding }]}
           scrollIndicatorInsets={{ top: activeHeaderHeight }}
           showsVerticalScrollIndicator={
@@ -512,40 +537,35 @@ const ExploreScreen: React.FC = () => {
           bounces={true}
           scrollEventThrottle={16}
           onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-          removeClippedSubviews={false}
           viewabilityConfig={viewabilityConfig}
           ListEmptyComponent={renderExploreListEmpty}
         />
       </View>
 
-      {/* Search overlay — conditionally mounted with enter/exit animations */}
-      {isSearching && (
-        <Reanimated.View
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(150)}
-          style={StyleSheet.absoluteFill}
-        >
-          <SafeAreaView edges={['top']} style={styles.searchResultsSafeArea}>
-            <View
-              style={[styles.exploreSearchResultsTopInset, { height: exploreSearchChromeHeight }]}
-              pointerEvents="none"
-            />
-            <TabView
-              navigationState={{ index: searchTabIndex, routes: searchRoutes }}
-              renderScene={({ route }) => renderSearchTabContent(route.key as ExploreSearchTabId)}
-              onIndexChange={nextIndex => setActiveTab(pages[nextIndex] ?? pages[0])}
-              renderTabBar={renderSearchTabBar}
-              swipeEnabled={true}
-              initialLayout={{ width: screenWidth }}
-              lazy
-              lazyPreloadDistance={1}
-              style={styles.searchContentWrapper}
-              commonOptions={searchTabCommonOptions}
-              overScrollMode="never"
-            />
-          </SafeAreaView>
-        </Reanimated.View>
-      )}
+      {/* Search overlay — always mounted so the search bar TextInput focus is never disrupted */}
+      <Reanimated.View
+        style={[StyleSheet.absoluteFill, { backgroundColor: Colors.black }, searchOverlayStyle]}
+      >
+        <SafeAreaView edges={['top']} style={styles.searchResultsSafeArea}>
+          <View
+            style={[styles.exploreSearchResultsTopInset, { height: exploreSearchChromeHeight }]}
+            pointerEvents="none"
+          />
+          <TabView
+            navigationState={{ index: searchTabIndex, routes: searchRoutes }}
+            renderScene={({ route }) => renderSearchTabContent(route.key as ExploreSearchTabId)}
+            onIndexChange={nextIndex => setActiveTab(pages[nextIndex] ?? pages[0])}
+            renderTabBar={renderSearchTabBar}
+            swipeEnabled={true}
+            initialLayout={{ width: screenWidth }}
+            lazy
+            lazyPreloadDistance={1}
+            style={styles.searchContentWrapper}
+            commonOptions={searchTabCommonOptions}
+            overScrollMode="never"
+          />
+        </SafeAreaView>
+      </Reanimated.View>
 
       {/* Search bar — always on top */}
       <SafeAreaView
@@ -556,18 +576,15 @@ const ExploreScreen: React.FC = () => {
         ]}
         pointerEvents="box-none"
       >
-        {!isSearching && (
-          <Reanimated.View
-            pointerEvents="none"
-            exiting={FadeOut.duration(100)}
-            style={[styles.topGradient, styles.topGradientExploreHeight]}
-          >
-            <Image source={GRADIENT_SHIM} style={StyleSheet.absoluteFill} contentFit="fill" />
-          </Reanimated.View>
-        )}
+        <Reanimated.View
+          pointerEvents="none"
+          style={[styles.topGradient, styles.topGradientExploreHeight, gradientStyle]}
+        >
+          <Image source={GRADIENT_SHIM} style={StyleSheet.absoluteFill} contentFit="fill" />
+        </Reanimated.View>
 
         <NativePressable
-          onPress={() => searchInputRef.current?.focus()}
+          onPressIn={() => searchInputRef.current?.focus()}
           style={styles.searchBarPressable}
         >
           <SquircleView

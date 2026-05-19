@@ -28,6 +28,7 @@ export const exploreScreenStyles = StyleSheet.create({
   },
   searchResultsSafeArea: {
     flex: 1,
+    backgroundColor: Colors.black,
   },
   flexOne: {
     flex: 1,

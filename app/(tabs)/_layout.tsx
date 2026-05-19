@@ -49,17 +49,21 @@ export default function TabsLayout() {
         disableTransparentOnScrollEdge={true}
         shadowColor={Colors.black}
       >
-        <NativeTabs.Trigger name="home">
+        <NativeTabs.Trigger name="home" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/home_3_cute.png')} />
           <NativeTabs.Trigger.Label hidden>{t('tabs.home')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
-        <NativeTabs.Trigger name="explore" role={isLiquidGlassAvailable() ? 'search' : undefined}>
+        <NativeTabs.Trigger
+          name="explore"
+          role={isLiquidGlassAvailable() ? 'search' : undefined}
+          disableAutomaticContentInsets
+        >
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/search_2_cute.png')} />
           <NativeTabs.Trigger.Label hidden>{t('tabs.explore')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
-        <NativeTabs.Trigger name="activity">
+        <NativeTabs.Trigger name="activity" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/inbox_2_cute.png')} />
           <NativeTabs.Trigger.Label hidden>{t('tabs.chats')}</NativeTabs.Trigger.Label>
           {totalUnreadCount > 0 && (
@@ -69,7 +73,7 @@ export default function TabsLayout() {
           )}
         </NativeTabs.Trigger>
 
-        <NativeTabs.Trigger name="profile">
+        <NativeTabs.Trigger name="profile" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/badge_cute.png')} />
           <NativeTabs.Trigger.Label hidden>{t('tabs.profile')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
