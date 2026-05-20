@@ -5,19 +5,39 @@ React Native + Expo, targeting iOS and Android.
 
 ## Tech Stack
 
-- **Runtime**: Expo 55, React Native 0.83
-- **Routing**: Expo Router (file-based, `app/` directory)
-- **State (client)**: Zustand (`src/stores/`)
-- **State (server)**: TanStack React Query (`src/utils/query/`)
-- **API**: AT Protocol via `@atproto/api` and `@atproto/oauth-client-expo`
-- **Lists**: `@shopify/flash-list`
-- **Sheets**: `@lodev09/react-native-true-sheet`
-- **Animation**: `react-native-reanimated`, `react-native-gesture-handler`
-- **Video**: `expo-video`, `ffmpeg-kit-react-native`
-- **Graphics**: `@shopify/react-native-skia`, `react-native-svg`
-- **Storage**: `react-native-mmkv` (general), `expo-secure-store` (auth)
-- **Dates**: `date-fns`
-- **Images**: `expo-image`
+- **Runtime**: Expo 55.0.25, React Native 0.83.6, React 19.2.0
+- **Routing**: Expo Router ~55.0.15 (file-based, `app/` directory)
+- **State (client)**: Zustand ^5.0.10 (`src/stores/`)
+- **State (server)**: TanStack React Query @tanstack/react-query ^5.90.21 (`src/utils/query/`)
+- **API**: AT Protocol via `@atproto/api` ^0.19.18 and `@atproto/oauth-client-expo` ^0.0.10
+- **Lists**: `@shopify/flash-list` 2.3.1
+- **Sheets**: `@lodev09/react-native-true-sheet` ^3.8.1
+- **Animation**: `react-native-reanimated` 4.3.1, `react-native-gesture-handler` ~2.30.0
+- **Video**: `expo-video` ~55.0.17, `ffmpeg-kit-react-native` 6.0.2
+- **Graphics**: `@shopify/react-native-skia` 2.4.18, `react-native-svg` 15.15.3
+- **Storage**: `react-native-mmkv` 3.3.3 (general), `expo-secure-store` ~55.0.14 (auth)
+- **Dates**: `date-fns` ^4.1.0
+- **Images**: `expo-image` ~55.0.10
+
+## ⚠️ Required AI Agent Knowledge Update
+
+**IMPORTANT**: Before writing code, AI agents **MUST** familiarize themselves with the exact APIs, supported props, and blessed patterns for **each specific version** listed above. Version-specific behaviors are critical:
+
+- **Expo Router** patterns (guards, linking, deep linking)
+- **Reanimated 4.3.1** animations and worklets (not v3 patterns)
+- **Flash List 2.3.1** props and rendering patterns
+- **React Query 5.x** hooks and cache management (not v4 patterns)
+- **@atproto/api 0.19.x** methods and data structures
+- **@lodev09/react-native-true-sheet** API and gesture handling
+- **React Native Reanimated** with React Native 0.83.6 compatibility
+- **React Compiler** (babel-plugin-react-compiler ^19.1.0-rc.2) is active — all components are compiled for auto-memoization. Avoid manual `React.memo`, `useMemo`, and `useCallback` unless necessary for performance-critical list rendering (where they improve stability).
+
+Agents should **verify** supported props and methods in:
+1. Official package documentation for the specific version
+2. Existing codebase patterns in `src/` (treat as the source of truth for blessed usage)
+3. Type definitions in `node_modules/@types/` and package exports
+
+**Do not assume API compatibility** with other versions or frameworks. Always confirm the exact signature and behavior for the specified versions before implementing.
 
 ## Key Conventions
 
