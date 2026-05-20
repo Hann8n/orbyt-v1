@@ -354,13 +354,23 @@ function ListFeedViewComponent({
     [useManualIosGlassTabPaddingLayout, screenWidth, screenHeight, viewableAreaHeight]
   );
 
+  // When a zoom target is pending, block viewability callbacks from overriding the seeded index
+  // until the imperative scroll fires. Without this, the initial render at offset 0 reports
+  // item 0 as visible and resets activeIndex before scrollToItem can run.
+  const scrollToTargetPendingRef = useRef(!!zoomTargetPostUri);
+
   const handleActiveVisibleIndexChange = useCallback((index: number) => {
+    if (scrollToTargetPendingRef.current) return;
     if (activeVisibleIndexRef.current === index) return;
     activeVisibleIndexRef.current = index;
     setActiveIndex(index);
   }, []);
 
   const didScrollToTargetRef = useRef(false);
+  useEffect(() => {
+    didScrollToTargetRef.current = false;
+    scrollToTargetPendingRef.current = !!zoomTargetPostUri;
+  }, [zoomTargetPostUri]);
   useEffect(() => {
     if (didScrollToTargetRef.current || !zoomTargetPostUri || feed.length === 0) return;
     const idx = feed.findIndex(
@@ -369,6 +379,7 @@ function ListFeedViewComponent({
     if (idx < 0 || !flashListRef.current) return;
     const adjustedIdx = idx + (isHeaderFeed ? 1 : 0);
     didScrollToTargetRef.current = true;
+    scrollToTargetPendingRef.current = false;
     if (activeVisibleIndexRef.current !== adjustedIdx) {
       activeVisibleIndexRef.current = adjustedIdx;
       setActiveIndex(adjustedIdx);

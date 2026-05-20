@@ -32,6 +32,8 @@ import type { ExtendedFeedViewPost as FeedItem } from '../../../services/api/typ
 
 const noopFeedRefetch = () => {};
 
+const defaultQueryOptions = {};
+
 interface FeedRendererProps {
   // Core feed configuration
   feedOption: string;
@@ -92,7 +94,7 @@ const FeedRendererComponent = ({
   backgroundColor = Colors.black,
   secondaryColor,
   onRetryFeed,
-  queryOptions = {},
+  queryOptions = defaultQueryOptions,
   isVisible = true,
   viewMode = 'list',
   onViewModeChange,
@@ -178,16 +180,16 @@ const FeedRendererComponent = ({
   const navigationRef = useRef(navigation);
 
   const gridStateRef = useRef({ feed, feedOption, userDid });
+  // eslint-disable-next-line react-hooks/refs
+  gridStateRef.current = { feed, feedOption, userDid };
 
   useLayoutEffect(() => {
     routerRef.current = router;
     navigationRef.current = navigation;
-    gridStateRef.current = { feed, feedOption, userDid };
   });
 
   /** Reads the active tab from NativeTabs navigator state synchronously — no React state, no staleness. */
-  const getTab = (): DetailNavTab =>
-    getActiveTabFromNavigation(navigationRef.current) ?? 'home';
+  const getTab = (): DetailNavTab => getActiveTabFromNavigation(navigationRef.current) ?? 'home';
 
   const handleHashtagPress = useCallback((hashtag: string) => {
     routerRef.current.push({
@@ -202,14 +204,19 @@ const FeedRendererComponent = ({
       if (s.feedOption === 'search') feedService.setCurrentFeed(s.feed);
       const item = s.feed[index] as FeedItem;
       const initialPostUri = item?.post?.uri ?? '';
-      routerRef.current.push({
-        pathname: `/(tabs)/${getTab()}/feed` as const,
-        params: {
-          feedOption: s.feedOption || 'search',
-          ...(s.userDid ? { userDid: s.userDid } : {}),
-          initialPostUri,
-        },
-      });
+      const feedOption = s.feedOption || 'search';
+      const params = {
+        feedOption,
+        ...(s.userDid ? { userDid: s.userDid } : {}),
+        initialPostUri,
+      };
+      routerRef.current.push(
+        { pathname: `/(tabs)/${getTab()}/feed` as const, params },
+        {
+          dangerouslySingular: () =>
+            [feedOption, s.userDid, initialPostUri].filter(Boolean).join('|'),
+        }
+      );
     }
   }, []);
 
@@ -257,7 +264,7 @@ const FeedRendererComponent = ({
         };
       },
     };
-  }, [navigation]);
+  }, []);
 
   const listFeedViewRef = useRef<ListFeedViewRef>(null);
 
