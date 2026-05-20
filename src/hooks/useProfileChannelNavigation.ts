@@ -1,22 +1,24 @@
 import { useCallback } from 'react';
 import { useRouter, useSegments } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 
 import { useDetailNavTabStore } from '@/stores/detailNavTabStore';
 import {
   buildChannelDetailHref,
   buildProfileDetailHref,
+  getActiveTabFromNavigation,
   isRootModalStackContext,
   type DetailNavTab,
 } from '@/utils/navigation/detailRoutes';
 
-const TAB_SEGMENTS: readonly DetailNavTab[] = ['home', 'explore', 'activity', 'profile'];
-
 export function useProfileChannelNavigation(options?: { fallbackTab?: DetailNavTab }) {
   const router = useRouter();
   const segments = useSegments();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const lastFocusedDetailNavTab = useDetailNavTabStore(s => s.lastFocusedDetailNavTab);
   const currentTab =
-    (segments.find(s => (TAB_SEGMENTS as readonly string[]).includes(s)) as DetailNavTab) ??
+    getActiveTabFromNavigation(navigation) ??
     options?.fallbackTab ??
     lastFocusedDetailNavTab;
 

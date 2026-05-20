@@ -16,7 +16,9 @@ import React, {
 } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useCurrentDetailNavTab, type DetailNavTab } from '@/utils/navigation/detailRoutes';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp, ParamListBase } from '@react-navigation/native';
+import { getActiveTabFromNavigation, type DetailNavTab } from '@/utils/navigation/detailRoutes';
 
 import ListFeedView from './ListFeedView';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
@@ -29,6 +31,8 @@ import { FollowProvider } from '../../../context/FollowContext';
 import type { ExtendedFeedViewPost as FeedItem } from '../../../services/api/types';
 
 const noopFeedRefetch = () => {};
+
+const defaultQueryOptions = {};
 
 interface FeedRendererProps {
   // Core feed configuration
@@ -90,7 +94,7 @@ const FeedRendererComponent = ({
   backgroundColor = Colors.black,
   secondaryColor,
   onRetryFeed,
-  queryOptions = {},
+  queryOptions = defaultQueryOptions,
   isVisible = true,
   viewMode = 'list',
   onViewModeChange,
@@ -172,18 +176,20 @@ const FeedRendererComponent = ({
   const router = useRouter();
   const routerRef = useRef(router);
 
-  const currentTab = useCurrentDetailNavTab();
-  const currentTabRef = useRef(currentTab);
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const navigationRef = useRef(navigation);
 
   const gridStateRef = useRef({ feed, feedOption, userDid });
+  // eslint-disable-next-line react-hooks/refs
+  gridStateRef.current = { feed, feedOption, userDid };
 
   useLayoutEffect(() => {
     routerRef.current = router;
-    currentTabRef.current = currentTab;
-    gridStateRef.current = { feed, feedOption, userDid };
+    navigationRef.current = navigation;
   });
 
-  const getTab = (): DetailNavTab => currentTabRef.current;
+  /** Reads the active tab from NativeTabs navigator state synchronously — no React state, no staleness. */
+  const getTab = (): DetailNavTab => getActiveTabFromNavigation(navigationRef.current) ?? 'home';
 
   const handleHashtagPress = useCallback((hashtag: string) => {
     routerRef.current.push({
@@ -198,14 +204,19 @@ const FeedRendererComponent = ({
       if (s.feedOption === 'search') feedService.setCurrentFeed(s.feed);
       const item = s.feed[index] as FeedItem;
       const initialPostUri = item?.post?.uri ?? '';
-      routerRef.current.push({
-        pathname: `/(tabs)/${getTab()}/feed` as const,
-        params: {
-          feedOption: s.feedOption || 'search',
-          ...(s.userDid ? { userDid: s.userDid } : {}),
-          initialPostUri,
-        },
-      });
+      const feedOption = s.feedOption || 'search';
+      const params = {
+        feedOption,
+        ...(s.userDid ? { userDid: s.userDid } : {}),
+        initialPostUri,
+      };
+      routerRef.current.push(
+        { pathname: `/(tabs)/${getTab()}/feed` as const, params },
+        {
+          dangerouslySingular: () =>
+            [feedOption, s.userDid, initialPostUri].filter(Boolean).join('|'),
+        }
+      );
     }
   }, []);
 
@@ -253,7 +264,7 @@ const FeedRendererComponent = ({
         };
       },
     };
-  }, [currentTab]);
+  }, []);
 
   const listFeedViewRef = useRef<ListFeedViewRef>(null);
 
