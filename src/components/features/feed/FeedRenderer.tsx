@@ -16,7 +16,9 @@ import React, {
 } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useCurrentDetailNavTab, type DetailNavTab } from '@/utils/navigation/detailRoutes';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp, ParamListBase } from '@react-navigation/native';
+import { getActiveTabFromNavigation, type DetailNavTab } from '@/utils/navigation/detailRoutes';
 
 import ListFeedView from './ListFeedView';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
@@ -172,18 +174,20 @@ const FeedRendererComponent = ({
   const router = useRouter();
   const routerRef = useRef(router);
 
-  const currentTab = useCurrentDetailNavTab();
-  const currentTabRef = useRef(currentTab);
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const navigationRef = useRef(navigation);
 
   const gridStateRef = useRef({ feed, feedOption, userDid });
 
   useLayoutEffect(() => {
     routerRef.current = router;
-    currentTabRef.current = currentTab;
+    navigationRef.current = navigation;
     gridStateRef.current = { feed, feedOption, userDid };
   });
 
-  const getTab = (): DetailNavTab => currentTabRef.current;
+  /** Reads the active tab from NativeTabs navigator state synchronously — no React state, no staleness. */
+  const getTab = (): DetailNavTab =>
+    getActiveTabFromNavigation(navigationRef.current) ?? 'home';
 
   const handleHashtagPress = useCallback((hashtag: string) => {
     routerRef.current.push({
@@ -253,7 +257,7 @@ const FeedRendererComponent = ({
         };
       },
     };
-  }, [currentTab]);
+  }, [navigation]);
 
   const listFeedViewRef = useRef<ListFeedViewRef>(null);
 

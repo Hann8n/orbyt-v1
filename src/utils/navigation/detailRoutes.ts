@@ -1,9 +1,35 @@
 import { useSegments } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 import type { Href } from 'expo-router';
 
 export type DetailNavTab = 'home' | 'explore' | 'activity' | 'profile';
 
 const TAB_SEGMENTS: readonly DetailNavTab[] = ['home', 'explore', 'activity', 'profile'];
+
+function isDetailNavTab(s: string): s is DetailNavTab {
+  return (TAB_SEGMENTS as readonly string[]).includes(s);
+}
+
+/**
+ * Read the active tab from NativeTabs navigator state. Returns `null` when the
+ * calling component is not inside a tab navigator (e.g. root modals).
+ */
+export function getActiveTabFromNavigation(
+  navigation: NavigationProp<ParamListBase>
+): DetailNavTab | null {
+  const tabNav = navigation.getParent?.();
+  if (!tabNav) return null;
+
+  const tabState = tabNav.getState?.();
+  if (!tabState || tabState.type !== 'tab') return null;
+
+  const activeRoute = tabState.routes[tabState.index ?? 0];
+  if (activeRoute && isDetailNavTab(activeRoute.name)) {
+    return activeRoute.name;
+  }
+  return null;
+}
 
 /**
  * True when the current route is a root stack screen presented as a modal (slide-up or transparent).
@@ -76,8 +102,17 @@ export function buildChannelDetailHref(encodedChannelId: string, tab: DetailNavT
   return { pathname: channelPathnameForTab(tab), params: { id: encodedChannelId } };
 }
 
+/**
+ * Resolves the active tab using React Navigation state (reliable with NativeTabs).
+ * Falls back to segments for root screens outside the tab navigator.
+ */
 export function useCurrentDetailNavTab(): DetailNavTab {
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const segments = useSegments();
+
+  const navTab = getActiveTabFromNavigation(navigation);
+  if (navTab) return navTab;
+
   return (
     (segments.find(s => (TAB_SEGMENTS as readonly string[]).includes(s)) as DetailNavTab) ?? 'home'
   );
