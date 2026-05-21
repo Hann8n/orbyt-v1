@@ -73,7 +73,11 @@ import { getActiveStreak } from '@/utils/chat/streak';
 import { format, parseISO, isValid } from 'date-fns';
 import { useProfileByDid, useBlockMutation } from '@/services/data/ProfileService';
 import { useChatMessages, useSendMessage, useChatReactions } from '@/hooks/chat';
-import { buildChatListData } from '@/utils/chat/buildChatListData';
+import {
+  buildChatListData,
+  type ChatListItem,
+  type MessageItem,
+} from '@/utils/chat/buildChatListData';
 import { ChatService } from '@/services/api/chat/ChatService';
 import { ModerationService } from '@/services/moderation/ModerationService';
 import { useUserStore } from '@/stores/userStore';
@@ -94,8 +98,6 @@ import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 
 const EMBED_VIDEO_GRADIENT_SHIM = require('@/assets/embed-video-gradient-shim.png');
-
-type MessageItem = MessageView & { sender?: { did: string } };
 
 type ReactionShape = { value: string; sender?: { did?: string }; createdAt?: string };
 
@@ -124,10 +126,6 @@ function groupReactions(
   }));
 }
 
-type ChatListItem =
-  | { type: 'message'; message: MessageItem; showTime: boolean; groupedWithPrevious: boolean }
-  | { type: 'date'; dateKey: string; label: string };
-
 function ChatMessageRichText({
   text,
   facets,
@@ -151,11 +149,7 @@ function ChatMessageRichText({
   const segments = useMemo(() => Array.from(rt.segments()), [rt]);
 
   const messageTextStyle = useMemo(
-    () => [
-      styles.messageText,
-      isFromMe && styles.messageTextFromMe,
-      isFromMe && fromMeTextColor && { color: fromMeTextColor },
-    ],
+    () => [styles.messageText, isFromMe && fromMeTextColor && { color: fromMeTextColor }],
     [isFromMe, fromMeTextColor]
   );
 
@@ -270,9 +264,7 @@ type EmbedRecordShape = {
 
 const CHAT_EMBED_VIDEO_WIDTH = 160;
 const CHAT_EMBED_VIDEO_ASPECT = 9 / 16;
-const CHAT_EMBED_VIDEO_RADIUS = BORDER_RADIUS.SMALL;
-/** Bottom corner toward screen edge — text/caption bubbles only */
-const CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS = BORDER_RADIUS.LARGE;
+const CHAT_EMBED_VIDEO_RADIUS = BORDER_RADIUS.MEDIUM;
 
 type EmbedImage = {
   thumb?: string;
@@ -1525,7 +1517,6 @@ export default function ChatScreen() {
           <Text
             style={[
               styles.messageText,
-              isFromMe && styles.messageTextFromMe,
               isFromMe && sentMessageTextColor && { color: sentMessageTextColor },
             ]}
           >
@@ -1548,24 +1539,6 @@ export default function ChatScreen() {
             ]}
           >
             {beforeEmbedRaw}
-            {isFromMe ? (
-              <>
-                <View
-                  style={[
-                    styles.bubbleRightArrow,
-                    { backgroundColor: sentBubbleBlendedStyle.backgroundColor },
-                  ]}
-                />
-                <View
-                  style={[styles.bubbleRightArrowOverlap, { backgroundColor: Colors.neutral[975] }]}
-                />
-              </>
-            ) : (
-              <>
-                <View style={[styles.bubbleLeftArrow, { backgroundColor: Colors.neutral[900] }]} />
-                <View style={styles.bubbleLeftArrowOverlap} />
-              </>
-            )}
           </SquircleView>
         ) : (
           beforeEmbedRaw
@@ -1592,24 +1565,6 @@ export default function ChatScreen() {
             fromMeAccentColor={sentMessageAccentColor}
             fromMeTextColor={sentMessageTextColor}
           />
-          {isFromMe ? (
-            <>
-              <View
-                style={[
-                  styles.bubbleRightArrow,
-                  { backgroundColor: sentBubbleBlendedStyle.backgroundColor },
-                ]}
-              />
-              <View
-                style={[styles.bubbleRightArrowOverlap, { backgroundColor: Colors.neutral[975] }]}
-              />
-            </>
-          ) : (
-            <>
-              <View style={[styles.bubbleLeftArrow, { backgroundColor: Colors.neutral[900] }]} />
-              <View style={styles.bubbleLeftArrowOverlap} />
-            </>
-          )}
         </SquircleView>
       ) : null;
 
@@ -2400,54 +2355,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.neutral[800],
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   messageBubbleMe: {
     alignSelf: 'flex-end',
-    borderBottomRightRadius: CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS,
   },
   messageBubbleThem: {
     alignSelf: 'flex-start',
-    borderBottomLeftRadius: CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS,
     backgroundColor: Colors.neutral[900],
   },
   videoCaptionBubble: {
     marginTop: 4,
-    paddingVertical: 8,
-  },
-  bubbleRightArrow: {
-    position: 'absolute',
-    width: 20,
-    height: 25,
-    bottom: 0,
-    borderBottomLeftRadius: 25,
-    right: -10,
-  },
-  bubbleRightArrowOverlap: {
-    position: 'absolute',
-    width: 20,
-    height: 35,
-    bottom: -6,
-    borderBottomLeftRadius: 18,
-    right: -20,
-  },
-  bubbleLeftArrow: {
-    position: 'absolute',
-    backgroundColor: Colors.neutral[900],
-    width: 20,
-    height: 25,
-    bottom: 0,
-    borderBottomRightRadius: 25,
-    left: -10,
-  },
-  bubbleLeftArrowOverlap: {
-    position: 'absolute',
-    backgroundColor: Colors.neutral[975],
-    width: 20,
-    height: 35,
-    bottom: -6,
-    borderBottomRightRadius: 18,
-    left: -20,
   },
   messageText: {
     color: Colors.neutral[50],
@@ -2467,9 +2385,6 @@ const styles = StyleSheet.create({
   messageTextLinkFromMe: {
     textDecorationLine: 'underline',
   },
-  messageTextFromMe: {
-    textAlign: 'right',
-  },
   messageTime: {
     color: Colors.neutral[500],
     fontSize: Typography.sizes.caption,
@@ -2483,7 +2398,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 2,
+    marginTop: 4,
     alignSelf: 'flex-start',
   },
   messageMetaRowFromMe: {
@@ -2596,10 +2511,7 @@ const styles = StyleSheet.create({
     maxWidth: '90%',
     alignSelf: 'flex-start',
     backgroundColor: Colors.neutral[900],
-    borderTopLeftRadius: BORDER_RADIUS.LARGE,
-    borderTopRightRadius: BORDER_RADIUS.LARGE,
-    borderBottomRightRadius: BORDER_RADIUS.LARGE,
-    borderBottomLeftRadius: CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.neutral[800],
     overflow: 'hidden',
@@ -2610,10 +2522,7 @@ const styles = StyleSheet.create({
   embedContentFromMe: {
     alignSelf: 'flex-end',
     alignItems: 'flex-end',
-    borderTopLeftRadius: BORDER_RADIUS.LARGE,
-    borderTopRightRadius: BORDER_RADIUS.LARGE,
-    borderBottomRightRadius: CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS,
-    borderBottomLeftRadius: BORDER_RADIUS.LARGE,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   embedImagesContainer: {
     flexDirection: 'row',
@@ -2630,7 +2539,7 @@ const styles = StyleSheet.create({
   },
   embedImageWrap: {
     overflow: 'hidden',
-    borderRadius: BORDER_RADIUS.SMALL,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   embedAuthorRow: {
     flexDirection: 'row',
@@ -2718,8 +2627,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingHorizontal: 8,
     paddingVertical: 8,
-    borderBottomLeftRadius: CHAT_EMBED_VIDEO_RADIUS,
-    borderBottomRightRadius: CHAT_EMBED_VIDEO_RADIUS,
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
     minHeight: 36,

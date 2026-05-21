@@ -64,18 +64,18 @@ export function buildChatListData(messages: MessageItem[]): ChatListItem[] {
     const nextMsg = messages[i + 1]; // older (visually above)
 
     const sameSenderAsPrev =
-      prevMsg && prevMsg.sender?.did && msg.sender?.did === prevMsg.sender.did;
+      prevMsg != null && prevMsg.sender?.did != null && msg.sender?.did === prevMsg.sender.did;
     const withinWindowPrev =
       sentAt && prevMsg?.sentAt ? isWithinWindow(sentAt, prevMsg.sentAt) : false;
 
     const sameSenderAsNext =
-      nextMsg && nextMsg.sender?.did && msg.sender?.did === nextMsg.sender.did;
+      nextMsg != null && nextMsg.sender?.did != null && msg.sender?.did === nextMsg.sender.did;
     const withinWindowNext =
       sentAt && nextMsg?.sentAt ? isWithinWindow(sentAt, nextMsg.sentAt) : false;
 
     const hasReactions = (msg.reactions ?? []).length > 0;
 
-    const groupedWithPrevious = !!sameSenderAsNext && withinWindowNext;
+    const groupedWithPrevious = sameSenderAsNext && withinWindowNext;
     const showTime = !sameSenderAsPrev || !withinWindowPrev || hasReactions;
 
     items.push({ type: 'message', message: msg, showTime, groupedWithPrevious });
