@@ -279,7 +279,7 @@ export default Sentry.wrap(function RootLayout() {
 
   useEffect(() => {
     return navRef.current?.addListener('state', () => {
-      const route = navRef.current?.getCurrentRoute();
+      const route = navRef.current?.getCurrentRoute() as { name?: string } | undefined;
       if (route?.name) {
         logScreenView(getAnalytics(), { screen_name: route.name, screen_class: route.name }).catch(
           () => {}

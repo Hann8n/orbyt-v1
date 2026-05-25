@@ -17,15 +17,7 @@ import { isOrbytChannel } from '../utils/channels/orbyt';
 import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
 import { queryKeys } from '../utils/query/queryKeys';
-import {
-  loadPersistedColors,
-  getOrbytColorQueryOptions,
-  syncOrbytColorsQuery,
-} from '../services/colors/OrbytColors';
-import {
-  deferOrbytProfileInit,
-  prefetchFollowingOrbytColorsOnly,
-} from '../services/auth/authSessionLifecycle';
+import { orbytProfileQueryOptions, warmOrbytProfileCache } from '../services/colors';
 import { hydrateOrbytChannels } from '../services/OrbytChannelsService';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
 import { setAtprotoSession } from '../services/api/agentBridge';
@@ -145,7 +137,6 @@ function seedCurrentUserProfileCache(
     did,
     handle,
     orbytRecord: existing?.orbytRecord ?? null,
-    orbytColors: existing?.orbytColors ?? null,
   };
 
   queryClient.setQueryData<ProfileViewWithOrbyt>(key, seeded);
@@ -394,14 +385,22 @@ const scheduleFollowingOrbytColorsAfterFeedReady = (userDid: string) => {
 
   requestIdleCallback(
     () => {
-      const runPrefetch = () => {
+      const runPrefetch = async () => {
         const last = storage.getNumber(lastRunKey);
         if (last !== undefined && Date.now() - last < COLORS_PREFETCH_COOLDOWN_MS) {
           return;
         }
-        void prefetchFollowingOrbytColorsOnly(userDid).then(() => {
+        try {
+          const { GraphService } = await import('../services/api/graph/GraphService');
+          const followingResponse = await GraphService.getFollowing(userDid, null, 100);
+          const dids = followingResponse.following.map((f: { did: string }) => f.did).slice(0, 99);
+          if (dids.length > 0) {
+            await warmOrbytProfileCache(dids, queryClient);
+          }
           storage.set(lastRunKey, Date.now());
-        });
+        } catch {
+          // non-critical prefetch, ignore errors
+        }
       };
 
       const st = useUserStore.getState();
@@ -438,19 +437,15 @@ export const useUserStore = create<UserState>()(
         { skipOrbytColors = false }: { skipOrbytColors?: boolean } = {}
       ) => {
         const agent = new Agent(oauthSession);
-        const [profile, sessionInfo, orbytColors] = await Promise.all([
+        const [profile, sessionInfo] = await Promise.all([
           agent.api.app.bsky.actor.getProfile({ actor: oauthSession.did }),
           agent.api.com.atproto.server.getSession(),
           skipOrbytColors
             ? Promise.resolve(null)
             : queryClient
-                .fetchQuery(getOrbytColorQueryOptions(oauthSession.did))
+                .fetchQuery(orbytProfileQueryOptions(oauthSession.did))
                 .catch((): null => null),
         ]);
-
-        if (orbytColors) {
-          syncOrbytColorsQuery(oauthSession.did, orbytColors);
-        }
 
         const userProfile = profile.data;
         const { $type: _profileType, ...profileForCache } = userProfile;
@@ -591,7 +586,12 @@ export const useUserStore = create<UserState>()(
               set({ showEmailVerificationModal: true });
             }
 
-            deferOrbytProfileInit('signIn');
+            requestIdleCallback(
+              () => {
+                void RepoService.initOrbytProfileIfNeeded().catch(() => {});
+              },
+              { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+            );
 
             await get().bootstrapUserFeedSettings(session.did);
 
@@ -693,7 +693,12 @@ export const useUserStore = create<UserState>()(
             setUserId(getAnalytics(), session.did).catch(() => {});
             logSignUp(getAnalytics(), { method: 'atproto' }).catch(() => {});
 
-            deferOrbytProfileInit('signUp');
+            requestIdleCallback(
+              () => {
+                void RepoService.initOrbytProfileIfNeeded().catch(() => {});
+              },
+              { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+            );
             await get().bootstrapUserFeedSettings(session.did);
             scheduleFollowingOrbytColorsAfterFeedReady(session.did);
           } catch (error) {
@@ -806,8 +811,6 @@ export const useUserStore = create<UserState>()(
             authErrorCode: 'none',
             authStatus: 'restoring',
           });
-          loadPersistedColors(did);
-
           let localSession: OAuthSession;
           try {
             localSession = await restoreSessionLocal(did);
@@ -869,7 +872,12 @@ export const useUserStore = create<UserState>()(
             });
           }
 
-          deferOrbytProfileInit('restoreSession');
+          requestIdleCallback(
+            () => {
+              void RepoService.initOrbytProfileIfNeeded().catch(() => {});
+            },
+            { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+          );
           scheduleFollowingOrbytColorsAfterFeedReady(did);
 
           if (!skipSettings) {
@@ -886,8 +894,6 @@ export const useUserStore = create<UserState>()(
               switchingToHandle: account?.handle || account?.did || null,
               switchingToAvatar: account?.avatar || null,
             });
-            loadPersistedColors(did);
-
             if (!account) {
               logger.error('Account not found for DID', { component: 'userStore', did });
               throw new Error('Account not found');
@@ -989,7 +995,12 @@ export const useUserStore = create<UserState>()(
 
               set({ isSwitchingAccount: false, switchingToHandle: null, switchingToAvatar: null });
 
-              deferOrbytProfileInit('switchAccount');
+              requestIdleCallback(
+                () => {
+                  void RepoService.initOrbytProfileIfNeeded().catch(() => {});
+                },
+                { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+              );
 
               void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
               void queryClient.invalidateQueries({ queryKey: queryKeys.chat.all });
@@ -1943,8 +1954,6 @@ export const useUserStore = create<UserState>()(
               authStatus: 'restoring',
             });
 
-            loadPersistedColors(did);
-
             const session = await restoreSessionWithRefresh(did);
             await assertRequiredOAuthScope(session);
 
@@ -1986,15 +1995,15 @@ export const useUserStore = create<UserState>()(
               lastUsed: Date.now(),
             });
 
-            // Fetch orbyt colors in background (skipped in hydrateOAuthSession above)
-            queryClient
-              .fetchQuery(getOrbytColorQueryOptions(session.did))
-              .then(colors => {
-                if (colors) syncOrbytColorsQuery(session.did, colors);
-              })
-              .catch(() => {});
+            // Fetch orbyt profile colors in background (skipped in hydrateOAuthSession above)
+            queryClient.fetchQuery(orbytProfileQueryOptions(session.did)).catch(() => {});
 
-            deferOrbytProfileInit('restoreSession');
+            requestIdleCallback(
+              () => {
+                void RepoService.initOrbytProfileIfNeeded().catch(() => {});
+              },
+              { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+            );
             scheduleFollowingOrbytColorsAfterFeedReady(session.did);
 
             if (!skipSettings) {
@@ -2072,10 +2081,7 @@ export const useUserStore = create<UserState>()(
           state.algorithmicFeedProvider ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
           state.subscribedChannels
         );
-        const did = state.activeAccountDid ?? state.currentUser?.did ?? null;
-        if (did) {
-          loadPersistedColors(did);
-        }
+        // no-op: orbyt profile colors are fetched via react-query, no local cache to load
       },
     }
   )

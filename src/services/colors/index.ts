@@ -1,1 +1,5 @@
-export { useOrbytProfile, warmOrbytProfileCache } from './orbytProfileQueryOptions';
+export {
+  useOrbytProfile,
+  warmOrbytProfileCache,
+  orbytProfileQueryOptions,
+} from './orbytProfileQueryOptions';
