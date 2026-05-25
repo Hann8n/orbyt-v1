@@ -168,7 +168,7 @@ export const RetryButton: React.FC<RetryButtonProps> = ({ onPress, style, textSt
       {useLiquidGlass ? (
         <>
           <GlassView
-            style={[StyleSheet.absoluteFillObject, retryGlassBackgroundRadius]}
+            style={[StyleSheet.absoluteFill, retryGlassBackgroundRadius]}
             glassEffectStyle="clear"
             tintColor="rgba(255, 255, 255, 1)"
             isInteractive
@@ -219,7 +219,7 @@ const GoBackButton: React.FC<GoBackButtonProps> = ({ onPress, style }) => {
       {useLiquidGlass ? (
         <>
           <GlassView
-            style={[StyleSheet.absoluteFillObject, retryGlassBackgroundRadius]}
+            style={[StyleSheet.absoluteFill, retryGlassBackgroundRadius]}
             glassEffectStyle="clear"
             tintColor="rgba(255, 255, 255, 1)"
             isInteractive
@@ -499,7 +499,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     <View style={remoteAvatarClipStyle}>
       <Image
         source={{ uri }}
-        style={[StyleSheet.absoluteFillObject, imageStyle]}
+        style={[StyleSheet.absoluteFill, imageStyle]}
         placeholder={DEFAULT_AVATAR_SOURCE}
         placeholderContentFit="cover"
         contentFit="cover"

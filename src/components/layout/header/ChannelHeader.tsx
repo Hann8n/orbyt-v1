@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   subscribeButtonBlur: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: BORDER_RADIUS.FULL,
     overflow: 'hidden',
   },

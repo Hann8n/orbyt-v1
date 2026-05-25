@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { InfiniteData, QueryKey } from '@tanstack/react-query';
+import { getAnalytics, logEvent } from '@react-native-firebase/analytics';
 import { AtprotoFeedService } from '../services/api/feed/FeedService';
 import { queryKeys } from '../utils/query/queryKeys';
 import type { FeedResponse, ExtendedPostView } from '../services/api/types';
@@ -62,6 +63,11 @@ export function useLikeMutation() {
 
     onSuccess: (likeUri, { postUri, isLiked }) => {
       const newIsLiked = !isLiked;
+      if (newIsLiked) {
+        logEvent(getAnalytics(), 'video_like', { post_uri: postUri, content_type: 'video' }).catch(
+          () => {}
+        );
+      }
       queryClient.setQueriesData<InfiniteData<FeedResponse>>(
         { queryKey: queryKeys.feed.all },
         old =>

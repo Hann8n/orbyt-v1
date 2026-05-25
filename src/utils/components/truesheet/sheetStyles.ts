@@ -203,7 +203,7 @@ export const COMPOSER_STYLES = StyleSheet.create({
     zIndex: 11,
   },
   sendButtonGlassBg: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: BORDER_RADIUS.FULL,
   },
   sendButtonContent: {

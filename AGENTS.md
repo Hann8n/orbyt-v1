@@ -33,6 +33,7 @@ React Native + Expo, targeting iOS and Android.
 - **React Compiler** (babel-plugin-react-compiler ^19.1.0-rc.2) is active — all components are compiled for auto-memoization. Avoid manual `React.memo`, `useMemo`, and `useCallback` unless necessary for performance-critical list rendering (where they improve stability).
 
 Agents should **verify** supported props and methods in:
+
 1. Official package documentation for the specific version
 2. Existing codebase patterns in `src/` (treat as the source of truth for blessed usage)
 3. Type definitions in `node_modules/@types/` and package exports

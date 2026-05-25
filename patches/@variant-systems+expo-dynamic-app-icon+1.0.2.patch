@@ -1,0 +1,15 @@
+diff --git a/node_modules/@variant-systems/expo-dynamic-app-icon/ios/ExpoDynamicAppIcon.podspec b/node_modules/@variant-systems/expo-dynamic-app-icon/ios/ExpoDynamicAppIcon.podspec
+index aaaaaaa..bbbbbbb 100644
+--- a/node_modules/@variant-systems/expo-dynamic-app-icon/ios/ExpoDynamicAppIcon.podspec
++++ b/node_modules/@variant-systems/expo-dynamic-app-icon/ios/ExpoDynamicAppIcon.podspec
+@@ -11,8 +11,8 @@ Pod::Spec.new do |s|
+   s.author         = package['author']
+   s.homepage       = package['homepage']
+   s.platforms      = {
+-    :ios => '15.1',
+-    :tvos => '15.1'
++    :ios => '16.4',
++    :tvos => '16.4'
+   }
+   s.swift_version  = '5.4'
+   s.source         = { git: 'https://github.com/Variant-Systems/expo-dynamic-app-icon' }

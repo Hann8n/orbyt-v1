@@ -2,6 +2,7 @@ import { ActorService } from '../api/actor/ActorService';
 import { GraphService } from '../api/graph/GraphService';
 import { RepoService } from '../api/repo/RepoService';
 import { NotificationService } from '../api/notification/NotificationService';
+import { warmOrbytProfileCache } from '../colors';
 import { logger } from '../../utils/logger';
 import {
   useQuery,
@@ -15,6 +16,7 @@ import { useEffect } from 'react';
 import { queryKeys } from '../../utils/query/queryKeys';
 import type {
   ProfileViewWithOrbyt,
+  OrbytProfileRecord,
   StatusView,
   ProfileView,
   ExtendedFeedViewPost,
@@ -57,7 +59,10 @@ class ProfileService {
     if (!did || !isValidDid(did)) return null;
     const profile = await ActorService.getProfileByDid(did);
     if (!profile) throw new Error('Failed to fetch profile by DID');
-    return profile;
+    void warmOrbytProfileCache([did], globalQueryClient);
+    const orbytRecord =
+      globalQueryClient.getQueryData<OrbytProfileRecord>(queryKeys.orbytProfile.byDid(did)) ?? null;
+    return { ...profile, orbytRecord };
   }
 
   static async warmProfileCache(
@@ -494,16 +499,6 @@ export function useProfileUpdateMutation() {
           ...(updates.displayName !== undefined ? { displayName: updates.displayName } : {}),
           ...(updates.description !== undefined ? { description: updates.description } : {}),
           ...(updates.avatar !== undefined ? { avatar: updates.avatar } : {}),
-          ...(updates.customColors
-            ? {
-                orbytColors: {
-                  backgroundColor: updates.customColors.backgroundColor,
-                  textColor: updates.customColors.textColor,
-                  joinedAt: previousProfile.orbytColors?.joinedAt ?? new Date().toISOString(),
-                  isBeta: previousProfile.orbytColors?.isBeta ?? false,
-                },
-              }
-            : {}),
         };
 
         queryClient.setQueryData(profileKeys.detail(did), optimistic);
@@ -511,26 +506,17 @@ export function useProfileUpdateMutation() {
 
       return { previousProfile, did };
     },
-    onSuccess: ({ updatedProfile, updatedColors }, { updates }, context) => {
+    onSuccess: ({ updatedProfile, updatedColors }, vars, context) => {
       try {
         const did = context?.did;
         if (!did) return;
 
-        if (updatedColors) {
-          const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
-          if (prev && updates.customColors) {
-            queryClient.setQueryData(profileKeys.detail(did), {
-              ...prev,
-              orbytColors: {
-                backgroundColor: updates.customColors.backgroundColor,
-                textColor: updates.customColors.textColor,
-                joinedAt: prev.orbytColors?.joinedAt ?? new Date().toISOString(),
-                isBeta: prev.orbytColors?.isBeta ?? false,
-              },
-            });
-          } else {
-            queryClient.invalidateQueries({ queryKey: profileKeys.detail(did) });
-          }
+        if (updatedColors && vars.updates.customColors) {
+          const colors = vars.updates.customColors;
+          queryClient.setQueryData<OrbytProfileRecord | null>(
+            queryKeys.orbytProfile.byDid(did),
+            prev => ({ ...(prev ?? { $type: 'com.getorbyt.profile' as const }), colors })
+          );
           return;
         }
 

@@ -26,7 +26,6 @@ import {
   ComAtprotoRepoGetRecord,
   ComAtprotoRepoListRecords,
 } from '@atproto/api';
-import type { OrbytColorData } from '../colors';
 
 export type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
 export type PostView = AppBskyFeedDefs.PostView;
@@ -275,5 +274,4 @@ export type FeedItem = ExtendedFeedViewPost;
 
 export type ProfileViewWithOrbyt = ProfileView & {
   orbytRecord?: OrbytProfileRecord | null;
-  orbytColors?: OrbytColorData | null;
 };

@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Stack, useNavigationContainerRef } from 'expo-router';
-import { DarkTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, ThemeProvider } from 'expo-router/react-navigation';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -32,6 +32,8 @@ import { AppState, type AppStateStatus } from 'react-native';
 import * as Network from 'expo-network';
 import { LocaleSync } from '@/i18n/LocaleSync';
 import * as Sentry from '@sentry/react-native';
+import '@react-native-firebase/app';
+import { getAnalytics, logScreenView } from '@react-native-firebase/analytics';
 import { useResponsiveTypography } from '@/utils/components/typography';
 
 const navigationIntegration = Sentry.reactNavigationIntegration({
@@ -275,6 +277,17 @@ export default Sentry.wrap(function RootLayout() {
     navigationIntegration.registerNavigationContainer(navRef);
   }, [navRef]);
 
+  useEffect(() => {
+    return navRef.current?.addListener('state', () => {
+      const route = navRef.current?.getCurrentRoute() as { name?: string } | undefined;
+      if (route?.name) {
+        logScreenView(getAnalytics(), { screen_name: route.name, screen_class: route.name }).catch(
+          () => {}
+        );
+      }
+    });
+  }, [navRef]);
+
   useResponsiveTypography();
 
   const isAuthenticated = useUserStore(selectIsSessionValid);
@@ -284,7 +297,7 @@ export default Sentry.wrap(function RootLayout() {
 
   useEffect(() => {
     if (Platform.OS === 'android') {
-      NavigationBar.setButtonStyleAsync('light').catch(() => {});
+      NavigationBar.setStyle('light');
     }
   }, []);
 

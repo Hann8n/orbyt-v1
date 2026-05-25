@@ -18,8 +18,6 @@ import { Colors } from '@/theme';
 import Icon from '@/components/ui/Icon';
 import ListHeader from '@/components/ui/ListHeader';
 import { settingsLayoutStyles } from './SettingsStyles';
-import { useCurrentUser } from '@/stores/userStore';
-import { useOrbytColors } from '@/services/colors';
 import { formatHandle } from '@/utils/formatting/handles';
 import { logger } from '@/utils/logger';
 import { Typography, FontFamily } from '@/utils/components/typography';
@@ -174,9 +172,7 @@ const AppIconSettingsScreen: React.FC = () => {
   const router = useRouter();
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
   const [currentIcon, setCurrentIcon] = useState<AppIconKey>(getInitialIcon);
-  const { currentUser } = useCurrentUser();
-  const { data: orbytColors } = useOrbytColors(currentUser?.did ?? null);
-  const isBeta = orbytColors?.isBeta ?? false;
+  const isBeta = false;
   const { width: screenWidth } = useWindowDimensions();
 
   const availableWidth = screenWidth - GRID_PADDING * 2;

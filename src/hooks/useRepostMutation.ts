@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { InfiniteData, QueryKey } from '@tanstack/react-query';
+import { getAnalytics, logShare } from '@react-native-firebase/analytics';
 import { AtprotoFeedService } from '../services/api/feed/FeedService';
 import { queryKeys } from '../utils/query/queryKeys';
 import { patchFeedPost } from './useLikeMutation';
@@ -47,6 +48,13 @@ export function useRepostMutation() {
 
     onSuccess: (repostUri, { postUri, isReposted }) => {
       const newIsReposted = !isReposted;
+      if (newIsReposted) {
+        logShare(getAnalytics(), {
+          content_type: 'video',
+          item_id: postUri,
+          method: 'repost',
+        }).catch(() => {});
+      }
       queryClient.setQueriesData<InfiniteData<FeedResponse>>(
         { queryKey: queryKeys.feed.all },
         old =>

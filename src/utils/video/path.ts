@@ -98,7 +98,7 @@ async function copyToSandboxIfNeeded(path: string): Promise<{ path: string; copi
 
     const sourceFile = new File(path);
     if (sourceFile.exists) {
-      sourceFile.copy(destFile);
+      await sourceFile.copy(destFile);
       if (destFile.exists) {
         if (DEBUG) {
           logger.info(`${logPrefix} Copied to sandbox`, {

@@ -1,7 +1,10 @@
 import { useCallback } from 'react';
 import { useRouter, useSegments } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
-import type { NavigationProp, ParamListBase } from '@react-navigation/native';
+import {
+  useNavigation,
+  type NavigationProp,
+  type ParamListBase,
+} from 'expo-router/react-navigation';
 
 import { useDetailNavTabStore } from '@/stores/detailNavTabStore';
 import {
@@ -18,9 +21,7 @@ export function useProfileChannelNavigation(options?: { fallbackTab?: DetailNavT
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const lastFocusedDetailNavTab = useDetailNavTabStore(s => s.lastFocusedDetailNavTab);
   const currentTab =
-    getActiveTabFromNavigation(navigation) ??
-    options?.fallbackTab ??
-    lastFocusedDetailNavTab;
+    getActiveTabFromNavigation(navigation) ?? options?.fallbackTab ?? lastFocusedDetailNavTab;
 
   const navigateToProfile = useCallback(
     (did: string) => {

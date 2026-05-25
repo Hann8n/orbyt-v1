@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from 'expo-router/react-navigation';
 
 import { FEED_ROW_VIEWABILITY_CONFIG } from './feedRowVisibility';
 

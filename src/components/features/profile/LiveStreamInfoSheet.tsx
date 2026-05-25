@@ -114,7 +114,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
               locations={[0.4, 1]}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
               pointerEvents="none"
             />
           </View>
@@ -207,10 +207,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   thumbnail: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   thumbnailOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: hexToRGBA(Colors.black, 0.12),
   },
   liveBadge: {

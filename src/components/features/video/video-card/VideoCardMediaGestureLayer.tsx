@@ -121,10 +121,10 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   videoPlayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   poster: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: Colors.black,
   },
   loadingText: {
@@ -133,20 +133,20 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.caption,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: hexToRGBA(Colors.black, 0.7),
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: OVERLAY_Z_INDEX.LOADING_OVERLAY,
   },
   textExpandedDimmingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: Colors.black,
     zIndex: OVERLAY_Z_INDEX.LOADING_OVERLAY,
     pointerEvents: 'none',
   },
   heartAnimationContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: OVERLAY_Z_INDEX.HEART_ANIMATION,

@@ -7,7 +7,7 @@ import type { MenuAction } from '@react-native-menu/menu';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { getProfileColors } from '../../../utils/formatting/colors';
-import { useOrbytColors } from '../../../services/colors';
+import { useOrbytProfile } from '../../../services/colors';
 import VerificationBadge from '../../features/badging/VerificationBadge';
 import BotBadge from '../../features/badging/BotBadge';
 import BetaBadge from '../../features/badging/BetaBadge';
@@ -35,8 +35,6 @@ interface ProfileHeaderProps {
   onAvatarMenuAction?: (actionId: string) => void;
   /** When true, this header controls StatusBar. Default true. */
   controlStatusBar?: boolean;
-  /** DID to fetch colors for */
-  did: string | null;
   /** Profile data */
   profileData: ProfileViewWithOrbyt | null;
   /** Explicit shared scroll progress (0..1) from the profile feed list. */
@@ -56,7 +54,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   avatarMenuActions,
   onAvatarMenuAction,
   controlStatusBar = true,
-  did,
   profileData,
   contentScrollProgressSV,
   subtitleAction,
@@ -111,22 +108,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     ]);
   }, [t]);
 
-  // Merge profile payload + query colors, but prefer query for canonical Orbyt API fields.
-  const { data: orbytColorsFromQuery } = useOrbytColors(did);
-  const profileOrbytColors = profileData?.orbytColors;
-  const orbytColors = useMemo(() => {
-    if (!profileOrbytColors) return orbytColorsFromQuery;
-    if (!orbytColorsFromQuery) return profileOrbytColors;
-    return {
-      ...profileOrbytColors,
-      ...orbytColorsFromQuery,
-    };
-  }, [profileOrbytColors, orbytColorsFromQuery]);
+  const { data: orbytRecord } = useOrbytProfile(profileData?.did);
+  const profileColors = getProfileColors(orbytRecord?.colors ?? null);
+  const joinDate: string | undefined = orbytRecord?.joinDate ?? undefined;
 
-  const profileColors = getProfileColors(orbytColors);
-  const joinDate = orbytColors?.joinedAt;
-
-  const isBeta = orbytColors?.isBeta ?? false;
+  const isBeta = false;
 
   const showBetaInfoAlert = useCallback(() => {
     if (!profileData?.handle) return;

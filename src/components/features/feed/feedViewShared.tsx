@@ -101,7 +101,7 @@ export function FeedSurfaceStack({ listActive, listSurface, gridSurface }: FeedS
 
 const feedSurfaceStyles = StyleSheet.create({
   root: { flex: 1 },
-  layer: { ...StyleSheet.absoluteFillObject },
+  layer: { ...StyleSheet.absoluteFill },
   on: { opacity: 1, zIndex: 1 },
   off: { opacity: 0, zIndex: 0 },
 });

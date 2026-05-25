@@ -1,6 +1,7 @@
 import { AppBskyActorDefs, AppBskyFeedPost } from '@atproto/api';
 
 import { useProfileByDid } from '../../../../../services/data/ProfileService';
+import { useOrbytProfile } from '../../../../../services/colors';
 import { isCurrentUser } from '../../../../../utils/atproto/isCurrentUser';
 import { getProfileColors, type ProfileColorScheme } from '../../../../../utils/formatting/colors';
 import { getChannelBySlug } from '../../../../../utils/channels/orbyt';
@@ -39,6 +40,7 @@ export function useVideoCardAuthor({
 }: UseVideoCardAuthorArgs): UseVideoCardAuthorResult {
   const author = postView.author;
   const { data: cachedProfile } = useProfileByDid(author?.did);
+  const { data: orbytRecord } = useOrbytProfile(author?.did);
   const authorDid = author?.did;
 
   // Prefer React Query cache for follow/block state — mutations update the cache optimistically,
@@ -46,13 +48,7 @@ export function useVideoCardAuthor({
   const isFollowing = !!(cachedProfile?.viewer?.following ?? author?.viewer?.following);
   const hasProfile = !!author;
 
-  const orbytBgColor = cachedProfile?.orbytColors?.backgroundColor;
-  const orbytTextColor = cachedProfile?.orbytColors?.textColor;
-  const profileColors = getProfileColors(
-    orbytBgColor !== undefined
-      ? { orbytColors: { backgroundColor: orbytBgColor, textColor: orbytTextColor ?? '' } }
-      : null
-  );
+  const profileColors = getProfileColors(orbytRecord?.colors ?? null);
 
   const authorProfileOverlay: VideoCardAuthorOverlay = {
     isAuthorBlocked: !!(

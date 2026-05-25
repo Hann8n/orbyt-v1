@@ -10,14 +10,6 @@ import type {
 import type { AppBskyActorProfile } from '@atproto/api';
 import { BlobRef } from '@atproto/lexicon';
 import { CID } from 'multiformats';
-import {
-  batchFetchColors,
-  getOrbytColorQueryOptions,
-  getOrbytColorKey,
-  syncOrbytColorsQuery,
-} from '../../colors/OrbytColors';
-import { queryClient } from '../../../utils/query/queryClient';
-import { RepoService } from '../repo/RepoService';
 import { logger } from '../../../utils/logger';
 
 /** Unauthenticated App View for sign-in / pre-OAuth discovery (`app.bsky.actor.searchActors`). */
@@ -97,42 +89,6 @@ function convertProfileBlobsToBlobRefs(
 }
 
 export class ActorService {
-  private static async resolveOrbytColors(
-    did: string,
-    record: {
-      colors?: { backgroundColor: string; textColor: string } | null;
-      joinDate?: string;
-      updatedAt?: string;
-    } | null
-  ) {
-    let apiColors = null;
-    try {
-      apiColors = await queryClient.fetchQuery(getOrbytColorQueryOptions(did));
-    } catch {
-      apiColors = null;
-    }
-    if (apiColors) {
-      syncOrbytColorsQuery(did, apiColors);
-      return apiColors;
-    }
-
-    const colors = record?.colors;
-    if (!colors?.backgroundColor || !colors?.textColor) {
-      return null;
-    }
-
-    const cached = queryClient.getQueryData<{
-      isBeta?: boolean;
-    } | null>(getOrbytColorKey(did));
-
-    return {
-      backgroundColor: colors.backgroundColor,
-      textColor: colors.textColor,
-      joinedAt: record?.joinDate ?? record?.updatedAt ?? new Date().toISOString(),
-      isBeta: cached?.isBeta ?? false,
-    };
-  }
-
   static async getCurrentUser(): Promise<ProfileViewDetailed> {
     const userDid = AtprotoCore.getCurrentUserDid();
     if (!userDid) {
@@ -198,22 +154,12 @@ export class ActorService {
   static async getProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {
     const { api } = await AtprotoCore.getApiClient();
     try {
-      const [profileResponse, rawOrbytRecord] = await Promise.all([
-        api.app.bsky.actor.getProfile({ actor: did }),
-        RepoService.getOrbytProfileRecordForDid(did),
-      ]);
+      const profileResponse = await api.app.bsky.actor.getProfile({ actor: did });
 
       const profile = profileResponse.data as ProfileView;
-      const record = rawOrbytRecord as {
-        colors?: { backgroundColor: string; textColor: string } | null;
-        joinDate?: string;
-        updatedAt?: string;
-      } | null;
-      const orbytColors = await this.resolveOrbytColors(did, record);
       return {
         ...profile,
         orbytRecord: null,
-        orbytColors,
       };
     } catch (_error: unknown) {
       return null;
@@ -228,19 +174,9 @@ export class ActorService {
       });
 
       const profile = response.data as ProfileView;
-      const rawOrbytRecord = profile.did
-        ? await RepoService.getOrbytProfileRecordForDid(profile.did)
-        : null;
-      const record = rawOrbytRecord as {
-        colors?: { backgroundColor: string; textColor: string } | null;
-        joinDate?: string;
-        updatedAt?: string;
-      } | null;
-      const orbytColors = profile.did ? await this.resolveOrbytColors(profile.did, record) : null;
       return {
         ...profile,
         orbytRecord: null,
-        orbytColors,
       };
     } catch (_error: unknown) {
       return null;
@@ -290,16 +226,9 @@ export class ActorService {
       const profileResults = await Promise.all(batchPromises);
       const profiles = profileResults.flat();
 
-      const dids = [...new Set(profiles.map(p => p.did).filter(Boolean))] as string[];
-      const colorMap = dids.length > 0 ? await batchFetchColors(dids) : {};
-      for (const [d, data] of Object.entries(colorMap)) {
-        if (data) queryClient.setQueryData(getOrbytColorKey(d), data);
-      }
-
       return profiles.map(profile => ({
         ...profile,
         orbytRecord: null,
-        orbytColors: (profile.did ? (colorMap[profile.did] ?? null) : null) ?? null,
       }));
     } catch {
       return [];

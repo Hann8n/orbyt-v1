@@ -5,9 +5,14 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import { useDetailNavTabStore } from '@/stores/detailNavTabStore';
-import { useCurrentUserOrbytShellColors } from '@/services/colors';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
-import { TAB_BAR_INACTIVE_TINT } from '@/utils/formatting/colors';
+import { useCurrentUser } from '@/stores/userStore';
+import { useOrbytProfile } from '@/services/colors';
+import {
+  TAB_BAR_INACTIVE_TINT,
+  getProfileColors,
+  getTabBarActiveTintFromProfile,
+} from '@/utils/formatting/colors';
 import { getDetailNavTabIfInsideTabs } from '@/utils/navigation/detailRoutes';
 import { Colors } from '@/theme/colors';
 
@@ -31,7 +36,10 @@ function DetailNavTabSegmentSync() {
 
 export default function TabsLayout() {
   const { t } = useTranslation();
-  const { activeTint } = useCurrentUserOrbytShellColors();
+  const { currentUser } = useCurrentUser();
+  const { data: orbytRecord } = useOrbytProfile(currentUser?.did ?? null);
+  const profileColors = getProfileColors(orbytRecord?.colors ?? null);
+  const activeTint = getTabBarActiveTintFromProfile(profileColors);
   const { totalUnreadCount } = useUnreadCount();
 
   return (
