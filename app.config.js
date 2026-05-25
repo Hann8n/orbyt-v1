@@ -110,7 +110,7 @@ module.exports = {
     [
       'expo-navigation-bar',
       {
-        barStyle: 'light',
+        style: 'light',
       },
     ],
     [

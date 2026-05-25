@@ -48,10 +48,10 @@ const DetailScreenOverlay: React.FC<DetailScreenOverlayProps> = ({
             androidRippleBorderless
           >
             <View style={styles.backIconContainer}>
-              <Animated.View style={[StyleSheet.absoluteFillObject, backIconPrimaryStyle]}>
+              <Animated.View style={[StyleSheet.absoluteFill, backIconPrimaryStyle]}>
                 <BackArrowIcon size={30} color={backIconColor} />
               </Animated.View>
-              <Animated.View style={[StyleSheet.absoluteFillObject, backIconSecondaryStyle]}>
+              <Animated.View style={[StyleSheet.absoluteFill, backIconSecondaryStyle]}>
                 <BackArrowIcon size={30} color={Colors.neutral[50]} />
               </Animated.View>
             </View>

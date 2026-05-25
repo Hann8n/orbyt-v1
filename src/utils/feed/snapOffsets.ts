@@ -53,11 +53,7 @@ export function buildListSnapToOffsets({
     return offsets;
   }
 
-  const offsets = new Array<number>(itemCount);
-  for (let i = 0; i < itemCount; i++) {
-    offsets[i] = Math.round(i * itemSpacing - snapTopInset);
-  }
-  return offsets;
+  return undefined;
 }
 
 export function buildGridSnapToOffsets({

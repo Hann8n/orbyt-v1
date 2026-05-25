@@ -75,11 +75,11 @@ function VideoCardOverlayLayers({
 
 const styles = StyleSheet.create({
   videoScrubberLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: OVERLAY_Z_INDEX.SCRUBBER,
   },
   videoOverlayLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: OVERLAY_Z_INDEX.OVERLAY_CONTENT,
   },
 });

@@ -1,12 +1,12 @@
 import {
   useState,
   useEffect,
+  useLayoutEffect,
   useCallback,
   useMemo,
   useRef,
   useImperativeHandle,
   memo,
-  type ComponentType,
   type Ref,
 } from 'react';
 import {
@@ -17,20 +17,21 @@ import {
   ActivityIndicator,
   RefreshControl,
   Text,
+  type ScrollViewProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView as RNScreensSafeAreaView } from 'react-native-screens/experimental';
 import Animated, {
   useSharedValue,
-  useAnimatedScrollHandler,
   useAnimatedReaction,
   useAnimatedStyle,
+  useAnimatedRef,
+  useScrollOffset,
   type SharedValue,
 } from 'react-native-reanimated';
 import {
   FlashList,
   FlashListRef,
-  type FlashListProps,
   type ListRenderItemInfo,
   RenderTargetOptions,
 } from '@shopify/flash-list';
@@ -57,26 +58,22 @@ import {
 } from './feedViewShared';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { isIosLiquidGlassAvailable } from '@/stores/userStore';
-import { getEffectiveTopInset, getViewportDimensions } from '../../../utils/device/screen';
+import { getEffectiveTopInset } from '../../../utils/device/screen';
 import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
 import {
-  APP_CONSTANTS,
   SCROLL_CONSTANTS,
   QUERY_CONSTANTS,
   SCROLL_INDICATOR_CONSTANTS,
 } from '../../../utils/constants';
 import { buildListSnapToOffsets } from '@/utils/feed/snapOffsets';
+import { useViewportHeight } from '@/hooks/useViewportHeight';
 import type { FeedListItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
 import { ExtendedFeedViewPost } from '../../../services/api/types';
 import { isFeedHeaderItem } from '../../../types';
 import { useFeedVisibility } from '../../../core/visibility/hooks';
 import { useTranslation } from 'react-i18next';
 import { Typography, FontFamily } from '@/utils/components/typography';
-
-const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as ComponentType<
-  FlashListProps<FeedListItem> & { ref?: Ref<FlashListRef<FeedListItem>> }
->;
 
 const ItemSeparatorComponent = ({
   leadingItem: _leadingItem,
@@ -271,7 +268,15 @@ function ListFeedViewComponent({
   const flashListRef = useRef<FlashListRef<FeedListItem>>(null);
   const gridRef = useRef<ListFeedViewRef>(null);
 
-  const scrollOffsetYSV = useSharedValue(0);
+  const animatedScrollRef = useAnimatedRef<Animated.ScrollView>();
+  const renderScrollComponent = useCallback(
+    (props: ScrollViewProps) => <Animated.ScrollView ref={animatedScrollRef} {...props} />,
+    []
+  );
+
+  const scrollOffsetYSV = useScrollOffset(animatedScrollRef);
+  const contentHeightSV = useSharedValue(0);
+  const layoutHeightSV = useSharedValue(0);
   const endOfFeedEnabledSV = useSharedValue(0);
   const endOfFeedOverscrollOpacitySV = useSharedValue(0);
   const scrollFadeParamsSV = useSharedValue<ScrollFadeParams>({
@@ -325,27 +330,11 @@ function ListFeedViewComponent({
   const useNativeTabBottomSafeArea =
     hasTabBar && Platform.OS === 'ios' && !isIosLiquidGlassAvailable;
 
-  const viewableAreaHeight = useMemo(() => {
-    if (!hasTabBar) {
-      const maxViewport = Math.max(0, screenHeight - insets.bottom);
-      return feedLayoutHeight > 0 ? Math.min(feedLayoutHeight, maxViewport) : maxViewport;
-    }
-    if (useManualIosGlassTabPaddingLayout) {
-      return getViewportDimensions(
-        { top: insets.top, bottom: insets.bottom, left: 0, right: 0 },
-        { useFullWindowHeight: !hasTabBar }
-      ).height;
-    }
-    // For non-liquid glass, don't subtract status bar - only subtract bottom inset
-    return Math.max(0, screenHeight - insets.bottom);
-  }, [
+  const viewableAreaHeight = useViewportHeight({
     hasTabBar,
-    screenHeight,
-    insets.top,
-    insets.bottom,
-    feedLayoutHeight,
     useManualIosGlassTabPaddingLayout,
-  ]);
+    feedLayoutHeight,
+  });
   const cardHeight = useMemo(
     () =>
       useManualIosGlassTabPaddingLayout
@@ -514,7 +503,6 @@ function ListFeedViewComponent({
     !snapDisabledCompactLiquidGlass &&
     !snapWaitHeaderLayout &&
     !isHeaderFeed &&
-    snapTopInset === 0 &&
     listData.length > 0;
 
   const snapToIntervalValue = listSnapUsesInterval ? itemSpacing : undefined;
@@ -543,47 +531,44 @@ function ListFeedViewComponent({
     snapTopInset,
   ]);
 
-  const handleFeedLayout = useCallback((e: LayoutChangeEvent) => {
-    const h = Math.round(e.nativeEvent.layout.height);
-    if (h > 0) {
-      setFeedLayoutHeight(prev => (prev === h ? prev : h));
-    }
-  }, []);
+  const handleFeedLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const h = Math.round(e.nativeEvent.layout.height);
+      if (h > 0) {
+        setFeedLayoutHeight(prev => (prev === h ? prev : h));
+        layoutHeightSV.value = h;
+      }
+    },
+    [layoutHeightSV]
+  );
 
-  const scrollHandler = useAnimatedScrollHandler(
-    {
-      onScroll: event => {
-        const y = Math.max(0, event.contentOffset.y);
-        scrollOffsetYSV.value = y;
-
-        if (contentScrollProgressOutput) {
-          contentScrollProgressOutput.set(
-            Math.max(0, Math.min(1, y / SCROLL_CONSTANTS.HEADER_FADE_DISTANCE))
-          );
-        }
-
-        const contentH = event.contentSize?.height ?? 0;
-        const layoutH = event.layoutMeasurement?.height ?? 0;
-        const maxY = Math.max(0, contentH - layoutH);
-        const overscrollPastEnd = y - maxY;
-        if (endOfFeedEnabledSV.value < 0.5) {
-          endOfFeedOverscrollOpacitySV.value = 0;
-        } else {
-          endOfFeedOverscrollOpacitySV.value = Math.max(
-            0,
-            Math.min(1, overscrollPastEnd / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX)
-          );
-        }
-      },
+  useAnimatedReaction(
+    () => scrollOffsetYSV.value,
+    y => {
+      if (contentScrollProgressOutput) {
+        contentScrollProgressOutput.set(
+          Math.max(0, Math.min(1, y / SCROLL_CONSTANTS.HEADER_FADE_DISTANCE))
+        );
+      }
+      const maxY = Math.max(0, contentHeightSV.value - layoutHeightSV.value);
+      const overscrollPastEnd = y - maxY;
+      if (endOfFeedEnabledSV.value < 0.5) {
+        endOfFeedOverscrollOpacitySV.value = 0;
+      } else {
+        endOfFeedOverscrollOpacitySV.value = Math.max(
+          0,
+          Math.min(1, overscrollPastEnd / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX)
+        );
+      }
     },
     [contentScrollProgressOutput]
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const headerSnapAdjust = isHeaderFeed ? snapTopInset : 0;
     scrollFadeParamsSV.value = {
       spacing: itemSpacing,
-      snapOrigin: isHeaderFeed ? headerHeight - headerSnapAdjust : -snapTopInset,
+      snapOrigin: isHeaderFeed ? headerHeight - headerSnapAdjust : 0,
       firstVideoIdx: isHeaderFeed ? 1 : 0,
     };
   }, [scrollFadeParamsSV, itemSpacing, isHeaderFeed, headerHeight, snapTopInset]);
@@ -700,8 +685,16 @@ function ListFeedViewComponent({
           ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
           : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID,
       disableIntervalMomentum: snapToIntervalValue != null,
-      scrollEventThrottle: APP_CONSTANTS.SCROLL_THROTTLE,
-      onScroll: scrollHandler,
+      contentInset:
+        Platform.OS === 'ios' && listSnapUsesInterval && snapTopInset > 0
+          ? { top: snapTopInset }
+          : undefined,
+      contentInsetAdjustmentBehavior:
+        listSnapUsesInterval && snapTopInset > 0 ? ('never' as const) : undefined,
+      renderScrollComponent,
+      onContentSizeChange: (_w: number, h: number) => {
+        contentHeightSV.value = h;
+      },
       onEndReached: onLoadMore,
       onEndReachedThreshold: QUERY_CONSTANTS.END_REACHED_THRESHOLD,
       onViewableItemsChanged,
@@ -727,7 +720,10 @@ function ListFeedViewComponent({
       listHeaderElement,
       snapToOffsets,
       snapToIntervalValue,
-      scrollHandler,
+      snapTopInset,
+      listSnapUsesInterval,
+      renderScrollComponent,
+      contentHeightSV,
       onLoadMore,
       onViewableItemsChanged,
       viewabilityConfig,
@@ -748,7 +744,7 @@ function ListFeedViewComponent({
           />
         ) : null}
         <View style={styles.flashListWrapper}>
-          <AnimatedFlashList {...flashListProps} />
+          <FlashList {...flashListProps} />
         </View>
       </View>
     ),

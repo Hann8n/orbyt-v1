@@ -10,7 +10,6 @@ import {
   blendColors,
   darkenColor,
   enhanceColorSaturation,
-  extractColorsFromImage,
   getContrastRatio,
   getProfileColors,
   getRelativeLuminance,
@@ -167,39 +166,12 @@ describe('getProfileColors', () => {
     expect(['light', 'dark']).toContain(result.statusBarStyle);
   });
 
-  it('picks up top-level backgroundColor/textColor', () => {
+  it('picks up backgroundColor/textColor from record colors', () => {
     const result = getProfileColors({
       backgroundColor: '#ff0000',
       textColor: '#ffffff',
-      joinedAt: '',
-      isBeta: false,
     });
     expect(result.backgroundColor).toBe('#ff0000');
     expect(result.textColor).toBe('#ffffff');
-  });
-
-  it('picks up nested orbytColors', () => {
-    const result = getProfileColors({
-      orbytColors: { backgroundColor: '#0000ff', textColor: '#ffff00' },
-    });
-    expect(result.backgroundColor).toBe('#0000ff');
-    expect(result.textColor).toBe('#ffff00');
-  });
-});
-
-describe('extractColorsFromImage', () => {
-  it('returns a valid color scheme object', async () => {
-    const result = await extractColorsFromImage('https://example.com/avatar.jpg');
-    expect(result.backgroundColor).toMatch(/^#[0-9a-f]{6}$/i);
-    expect(result.foregroundColor).toMatch(/^#[0-9a-f]{6}$/i);
-    expect(['light', 'dark']).toContain(result.statusBarStyle);
-  });
-
-  it('falls back gracefully on error', async () => {
-    const ImageColors = require('react-native-image-colors').default;
-    ImageColors.getColors.mockRejectedValueOnce(new Error('network'));
-    const result = await extractColorsFromImage('bad://url');
-    expect(result.backgroundColor).toBeTruthy();
-    expect(result.statusBarStyle).toBe('light');
   });
 });

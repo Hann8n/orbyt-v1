@@ -66,7 +66,6 @@ import AuthorItem from '@/components/ui/AuthorItem';
 import { itemSizeConfig, sharedItemStyles } from '@/components/ui/ItemStyles';
 import { VerificationBadge, BotBadge } from '@/components/features/badging';
 import { formatHandle } from '@/utils/formatting/handles';
-import { useAvatarProfileRing } from '@/services/colors';
 import { queryKeys } from '@/utils/query/queryKeys';
 import { chatReactQueryOptions } from '@/utils/query/chatQueryOptions';
 import { getActiveStreak } from '@/utils/chat/streak';
@@ -87,7 +86,12 @@ import { buildFeedModalHref, buildFullHeightVideoHref } from '@/utils/navigation
 import { useCurrentDetailNavTab } from '@/utils/navigation/detailRoutes';
 import { seedChatEmbedVideoFeed } from '@/utils/chat/seedChatEmbedVideoFeed';
 import { getVideoView } from '@/utils/video/helpers';
-import { hexToRGBA, isColorDark } from '@/utils/formatting/colors';
+import {
+  hexToRGBA,
+  getProfileColors,
+  getTabBarActiveTintFromProfile,
+} from '@/utils/formatting/colors';
+import { useOrbytProfile } from '@/services/colors';
 import type { Label } from '@atproto/api/dist/client/types/com/atproto/label/defs';
 import { RichText } from '@atproto/api';
 import type { Main as RichTextFacet } from '@atproto/api/dist/client/types/app/bsky/richtext/facet';
@@ -1275,23 +1279,20 @@ export default function ChatScreen() {
     !!otherDid &&
     ((profileFetched && profileIsError) ||
       (!!profile?.handle && profile.handle.endsWith('.invalid')));
-  const otherRingProps = useAvatarProfileRing(otherDid || null);
-  const currentUserRingProps = useAvatarProfileRing(currentUserDid ?? null);
-  const sentMessageAccentColor = currentUserRingProps.ringColor || Colors.brand.teal;
+  const { data: currentUserOrbytRecord } = useOrbytProfile(currentUserDid ?? null);
+  const currentUserColors = getProfileColors(currentUserOrbytRecord?.colors ?? null);
+  const sentMessageAccentColor = getTabBarActiveTintFromProfile(currentUserColors);
   /** Outgoing bubble surface + rim: use profile colors directly */
   const sentBubbleBlendedStyle = useMemo(
     () => ({
-      backgroundColor: currentUserRingProps.profileColors?.backgroundColor || Colors.neutral[900],
-      borderColor: currentUserRingProps.profileColors?.backgroundColor || Colors.neutral[900],
+      backgroundColor: currentUserColors.backgroundColor,
+      borderColor: currentUserColors.backgroundColor,
     }),
-    [currentUserRingProps.profileColors]
+    [currentUserColors.backgroundColor]
   );
   /** Text color based on background luminance: white for dark backgrounds, black for light backgrounds */
-  const sentMessageTextColor = useMemo(() => {
-    const bgColor = currentUserRingProps.profileColors?.backgroundColor || Colors.neutral[900];
-    return isColorDark(bgColor) ? Colors.neutral[50] : Colors.neutral[900];
-  }, [currentUserRingProps.profileColors]);
-  const otherUserAccentColor = otherRingProps.ringColor || Colors.neutral[700];
+  const sentMessageTextColor = currentUserColors.textColor;
+  const otherUserAccentColor = Colors.neutral[700];
   const headerAvatarSize = itemSizeConfig.medium.avatarSize;
   const headerBadgeSize = itemSizeConfig.large.badgeTextSize;
   const reactionPicker = useReactionPicker();
@@ -2654,7 +2655,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   embedVideoThumbnail: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
   },
   embedVideoPlaceholder: {

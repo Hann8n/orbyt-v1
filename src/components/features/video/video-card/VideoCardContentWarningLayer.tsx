@@ -52,11 +52,11 @@ const VideoCardContentWarningLayer = memo(function VideoCardContentWarningLayer(
 
 const styles = StyleSheet.create({
   contentWarningBlur: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: OVERLAY_Z_INDEX.CONTENT_WARNING,
   },
   contentWarningOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: OVERLAY_Z_INDEX.CONTENT_WARNING_MESSAGE,

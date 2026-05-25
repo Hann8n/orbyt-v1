@@ -1,7 +1,9 @@
-import { useSegments } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
-import type { NavigationProp, ParamListBase } from '@react-navigation/native';
-import type { Href } from 'expo-router';
+import { useSegments, type Href } from 'expo-router';
+import {
+  useNavigation,
+  type NavigationProp,
+  type ParamListBase,
+} from 'expo-router/react-navigation';
 
 export type DetailNavTab = 'home' | 'explore' | 'activity' | 'profile';
 

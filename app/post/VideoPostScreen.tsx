@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { getAnalytics, logEvent } from '@react-native-firebase/analytics';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '@/utils/constants';
 import {
@@ -841,6 +842,10 @@ const VideoPostScreen: React.FC = () => {
             uri: result?.uri,
             cid: result?.cid,
           });
+          logEvent(getAnalytics(), 'post_video', {
+            post_uri: result?.uri,
+            content_type: 'video',
+          }).catch(() => {});
 
           setTimeout(() => {
             useUIStore.getState().setLoading(UPLOAD_KEY, false);
@@ -1118,7 +1123,7 @@ const VideoPostScreen: React.FC = () => {
   // Render header (StatusBar transparent, header buttons keep safe area) - shared between portrait and landscape
   const renderHeader = () => (
     <>
-      <StatusBar style="light" translucent />
+      <StatusBar style="light" />
       <Animated.View
         style={[
           styles.headerButton,
@@ -1325,7 +1330,7 @@ const VideoPostScreen: React.FC = () => {
   if (orientation === 'landscape' && isTablet) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-        <StatusBar style="light" translucent />
+        <StatusBar style="light" />
         <Animated.View style={[styles.landscapeContainer, fadeAnimatedStyle]}>
           {/* Left: Info Side */}
           <View style={styles.landscapeInfoSide}>
@@ -1714,7 +1719,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   glassBackground: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: BORDER_RADIUS.FULL,
   },
   buttonContent: {

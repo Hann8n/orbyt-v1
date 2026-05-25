@@ -8,18 +8,22 @@ import {
   RefreshControl,
   ActivityIndicator,
   type ViewStyle,
+  type ScrollViewProps,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Link, type Href } from 'expo-router';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { useSharedValue, useAnimatedScrollHandler } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedReaction,
+  useAnimatedRef,
+  useScrollOffset,
+} from 'react-native-reanimated';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ListFeedViewRef, ListFeedPullToRefresh } from '../../../types';
 import { Colors } from '../../../theme';
 import { getVideoView, DEFAULT_VIDEO_ASPECT_RATIO } from '../../../utils/video/helpers';
 import {
-  APP_CONSTANTS,
   QUERY_CONSTANTS,
   SCROLL_CONSTANTS,
   SCROLL_INDICATOR_CONSTANTS,
@@ -45,13 +49,8 @@ import type {
   FeedScrollMotionValue,
 } from '../../../context/FeedScrollContext';
 import type { SharedValue } from 'react-native-reanimated';
-import type { ComponentType, Ref } from 'react';
-import type { FlashListProps } from '@shopify/flash-list';
+import type { Ref } from 'react';
 import type { GridFeedModalZoomConfig } from '@/utils/navigation/feedModalRoute';
-
-const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as ComponentType<
-  FlashListProps<ExtendedFeedViewPost> & { ref?: Ref<FlashListRef<ExtendedFeedViewPost>> }
->;
 const VideoGridItem: React.FC<{
   item: ExtendedFeedViewPost;
   index: number;
@@ -138,7 +137,6 @@ interface GridFeedViewProps {
   snapTopInset: number;
   useNativeTabBottomSafeArea?: boolean;
   pullToRefresh?: ListFeedPullToRefresh;
-  ref?: Ref<ListFeedViewRef>;
 }
 
 function GridFeedView({
@@ -162,7 +160,8 @@ function GridFeedView({
   useNativeTabBottomSafeArea = false,
   pullToRefresh,
   ref,
-}: GridFeedViewProps) {
+}: GridFeedViewProps & { ref?: Ref<ListFeedViewRef> }) {
+  'use no memo';
   const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
   const profileColors = getProfileColors(backgroundColor, secondaryColor);
   const flashListRef = useRef<FlashListRef<ExtendedFeedViewPost>>(null);
@@ -187,18 +186,22 @@ function GridFeedView({
       ? headerHeight
       : 0;
   const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
-  const scrollOffsetYSV = useSharedValue(0);
-  const scrollHandler = useAnimatedScrollHandler(
-    {
-      onScroll: event => {
-        const y = event.contentOffset.y;
-        scrollOffsetYSV.value = y;
-        if (contentScrollProgressOutput) {
-          contentScrollProgressOutput.set(
-            Math.max(0, Math.min(1, y / SCROLL_CONSTANTS.HEADER_FADE_DISTANCE))
-          );
-        }
-      },
+
+  const animatedScrollRef = useAnimatedRef<Animated.ScrollView>();
+  const renderScrollComponent = useCallback(
+    (props: ScrollViewProps) => <Animated.ScrollView ref={animatedScrollRef} {...props} />,
+    []
+  );
+  const scrollOffsetYSV = useScrollOffset(animatedScrollRef);
+
+  useAnimatedReaction(
+    () => scrollOffsetYSV.value,
+    y => {
+      if (contentScrollProgressOutput) {
+        contentScrollProgressOutput.set(
+          Math.max(0, Math.min(1, y / SCROLL_CONSTANTS.HEADER_FADE_DISTANCE))
+        );
+      }
     },
     [contentScrollProgressOutput]
   );
@@ -316,7 +319,7 @@ function GridFeedView({
     };
   }, [useScrollTracking, headerHeight, viewportDimensions.height, itemSpacing]);
 
-  const ListEl = ListComponent || (useScrollTracking ? AnimatedFlashList : FlashList);
+  const ListEl = ListComponent || FlashList;
   const listProps = useMemo(
     () => ({
       ...(ListComponent ? {} : { ref: flashListRef }),
@@ -326,14 +329,13 @@ function GridFeedView({
           : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID,
       ...(useScrollTracking
         ? {
-            onScroll: scrollHandler,
-            scrollEventThrottle: APP_CONSTANTS.SCROLL_THROTTLE,
+            renderScrollComponent,
             disableIntervalMomentum: true,
             snapToOffsets: gridSnapToOffsets,
           }
         : {}),
     }),
-    [ListComponent, useScrollTracking, scrollHandler, gridSnapToOffsets]
+    [ListComponent, useScrollTracking, renderScrollComponent, gridSnapToOffsets]
   );
 
   const separatorStyle = {
@@ -450,6 +452,8 @@ function GridFeedView({
     </View>
   );
 }
+
+GridFeedView.displayName = 'GridFeedView';
 
 const styles = StyleSheet.create({
   gridEmptyLoading: {

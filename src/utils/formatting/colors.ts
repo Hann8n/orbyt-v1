@@ -1,4 +1,3 @@
-import ImageColors, { ImageColorsResult } from 'react-native-image-colors';
 import { Colors } from '../../theme';
 
 function parseHex(hex: string): [number, number, number] {
@@ -151,13 +150,6 @@ export interface ProfileColorScheme {
   statusBarStyle: 'light' | 'dark';
 }
 
-export interface OrbytAPIColorData {
-  textColor: string;
-  backgroundColor: string;
-  joinedAt: string;
-  isBeta: boolean;
-}
-
 const DEFAULT_PROFILE_COLORS = {
   backgroundColor: Colors.neutral[900],
   foregroundColor: Colors.neutral[200],
@@ -165,24 +157,14 @@ const DEFAULT_PROFILE_COLORS = {
 };
 
 export function getProfileColors(
-  colorData:
-    | OrbytAPIColorData
-    | { orbytColors?: { backgroundColor: string; textColor: string } | null }
-    | null
-    | undefined
+  colorData: { backgroundColor: string; textColor: string } | null | undefined
 ): ProfileColorScheme {
   let backgroundColor: string = DEFAULT_PROFILE_COLORS.backgroundColor;
   let textColor: string = DEFAULT_PROFILE_COLORS.foregroundColor;
 
   if (colorData) {
-    if ('backgroundColor' in colorData && 'textColor' in colorData) {
-      backgroundColor = colorData.backgroundColor || DEFAULT_PROFILE_COLORS.backgroundColor;
-      textColor = colorData.textColor || DEFAULT_PROFILE_COLORS.foregroundColor;
-    } else if ('orbytColors' in colorData && colorData.orbytColors) {
-      backgroundColor =
-        colorData.orbytColors.backgroundColor || DEFAULT_PROFILE_COLORS.backgroundColor;
-      textColor = colorData.orbytColors.textColor || DEFAULT_PROFILE_COLORS.foregroundColor;
-    }
+    backgroundColor = colorData.backgroundColor || DEFAULT_PROFILE_COLORS.backgroundColor;
+    textColor = colorData.textColor || DEFAULT_PROFILE_COLORS.foregroundColor;
   }
 
   return {
@@ -198,105 +180,4 @@ export function getProfileColors(
     secondaryColor: textColor,
     statusBarStyle: getStatusBarStyle(textColor),
   };
-}
-
-// ---------------------------------------------------------------------------
-// Image color extraction
-// ---------------------------------------------------------------------------
-
-function getBestColor(result: ImageColorsResult): {
-  backgroundColor: string;
-  foregroundColor: string;
-  accentColor: string;
-} {
-  const r = result as unknown as Record<string, string | undefined>;
-
-  const vibrantCandidates = [
-    r['vibrant'],
-    r['darkVibrant'],
-    r['lightVibrant'],
-    r['primary'],
-    r['secondary'],
-    r['dominant'],
-    r['average'],
-    r['background'],
-    r['muted'],
-    r['darkMuted'],
-    r['lightMuted'],
-    r['detail'],
-  ];
-  const backgroundColor = enhanceColorSaturation(
-    vibrantCandidates.find(Boolean) ?? Colors.black,
-    1.4
-  );
-
-  const accentCandidates = [
-    r['lightVibrant'],
-    r['vibrant'],
-    r['secondary'],
-    r['detail'],
-    r['lightMuted'],
-  ];
-  const accentColor = enhanceColorSaturation(accentCandidates.find(Boolean) ?? '#FFFFFF', 1.5);
-
-  const darkBg = isColorDark(backgroundColor);
-  const fgCandidates = darkBg
-    ? [r['lightVibrant'], r['secondary'], r['lightMuted'], r['detail']]
-    : [r['darkVibrant'], r['primary'], r['darkMuted'], r['muted']];
-  let foregroundColor = fgCandidates.find(Boolean) ?? (darkBg ? '#FFFFFF' : Colors.black);
-
-  if (
-    foregroundColor.toLowerCase() === backgroundColor.toLowerCase() ||
-    getContrastRatio(backgroundColor, foregroundColor) < 3.0
-  ) {
-    foregroundColor = darkBg ? '#FFFFFF' : Colors.black;
-  }
-
-  return { backgroundColor, foregroundColor, accentColor };
-}
-
-/**
- * Extract colors from image — for use in the edit screen as suggestions only.
- * Not for automatic profile color setting.
- */
-export async function extractColorsFromImage(imageUrl: string): Promise<{
-  backgroundColor: string;
-  foregroundColor: string;
-  textColor: string;
-  accentColor: string;
-  statusBarStyle: 'light' | 'dark';
-}> {
-  try {
-    let uri = imageUrl;
-    if (
-      !imageUrl.startsWith('file://') &&
-      !imageUrl.startsWith('/') &&
-      !imageUrl.startsWith('http')
-    ) {
-      uri = `file://${imageUrl}`;
-    }
-
-    const result = await ImageColors.getColors(uri, {
-      fallback: Colors.neutral[200],
-      cache: true,
-      key: imageUrl,
-    });
-
-    const { backgroundColor, foregroundColor, accentColor } = getBestColor(result);
-    return {
-      backgroundColor,
-      foregroundColor,
-      textColor: foregroundColor,
-      accentColor: accentColor || foregroundColor,
-      statusBarStyle: isColorDark(foregroundColor) ? 'dark' : 'light',
-    };
-  } catch {
-    return {
-      backgroundColor: Colors.neutral[900],
-      foregroundColor: Colors.neutral[50],
-      textColor: Colors.neutral[50],
-      accentColor: '#FFFFFF',
-      statusBarStyle: 'light',
-    };
-  }
 }

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { storageAdapter, storage } from '../utils/storage/storage';
 import * as SecureStore from 'expo-secure-store';
+import { getAnalytics, setUserId, logLogin, logSignUp } from '@react-native-firebase/analytics';
 import { Agent } from '@atproto/api';
 import { getOAuthClient } from '../services/auth';
 import type { OAuthSession } from '@atproto/oauth-client';
@@ -583,6 +584,9 @@ export const useUserStore = create<UserState>()(
               feedBootstrapDid: null,
             });
 
+            setUserId(getAnalytics(), session.did).catch(() => {});
+            logLogin(getAnalytics(), { method: 'atproto' }).catch(() => {});
+
             if (isEmailVerificationRequired(get().currentUser)) {
               set({ showEmailVerificationModal: true });
             }
@@ -686,6 +690,9 @@ export const useUserStore = create<UserState>()(
               feedBootstrapDid: null,
             });
 
+            setUserId(getAnalytics(), session.did).catch(() => {});
+            logSignUp(getAnalytics(), { method: 'atproto' }).catch(() => {});
+
             deferOrbytProfileInit('signUp');
             await get().bootstrapUserFeedSettings(session.did);
             scheduleFollowingOrbytColorsAfterFeedReady(session.did);
@@ -750,6 +757,8 @@ export const useUserStore = create<UserState>()(
             }
 
             await get().clearAllCaches();
+
+            setUserId(getAnalytics(), null).catch(() => {});
 
             if (clearAllAccounts) {
               await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCOUNTS);
@@ -845,6 +854,8 @@ export const useUserStore = create<UserState>()(
             feedBootstrapStatus: 'loading',
             feedBootstrapDid: null,
           });
+
+          setUserId(getAnalytics(), did).catch(() => {});
 
           if (!get().activeAccountDid && isEmailVerificationRequired(get().currentUser)) {
             set({ showEmailVerificationModal: true });

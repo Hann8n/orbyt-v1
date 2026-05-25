@@ -8,12 +8,14 @@ import {
   Platform,
   Alert,
   Share,
+  FlatList,
   type ListRenderItem,
+  type ScrollViewProps,
 } from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedScrollHandler,
+  useAnimatedRef,
   useAnimatedStyle,
+  useScrollOffset,
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
@@ -63,7 +65,12 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
   onClose,
 }) => {
   const { t } = useTranslation();
-  const scrollY = useSharedValue(0);
+  const animatedScrollRef = useAnimatedRef<Animated.ScrollView>();
+  const renderScrollComponent = useCallback(
+    (props: ScrollViewProps) => <Animated.ScrollView ref={animatedScrollRef} {...props} />,
+    []
+  );
+  const scrollY = useScrollOffset(animatedScrollRef);
   const [query, setQuery] = useState('');
   const [kindFilter, setKindFilter] = useState<KlipyKind>('gif');
   const trimmed = query.trim();
@@ -278,11 +285,6 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
     ],
     [t]
   );
-  const onScroll = useAnimatedScrollHandler({
-    onScroll: event => {
-      scrollY.value = event.contentOffset.y;
-    },
-  });
   const tabsAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(scrollY.value, [0, 20, 40], [1, 1, 0], Extrapolation.CLAMP),
   }));
@@ -329,7 +331,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
       }
     >
       <View style={styles.container}>
-        <Animated.FlatList
+        <FlatList
           data={items}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
@@ -350,8 +352,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
           onEndReached={onEndReached}
           onEndReachedThreshold={0.8}
           contentContainerStyle={styles.listContent}
-          scrollEventThrottle={16}
-          onScroll={onScroll}
+          renderScrollComponent={renderScrollComponent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={

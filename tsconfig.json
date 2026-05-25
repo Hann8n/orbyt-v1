@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "es2020",
     "lib": ["es2020", "es2022.error", "dom"],
+    "types": ["jest"],
     "module": "esnext",
     "jsx": "react-jsx",
     "moduleResolution": "bundler",

@@ -190,10 +190,6 @@ export const queryKeys = {
       locale
         ? ([...queryKeys.orbyt.all, 'headers', locale] as const)
         : ([...queryKeys.orbyt.all, 'headers'] as const),
-    colors: {
-      all: ['orbyt', 'colors'] as const,
-      detail: (did: string) => [...queryKeys.orbyt.colors.all, did] as const,
-    },
   },
 
   // Moderation settings queries

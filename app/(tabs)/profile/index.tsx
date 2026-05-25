@@ -19,6 +19,7 @@ import {
   isLiveStatus,
   useStatusExpirationMonitor,
 } from '@/services/data/ProfileService';
+import { useOrbytProfile } from '@/services/colors';
 import { getProfileColors, hexToRGBA } from '@/utils/formatting/colors';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -55,7 +56,6 @@ import LiveStreamInfoSheet from '@/components/features/profile/LiveStreamInfoShe
 import type { MenuAction } from '@react-native-menu/menu';
 import { tabRefs, type FeedPagerRef } from '@/utils/navigation/tabRefs';
 import type { ViewMode } from '@/types';
-import { useOrbytColors } from '@/services/colors';
 import { navigateToProfileImageViewer } from '@/utils/navigation/profileImageViewer';
 
 interface ProfileScreenProps {
@@ -127,15 +127,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const isExternalProfileMissing =
     !!providedIdentifier && !didQuery.isLoading && !isHandleResolving && !profileData;
 
-  const { data: orbytColorsFromQuery } = useOrbytColors(targetDid);
-  const mergedOrbytColors = (() => {
-    if (profileData?.orbytColors && orbytColorsFromQuery) {
-      return { ...profileData.orbytColors, ...orbytColorsFromQuery };
-    }
-    return orbytColorsFromQuery ?? profileData?.orbytColors ?? null;
-  })();
-
-  const profileColors = getProfileColors(mergedOrbytColors || profileData);
+  const { data: orbytRecord } = useOrbytProfile(targetDid);
+  const profileColors = getProfileColors(orbytRecord?.colors ?? null);
 
   const isLive = isLiveStatus(profileData?.status);
 
@@ -538,7 +531,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           headerComponent={
             <View style={styles.headerContainer} pointerEvents="box-none">
               <ProfileHeader
-                did={targetDid || profileData?.did || null}
                 profileData={profileData}
                 contentScrollProgressSV={overlayScrollProgressSV}
                 applySafeArea

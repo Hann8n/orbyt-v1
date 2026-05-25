@@ -32,6 +32,7 @@ import { Colors } from '@/theme';
 import { Avatar } from '@/components/ui/UI';
 import { CheckIcon, STROKE_WIDTH_THICK } from '@/components/ui/Icon';
 import { useProfileUpdateMutation, useProfileByDid } from '@/services/data/ProfileService';
+import { useOrbytProfile } from '@/services/colors';
 import { hexToRGBA, blendColors } from '@/utils/formatting/colors';
 import { BORDER_RADIUS } from '@/utils/constants';
 import {
@@ -46,7 +47,6 @@ import {
 } from '@/components/ui/buttonPresets';
 import { useCurrentUser } from '@/stores/userStore';
 import { splitHandleSuffix } from '@/utils/formatting/handles';
-import { useOrbytColors, saveAndSyncColors } from '@/services/colors';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import { FontFamily, Typography, TextStyles } from '@/utils/components/typography';
 
@@ -236,45 +236,7 @@ const EditProfileScreen: React.FC = () => {
           } as ProfileViewWithOrbyt)
         : undefined,
   });
-  const { data: orbytColors } = useOrbytColors(currentUser?.did);
-
-  // Compute initial color picker state once, synchronously.
-  // useOrbytColors returns initialData from getPersistedColorsSync so orbytColors
-  // is already populated on the first render — no effect or timing dance needed.
-  const [colorPickerInit] = useState(() => {
-    const colors =
-      orbytColors?.backgroundColor && orbytColors?.textColor
-        ? { backgroundColor: orbytColors.backgroundColor, textColor: orbytColors.textColor }
-        : null;
-    const match = colors ? findColorMatch(colors) : null;
-    const index: number | null = !colors ? 0 : match ? match.index : null;
-    const inverted = match?.inverted ?? false;
-    const hasCustom = !!colors && !match;
-
-    // Compute initial contentOffset so the selected swatch is centered on first render
-    // (synchronous — no flash). Clamp both edges using known content width.
-    const customOffset = hasCustom ? COLOR_ITEM_WIDTH + COLOR_DIVIDER_TOTAL_WIDTH : 0;
-    const colorCenterX =
-      index === null
-        ? COLOR_PICKER_PADDING + COLOR_SQUARE_WIDTH / 2
-        : customOffset + index * COLOR_ITEM_WIDTH + COLOR_PICKER_PADDING + COLOR_SQUARE_WIDTH / 2;
-    const screenWidth = Dimensions.get('window').width;
-    const contentWidth =
-      2 * COLOR_PICKER_PADDING +
-      customOffset +
-      (PREDEFINED_COLORS.length - 1) * COLOR_ITEM_WIDTH +
-      COLOR_SQUARE_WIDTH;
-    const maxScroll = Math.max(0, contentWidth - screenWidth);
-    const offsetX = Math.min(Math.max(0, colorCenterX - screenWidth / 2), maxScroll);
-
-    return {
-      index,
-      inverted,
-      hasCustom,
-      colors,
-      contentOffset: { x: offsetX, y: 0 },
-    };
-  });
+  const { data: orbytRecord } = useOrbytProfile(userDid);
 
   const [isAboutFocused, setIsAboutFocused] = useState(false);
   const [isDisplayNameFocused, setIsDisplayNameFocused] = useState(false);
@@ -305,51 +267,57 @@ const EditProfileScreen: React.FC = () => {
   const aboutOverBy = Math.max(0, aboutCount - ABOUT_MAX_LENGTH);
   const aboutRemaining = Math.max(0, ABOUT_MAX_LENGTH - aboutCount);
 
-  // Color state — all seeded from colorPickerInit (sync, first render correct)
-  const [selectedColorIndex, setSelectedColorIndex] = useState<number | null>(
-    colorPickerInit.index
-  );
-  const selectedColorIndexRef = useRef<number | null>(colorPickerInit.index);
+  // Color picker state — seeded once when orbytRecord first resolves
+  const savedColors = orbytRecord?.colors ?? null;
+  const savedMatch = savedColors ? findColorMatch(savedColors) : null;
+  const [selectedColorIndex, setSelectedColorIndex] = useState<number | null>(0);
+  const selectedColorIndexRef = useRef<number | null>(0);
   const [customColors, setCustomColors] = useState<{
     backgroundColor: string;
     textColor: string;
-  } | null>(colorPickerInit.colors);
-  // Inversion state: ref for synchronous reads inside the handler; state for rendering children.
-  const initialInvertedStates: Partial<Record<number | 'custom', boolean>> =
-    colorPickerInit.inverted && colorPickerInit.index !== null
-      ? { [colorPickerInit.index]: true }
-      : {};
-  const invertedStatesRef =
-    useRef<Partial<Record<number | 'custom', boolean>>>(initialInvertedStates);
-  const [invertedStates, setInvertedStates] =
-    useState<Partial<Record<number | 'custom', boolean>>>(initialInvertedStates);
-  const hasCustomColors = colorPickerInit.hasCustom;
-  const originalCustomColors = colorPickerInit.hasCustom ? colorPickerInit.colors : null;
+  } | null>(null);
+  const [invertedStates, setInvertedStates] = useState<Partial<Record<number | 'custom', boolean>>>(
+    {}
+  );
+  const invertedStatesRef = useRef<Partial<Record<number | 'custom', boolean>>>({});
+  const [hasCustomColors, setHasCustomColors] = useState(false);
+  const [originalCustomColors, setOriginalCustomColors] = useState<{
+    backgroundColor: string;
+    textColor: string;
+  } | null>(null);
+  const [seededColors, setSeededColors] = useState(false);
+
+  // Seed color picker once when orbytRecord arrives (or immediately if already in cache)
+  useEffect(() => {
+    if (orbytRecord !== undefined && !seededColors) {
+      setSeededColors(true);
+      const isCustom = !!savedColors && !savedMatch;
+      const index = !savedColors ? 0 : savedMatch ? savedMatch.index : null;
+      const inverted = savedMatch?.inverted ?? false;
+      selectedColorIndexRef.current = index;
+      setSelectedColorIndex(index);
+      setCustomColors(savedColors);
+      setHasCustomColors(isCustom);
+      setOriginalCustomColors(isCustom ? savedColors : null);
+      if (inverted && index !== null) {
+        invertedStatesRef.current = { [index]: true };
+        setInvertedStates({ [index]: true });
+      }
+    }
+  }, [orbytRecord, savedColors, savedMatch, seededColors]);
 
   // Mutation
   const profileUpdateMutation = useProfileUpdateMutation();
 
-  // Get colors from orbyt API (used by handleSave to detect changes)
-  const defaultColors = useMemo(() => {
-    if (!orbytColors?.backgroundColor || !orbytColors?.textColor) {
-      return undefined;
-    }
-    return {
-      backgroundColor: orbytColors.backgroundColor,
-      textColor: orbytColors.textColor,
-    };
-  }, [orbytColors]);
+  const defaultColors = savedColors ?? undefined;
 
   const colorPickerScrollRef = useRef<ScrollView>(null);
-  const isMountedColorScroll = useRef(false);
 
-  // Animate to center the newly selected swatch on user selection.
-  // Initial position is handled synchronously via contentOffset (no flash).
+  // Center the selected swatch: no animation on initial seed, animated on user selection.
+  const isFirstColorScroll = useRef(true);
   useEffect(() => {
-    if (!isMountedColorScroll.current) {
-      isMountedColorScroll.current = true;
-      return;
-    }
+    const animated = !isFirstColorScroll.current;
+    isFirstColorScroll.current = false;
     const screenWidth = Dimensions.get('window').width;
     const customOffset = hasCustomColors ? COLOR_ITEM_WIDTH + COLOR_DIVIDER_TOTAL_WIDTH : 0;
     const colorCenterX =
@@ -366,7 +334,7 @@ const EditProfileScreen: React.FC = () => {
       COLOR_SQUARE_WIDTH;
     const maxScroll = Math.max(0, contentWidth - screenWidth);
     const scrollX = Math.min(Math.max(0, colorCenterX - screenWidth / 2), maxScroll);
-    colorPickerScrollRef.current?.scrollTo({ x: scrollX, animated: true });
+    colorPickerScrollRef.current?.scrollTo({ x: scrollX, animated });
   }, [selectedColorIndex, hasCustomColors]);
 
   const handleOpenCamera = useCallback(async () => {
@@ -540,10 +508,6 @@ const EditProfileScreen: React.FC = () => {
           handle: profileData.handle,
           updates,
         });
-
-        if (currentUser?.did && updates.customColors) {
-          await saveAndSyncColors(currentUser.did, updates.customColors);
-        }
       }
 
       router.dismiss();
@@ -692,7 +656,6 @@ const EditProfileScreen: React.FC = () => {
             ref={colorPickerScrollRef}
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentOffset={colorPickerInit.contentOffset}
             contentContainerStyle={styles.colorPickerContainer}
             style={styles.colorPickerScrollView}
             keyboardShouldPersistTaps="always"
