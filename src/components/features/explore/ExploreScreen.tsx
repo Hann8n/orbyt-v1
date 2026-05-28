@@ -311,7 +311,10 @@ const ExploreScreen: React.FC = () => {
     [hasHeaderBannerError, headers.length]
   );
   const computedHeaderHeight = Math.round(screenWidth / EXPLORE_HEADER_BANNER_ASPECT_RATIO);
-  const topChromeSpacerHeight = useMemo(() => getExploreTopChromeSpacerHeight(), []);
+  const topChromeSpacerHeight = useMemo(
+    () => insets.top + getExploreTopChromeSpacerHeight(),
+    [insets.top]
+  );
   const activeHeaderHeight = useMemo(
     () => (isHeaderVisible ? computedHeaderHeight : topChromeSpacerHeight),
     [computedHeaderHeight, isHeaderVisible, topChromeSpacerHeight]
