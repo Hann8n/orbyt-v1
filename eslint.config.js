@@ -134,7 +134,10 @@ module.exports = [
     },
   },
   {
-    files: ['src/components/features/feed/ListFeedView.tsx'],
+    files: [
+      'src/components/features/feed/ListFeedView.tsx',
+      'src/components/features/feed/FeedPager.tsx',
+    ],
     rules: {
       // Reanimated: SharedValue `.value` updates in worklets / scroll handlers are intentional.
       'react-hooks/immutability': 'off',

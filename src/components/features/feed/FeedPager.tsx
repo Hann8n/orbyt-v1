@@ -2,7 +2,6 @@ import {
   useRef,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useState,
   useMemo,
   useImperativeHandle,
@@ -12,7 +11,10 @@ import {
 import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, StatusBar, type StyleProp, type ViewStyle } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
-import PagerView from 'react-native-pager-view';
+import PagerView, {
+  type PagerViewOnPageScrollEvent,
+  type PagerViewOnPageSelectedEvent,
+} from 'react-native-pager-view';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -31,10 +33,11 @@ import type { FeedPagerRef } from '../../../utils/navigation/tabRefs';
 import { useTabBarVisibility } from '../../../context/FeedIndicatorContext';
 import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
-// Define the feed options type
 export type FeedOption = string;
 
-// Default feed options and label keys for home screen (resolved via t() in component)
+const SAFE_AREA_TOP_EDGES = ['top'] as const;
+const SAFE_AREA_NO_EDGES = [] as const;
+
 const DEFAULT_FEED_OPTIONS: FeedOption[] = ['following', 'your-mix'];
 const FEED_LABEL_KEYS: { [key: string]: string } = {
   following: 'feed.following',
@@ -46,16 +49,13 @@ const FEED_LABEL_KEYS: { [key: string]: string } = {
   watched: 'profile.watched',
 };
 
-const NOOP = () => {};
-
-// Pass-through props for FeedRenderer when using custom feedOptions (e.g. profile)
 interface FeedPagerRendererProps {
   headerComponent?: ReactNode;
   backgroundColor?: string;
   secondaryColor?: string;
   viewMode?: 'list' | 'grid';
   onViewModeChange?: (mode: 'list' | 'grid') => void;
-  /** When provided, the visible list writes scroll progress (0..1) here on UI thread for overlay fade. */
+  /** Written by the visible list on the UI thread for overlay fade (0..1). */
   contentScrollProgressOutput?: SharedValue<number>;
   queryOptions?: {
     enabled?: boolean;
@@ -67,31 +67,30 @@ interface FeedPagerRendererProps {
     refetchIntervalInBackground?: boolean;
   };
   isVisible?: boolean;
-  /** When false, do not render FeedPager's default StatusBar (for screens that manage it themselves). */
+  /** When false, the screen manages its own StatusBar. */
   controlStatusBar?: boolean;
-  /** When true, each feed tab shows pull-to-refresh (profile/channel). */
+  /** When true, each feed tab shows pull-to-refresh. */
   pullToRefreshEnabled?: boolean;
-  /** Runs with each visible tab's feed `refetch` when the user pulls to refresh. */
   onPullToRefreshExtra?: () => Promise<unknown>;
 }
 
 interface FeedPagerProps extends FeedPagerRendererProps {
   initialFeed?: FeedOption;
-  /** When provided, use these feeds instead of default following/your-mix (e.g. profile/reposts/likes) */
+  /** Overrides the default following/your-mix feeds (e.g. profile/reposts/likes). */
   feedOptions?: readonly FeedOption[];
-  /** Custom labels for feed indicator; when missing uses FEED_LABELS */
+  /** Custom display labels; falls back to FEED_LABEL_KEYS. */
   feedLabels?: { [key: string]: string };
-  /** Passed to each FeedRenderer when using profile-style feeds */
+  /** Required when using profile-style feeds. */
   userDid?: string;
   onFeedChange?: (feed: FeedOption) => void;
-  /** Controlled feed: when provided, pager syncs page to this feed (e.g. profile tab tap) */
+  /** Controlled feed; syncs pager to this value on change. */
   currentFeed?: FeedOption;
   forceError?: boolean;
   applySafeArea?: boolean;
   indicatorFontSize?: number;
-  /** When false, hide the top feed indicator bar (profile uses TabNavigation in header) */
+  /** When false, hides the feed indicator bar. */
   showFeedIndicator?: boolean;
-  /** When false, disables swipe and uses instant page changes (no animation). Default true. */
+  /** When false, disables swipe and uses instant page changes. */
   scrollEnabled?: boolean;
 }
 
@@ -168,21 +167,13 @@ function FeedPager({
 
   const feedOptions = feedOptionsProp ?? DEFAULT_FEED_OPTIONS;
 
-  // Same as PagerView's initialPage – single source of truth for "which page we're on" at mount.
   const initialPageIndex = (() => {
     const feed = currentFeed ?? initialFeed;
-    const initialIndex = feedOptions.findIndex(option => option === feed);
-    return initialIndex >= 0 ? initialIndex : 0;
+    const idx = feedOptions.findIndex(option => option === feed);
+    return idx >= 0 ? idx : 0;
   })();
 
-  // Must match initialPage: native PagerView does not fire onPageSelected for the initial page.
   const pageScrollProgress = useSharedValue(initialPageIndex);
-  const pageScrollProgressRef = useRef(pageScrollProgress);
-
-  useLayoutEffect(() => {
-    pageScrollProgressRef.current = pageScrollProgress;
-  }, [pageScrollProgress]);
-
   const [currentFeedIndex, setCurrentFeedIndex] = useState(initialPageIndex);
 
   const setPagerPage = useCallback(
@@ -190,25 +181,20 @@ function FeedPager({
       if (index < 0 || !pagerViewRef.current) return;
       if (scrollEnabled) pagerViewRef.current.setPage(index);
       else pagerViewRef.current.setPageWithoutAnimation(index);
-      pageScrollProgressRef.current.value = index;
+      pageScrollProgress.value = index;
       setCurrentFeedIndex(index);
     },
-    [scrollEnabled]
+    [scrollEnabled, pageScrollProgress]
   );
 
-  // Sync controlled currentFeed -> pager page (handles store hydration and programmatic changes)
   useEffect(() => {
     if (currentFeed == null) return;
     const index = feedOptions.findIndex(option => option === currentFeed);
-    if (index >= 0) {
-      setPagerPage(index);
-    }
+    if (index >= 0) setPagerPage(index);
   }, [currentFeed, feedOptions, setPagerPage]);
 
-  // Derive current feed option from current index
   const currentFeedOption = feedOptions[currentFeedIndex] || feedOptions[0] || 'following';
 
-  // Animate header back to visible when switching tabs (UI thread)
   useAnimatedReaction(
     () => pageScrollProgress.value,
     (index, prev) => {
@@ -229,17 +215,19 @@ function FeedPager({
     transform: [{ translateY: (1 - tabBarVisibility.value) * -18 }],
   }));
 
-  // Handle page change from PagerView - final confirmation after transition completes
+  const handlePageScroll = useCallback(
+    (event: PagerViewOnPageScrollEvent) => {
+      pageScrollProgress.value = event.nativeEvent.position + event.nativeEvent.offset;
+    },
+    [pageScrollProgress]
+  );
+
   const handlePageSelected = useCallback(
-    (event: { nativeEvent: { position: number } }) => {
+    (event: PagerViewOnPageSelectedEvent) => {
       const nextIndex = event.nativeEvent.position;
-      // Update shared value to exact position after transition
-      pageScrollProgressRef.current.value = nextIndex;
       setCurrentFeedIndex(nextIndex);
       const newFeedOption = feedOptions[nextIndex];
-      if (newFeedOption) {
-        onFeedChange?.(newFeedOption);
-      }
+      if (newFeedOption) onFeedChange?.(newFeedOption);
     },
     [feedOptions, onFeedChange]
   );
@@ -252,8 +240,6 @@ function FeedPager({
     [feedOptions, setPagerPage]
   );
 
-  // Memoized query options for feed rendering (merge profile-style overrides when provided)
-  // IMPORTANT: Must be memoized to prevent FeedRenderer re-renders on every parent frame
   const baseQueryOptions = useMemo(
     () => ({
       refetchOnMount: false,
@@ -304,52 +290,17 @@ function FeedPager({
         ? Typography.sizes.h3
         : Typography.sizes.title;
 
-  // Both feeds render side-by-side; each keeps its own scroll and cursor (fully independent).
-  const renderFeed = useCallback(
-    ({ item: feedOption, index }: { item: FeedOption; index: number }) => (
-      <FeedRenderer
-        ref={feedRendererRefCallbacks[feedOption]}
-        feedOption={String(feedOption)}
-        userDid={userDid}
-        headerComponent={headerComponent}
-        backgroundColor={backgroundColor}
-        secondaryColor={secondaryColor}
-        viewMode={viewMode}
-        onViewModeChange={onViewModeChange}
-        contentScrollProgressOutput={contentScrollProgressOutput}
-        onRetryFeed={NOOP}
-        queryOptions={feedQueryOptions}
-        isVisible={isVisible && index === currentFeedIndex}
-        forceError={forceError}
-        pullToRefreshEnabled={pullToRefreshEnabled}
-        onPullToRefreshExtra={onPullToRefreshExtra}
-      />
-    ),
-    [
-      feedRendererRefCallbacks,
-      userDid,
-      headerComponent,
-      backgroundColor,
-      secondaryColor,
-      viewMode,
-      onViewModeChange,
-      contentScrollProgressOutput,
-      currentFeedIndex,
-      feedQueryOptions,
-      isVisible,
-      forceError,
-      pullToRefreshEnabled,
-      onPullToRefreshExtra,
-    ]
+  const feedLabelMap = useMemo(
+    () =>
+      Object.fromEntries(
+        feedOptions.map(fo => [
+          fo,
+          feedLabelsProp?.[fo] ?? (FEED_LABEL_KEYS[fo] ? t(FEED_LABEL_KEYS[fo]) : fo),
+        ])
+      ),
+    [feedOptions, feedLabelsProp, t]
   );
 
-  const getLabel = (feedOption: FeedOption) => {
-    if (feedLabelsProp?.[feedOption]) return feedLabelsProp[feedOption];
-    const labelKey = FEED_LABEL_KEYS[feedOption];
-    return labelKey ? t(labelKey) : feedOption;
-  };
-
-  // Expose scrollToTop and setPage (setPage used by profile to sync tab tap -> pager)
   useImperativeHandle(
     ref,
     () => ({
@@ -369,7 +320,7 @@ function FeedPager({
 
       {showFeedIndicator && (
         <Animated.View style={feedBarAnimatedStyle}>
-          <SafeAreaView edges={applySafeArea ? ['top'] : []}>
+          <SafeAreaView edges={applySafeArea ? SAFE_AREA_TOP_EDGES : SAFE_AREA_NO_EDGES}>
             <View style={styles.indicatorContainer}>
               <View style={styles.feedIndicators}>
                 {feedOptions.map((feedOption, index) => (
@@ -378,7 +329,7 @@ function FeedPager({
                     feedIndex={index}
                     indicatorBaseFontSize={indicatorBaseFontSize}
                     pageScrollProgress={pageScrollProgress}
-                    label={getLabel(feedOption)}
+                    label={feedLabelMap[feedOption]}
                     onPress={indicatorPressHandlers[feedOption]}
                     pressableStyle={styles.indicatorItem}
                   />
@@ -392,11 +343,11 @@ function FeedPager({
         </Animated.View>
       )}
 
-      {/* PagerView for feeds with optimized gesture handling */}
       <PagerView
         ref={pagerViewRef}
         style={styles.pagerView}
         initialPage={initialPageIndex}
+        onPageScroll={handlePageScroll}
         onPageSelected={handlePageSelected}
         scrollEnabled={scrollEnabled}
         overdrag={false}
@@ -404,7 +355,22 @@ function FeedPager({
       >
         {feedOptions.map((feedOption, index) => (
           <View key={feedOption} style={feedPageStyle}>
-            {renderFeed({ item: feedOption, index })}
+            <FeedRenderer
+              ref={feedRendererRefCallbacks[feedOption]}
+              feedOption={String(feedOption)}
+              userDid={userDid}
+              headerComponent={headerComponent}
+              backgroundColor={backgroundColor}
+              secondaryColor={secondaryColor}
+              viewMode={viewMode}
+              onViewModeChange={onViewModeChange}
+              contentScrollProgressOutput={contentScrollProgressOutput}
+              queryOptions={feedQueryOptions}
+              isVisible={isVisible && index === currentFeedIndex}
+              forceError={forceError}
+              pullToRefreshEnabled={pullToRefreshEnabled}
+              onPullToRefreshExtra={onPullToRefreshExtra}
+            />
           </View>
         ))}
       </PagerView>
@@ -428,7 +394,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   indicatorItem: {
-    paddingHorizontal: 4, // Reduced from 8 to 4 for tighter spacing
+    paddingHorizontal: 4,
   },
   createButton: {
     alignItems: 'center',
@@ -438,7 +404,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   feedPage: {
-    // width will be set dynamically
     height: '100%',
   },
 });
