@@ -18,6 +18,7 @@ export interface VideoCardMediaGestureLayerProps {
   videoGesture: GestureDetectorGestureProp;
   posterUrl: string | null;
   cannotShowMedia: boolean;
+  screenHeight: number;
   firstFrameRendered: boolean;
   recyclingKey: string;
   videoSource: VideoSource | null;
@@ -53,6 +54,7 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
   textDimAnimatedStyle,
   heartAnimatedStyle,
   posterPriority,
+  screenHeight,
 }: VideoCardMediaGestureLayerProps) {
   return (
     <GestureDetector gesture={videoGesture}>
@@ -61,7 +63,7 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
           {!!videoSource && !cannotShowMedia && !isBlurred && player && (
             <ExpoVideoView
               player={player}
-              style={styles.videoPlayer}
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, height: screenHeight }}
               contentFit="contain"
               nativeControls={false}
               playsInline
@@ -76,7 +78,10 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
             <Image
               source={{ uri: posterUrl }}
               contentFit="contain"
-              style={styles.poster}
+              style={[
+                { position: 'absolute', top: 0, left: 0, right: 0, height: screenHeight },
+                styles.posterBackground,
+              ]}
               pointerEvents="none"
               recyclingKey={recyclingKey}
               cachePolicy="memory-disk"
@@ -120,11 +125,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  videoPlayer: {
-    ...StyleSheet.absoluteFill,
-  },
-  poster: {
-    ...StyleSheet.absoluteFill,
+  posterBackground: {
     backgroundColor: Colors.black,
   },
   loadingText: {

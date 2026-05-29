@@ -14,7 +14,7 @@ function isDetailNavTab(s: string): s is DetailNavTab {
 }
 
 /**
- * Read the active tab from NativeTabs navigator state. Returns `null` when the
+ * Read the active tab from the navigator state. Returns `null` when the
  * calling component is not inside a tab navigator (e.g. root modals).
  */
 export function getActiveTabFromNavigation(
@@ -105,7 +105,7 @@ export function buildChannelDetailHref(encodedChannelId: string, tab: DetailNavT
 }
 
 /**
- * Resolves the active tab using React Navigation state (reliable with NativeTabs).
+ * Resolves the active tab using React Navigation state.
  * Falls back to segments for root screens outside the tab navigator.
  */
 export function useCurrentDetailNavTab(): DetailNavTab {

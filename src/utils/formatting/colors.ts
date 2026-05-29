@@ -87,7 +87,7 @@ export const getStatusBarStyle = (foregroundColor: string): 'light' | 'dark' =>
   isColorDark(foregroundColor) ? 'dark' : 'light';
 
 /** Inactive tab bar icon/label color. */
-export const TAB_BAR_INACTIVE_TINT = blendColors(Colors.neutral[200], Colors.neutral[300], 0.5);
+export const TAB_BAR_INACTIVE_TINT = Colors.neutral[300];
 
 const MIN_DARK_BG_CONTRAST = 4.5;
 const MUDDY_SATURATION_THRESHOLD = 0.18;

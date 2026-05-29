@@ -35,19 +35,13 @@ import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import EmptyFeed from './EmptyFeed';
 import {
   FEED_VIEW_CONSTANTS,
-  IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING,
   getEmptyFeedType,
   getFeedItemKey,
   getProfileColors,
   getPullToRefreshTintColor,
   isHeaderFeed as getIsHeaderFeed,
+  createReanimatedScrollComponent,
 } from './feedViewShared';
-import { isIosLiquidGlassAvailable } from '@/stores/userStore';
-import { FeedScrollProvider } from '../../../context/FeedScrollContext';
-import type {
-  FeedScrollLayoutValue,
-  FeedScrollMotionValue,
-} from '../../../context/FeedScrollContext';
 import type { SharedValue } from 'react-native-reanimated';
 import type { Ref } from 'react';
 import type { GridFeedModalZoomConfig } from '@/utils/navigation/feedModalRoute';
@@ -134,8 +128,7 @@ interface GridFeedViewProps {
   isLoading?: boolean;
   ListComponent?: React.ComponentType<unknown> | null;
   contentScrollProgressOutput?: SharedValue<number>;
-  snapTopInset: number;
-  useNativeTabBottomSafeArea?: boolean;
+  tabBarReservesBottom?: boolean;
   pullToRefresh?: ListFeedPullToRefresh;
 }
 
@@ -156,8 +149,7 @@ function GridFeedView({
   isLoading = false,
   ListComponent,
   contentScrollProgressOutput,
-  snapTopInset,
-  useNativeTabBottomSafeArea = false,
+  tabBarReservesBottom = false,
   pullToRefresh,
   ref,
 }: GridFeedViewProps & { ref?: Ref<ListFeedViewRef> }) {
@@ -189,8 +181,8 @@ function GridFeedView({
 
   const animatedScrollRef = useAnimatedRef<Animated.ScrollView>();
   const renderScrollComponent = useCallback(
-    (props: ScrollViewProps) => <Animated.ScrollView ref={animatedScrollRef} {...props} />,
-    []
+    (props: ScrollViewProps) => createReanimatedScrollComponent(animatedScrollRef, props),
+    [animatedScrollRef]
   );
   const scrollOffsetYSV = useScrollOffset(animatedScrollRef);
 
@@ -198,8 +190,10 @@ function GridFeedView({
     () => scrollOffsetYSV.value,
     y => {
       if (contentScrollProgressOutput) {
-        contentScrollProgressOutput.set(
-          Math.max(0, Math.min(1, y / SCROLL_CONSTANTS.HEADER_FADE_DISTANCE))
+        // eslint-disable-next-line react-compiler/react-compiler
+        contentScrollProgressOutput.value = Math.max(
+          0,
+          Math.min(1, y / SCROLL_CONSTANTS.HEADER_FADE_DISTANCE)
         );
       }
     },
@@ -244,27 +238,16 @@ function GridFeedView({
   const itemWidth = windowWidth / numColumns;
   const itemHeight = itemWidth / DEFAULT_VIDEO_ASPECT_RATIO;
   const itemSpacing = itemHeight + FEED_VIEW_CONSTANTS.GRID_CELL_GAP;
-  const extraBottomPadding = isIosLiquidGlassAvailable ? IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING : 0;
 
   const gridSnapToOffsets = useMemo(() => {
     return buildGridSnapToOffsets({
       useScrollTracking,
       headerHeight,
-      isHeaderFeed,
-      snapTopInset,
       itemCount: feed.length,
       numColumns,
       itemSpacing,
     });
-  }, [
-    useScrollTracking,
-    headerHeight,
-    isHeaderFeed,
-    snapTopInset,
-    feed.length,
-    numColumns,
-    itemSpacing,
-  ]);
+  }, [useScrollTracking, headerHeight, feed.length, numColumns, itemSpacing]);
 
   const feedItemCount = feed.length;
   const renderGridItem = useCallback(
@@ -304,20 +287,6 @@ function GridFeedView({
     },
     [onGridItemPress, gridFeedModalZoomConfig, feedItemCount, numColumns, itemWidth, itemHeight]
   );
-
-  const feedScrollMotion = useMemo<FeedScrollMotionValue | null>(() => {
-    if (!useScrollTracking) return null;
-    return { scrollOffsetYSV };
-  }, [useScrollTracking, scrollOffsetYSV]);
-
-  const feedScrollLayout = useMemo<FeedScrollLayoutValue | null>(() => {
-    if (!useScrollTracking) return null;
-    return {
-      headerHeight,
-      viewportHeight: viewportDimensions.height,
-      itemSpacing,
-    };
-  }, [useScrollTracking, headerHeight, viewportDimensions.height, itemSpacing]);
 
   const ListEl = ListComponent || FlashList;
   const listProps = useMemo(
@@ -378,7 +347,7 @@ function GridFeedView({
         {
           backgroundColor: Colors.transparent,
           ...(feed.length > 0 && {
-            paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom + extraBottomPadding,
+            paddingBottom: tabBarReservesBottom ? 0 : insets.bottom,
           }),
         },
       ]}
@@ -442,13 +411,7 @@ function GridFeedView({
       style={[styles.container, { backgroundColor: Colors.transparent }]}
       onLayout={handleGridContainerLayout}
     >
-      {useScrollTracking && feedScrollMotion && feedScrollLayout ? (
-        <FeedScrollProvider motion={feedScrollMotion} layout={feedScrollLayout}>
-          {listContent}
-        </FeedScrollProvider>
-      ) : (
-        listContent
-      )}
+      {listContent}
     </View>
   );
 }

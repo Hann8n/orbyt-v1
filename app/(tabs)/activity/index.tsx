@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState, useCallback } from 'react';
+import React, { useRef, useMemo, useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { tabRefs } from '@/utils/navigation/tabRefs';
 import { View, StyleSheet, Text } from 'react-native';
@@ -30,6 +30,7 @@ const ActivityScreen: React.FC = () => {
 
   const notificationsTabRef = useRef<typeof tabRefs.activity>(null);
   const chatsTabRef = useRef<typeof tabRefs.activity>(null);
+  const currentIndexRef = useRef(0);
 
   const routes = useMemo<Route[]>(
     () => [
@@ -73,13 +74,21 @@ const ActivityScreen: React.FC = () => {
     []
   );
 
+  useEffect(() => {
+    tabRefs.activity = {
+      scrollToTop: () => {
+        if (currentIndexRef.current === 0) notificationsTabRef.current?.scrollToTop();
+        else chatsTabRef.current?.scrollToTop();
+      },
+    };
+    return () => {
+      tabRefs.activity = null;
+    };
+  }, []);
+
   const handleIndexChange = useCallback((nextIndex: number) => {
     setIndex(nextIndex);
-    if (nextIndex === 0 && notificationsTabRef.current) {
-      tabRefs.activity = notificationsTabRef.current;
-    } else if (nextIndex === 1 && chatsTabRef.current) {
-      tabRefs.activity = chatsTabRef.current;
-    }
+    currentIndexRef.current = nextIndex;
   }, []);
 
   const renderScene = useCallback(

@@ -183,15 +183,14 @@ const FeedRendererComponent = ({
   const navigationRef = useRef(navigation);
 
   const gridStateRef = useRef({ feed, feedOption, userDid });
-  // eslint-disable-next-line react-hooks/refs
-  gridStateRef.current = { feed, feedOption, userDid };
 
   useLayoutEffect(() => {
     routerRef.current = router;
     navigationRef.current = navigation;
+    gridStateRef.current = { feed, feedOption, userDid };
   });
 
-  /** Reads the active tab from NativeTabs navigator state synchronously — no React state, no staleness. */
+  /** Reads the active tab from navigator state synchronously — no React state, no staleness. */
   const getTab = (): DetailNavTab => getActiveTabFromNavigation(navigationRef.current) ?? 'home';
 
   const handleHashtagPress = useCallback((hashtag: string) => {
@@ -213,13 +212,7 @@ const FeedRendererComponent = ({
         ...(s.userDid ? { userDid: s.userDid } : {}),
         initialPostUri,
       };
-      routerRef.current.push(
-        { pathname: `/(tabs)/${getTab()}/feed` as const, params },
-        {
-          dangerouslySingular: () =>
-            [feedOption, s.userDid, initialPostUri].filter(Boolean).join('|'),
-        }
-      );
+      routerRef.current.push({ pathname: `/(tabs)/${getTab()}/feed` as const, params });
     }
   }, []);
 

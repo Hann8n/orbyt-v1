@@ -1,4 +1,4 @@
-import { useCallback, useImperativeHandle, forwardRef, memo, useRef, useEffect } from 'react';
+import { useCallback, useImperativeHandle, memo, useRef, useEffect, type Ref } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,94 +14,91 @@ import { useUserStore } from '@/stores/userStore';
 import { useAppStore } from '@/stores/appStore';
 import { VideoUploadBanner } from '@/components/ui/VideoUploadBanner';
 
-type HomeScreenProps = Record<string, never>;
+function HomeScreenComponent({ ref }: { ref?: Ref<HomeScreenRef> }) {
+  const currentFeed = useAppStore(s => s.lastHomeFeed);
+  const setLastHomeFeed = useAppStore(s => s.setLastHomeFeed);
+  const queryClient = useQueryClient();
+  const currentUser = useUserStore(state => state.currentUser);
+  const feedBootstrapStatus = useUserStore(state => state.feedBootstrapStatus);
+  const feedBootstrapDid = useUserStore(state => state.feedBootstrapDid);
+  const insets = useSafeAreaInsets();
+  const isRouteFocused = useVisibilityRouteIsActive('home');
+  const shouldGateHomeFeed =
+    !!currentUser?.did && (feedBootstrapStatus !== 'ready' || feedBootstrapDid !== currentUser.did);
 
-const HomeScreen = memo(
-  forwardRef<HomeScreenRef, HomeScreenProps>((_props, ref) => {
-    const currentFeed = useAppStore(s => s.lastHomeFeed);
-    const setLastHomeFeed = useAppStore(s => s.setLastHomeFeed);
-    const queryClient = useQueryClient();
-    const currentUser = useUserStore(state => state.currentUser);
-    const feedBootstrapStatus = useUserStore(state => state.feedBootstrapStatus);
-    const feedBootstrapDid = useUserStore(state => state.feedBootstrapDid);
-    const insets = useSafeAreaInsets();
-    const isRouteFocused = useVisibilityRouteIsActive('home');
-    const shouldGateHomeFeed =
-      !!currentUser?.did &&
-      (feedBootstrapStatus !== 'ready' || feedBootstrapDid !== currentUser.did);
+  const triggerRefresh = useCallback(async () => {
+    // Refresh both feeds since home screen can show either 'following' or 'your-mix'
+    // Include userDid in query keys since 'following' and 'your-mix' are user-specific
+    const userDid = currentUser?.did;
 
-    const triggerRefresh = useCallback(async () => {
-      // Refresh both feeds since home screen can show either 'following' or 'your-mix'
-      // Include userDid in query keys since 'following' and 'your-mix' are user-specific
-      const userDid = currentUser?.did;
+    // Use invalidateQueries with refetchType to ensure it refetches active queries
+    // Prefix matching avoids coupling invalidation to source fingerprint key segments.
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.feed.byUser('following', userDid ?? undefined),
+      exact: false,
+      refetchType: 'active', // Only refetch active queries
+    });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.feed.byUser('your-mix', userDid ?? undefined),
+      exact: false,
+      refetchType: 'active', // Only refetch active queries
+    });
+  }, [queryClient, currentUser?.did]);
 
-      // Use invalidateQueries with refetchType to ensure it refetches active queries
-      // Prefix matching avoids coupling invalidation to source fingerprint key segments.
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.feed.byUser('following', userDid ?? undefined),
-        exact: false,
-        refetchType: 'active', // Only refetch active queries
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.feed.byUser('your-mix', userDid ?? undefined),
-        exact: false,
-        refetchType: 'active', // Only refetch active queries
-      });
-    }, [queryClient, currentUser?.did]);
+  const handleFeedChange = useCallback(
+    (newFeed: FeedOption) => {
+      if (newFeed === 'following' || newFeed === 'your-mix') {
+        setLastHomeFeed(newFeed);
+      }
+    },
+    [setLastHomeFeed]
+  );
 
-    const handleFeedChange = useCallback(
-      (newFeed: FeedOption) => {
-        if (newFeed === 'following' || newFeed === 'your-mix') {
-          setLastHomeFeed(newFeed);
-        }
-      },
-      [setLastHomeFeed]
-    );
+  // Ref for FeedPager to forward scrollToTop (FeedPager exposes FeedPagerRef)
+  const feedPagerRef = useRef<FeedPagerRef>(null);
 
-    // Ref for FeedPager to forward scrollToTop (FeedPager exposes FeedPagerRef)
-    const feedPagerRef = useRef<FeedPagerRef>(null);
+  // Expose refresh method to parent components
+  useImperativeHandle(
+    ref,
+    () => ({
+      refresh: triggerRefresh,
+    }),
+    [triggerRefresh]
+  );
 
-    // Expose refresh method to parent components
-    useImperativeHandle(
-      ref,
-      () => ({
-        refresh: triggerRefresh,
-      }),
-      [triggerRefresh]
-    );
+  // Store home screen ref in tabRefs for tab navigation
+  // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener
+  useEffect(() => {
+    tabRefs.home = {
+      scrollToTop: () => feedPagerRef.current?.scrollToTop(),
+      refresh: triggerRefresh,
+    };
+    return () => {
+      tabRefs.home = null;
+    };
+  }, [triggerRefresh]);
 
-    // Store home screen ref in tabRefs for tab navigation
-    // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener
-    useEffect(() => {
-      tabRefs.home = {
-        scrollToTop: () => feedPagerRef.current?.scrollToTop(),
-        refresh: triggerRefresh,
-      };
-      return () => {
-        tabRefs.home = null;
-      };
-    }, [triggerRefresh]);
+  return (
+    <View style={styles.container}>
+      <VideoUploadBanner topInset={insets.top} applySafeArea={true} />
+      {shouldGateHomeFeed ? (
+        <View style={styles.bootstrapLoadingContainer}>
+          <ActivityIndicator size="large" color={Colors.neutral[50]} />
+        </View>
+      ) : (
+        <FeedPager
+          ref={feedPagerRef}
+          currentFeed={currentFeed}
+          onFeedChange={handleFeedChange}
+          applySafeArea={true}
+          isVisible={isRouteFocused}
+        />
+      )}
+    </View>
+  );
+}
 
-    return (
-      <View style={styles.container}>
-        <VideoUploadBanner topInset={insets.top} applySafeArea={true} />
-        {shouldGateHomeFeed ? (
-          <View style={styles.bootstrapLoadingContainer}>
-            <ActivityIndicator size="large" color={Colors.neutral[50]} />
-          </View>
-        ) : (
-          <FeedPager
-            ref={feedPagerRef}
-            currentFeed={currentFeed}
-            onFeedChange={handleFeedChange}
-            applySafeArea={true}
-            isVisible={isRouteFocused}
-          />
-        )}
-      </View>
-    );
-  })
-);
+const HomeScreen = memo(HomeScreenComponent);
 
 const styles = StyleSheet.create({
   container: {

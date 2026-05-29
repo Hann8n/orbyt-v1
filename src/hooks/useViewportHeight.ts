@@ -1,38 +1,27 @@
 import { useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import { getViewportDimensions } from '../utils/device/screen';
+import { TAB_BAR_CONTENT_HEIGHT } from '@/components/layout/navigation/AppTabBar';
 
 export function useViewportHeight({
   hasTabBar,
-  useManualIosGlassTabPaddingLayout,
   feedLayoutHeight,
 }: {
   hasTabBar: boolean;
-  useManualIosGlassTabPaddingLayout: boolean;
   feedLayoutHeight: number;
 }): number {
   const insets = useSafeAreaInsets();
   const { screenHeight } = useDeviceLayout();
 
   return useMemo(() => {
-    if (!hasTabBar) {
-      const maxViewport = Math.max(0, screenHeight - insets.bottom);
-      return feedLayoutHeight > 0 ? Math.min(feedLayoutHeight, maxViewport) : maxViewport;
-    }
-    if (useManualIosGlassTabPaddingLayout) {
-      return getViewportDimensions(
-        { top: insets.top, bottom: insets.bottom, left: 0, right: 0 },
-        { useFullWindowHeight: !hasTabBar }
-      ).height;
-    }
-    return Math.max(0, screenHeight - insets.bottom);
-  }, [
-    hasTabBar,
-    screenHeight,
-    insets.top,
-    insets.bottom,
-    feedLayoutHeight,
-    useManualIosGlassTabPaddingLayout,
-  ]);
+    // Prefer the measured layout height — exact, no estimation needed.
+    if (feedLayoutHeight > 0) return feedLayoutHeight;
+    // Before layout fires, derive the accurate height from known constants so that
+    // card sizes and scroll offsets are correct on the very first render.
+    const belowTabBar = Math.max(
+      0,
+      screenHeight - insets.bottom - (hasTabBar ? TAB_BAR_CONTENT_HEIGHT : 0)
+    );
+    return belowTabBar;
+  }, [hasTabBar, screenHeight, insets.bottom, feedLayoutHeight]);
 }

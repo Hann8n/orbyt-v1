@@ -16,6 +16,7 @@ import PagerView from 'react-native-pager-view';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedReaction,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -24,7 +25,7 @@ import { NanoIcon } from '../../ui/NanoIcon';
 import { Colors } from '../../../theme';
 import FeedRenderer from './FeedRenderer';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { FeedPagerRef } from '../../../utils/navigation/tabRefs';
 import { useTabBarVisibility } from '../../../context/FeedIndicatorContext';
@@ -162,7 +163,6 @@ function FeedPager({
   const { screenWidth: width, isTablet } = useDeviceLayout();
   const pagerViewRef = useRef<PagerView>(null);
   const feedRendererRefs = useRef<{ [key: string]: ListFeedViewRef | null }>({});
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const tabBarVisibility = useTabBarVisibility();
 
@@ -208,25 +208,26 @@ function FeedPager({
   // Derive current feed option from current index
   const currentFeedOption = feedOptions[currentFeedIndex] || feedOptions[0] || 'following';
 
-  // Animate header back to visible when switching tabs
-  useEffect(() => {
-    if (!contentScrollProgressOutput) return;
-    contentScrollProgressOutput.set(withTiming(0, { duration: 150 }));
-  }, [currentFeedIndex, contentScrollProgressOutput]);
+  // Animate header back to visible when switching tabs (UI thread)
+  useAnimatedReaction(
+    () => pageScrollProgress.value,
+    (index, prev) => {
+      if (prev === null || index === prev || !contentScrollProgressOutput) return;
+      contentScrollProgressOutput.value = withTiming(0, { duration: 150 });
+    },
+    [contentScrollProgressOutput]
+  );
 
-  const feedBarAnimatedStyle = useAnimatedStyle(() => {
-    const visible = tabBarVisibility.value > 0.5;
-    return {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      zIndex: 2,
-      backgroundColor: Colors.transparent,
-      top: applySafeArea ? 12 + insets.top : 12,
-      opacity: withTiming(visible ? 1 : 0, { duration: 200 }),
-      transform: [{ translateY: withTiming(visible ? 0 : -18, { duration: 200 }) }],
-    };
-  }, [tabBarVisibility, applySafeArea, insets.top]);
+  const feedBarAnimatedStyle = useAnimatedStyle(() => ({
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+    backgroundColor: Colors.transparent,
+    opacity: tabBarVisibility.value,
+    transform: [{ translateY: (1 - tabBarVisibility.value) * -18 }],
+  }));
 
   // Handle page change from PagerView - final confirmation after transition completes
   const handlePageSelected = useCallback(
@@ -368,24 +369,26 @@ function FeedPager({
 
       {showFeedIndicator && (
         <Animated.View style={feedBarAnimatedStyle}>
-          <View style={styles.indicatorContainer}>
-            <View style={styles.feedIndicators}>
-              {feedOptions.map((feedOption, index) => (
-                <FeedIndicatorItem
-                  key={feedOption}
-                  feedIndex={index}
-                  indicatorBaseFontSize={indicatorBaseFontSize}
-                  pageScrollProgress={pageScrollProgress}
-                  label={getLabel(feedOption)}
-                  onPress={indicatorPressHandlers[feedOption]}
-                  pressableStyle={styles.indicatorItem}
-                />
-              ))}
+          <SafeAreaView edges={applySafeArea ? ['top'] : []}>
+            <View style={styles.indicatorContainer}>
+              <View style={styles.feedIndicators}>
+                {feedOptions.map((feedOption, index) => (
+                  <FeedIndicatorItem
+                    key={feedOption}
+                    feedIndex={index}
+                    indicatorBaseFontSize={indicatorBaseFontSize}
+                    pageScrollProgress={pageScrollProgress}
+                    label={getLabel(feedOption)}
+                    onPress={indicatorPressHandlers[feedOption]}
+                    pressableStyle={styles.indicatorItem}
+                  />
+                ))}
+              </View>
+              <NativePressable onPress={handleCreatePress} style={styles.createButton}>
+                <NanoIcon name="camera-2-fill" size={24} color={Colors.neutral[50]} />
+              </NativePressable>
             </View>
-            <NativePressable onPress={handleCreatePress} style={styles.createButton}>
-              <NanoIcon name="camera-2-fill" size={26} color={Colors.neutral[50]} />
-            </NativePressable>
-          </View>
+          </SafeAreaView>
         </Animated.View>
       )}
 
@@ -416,7 +419,7 @@ const styles = StyleSheet.create({
   },
   indicatorContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'space-between',
   },

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, memo, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Text, StyleSheet, Platform } from 'react-native';
-import { GestureDetector, Gesture, type NativeGesture } from 'react-native-gesture-handler';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
   clamp,
@@ -27,19 +27,12 @@ interface VideoScrubberProps {
   active: boolean;
   player?: VideoPlayer;
   seekingAnimationSV: SharedValue<number>;
-  scrollGesture?: NativeGesture;
   children?: ReactNode;
   /** Composed opacity from VideoCard (scroll overlap × scrubbing). */
   overlayOpacitySV: SharedValue<number>;
 }
 
 const SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS = 0.1;
-// Drift thresholds for the continuous-animation resync logic:
-// - Below MIN_DRIFT: animation is stopped at exactly currentTime → restart it.
-// - Above MAX_DRIFT: external jump/seek occurred → resync to correct position.
-// Values between the two mean the long animation is running correctly — leave it alone.
-const SCRUBBER_DRIFT_MIN = 0.02;
-const SCRUBBER_DRIFT_MAX = 0.2;
 const SCRUBBER_BAR_HEIGHT = 3;
 const SCRUBBER_TOUCH_AREA_HEIGHT = 32;
 const SCRUBBER_TOTAL_HEIGHT = SCRUBBER_TOUCH_AREA_HEIGHT + SCRUBBER_BAR_HEIGHT;
@@ -53,7 +46,6 @@ function VideoScrubberActive({
   active,
   player,
   seekingAnimationSV,
-  scrollGesture,
   children,
   overlayOpacitySV,
 }: VideoScrubberProps) {
@@ -145,7 +137,7 @@ function VideoScrubberActive({
     player.timeUpdateEventInterval = active ? SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS : 0;
   }, [player, active, playerStatusEvent]);
 
-  // Track playing state so the continuous animation can be paused/resumed correctly.
+  // Track playing state for the progress bar opacity style.
   useEffect(() => {
     if (!player || !active) return;
 
@@ -153,47 +145,36 @@ function VideoScrubberActive({
       scheduleOnUI(() => {
         'worklet';
         isPlayingSV.set(isPlaying);
-        if (!isPlaying) {
-          cancelAnimation(currentTimeSV);
-        }
       });
     };
 
     syncPlaying(player.playing ?? false);
     const sub = player.addListener('playingChange', ({ isPlaying }) => syncPlaying(isPlaying));
     return () => sub.remove();
-  }, [player, active, isPlayingSV, currentTimeSV]);
+  }, [player, active, isPlayingSV]);
 
-  // Drive the progress bar with a single long withTiming animation to the end of the video.
-  // This runs at display frame rate (60/120fps) with no tick-based jitter.
-  // We only resync when drift falls outside the expected window:
-  //   drift < DRIFT_MIN → animation stopped at the current position (e.g. just seeked) → restart it.
-  //   drift > DRIFT_MAX → external jump/buffering stall → snap & restart.
-  //   otherwise        → animation is running correctly → leave it alone.
+  // On each tick, interpolate forward by one interval toward the next expected position.
+  // This gives frame-rate-smooth progress with no drift constants or resync logic.
   useEffect(() => {
     if (!player || !active) return;
 
     const sub = player.addListener('timeUpdate', ({ currentTime }) => {
-      if (!isSeekingSV.get()) {
-        scheduleOnUI(() => {
-          'worklet';
-          if (!isPlayingSV.get()) return;
-          const dur = durationSV.get();
-          if (dur === 0) return;
-
-          const animatedPos = currentTimeSV.get();
-          const drift = Math.abs(animatedPos - currentTime);
-
-          if (drift < SCRUBBER_DRIFT_MIN || drift > SCRUBBER_DRIFT_MAX) {
-            const remainingMs = Math.max(100, (dur - currentTime) * 1000);
-            currentTimeSV.set(currentTime);
-            currentTimeSV.set(withTiming(dur, { duration: remainingMs, easing: Easing.linear }));
-          }
-        });
-      }
+      if (isSeekingSV.get()) return;
+      scheduleOnUI(() => {
+        'worklet';
+        const dur = durationSV.get();
+        if (dur === 0) return;
+        const target = Math.min(currentTime + SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS, dur);
+        currentTimeSV.set(
+          withTiming(target, {
+            duration: SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS * 1000,
+            easing: Easing.linear,
+          })
+        );
+      });
     });
     return () => sub.remove();
-  }, [player, active, isSeekingSV, isPlayingSV, currentTimeSV, durationSV]);
+  }, [player, active, isSeekingSV, currentTimeSV, durationSV]);
 
   useAnimatedReaction(
     () => seekingAnimationSV.get() >= 0.2,
@@ -297,14 +278,9 @@ function VideoScrubberActive({
         scheduleOnRN(seekTo, newTime);
       });
 
-    if (scrollGesture) {
-      gesture.blocksExternalGesture(scrollGesture);
-    }
-
     return gesture.enabled(active);
   }, [
     active,
-    scrollGesture,
     seekingAnimationSV,
     screenWidth,
     durationSV,

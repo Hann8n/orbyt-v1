@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, type ScrollViewProps } from 'react-native';
+import Animated from 'react-native-reanimated';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import { FEED_TYPES } from '../../../utils/constants';
@@ -16,8 +17,6 @@ export const FEED_VIEW_CONSTANTS = {
   HEADER_BLOCKING_THRESHOLD: 250,
   HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y: 10,
 } as const;
-
-export const IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING = 12;
 
 export const isHeaderFeed = (feedOption: string, headerComponent?: ReactNode): boolean =>
   Boolean(headerComponent) || isValidAtUri(feedOption);
@@ -96,6 +95,36 @@ export function FeedSurfaceStack({ listActive, listSurface, gridSurface }: FeedS
       {layer(listActive, listSurface)}
       {layer(!listActive, gridSurface)}
     </View>
+  );
+}
+
+/**
+ * Shared renderScrollComponent factory for FlashList-based feed views.
+ *
+ * Calls `animatedScrollRef(node)` (the callable form) so Reanimated registers
+ * the native view on the UI thread — required for `useScrollOffset` to track
+ * scroll events. Also preserves FlashList's internal scroll ref so imperative
+ * methods (scrollToItem, scrollToTop, etc.) continue to work.
+ */
+export function createReanimatedScrollComponent(
+  animatedScrollRef: { (instance: Animated.ScrollView | null): void },
+  props: ScrollViewProps
+): React.ReactElement {
+  const { ref: flashListScrollRef, ...rest } = props as ScrollViewProps & {
+    ref?: React.Ref<Animated.ScrollView>;
+  };
+  return (
+    <Animated.ScrollView
+      {...rest}
+      ref={(node: Animated.ScrollView | null) => {
+        animatedScrollRef(node);
+        if (typeof flashListScrollRef === 'function') {
+          (flashListScrollRef as (instance: Animated.ScrollView | null) => void)(node);
+        } else if (flashListScrollRef != null) {
+          (flashListScrollRef as React.MutableRefObject<Animated.ScrollView | null>).current = node;
+        }
+      }}
+    />
   );
 }
 

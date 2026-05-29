@@ -134,16 +134,3 @@ export function getVideoView(embed: PostView['embed'] | null | undefined): Video
 
 /** Default video aspect ratio (width / height). 9:16 portrait used everywhere for consistent sizing. */
 export const DEFAULT_VIDEO_ASPECT_RATIO = 9 / 16;
-
-/**
- * Standard card height for a video in the list feed: screen width / aspect ratio,
- * capped by screen height. Uses default 9:16 portrait when aspect ratio not provided.
- */
-export function getVideoCardHeight(
-  screenWidth: number,
-  screenHeight: number,
-  aspectRatio: number = DEFAULT_VIDEO_ASPECT_RATIO
-): number {
-  const idealHeight = screenWidth / aspectRatio;
-  return Math.min(idealHeight, screenHeight);
-}

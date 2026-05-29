@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  interpolate,
-  Extrapolate,
+  useAnimatedReaction,
+  withTiming,
   Easing,
   LinearTransition,
 } from 'react-native-reanimated';
@@ -64,6 +64,7 @@ interface ProfileScreenProps {
 
 type ProfileFeedTab = 'profile' | 'reposts' | 'likes' | 'bookmarks' | 'watched';
 
+const OVERLAY_SCROLL_HIDE_THRESHOLD = 0.4;
 const OVERLAY_HEADER_ACTIONS_LAYOUT = LinearTransition.duration(360).easing(
   Easing.inOut(Easing.cubic)
 );
@@ -358,20 +359,25 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const actionButtonsTop = defaultTop;
   const showBackButton = !!providedIdentifier;
 
-  const backIconPrimaryStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(overlayScrollProgressSV.value, [0, 1], [1, 0], Extrapolate.CLAMP),
-  }));
+  const backIconCrossfadeSV = useSharedValue(0);
+  const actionsOpacitySV = useSharedValue(1);
+  useAnimatedReaction(
+    () => overlayScrollProgressSV.value > OVERLAY_SCROLL_HIDE_THRESHOLD,
+    (isScrolled, prev) => {
+      if (prev === null || isScrolled === prev) return;
+      const timing = { duration: 200, easing: Easing.inOut(Easing.ease) };
+      backIconCrossfadeSV.value = withTiming(isScrolled ? 1 : 0, timing);
+      actionsOpacitySV.value = withTiming(isScrolled ? 0 : 1, timing);
+    },
+    [overlayScrollProgressSV]
+  );
 
-  const backIconSecondaryStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(overlayScrollProgressSV.value, [0, 1], [0, 1], Extrapolate.CLAMP),
+  const backIconPrimaryStyle = useAnimatedStyle(() => ({ opacity: 1 - backIconCrossfadeSV.value }));
+  const backIconSecondaryStyle = useAnimatedStyle(() => ({ opacity: backIconCrossfadeSV.value }));
+  const actionsAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: actionsOpacitySV.value,
+    pointerEvents: actionsOpacitySV.value < 0.5 ? 'none' : 'auto',
   }));
-
-  const overlayControlFadeAnimatedStyle = useAnimatedStyle(() => {
-    const progress = overlayScrollProgressSV.value;
-    const normalizedFade = interpolate(progress, [0.12, 0.55], [0, 1], Extrapolate.CLAMP);
-    const easedFade = normalizedFade * normalizedFade * (3 - 2 * normalizedFade);
-    return { opacity: 1 - easedFade };
-  }, [overlayScrollProgressSV]);
 
   const baseBackTextColor = profileColors.textColor || Colors.neutral[50];
 
@@ -469,7 +475,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
         backIconSecondaryStyle={backIconSecondaryStyle}
       >
         {!showErrorScreen && (
-          <Animated.View style={[styles.overlayMenuWrap, overlayControlFadeAnimatedStyle]}>
+          <Animated.View style={[styles.overlayMenuWrap, actionsAnimatedStyle]}>
             <SquircleNativePressable
               onPress={handleMenuPress}
               onPressIn={handleMenuPressIn}
@@ -484,7 +490,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
         )}
         {headerActions.length > 0 && (
           <Animated.View
-            style={[styles.overlayActionsContainer, overlayControlFadeAnimatedStyle]}
+            style={[styles.overlayActionsContainer, actionsAnimatedStyle]}
             layout={OVERLAY_HEADER_ACTIONS_LAYOUT}
           >
             {headerActions.map((action, index) => (

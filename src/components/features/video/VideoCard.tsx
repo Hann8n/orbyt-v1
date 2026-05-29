@@ -16,7 +16,6 @@ import {
   useDerivedValue,
   interpolate,
 } from 'react-native-reanimated';
-import { useFeedScrollMotion } from '../../../context/FeedScrollContext';
 
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { seenVideoService } from '../../../services/SeenVideoService';
@@ -389,24 +388,9 @@ function VideoCard({
 
   const seekingAnimationSV = useSharedValue(0);
 
-  const feedScrollMotion = useFeedScrollMotion();
-  const scrollOffsetYSV = feedScrollMotion?.scrollOffsetYSV ?? null;
-  const scrollFadeParamsSV = feedScrollMotion?.scrollFadeParamsSV ?? null;
-
-  const overlayOpacitySV = useDerivedValue(() => {
-    const seekOpacity = interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp');
-    if (!scrollOffsetYSV || !scrollFadeParamsSV) return seekOpacity;
-    const { spacing, snapOrigin, firstVideoIdx } = scrollFadeParamsSV.value;
-    if (spacing === 0) return seekOpacity;
-
-    if (!renderHeavyChrome) return seekOpacity;
-
-    const cardTop = snapOrigin + (idx - firstVideoIdx) * spacing;
-    const distance = Math.abs(scrollOffsetYSV.value - cardTop);
-    const scrollOpacity =
-      1 - Math.max(0, Math.min(1, (distance - spacing * 0.15) / (spacing * 0.3)));
-    return Math.min(seekOpacity, scrollOpacity);
-  });
+  const overlayOpacitySV = useDerivedValue(() =>
+    interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp')
+  );
 
   const playerDuration = player?.duration;
   const shouldHideScrubberForShortVideo = !!(
@@ -484,6 +468,7 @@ function VideoCard({
         textDimAnimatedStyle={textDimAnimatedStyle}
         heartAnimatedStyle={heartAnimatedStyle}
         posterPriority={posterPriority}
+        screenHeight={windowHeight}
       />
 
       <VideoCardOverlayLayers
