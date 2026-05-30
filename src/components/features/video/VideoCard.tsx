@@ -7,8 +7,7 @@ import {
   useRef,
   type Ref,
 } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import {
   useSharedValue,
   useAnimatedStyle,
@@ -17,6 +16,7 @@ import {
   interpolate,
 } from 'react-native-reanimated';
 
+import { useFeedLayout } from '../feed/feedViewShared';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { seenVideoService } from '../../../services/SeenVideoService';
 import { prefetchProfile, useFollowMutation } from '../../../services/data/ProfileService';
@@ -48,19 +48,6 @@ type Post = ExtendedPostView | ExtendedFeedViewPost;
 const MIN_SCRUBBER_DURATION_SECONDS = 7;
 const cardHeightStyleCache = new Map<number, { height: number }>();
 
-const getDistanceFromActive = (activeIndex: number | undefined, currentIndex: number): number =>
-  activeIndex !== undefined ? Math.abs(activeIndex - currentIndex) : Infinity;
-
-const getRenderHeavyChrome = (
-  activeIndex: number | undefined,
-  distanceFromActive: number,
-  defaultValue: boolean
-): boolean =>
-  activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 1 : defaultValue;
-
-const getHoldSource = (activeIndex: number | undefined, distanceFromActive: number): boolean =>
-  activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 2 : true;
-
 const getCardHeightStyle = (cardHeight: number): { height: number } => {
   const normalized = Math.max(0, Math.round(cardHeight));
   const cached = cardHeightStyleCache.get(normalized);
@@ -88,15 +75,12 @@ export interface VideoCardProps {
   onVideoStatus?: (uri: string, status: string) => void;
   height?: number;
   canPlay?: boolean;
-  /** When false, skip scrubber + `VideoOverlayUI` (list rows far from active). */
-  renderHeavyChrome?: boolean;
   showOverlay?: boolean;
   feedOption?: string;
   index?: number;
   onHashtagPress?: (hashtag: string) => void;
   ref?: Ref<VideoCardRef>;
-  /** Active index in the list for computing relative visibility */
-  activeIndex?: number;
+  isActive?: boolean;
 }
 
 function VideoCard({
@@ -105,16 +89,13 @@ function VideoCard({
   onVideoStatus,
   height,
   canPlay = true,
-  renderHeavyChrome: renderHeavyChromeProp = true,
   showOverlay = true,
   feedOption,
   index,
-  activeIndex,
+  isActive = true,
   onHashtagPress,
   ref,
 }: VideoCardProps) {
-  const { t } = useTranslation();
-
   const feedContext = feedItem?.feedContext;
   const reqId = feedItem?.reqId;
   const { algorithmicFeedProvider, currentUser } = useUserStore(
@@ -131,21 +112,12 @@ function VideoCard({
   }, [feedOption, algorithmicFeedProvider]);
 
   const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
-
   const idx = index ?? 0;
-  const distanceFromActive = getDistanceFromActive(activeIndex, idx);
-  // The active row is the one the list reports as most-visible; screen/app/foreground gating is
-  // already folded into `canPlay`, so this is purely "is this the focused card in the list".
-  const isActiveCard = activeIndex !== undefined ? activeIndex === idx : true;
-  const renderHeavyChrome = getRenderHeavyChrome(
-    activeIndex,
-    distanceFromActive,
-    renderHeavyChromeProp
-  );
-  const holdSource = getHoldSource(activeIndex, distanceFromActive);
 
-  const { height: windowHeight } = useWindowDimensions();
-  const cardHeight = height ?? windowHeight;
+  const feedLayout = useFeedLayout();
+  const cardHeight = height ?? feedLayout.viewportHeight;
+  const topInset = feedLayout.topInset;
+  const bottomInset = feedLayout.bottomInset;
 
   const [userChoseToView, setUserChoseToView] = useRecyclingState(false, [postView.uri]);
   const { cannotShowMedia, isBlurred, warningDescription, handleViewContent } =
@@ -154,7 +126,6 @@ function VideoCard({
   const videoView = getVideoView(postView.embed);
   const videoUrl = videoView?.playlist || null;
   const posterUrl = videoView?.thumbnail || null;
-
   const recyclingKey = postView?.uri || postView?.cid || `item-${idx}`;
 
   const {
@@ -173,8 +144,8 @@ function VideoCard({
     videoUrl,
     postUri: postView.uri,
     feedOption,
-    isActiveCard,
-    holdSource,
+    isActiveCard: isActive,
+    holdSource: true,
     canPlay,
     cannotShowMedia,
     isBlurred,
@@ -248,10 +219,10 @@ function VideoCard({
   );
 
   const repostedByRef = useRef(postView.repostedBy);
-
   useLayoutEffect(() => {
     repostedByRef.current = postView.repostedBy;
   }, [postView.repostedBy]);
+
   const handleRepostAuthorPress = useCallback(() => {
     const repostedBy = repostedByRef.current;
     const identifier = repostedBy?.handle;
@@ -280,14 +251,13 @@ function VideoCard({
   }, [postView.author]);
 
   const handleOpenComments = useCallback(() => {
-    const commentPost = {
-      uri: postView.uri,
-      cid: postView.cid,
-      indexedAt: postView.indexedAt,
-      author: postView.author,
-    };
     presentCommentSection({
-      post: commentPost,
+      post: {
+        uri: postView.uri,
+        cid: postView.cid,
+        indexedAt: postView.indexedAt,
+        author: postView.author,
+      },
       postedAt: (postView.record as AppBskyFeedPost.Record)?.createdAt || postView.indexedAt,
     });
   }, [postView, presentCommentSection]);
@@ -330,7 +300,6 @@ function VideoCard({
         }
       },
       playPause: (shouldPlay: boolean) => togglePlayback(shouldPlay),
-      // Report intended play state based on our own logic, not the underlying player flag.
       getPlayState: () => shouldPlayVideo,
       getCurrentTime: () => {
         if (!player) return 0;
@@ -356,31 +325,33 @@ function VideoCard({
   });
 
   useEffect(() => {
-    if (isActiveCard) {
+    if (isActive) {
       queueSeenInteractionOnce(INTERACTIONSEEN);
       seenVideoService.markAsSeen(postView.uri);
       logSelectContent(getAnalytics(), { content_type: 'video', item_id: postView.uri }).catch(
         () => {}
       );
     }
-  }, [isActiveCard, queueSeenInteractionOnce, postView.uri]);
+  }, [isActive, queueSeenInteractionOnce, postView.uri]);
 
   const textDimOpacitySV = useSharedValue(0);
+  const textDimOpacityRef = useRef(textDimOpacitySV);
   useEffect(() => {
-    textDimOpacitySV.value = 0;
-  }, [postView.uri, textDimOpacitySV]);
+    textDimOpacityRef.current.value = 0;
+  }, [postView.uri]);
   const textDimAnimatedStyle = useAnimatedStyle(() => ({ opacity: textDimOpacitySV.value }));
-  const handleOverlayCollapsedChange = useCallback(
-    (isCollapsed: boolean) => {
-      if (!isActiveCard) return;
-      const isExpanded = !isCollapsed;
-      textDimOpacitySV.value = withTiming(isExpanded ? 0.65 : 0, { duration: 120 });
-    },
-    [textDimOpacitySV, isActiveCard]
-  );
+
+  const isActiveRef = useRef(isActive);
+  useLayoutEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
+
+  const handleOverlayCollapsedChange = useCallback((isCollapsed: boolean) => {
+    if (!isActiveRef.current) return;
+    textDimOpacityRef.current.value = withTiming(isCollapsed ? 0 : 0.65, { duration: 120 });
+  }, []);
 
   const seekingAnimationSV = useSharedValue(0);
-
   const overlayOpacitySV = useDerivedValue(() =>
     interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp')
   );
@@ -392,12 +363,12 @@ function VideoCard({
     playerDuration < MIN_SCRUBBER_DURATION_SECONDS
   );
 
-  const posterPriority: 'low' | 'normal' | 'high' = isActiveCard ? 'high' : 'normal';
+  const posterPriority: 'low' | 'normal' | 'high' = isActive ? 'high' : 'normal';
 
   const overlayProps = useMemo<VideoOverlayUIProps>(
     () => ({
       post: postView,
-      overlayOpacitySV: overlayOpacitySV,
+      overlayOpacitySV,
       sourceFeed: resolvedFeedUri,
       onOverlayCollapsedChange: handleOverlayCollapsedChange,
       onLike: handleLike,
@@ -445,41 +416,41 @@ function VideoCard({
 
   return (
     <View style={StyleSheet.compose(styles.container, getCardHeightStyle(cardHeight))}>
-      <VideoCardMediaGestureLayer
-        videoGesture={gesture}
-        posterUrl={posterUrl}
-        cannotShowMedia={cannotShowMedia}
-        firstFrameRendered={firstFrameRendered}
-        recyclingKey={recyclingKey}
-        videoSource={videoSource}
-        isBlurred={isBlurred}
-        player={player}
-        shouldLoadVideo={shouldLoadVideo}
-        loadingLabel={t('video.noHlsStream')}
-        onFirstFrameRender={handleFirstFrameRender}
-        surfaceType={Platform.OS === 'android' ? ('textureView' as const) : undefined}
-        textDimAnimatedStyle={textDimAnimatedStyle}
-        heartAnimatedStyle={heartAnimatedStyle}
-        posterPriority={posterPriority}
-        screenHeight={windowHeight}
-      />
-
-      <VideoCardOverlayLayers
-        renderHeavyChrome={renderHeavyChrome}
-        shouldRenderScrubber={!shouldHideScrubberForShortVideo}
-        scrubberActive={isActiveCard && !hasError}
-        isActive={isActiveCard}
-        player={player}
-        seekingAnimationSV={seekingAnimationSV}
-        overlayOpacitySV={overlayOpacitySV}
-        showOverlay={showOverlay}
-        overlayProps={overlayProps}
-        showContentWarning={cannotShowMedia || isBlurred}
-        cannotShowMedia={cannotShowMedia}
-        isBlurred={isBlurred}
-        warningDescription={warningDescription}
-        onViewContent={handleViewContent}
-      />
+      <View style={getCardHeightStyle(topInset)} pointerEvents="none" />
+      <View style={styles.videoBox} pointerEvents="box-none">
+        <VideoCardMediaGestureLayer
+          videoGesture={gesture}
+          posterUrl={posterUrl}
+          cannotShowMedia={cannotShowMedia}
+          firstFrameRendered={firstFrameRendered}
+          recyclingKey={recyclingKey}
+          videoSource={videoSource}
+          isBlurred={isBlurred}
+          player={player}
+          shouldLoadVideo={shouldLoadVideo}
+          onFirstFrameRender={handleFirstFrameRender}
+          surfaceType={Platform.OS === 'android' ? ('textureView' as const) : undefined}
+          textDimAnimatedStyle={textDimAnimatedStyle}
+          heartAnimatedStyle={heartAnimatedStyle}
+          posterPriority={posterPriority}
+        />
+        <VideoCardOverlayLayers
+          shouldRenderScrubber={!shouldHideScrubberForShortVideo}
+          scrubberActive={isActive && !hasError}
+          isActive={isActive}
+          player={player}
+          seekingAnimationSV={seekingAnimationSV}
+          overlayOpacitySV={overlayOpacitySV}
+          showOverlay={showOverlay}
+          overlayProps={overlayProps}
+          showContentWarning={cannotShowMedia || isBlurred}
+          cannotShowMedia={cannotShowMedia}
+          isBlurred={isBlurred}
+          warningDescription={warningDescription}
+          onViewContent={handleViewContent}
+        />
+      </View>
+      <View style={getCardHeightStyle(bottomInset)} pointerEvents="none" />
     </View>
   );
 }
@@ -492,5 +463,11 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     backgroundColor: Colors.black,
+    flexDirection: 'column',
+  },
+  videoBox: {
+    flex: 1,
+    overflow: 'hidden',
+    position: 'relative',
   },
 });

@@ -5,5 +5,5 @@ export const unstable_settings = {
 };
 
 export default function ProfileLayout() {
-  return <Stack screenOptions={{ headerShown: false, freezeOnBlur: true }} />;
+  return <Stack screenOptions={{ headerShown: false }} />;
 }

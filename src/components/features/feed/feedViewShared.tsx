@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { View, StyleSheet, Platform, type ScrollViewProps } from 'react-native';
 import Animated from 'react-native-reanimated';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
@@ -10,12 +10,11 @@ import { blendColors, hexToRGBA } from '../../../utils/formatting/colors';
 import { isValidAtUri } from '../../../utils/atproto/uriValidation';
 
 export const FEED_VIEW_CONSTANTS = {
-  LIST_ITEM_GAP: 3,
+  LIST_ITEM_GAP: 0,
   FLASHLIST_DRAW_DISTANCE: 220,
   GRID_CELL_GAP: 2,
   HEADER_HEIGHT_TABS: 280,
   HEADER_BLOCKING_THRESHOLD: 250,
-  HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y: 10,
 } as const;
 
 export const isHeaderFeed = (feedOption: string, headerComponent?: ReactNode): boolean =>
@@ -64,12 +63,19 @@ export const getEndOfFeedOverscrollTextColor = (
 ): string => {
   const raw = profileTextColor ?? secondaryColor;
   const hex = raw ? normalizeHexRgb(raw) : null;
-  if (!hex) {
-    return Colors.neutral[300];
-  }
-
+  if (!hex) return Colors.neutral[300];
   return hexToRGBA(hex, 0.98);
 };
+
+const feedSurfaceStyles = StyleSheet.create({
+  root: { flex: 1 },
+  layer: { ...StyleSheet.absoluteFill },
+  on: { opacity: 1, zIndex: 1 },
+  off: { opacity: 0, zIndex: 0 },
+});
+
+const layerOnStyle = [feedSurfaceStyles.layer, feedSurfaceStyles.on];
+const layerOffStyle = [feedSurfaceStyles.layer, feedSurfaceStyles.off];
 
 type FeedSurfaceStackProps = {
   listActive: boolean;
@@ -81,7 +87,7 @@ export function FeedSurfaceStack({ listActive, listSurface, gridSurface }: FeedS
   const layer = (on: boolean, node: ReactNode) => (
     <View
       collapsable={false}
-      style={[feedSurfaceStyles.layer, on ? feedSurfaceStyles.on : feedSurfaceStyles.off]}
+      style={on ? layerOnStyle : layerOffStyle}
       pointerEvents={on ? 'auto' : 'none'}
       importantForAccessibility={on ? 'yes' : 'no-hide-descendants'}
       accessibilityElementsHidden={Platform.OS === 'ios' ? !on : undefined}
@@ -98,14 +104,6 @@ export function FeedSurfaceStack({ listActive, listSurface, gridSurface }: FeedS
   );
 }
 
-/**
- * Shared renderScrollComponent factory for FlashList-based feed views.
- *
- * Calls `animatedScrollRef(node)` (the callable form) so Reanimated registers
- * the native view on the UI thread — required for `useScrollOffset` to track
- * scroll events. Also preserves FlashList's internal scroll ref so imperative
- * methods (scrollToItem, scrollToTop, etc.) continue to work.
- */
 export function createReanimatedScrollComponent(
   animatedScrollRef: { (instance: Animated.ScrollView | null): void },
   props: ScrollViewProps
@@ -116,6 +114,7 @@ export function createReanimatedScrollComponent(
   return (
     <Animated.ScrollView
       {...rest}
+      // eslint-disable-next-line react/jsx-no-bind
       ref={(node: Animated.ScrollView | null) => {
         animatedScrollRef(node);
         if (typeof flashListScrollRef === 'function') {
@@ -128,9 +127,21 @@ export function createReanimatedScrollComponent(
   );
 }
 
-const feedSurfaceStyles = StyleSheet.create({
-  root: { flex: 1 },
-  layer: { ...StyleSheet.absoluteFill },
-  on: { opacity: 1, zIndex: 1 },
-  off: { opacity: 0, zIndex: 0 },
-});
+export type FeedLayout = {
+  viewportHeight: number;
+  viewportWidth: number;
+  topInset: number;
+  bottomInset: number;
+};
+
+const FeedLayoutContext = createContext<FeedLayout | null>(null);
+
+export const FeedLayoutProvider = FeedLayoutContext.Provider;
+
+export function useFeedLayout(): FeedLayout {
+  const value = useContext(FeedLayoutContext);
+  if (!value) {
+    throw new Error('useFeedLayout must be used inside a FeedLayoutProvider');
+  }
+  return value;
+}

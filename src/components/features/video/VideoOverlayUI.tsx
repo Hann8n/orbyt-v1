@@ -1,9 +1,10 @@
 import { memo, useMemo } from 'react';
 import { Image } from 'expo-image';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 import { AppBskyActorDefs } from '@atproto/api';
 
+import { useFeedLayout } from '../feed/feedViewShared';
 import { VideoOverlayActions } from './video-overlay/VideoOverlayActions';
 import { VideoOverlayAuthor } from './video-overlay/VideoOverlayAuthor';
 import { VideoOverlayCaption } from './video-overlay/VideoOverlayCaption';
@@ -96,7 +97,7 @@ function VideoOverlayUI({
   onHashtagPress,
   authorProfileOverlay,
 }: VideoOverlayUIProps) {
-  const { width } = useWindowDimensions();
+  const { viewportWidth: width } = useFeedLayout();
 
   const { contentPadding, actionIconSize, authorAvatarSize, moreMenuIconSize } = useMemo(() => {
     const padding = Math.round(Math.max(8, Math.min(14, width * 0.025)));
@@ -112,11 +113,7 @@ function VideoOverlayUI({
   const overlayContentStyle = useMemo(
     () => [
       styles.overlayContentContainer,
-      {
-        paddingHorizontal: contentPadding,
-        paddingTop: contentPadding,
-        paddingBottom: contentPadding,
-      },
+      { paddingHorizontal: contentPadding, paddingTop: contentPadding },
     ],
     [contentPadding]
   );
@@ -230,8 +227,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 6,
-    padding: 14,
+    // Clears the scrubber bar + a comfortable touch margin (scrubber at bottom: 8, bar 3px, touch-area extends up ~32px).
+    bottom: 28,
     zIndex: OVERLAY_Z_INDEX.OVERLAY_CONTENT,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -240,9 +237,7 @@ const styles = StyleSheet.create({
   infoColumn: {
     flex: 1,
     flexDirection: 'column',
-    justifyContent: 'flex-end',
     gap: 10,
-    marginBottom: 0,
   },
 });
 

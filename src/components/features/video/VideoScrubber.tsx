@@ -18,7 +18,7 @@ import { useEvent } from 'expo';
 import { type VideoPlayer } from 'expo-video';
 import { formatTime } from '../../../utils/formatting/time';
 import { Colors } from '../../../theme';
-import { useDeviceLayout } from '@/hooks/useDeviceLayout';
+import { useFeedLayout } from '../feed/feedViewShared';
 import { useUIStore } from '@/stores/uiStore';
 import { FontFamily, Typography } from '@/utils/components/typography';
 import { OVERLAY_Z_INDEX } from '../../../utils/constants/overlay';
@@ -28,7 +28,6 @@ interface VideoScrubberProps {
   player?: VideoPlayer;
   seekingAnimationSV: SharedValue<number>;
   children?: ReactNode;
-  /** Composed opacity from VideoCard (scroll overlap × scrubbing). */
   overlayOpacitySV: SharedValue<number>;
 }
 
@@ -41,6 +40,7 @@ const SCRUBBER_BAR_HEIGHT_RANGE_PX = 5;
 const SCRUBBER_BAR_BASE_OPACITY = 0.7;
 const SCRUBBER_BAR_PLAYING_OPACITY = 0.9;
 const SCRUBBER_TRACK_OPACITY = 0.4;
+const SCRUBBER_BOTTOM_PADDING = 8;
 
 function VideoScrubberActive({
   active,
@@ -49,8 +49,9 @@ function VideoScrubberActive({
   children,
   overlayOpacitySV,
 }: VideoScrubberProps) {
-  const deviceLayout = useDeviceLayout();
-  const screenWidth = deviceLayout.screenWidth;
+  const { viewportWidth: screenWidth } = useFeedLayout();
+  const contentPadding = Math.round(Math.max(8, Math.min(14, screenWidth * 0.025)));
+  const trackWidth = screenWidth - 2 * contentPadding;
 
   const setScrubbingState = useUIStore(state => state.setVisibility);
   const currentTimeSV = useSharedValue(0);
@@ -63,11 +64,6 @@ function VideoScrubberActive({
   const playerStatusEvent = useEvent(player!, 'statusChange', { status: 'idle' as const });
 
   const playerRef = useRef(player);
-  const activeRef = useRef(active);
-
-  useEffect(() => {
-    activeRef.current = active;
-  }, [active]);
 
   useEffect(() => {
     if (!active) {
@@ -80,10 +76,11 @@ function VideoScrubberActive({
         seekProgressSV.set(0);
         seekingAnimationSV.set(0);
       });
-    } else if (active && player) {
+    } else if (active && playerRef.current) {
       try {
-        const currentTime = player.currentTime;
-        const isPlaying = player.playing;
+        const currentPlayer = playerRef.current;
+        const currentTime = currentPlayer.currentTime;
+        const isPlaying = currentPlayer.playing;
         scheduleOnUI(() => {
           'worklet';
           isPlayingSV.set(isPlaying);
@@ -95,7 +92,15 @@ function VideoScrubberActive({
         // ignored
       }
     }
-  }, [active, player, isSeekingSV, isPlayingSV, currentTimeSV, seekProgressSV, seekingAnimationSV]);
+  }, [
+    active,
+    playerRef,
+    isSeekingSV,
+    isPlayingSV,
+    currentTimeSV,
+    seekProgressSV,
+    seekingAnimationSV,
+  ]);
 
   useEffect(() => {
     if (player !== playerRef.current) {
@@ -108,9 +113,9 @@ function VideoScrubberActive({
     }
   }, [player, currentTimeSV, seekProgressSV]);
 
-  // Sync duration when player becomes ready — HLS duration isn't known until manifest loads.
   useEffect(() => {
-    if (!player || !active) return;
+    const currentPlayer = playerRef.current;
+    if (!currentPlayer || !active) return;
 
     const syncDuration = (d: number) => {
       if (d > 0 && d !== duration) {
@@ -122,24 +127,23 @@ function VideoScrubberActive({
       }
     };
 
-    syncDuration(player.duration);
-    const sub = player.addListener('statusChange', ({ status }) => {
-      if (status === 'readyToPlay') syncDuration(player.duration);
+    syncDuration(currentPlayer.duration);
+    const sub = currentPlayer.addListener('statusChange', ({ status }) => {
+      if (status === 'readyToPlay') syncDuration(currentPlayer.duration);
     });
     return () => sub.remove();
-  }, [player, active, duration, durationSV]);
+  }, [playerRef, active, duration, durationSV]);
 
-  // Enable timeUpdate events only while the scrubber is active so we don't pay bridge traffic
-  // on every feed player. playerStatusEvent is included so the interval is re-applied after
-  // replaceAsync resets it (fires readyToPlay → this effect re-runs).
+  // playerStatusEvent dependency ensures the interval is re-applied after replaceAsync resets it.
   useEffect(() => {
-    if (!player) return;
-    player.timeUpdateEventInterval = active ? SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS : 0;
-  }, [player, active, playerStatusEvent]);
+    const currentPlayer = playerRef.current;
+    if (!currentPlayer) return;
+    currentPlayer.timeUpdateEventInterval = active ? SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS : 0;
+  }, [playerRef, active, playerStatusEvent]);
 
-  // Track playing state for the progress bar opacity style.
   useEffect(() => {
-    if (!player || !active) return;
+    const currentPlayer = playerRef.current;
+    if (!currentPlayer || !active) return;
 
     const syncPlaying = (isPlaying: boolean) => {
       scheduleOnUI(() => {
@@ -148,17 +152,18 @@ function VideoScrubberActive({
       });
     };
 
-    syncPlaying(player.playing ?? false);
-    const sub = player.addListener('playingChange', ({ isPlaying }) => syncPlaying(isPlaying));
+    syncPlaying(currentPlayer.playing ?? false);
+    const sub = currentPlayer.addListener('playingChange', ({ isPlaying }) =>
+      syncPlaying(isPlaying)
+    );
     return () => sub.remove();
-  }, [player, active, isPlayingSV]);
+  }, [playerRef, active, isPlayingSV]);
 
-  // On each tick, interpolate forward by one interval toward the next expected position.
-  // This gives frame-rate-smooth progress with no drift constants or resync logic.
   useEffect(() => {
-    if (!player || !active) return;
+    const currentPlayer = playerRef.current;
+    if (!currentPlayer || !active) return;
 
-    const sub = player.addListener('timeUpdate', ({ currentTime }) => {
+    const sub = currentPlayer.addListener('timeUpdate', ({ currentTime }) => {
       if (isSeekingSV.get()) return;
       scheduleOnUI(() => {
         'worklet';
@@ -174,7 +179,7 @@ function VideoScrubberActive({
       });
     });
     return () => sub.remove();
-  }, [player, active, isSeekingSV, currentTimeSV, durationSV]);
+  }, [playerRef, active, isSeekingSV, currentTimeSV, durationSV]);
 
   useAnimatedReaction(
     () => seekingAnimationSV.get() >= 0.2,
@@ -185,9 +190,6 @@ function VideoScrubberActive({
     }
   );
 
-  // Update current time display from shared value (for both seeking and normal playback).
-  // Only call setCurrentSeekTime when scrubber is visible (seekingAnimationSV >= 0.2) to avoid
-  // rerenders during normal playback while scrolling—the time label is hidden when scrubber is hidden.
   useAnimatedReaction(
     () => {
       const isSeeking = isSeekingSV.get();
@@ -203,32 +205,32 @@ function VideoScrubberActive({
     }
   );
 
-  // Faster seeking during user drag.
   const enableScrubbingMode = useCallback(() => {
-    if (!player) return;
+    const currentPlayer = playerRef.current;
+    if (!currentPlayer) return;
     try {
-      player.scrubbingModeOptions = { scrubbingModeEnabled: true };
+      currentPlayer.scrubbingModeOptions = { scrubbingModeEnabled: true };
     } catch (_error) {
-      // Silently ignore - scrubber never blocks
+      // ignored
     }
-  }, [player]);
+  }, [playerRef]);
 
   const disableScrubbingMode = useCallback(() => {
-    if (!player) return;
+    const currentPlayer = playerRef.current;
+    if (!currentPlayer) return;
     try {
-      player.scrubbingModeOptions = { scrubbingModeEnabled: false };
+      currentPlayer.scrubbingModeOptions = { scrubbingModeEnabled: false };
     } catch (_error) {
-      // Silently ignore - scrubber never blocks
+      // ignored
     }
-  }, [player]);
+  }, [playerRef]);
 
   const seekTo = useCallback(
     (time: number) => {
-      if (!player) return;
+      const currentPlayer = playerRef.current;
+      if (!currentPlayer) return;
       try {
-        // expo-video player is an imperative SDK handle; assigning currentTime is the
-        // documented seek API. Not a React-managed value.
-        player.currentTime = time;
+        currentPlayer.currentTime = time;
 
         scheduleOnUI(() => {
           'worklet';
@@ -246,9 +248,10 @@ function VideoScrubberActive({
         // ignored
       }
     },
-    [player, isSeekingSV, seekingAnimationSV, currentTimeSV]
+    [playerRef, isSeekingSV, seekingAnimationSV, currentTimeSV]
   );
 
+  /* eslint-disable react-hooks/refs */
   const scrubPanGesture = useMemo(() => {
     const gesture = Gesture.Pan()
       .onStart(() => {
@@ -261,13 +264,13 @@ function VideoScrubberActive({
       })
       .onUpdate(evt => {
         'worklet';
-        const progress = evt.x / screenWidth;
+        const progress = evt.x / trackWidth;
         const dur = durationSV.get();
         seekProgressSV.set(clamp(progress * dur, 0, dur));
       })
       .onEnd(evt => {
         'worklet';
-        const progress = evt.x / screenWidth;
+        const progress = evt.x / trackWidth;
         const dur = durationSV.get();
         const newTime = clamp(progress * dur, 0, dur);
 
@@ -282,7 +285,7 @@ function VideoScrubberActive({
   }, [
     active,
     seekingAnimationSV,
-    screenWidth,
+    trackWidth,
     durationSV,
     isSeekingSV,
     seekProgressSV,
@@ -291,8 +294,8 @@ function VideoScrubberActive({
     enableScrubbingMode,
     disableScrubbingMode,
   ]);
+  /* eslint-enable react-hooks/refs */
 
-  // Time label sits above the track and fades in once seekingAnimationSV crosses 0.3.
   const timeStyle = useAnimatedStyle(() => {
     const seekingValue = seekingAnimationSV.get();
     const threshold = 0.3;
@@ -303,12 +306,6 @@ function VideoScrubberActive({
     };
   });
 
-  // Track + bar styles. Two thin Animated.Views replace the previous Skia Canvas + Rects:
-  //   - Track: full-width white bar at 45% opacity (background scrubber line).
-  //   - Bar  : the leading-edge progress, anchored at the left, scaled by playback position.
-  // Width-by-screenWidth and absolute positioning means height changes don't reflow siblings
-  // (the parent's height is fixed at 34), so the only per-frame work is style mutation —
-  // no Skia GPU surface, no extra render pass on every visible card.
   const trackContainerStyle = useAnimatedStyle(() => {
     const seekingAnim = seekingAnimationSV.get();
     const containerOpacity = overlayOpacitySV.value;
@@ -317,12 +314,9 @@ function VideoScrubberActive({
     };
   });
 
-  const trackBarStyle = useAnimatedStyle(() => {
-    const seekingAnim = seekingAnimationSV.get();
-    return {
-      height: seekingAnim * SCRUBBER_BAR_HEIGHT_RANGE_PX + SCRUBBER_BAR_HEIGHT,
-    };
-  });
+  const trackBarStyle = useAnimatedStyle(() => ({
+    height: seekingAnimationSV.get() * SCRUBBER_BAR_HEIGHT_RANGE_PX + SCRUBBER_BAR_HEIGHT,
+  }));
 
   const progressBarStyle = useAnimatedStyle(() => {
     const isSeeking = isSeekingSV.get();
@@ -331,7 +325,7 @@ function VideoScrubberActive({
     const dur = durationSV.get();
     const currentTime = isSeeking ? seekProgressSV.get() : currentTimeSV.get();
     const width =
-      dur === 0 ? 0 : interpolate(currentTime, [0, dur], [0, screenWidth], Extrapolation.CLAMP);
+      dur === 0 ? 0 : interpolate(currentTime, [0, dur], [0, trackWidth], Extrapolation.CLAMP);
     return {
       width,
       height: seekingAnim * SCRUBBER_BAR_HEIGHT_RANGE_PX + SCRUBBER_BAR_HEIGHT,
@@ -343,7 +337,6 @@ function VideoScrubberActive({
     };
   });
 
-  // Unmount cleanup: clear scrubbing chrome + global flag (parent owns seekingAnimationSV).
   useEffect(() => {
     return () => {
       scheduleOnUI(() => {
@@ -363,10 +356,24 @@ function VideoScrubberActive({
     opacity: overlayOpacitySV.value,
   }));
 
-  const composedTimeStyle = useMemo(() => [styles.timeContainer, timeStyle], [timeStyle]);
+  const composedTimeStyle = useMemo(
+    () => [
+      styles.timeContainer,
+      timeStyle,
+      { bottom: SCRUBBER_TOTAL_HEIGHT + 5 + SCRUBBER_BOTTOM_PADDING },
+    ],
+    [timeStyle]
+  );
   const composedTrackContainerStyle = useMemo(
     () => [styles.trackContainer, trackContainerStyle],
     [trackContainerStyle]
+  );
+  const scrubberContainerStyle = useMemo(
+    () => [
+      styles.scrubberContainer,
+      { bottom: SCRUBBER_BOTTOM_PADDING, left: contentPadding, right: contentPadding },
+    ],
+    [contentPadding]
   );
   const composedTrackBarStyle = useMemo(() => [styles.trackBar, trackBarStyle], [trackBarStyle]);
   const composedProgressBarStyle = useMemo(
@@ -385,10 +392,7 @@ function VideoScrubberActive({
       </Animated.View>
 
       <GestureDetector gesture={scrubPanGesture}>
-        <Animated.View
-          style={styles.scrubberContainer}
-          pointerEvents={active ? 'box-none' : 'none'}
-        >
+        <Animated.View style={scrubberContainerStyle} pointerEvents={active ? 'box-none' : 'none'}>
           <Animated.View
             style={composedTrackContainerStyle}
             pointerEvents={active ? 'auto' : 'none'}
@@ -404,9 +408,6 @@ function VideoScrubberActive({
 }
 
 function VideoScrubberShell(props: VideoScrubberProps) {
-  // The Skia rewrite removes the GPU-surface cost, but we keep the iOS gating to preserve
-  // the existing UX (Android cards have always shipped without an overlay scrubber). Lifting
-  // the gate is a separate UX decision that belongs in its own change.
   if (Platform.OS !== 'ios') return null;
   return <VideoScrubberActive {...props} />;
 }
@@ -447,10 +448,7 @@ const styles = StyleSheet.create({
   },
   scrubberContainer: {
     position: 'absolute',
-    left: 0,
-    right: 0,
     bottom: 0,
-    width: '100%',
     zIndex: OVERLAY_Z_INDEX.SCRUBBER,
   },
   trackContainer: {
@@ -466,11 +464,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: Colors.brand.white,
     opacity: SCRUBBER_TRACK_OPACITY,
+    borderRadius: (SCRUBBER_BAR_HEIGHT + SCRUBBER_BAR_HEIGHT_RANGE_PX) / 2,
   },
   progressBar: {
     position: 'absolute',
     left: 0,
     bottom: 0,
     backgroundColor: Colors.brand.white,
+    borderRadius: (SCRUBBER_BAR_HEIGHT + SCRUBBER_BAR_HEIGHT_RANGE_PX) / 2,
   },
 });

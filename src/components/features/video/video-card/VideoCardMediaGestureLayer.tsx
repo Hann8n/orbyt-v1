@@ -1,5 +1,6 @@
 import { type ComponentProps } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Image } from 'expo-image';
@@ -18,14 +19,12 @@ export interface VideoCardMediaGestureLayerProps {
   videoGesture: GestureDetectorGestureProp;
   posterUrl: string | null;
   cannotShowMedia: boolean;
-  screenHeight: number;
   firstFrameRendered: boolean;
   recyclingKey: string;
   videoSource: VideoSource | null;
   isBlurred: boolean;
   player: VideoPlayer | null;
   shouldLoadVideo: boolean;
-  loadingLabel: string;
   onFirstFrameRender: () => void;
   surfaceType: 'textureView' | undefined;
   textDimAnimatedStyle: ReturnType<typeof useAnimatedStyle>;
@@ -48,14 +47,13 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
   isBlurred,
   player,
   shouldLoadVideo,
-  loadingLabel,
   onFirstFrameRender,
   surfaceType,
   textDimAnimatedStyle,
   heartAnimatedStyle,
   posterPriority,
-  screenHeight,
 }: VideoCardMediaGestureLayerProps) {
+  const { t } = useTranslation();
   return (
     <GestureDetector gesture={videoGesture}>
       <View style={styles.videoContainerPressable} collapsable={false}>
@@ -63,7 +61,7 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
           {!!videoSource && !cannotShowMedia && !isBlurred && player && (
             <ExpoVideoView
               player={player}
-              style={{ position: 'absolute', top: 0, left: 0, right: 0, height: screenHeight }}
+              style={styles.mediaFill}
               contentFit="contain"
               nativeControls={false}
               playsInline
@@ -78,10 +76,7 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
             <Image
               source={{ uri: posterUrl }}
               contentFit="contain"
-              style={[
-                { position: 'absolute', top: 0, left: 0, right: 0, height: screenHeight },
-                styles.posterBackground,
-              ]}
+              style={posterWithBackgroundStyle}
               pointerEvents="none"
               recyclingKey={recyclingKey}
               cachePolicy="memory-disk"
@@ -94,7 +89,7 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
           {!shouldLoadVideo && !cannotShowMedia && !isBlurred && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color={Colors.neutral[50]} />
-              <Text style={styles.loadingText}>{loadingLabel}</Text>
+              <Text style={styles.loadingText}>{t('video.noHlsStream')}</Text>
             </View>
           )}
 
@@ -125,6 +120,9 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  mediaFill: {
+    ...StyleSheet.absoluteFill,
+  },
   posterBackground: {
     backgroundColor: Colors.black,
   },
@@ -153,5 +151,7 @@ const styles = StyleSheet.create({
     zIndex: OVERLAY_Z_INDEX.HEART_ANIMATION,
   },
 });
+
+const posterWithBackgroundStyle = [styles.mediaFill, styles.posterBackground];
 
 export default VideoCardMediaGestureLayer;

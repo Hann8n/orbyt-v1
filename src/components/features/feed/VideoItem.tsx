@@ -15,7 +15,8 @@ export interface VideoItemProps {
   index?: number;
   isAppleZoomTarget?: boolean;
   onHashtagPress?: (hashtag: string) => void;
-  activeIndex?: number;
+  /** Whether this specific card is the active (focused) card in the list. */
+  isActive?: boolean;
   canPlay?: boolean;
 }
 
@@ -28,7 +29,7 @@ function VideoItemComponent({
   index = 0,
   isAppleZoomTarget = false,
   onHashtagPress,
-  activeIndex,
+  isActive = false,
 }: VideoItemProps) {
   const embed = 'embed' in post ? (post.embed as PostView['embed']) : undefined;
   const videoView = getVideoView(embed);
@@ -48,7 +49,7 @@ function VideoItemComponent({
       height={height}
       canPlay={canPlay}
       index={index}
-      activeIndex={activeIndex}
+      isActive={isActive}
       onHashtagPress={onHashtagPress}
     />
   );

@@ -4,51 +4,40 @@ import {
   useContext,
   useEffect,
   useRef,
-  useState,
   useSyncExternalStore,
 } from 'react';
-import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
+import { AppState, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { useIsFocused } from 'expo-router/react-navigation';
-
-import { FEED_ROW_VIEWABILITY_CONFIG } from './feedRowVisibility';
 
 interface FeedVisibilityOptions {
   isActive: boolean;
-  /** Emits the most visible row index from native list viewability callbacks. */
-  onActiveVisibleIndexChange?: (index: number) => void;
-  /** Fired synchronously (layout effect) whenever canPlay changes. Caller can patch the
-   *  playback store directly rather than reading canPlay as a return value. */
-  onCanPlayChange?: (canPlay: boolean) => void;
-  /** Check if an item is a header item (SDK-native header visibility tracking). */
-  isHeaderItem?: (item: unknown) => boolean;
+  /** Emits the snapped page index after each momentum scroll settles. */
+  onPageIndexChange?: (index: number) => void;
+  /** Height of a single page (card). Used for uniform-interval feeds. */
+  cardHeight?: number;
+  /**
+   * Explicit snap offsets for non-uniform feeds (header feeds). When provided,
+   * the index is resolved by finding the closest offset instead of dividing by
+   * cardHeight — which would be wrong when the header is a different height.
+   */
+  snapToOffsets?: number[];
 }
 
 interface FeedVisibilityResult {
-  onViewableItemsChanged: ({ viewableItems }: { viewableItems: ViewToken[] }) => void;
-  viewabilityConfig: ViewabilityConfig;
+  onMomentumScrollEnd: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
   canPlay: boolean;
 }
 
-const selectViewableToken = (
-  viewableItems: ViewToken[]
-): (ViewToken & { index: number }) | undefined => {
-  let best: (ViewToken & { index: number }) | undefined;
-  for (const token of viewableItems) {
-    if (typeof token.index !== 'number' || !token.isViewable) continue;
-    if (!best || token.index < best.index) best = token as ViewToken & { index: number };
-  }
-  return best;
-};
-
 /**
- * Visibility hook keeps only environment gates (route/app state) and native viewability wiring.
- * Per-list visible index ownership is handled by the list component itself.
+ * Visibility hook for paged feeds. Replaces the viewability-threshold approach with
+ * onMomentumScrollEnd: fires exactly once per snap, gives the page index directly
+ * from the content offset — no percentage math, no minimumViewTime, no header-item filtering.
  */
 export function useFeedVisibility({
   isActive,
-  onActiveVisibleIndexChange,
-  onCanPlayChange,
-  isHeaderItem,
+  onPageIndexChange,
+  cardHeight,
+  snapToOffsets,
 }: FeedVisibilityOptions): FeedVisibilityResult {
   const isForeground = useSyncExternalStore(
     notify => {
@@ -59,53 +48,48 @@ export function useFeedVisibility({
     () => true
   );
 
-  const [headerVisible, setHeaderVisible] = useState(false);
+  const canPlay = isActive && isForeground;
 
-  const canPlay = isActive && isForeground && !headerVisible;
-
-  const onCanPlayChangeRef = useRef(onCanPlayChange);
+  const onPageIndexChangeRef = useRef(onPageIndexChange);
   useEffect(() => {
-    onCanPlayChangeRef.current = onCanPlayChange;
-  }, [onCanPlayChange]);
+    onPageIndexChangeRef.current = onPageIndexChange;
+  }, [onPageIndexChange]);
 
+  const cardHeightRef = useRef(cardHeight);
   useEffect(() => {
-    onCanPlayChangeRef.current?.(canPlay);
-  }, [canPlay]);
+    cardHeightRef.current = cardHeight;
+  }, [cardHeight]);
 
-  const onActiveVisibleIndexChangeRef = useRef(onActiveVisibleIndexChange);
+  const snapToOffsetsRef = useRef(snapToOffsets);
   useEffect(() => {
-    onActiveVisibleIndexChangeRef.current = onActiveVisibleIndexChange;
-  }, [onActiveVisibleIndexChange]);
+    snapToOffsetsRef.current = snapToOffsets;
+  }, [snapToOffsets]);
 
-  const lastEmittedIndexRef = useRef(-1);
-
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      const headerInViewable = isHeaderItem
-        ? viewableItems.some(item => item.isViewable && isHeaderItem(item.item))
-        : false;
-      setHeaderVisible(headerInViewable);
-
-      const token = selectViewableToken(viewableItems);
-      const nextIndex = typeof token?.index === 'number' ? token.index : -1;
-
-      if (nextIndex < 0) {
-        lastEmittedIndexRef.current = -1;
-        return;
+  const onMomentumScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = e.nativeEvent.contentOffset.y;
+    const offsets = snapToOffsetsRef.current;
+    if (offsets && offsets.length > 0) {
+      // Header feeds use non-uniform snap offsets — find the closest one by distance.
+      let closest = 0;
+      let minDist = Math.abs(y - offsets[0]);
+      for (let i = 1; i < offsets.length; i++) {
+        const dist = Math.abs(y - offsets[i]);
+        if (dist < minDist) {
+          minDist = dist;
+          closest = i;
+        }
       }
-
-      if (nextIndex !== lastEmittedIndexRef.current) {
-        lastEmittedIndexRef.current = nextIndex;
-        onActiveVisibleIndexChangeRef.current?.(nextIndex);
-      }
-    },
-    [isHeaderItem]
-  );
+      onPageIndexChangeRef.current?.(closest);
+      return;
+    }
+    const h = cardHeightRef.current;
+    if (!h || h <= 0) return;
+    onPageIndexChangeRef.current?.(Math.round(y / h));
+  }, []);
 
   return {
     canPlay,
-    onViewableItemsChanged,
-    viewabilityConfig: FEED_ROW_VIEWABILITY_CONFIG satisfies ViewabilityConfig,
+    onMomentumScrollEnd,
   };
 }
 
