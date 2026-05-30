@@ -1,6 +1,6 @@
-import React, { useRef, useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useMemo, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { tabRefs } from '@/utils/navigation/tabRefs';
+import { useScrollToTop } from 'expo-router/react-navigation';
 import { View, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -28,9 +28,18 @@ const ActivityScreen: React.FC = () => {
   const topInset = getEffectiveTopInset(top);
   const { notificationsCount, messagesCount, requestsCount, hasUnseenRequests } = useUnreadCount();
 
-  const notificationsTabRef = useRef<typeof tabRefs.activity>(null);
-  const chatsTabRef = useRef<typeof tabRefs.activity>(null);
+  const notificationsTabRef = useRef<{ scrollToTop: () => void } | null>(null);
+  const chatsTabRef = useRef<{ scrollToTop: () => void } | null>(null);
   const currentIndexRef = useRef(0);
+
+  // Routes tabPress scroll-to-top to whichever sub-tab is currently visible.
+  const scrollToTopRef = useRef({
+    scrollToTop: () => {
+      if (currentIndexRef.current === 0) notificationsTabRef.current?.scrollToTop();
+      else chatsTabRef.current?.scrollToTop();
+    },
+  });
+  useScrollToTop(scrollToTopRef);
 
   const routes = useMemo<Route[]>(
     () => [
@@ -73,18 +82,6 @@ const ActivityScreen: React.FC = () => {
     }),
     []
   );
-
-  useEffect(() => {
-    tabRefs.activity = {
-      scrollToTop: () => {
-        if (currentIndexRef.current === 0) notificationsTabRef.current?.scrollToTop();
-        else chatsTabRef.current?.scrollToTop();
-      },
-    };
-    return () => {
-      tabRefs.activity = null;
-    };
-  }, []);
 
   const handleIndexChange = useCallback((nextIndex: number) => {
     setIndex(nextIndex);

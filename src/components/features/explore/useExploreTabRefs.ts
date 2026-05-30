@@ -1,44 +1,33 @@
-import { useLayoutEffect, type RefObject } from 'react';
-import type { TextInput } from 'react-native';
+import { useRef, useLayoutEffect } from 'react';
 import type { FlashListRef } from '@shopify/flash-list';
-
-import { tabRefs } from '@/utils/navigation/tabRefs';
-import type { ExploreRef } from '@/utils/navigation/tabRefs';
+import { useScrollToTop } from 'expo-router/react-navigation';
 
 import type { ListItem } from './types';
 
 type Params = {
-  flashListRef: RefObject<FlashListRef<ListItem> | null>;
-  searchInputRef: RefObject<TextInput | null>;
+  flashListRef: React.RefObject<FlashListRef<ListItem> | null>;
   resetExploreSearch: () => void;
-  setIsSearchFocused: (v: boolean) => void;
   isSearching: boolean;
 };
 
-export function useExploreTabRefs({
-  flashListRef,
-  searchInputRef,
-  resetExploreSearch,
-  setIsSearchFocused,
-  isSearching,
-}: Params) {
+export function useExploreTabRefs({ flashListRef, resetExploreSearch, isSearching }: Params) {
+  // Keep a stable ref to the current isSearching value so the scrollToTop closure
+  // never becomes stale without needing to re-register the hook.
+  const isSearchingRef = useRef(isSearching);
   useLayoutEffect(() => {
-    tabRefs.explore = {
-      scrollToTop: () => {
-        flashListRef.current?.scrollToTop({ animated: true });
-      },
-      dismissSearch: () => {
-        resetExploreSearch();
-      },
-      isSearchActive: () => isSearching,
-      focusSearch: () => {
-        setIsSearchFocused(true);
-        searchInputRef.current?.focus();
-      },
-    } as ExploreRef;
+    isSearchingRef.current = isSearching;
+  }, [isSearching]);
 
-    return () => {
-      tabRefs.explore = null;
-    };
-  }, [flashListRef, isSearching, resetExploreSearch, searchInputRef, setIsSearchFocused]);
+  // When the explore tab is tapped while already focused, dismiss an active search
+  // first; otherwise scroll the list back to top.
+  const scrollToTopRef = useRef({
+    scrollToTop: () => {
+      if (isSearchingRef.current) {
+        resetExploreSearch();
+      } else {
+        flashListRef.current?.scrollToTop({ animated: true });
+      }
+    },
+  });
+  useScrollToTop(scrollToTopRef);
 }

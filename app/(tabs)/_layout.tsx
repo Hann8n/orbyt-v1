@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSegments } from 'expo-router';
 import { Tabs, TabSlot, TabList, TabTrigger } from 'expo-router/ui';
@@ -9,17 +9,11 @@ import { TAB_BAR_INACTIVE_TINT } from '@/utils/formatting/colors';
 import { getDetailNavTabIfInsideTabs } from '@/utils/navigation/detailRoutes';
 import { Colors } from '@/theme';
 import { AppTabBar, AppTabBarButton } from '@/components/layout/navigation/AppTabBar';
-import { tabRefs } from '@/utils/navigation/tabRefs';
 
 const homeIcon = require('@/assets/tab-icons/png/home_3_cute.png');
 const exploreIcon = require('@/assets/tab-icons/png/search_2_cute.png');
 const activityIcon = require('@/assets/tab-icons/png/inbox_2_cute.png');
 const profileIcon = require('@/assets/tab-icons/png/badge_cute.png');
-
-const scrollHomeToTop = () => tabRefs.home?.scrollToTop();
-const scrollExploreToTop = () => tabRefs.explore?.scrollToTop();
-const scrollActivityToTop = () => tabRefs.activity?.scrollToTop();
-const scrollProfileToTop = () => tabRefs.profile?.scrollToTop();
 
 /**
  * While a root modal (e.g. settings) is focused, `useSegments()` no longer includes `(tabs)`; we skip
@@ -29,7 +23,7 @@ function DetailNavTabSegmentSync() {
   const segments = useSegments();
   const setLastFocused = useDetailNavTabStore(s => s.setLastFocusedDetailNavTab);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const tab = getDetailNavTabIfInsideTabs(segments);
     if (tab) {
       setLastFocused(tab);
@@ -53,44 +47,40 @@ export default function TabsLayout() {
       <TabSlot />
       <TabList asChild>
         <AppTabBar>
-          <TabTrigger name="home" href="/home" resetOnFocus asChild>
+          <TabTrigger name="home" href="/home" asChild>
             <AppTabBarButton
               source={homeIcon}
               activeTint={Colors.neutral[0]}
               inactiveTint={TAB_BAR_INACTIVE_TINT}
               accessibilityLabel={t('tabs.home')}
-              scrollToTop={scrollHomeToTop}
             />
           </TabTrigger>
 
-          <TabTrigger name="explore" href="/explore" resetOnFocus asChild>
+          <TabTrigger name="explore" href="/explore" asChild>
             <AppTabBarButton
               source={exploreIcon}
               activeTint={Colors.neutral[0]}
               inactiveTint={TAB_BAR_INACTIVE_TINT}
               accessibilityLabel={t('tabs.explore')}
-              scrollToTop={scrollExploreToTop}
             />
           </TabTrigger>
 
-          <TabTrigger name="activity" href="/activity" resetOnFocus asChild>
+          <TabTrigger name="activity" href="/activity" asChild>
             <AppTabBarButton
               source={activityIcon}
               activeTint={Colors.neutral[0]}
               inactiveTint={TAB_BAR_INACTIVE_TINT}
               badgeCount={totalUnreadCount}
               accessibilityLabel={t('tabs.chats')}
-              scrollToTop={scrollActivityToTop}
             />
           </TabTrigger>
 
-          <TabTrigger name="profile" href="/profile" resetOnFocus asChild>
+          <TabTrigger name="profile" href="/profile" asChild>
             <AppTabBarButton
               source={profileIcon}
               activeTint={Colors.neutral[0]}
               inactiveTint={TAB_BAR_INACTIVE_TINT}
               accessibilityLabel={t('tabs.profile')}
-              scrollToTop={scrollProfileToTop}
             />
           </TabTrigger>
         </AppTabBar>

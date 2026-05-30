@@ -1,20 +1,20 @@
-import { useCallback, useImperativeHandle, memo, useRef, useEffect, type Ref } from 'react';
+import { useCallback, memo, useRef } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScrollToTop } from 'expo-router/react-navigation';
 
 import { queryKeys } from '@/utils/query/queryKeys';
 import FeedPager from '@/components/features/feed/FeedPager';
-import { HomeScreenRef, FeedOption } from '@/types';
+import type { FeedOption } from '@/types';
 import { useVisibilityRouteIsActive } from '@/hooks';
 import { Colors } from '@/theme';
-import { tabRefs } from '@/utils/navigation/tabRefs';
 import type { FeedPagerRef } from '@/utils/navigation/tabRefs';
 import { useUserStore } from '@/stores/userStore';
 import { useAppStore } from '@/stores/appStore';
 import { VideoUploadBanner } from '@/components/ui/VideoUploadBanner';
 
-function HomeScreenComponent({ ref }: { ref?: Ref<HomeScreenRef> }) {
+function HomeScreenComponent() {
   const currentFeed = useAppStore(s => s.lastHomeFeed);
   const setLastHomeFeed = useAppStore(s => s.setLastHomeFeed);
   const queryClient = useQueryClient();
@@ -54,29 +54,10 @@ function HomeScreenComponent({ ref }: { ref?: Ref<HomeScreenRef> }) {
     [setLastHomeFeed]
   );
 
-  // Ref for FeedPager to forward scrollToTop (FeedPager exposes FeedPagerRef)
   const feedPagerRef = useRef<FeedPagerRef>(null);
-
-  // Expose refresh method to parent components
-  useImperativeHandle(
-    ref,
-    () => ({
-      refresh: triggerRefresh,
-    }),
-    [triggerRefresh]
-  );
-
-  // Store home screen ref in tabRefs for tab navigation
-  // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener
-  useEffect(() => {
-    tabRefs.home = {
-      scrollToTop: () => feedPagerRef.current?.scrollToTop(),
-      refresh: triggerRefresh,
-    };
-    return () => {
-      tabRefs.home = null;
-    };
-  }, [triggerRefresh]);
+  // FeedPager exposes scrollToTop(); useScrollToTop wires it to the tab's tabPress event
+  // so single-tapping an already-focused tab scrolls back to the top automatically.
+  useScrollToTop(feedPagerRef);
 
   return (
     <View style={styles.container}>
@@ -92,6 +73,8 @@ function HomeScreenComponent({ ref }: { ref?: Ref<HomeScreenRef> }) {
           onFeedChange={handleFeedChange}
           applySafeArea={true}
           isVisible={isRouteFocused}
+          pullToRefreshEnabled
+          onPullToRefreshExtra={triggerRefresh}
         />
       )}
     </View>

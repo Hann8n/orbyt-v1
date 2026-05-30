@@ -1,4 +1,4 @@
-import { memo, useCallback, type Ref } from 'react';
+import { memo, type Ref } from 'react';
 import {
   Image,
   Pressable,
@@ -7,7 +7,6 @@ import {
   View,
   type ViewProps,
   type ImageSourcePropType,
-  type PressableProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { TabTriggerSlotProps } from 'expo-router/ui';
@@ -51,8 +50,6 @@ type AppTabBarButtonProps = TabTriggerSlotProps & {
   inactiveTint: string;
   badgeCount?: number;
   badgeColor?: string;
-  /** Called when this tab's button is pressed while it is already focused (scroll-to-top). */
-  scrollToTop?: () => void;
 };
 
 function AppTabBarButtonComponent({
@@ -66,24 +63,15 @@ function AppTabBarButtonComponent({
   badgeCount = 0,
   badgeColor,
   accessibilityLabel,
-  scrollToTop,
   ref,
 }: AppTabBarButtonProps) {
   const tint = isFocused ? activeTint : inactiveTint;
   const showBadge = badgeCount > 0;
 
-  const handlePress = useCallback(
-    (e: Parameters<NonNullable<PressableProps['onPress']>>[0]) => {
-      onPress?.(e);
-      if (isFocused) scrollToTop?.();
-    },
-    [onPress, isFocused, scrollToTop]
-  );
-
   return (
     <Pressable
       ref={ref}
-      onPress={handlePress}
+      onPress={onPress}
       onLongPress={onLongPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: !!isFocused }}

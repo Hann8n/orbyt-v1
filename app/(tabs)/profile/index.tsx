@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useScrollToTop } from 'expo-router/react-navigation';
 import { useTranslation } from 'react-i18next';
 import Animated, {
   useSharedValue,
@@ -54,7 +55,7 @@ import ProfileMenu from '@/components/features/profile/ProfileMenu';
 import SubscriptionOptionsSheet from '@/components/features/profile/SubscriptionOptionsSheet';
 import LiveStreamInfoSheet from '@/components/features/profile/LiveStreamInfoSheet';
 import type { MenuAction } from '@react-native-menu/menu';
-import { tabRefs, type FeedPagerRef } from '@/utils/navigation/tabRefs';
+import type { FeedPagerRef } from '@/utils/navigation/tabRefs';
 import type { ViewMode } from '@/types';
 import { navigateToProfileImageViewer } from '@/utils/navigation/profileImageViewer';
 
@@ -135,6 +136,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
 
   useStatusExpirationMonitor(profileData, targetDid);
 
+  const feedPagerRef = useRef<FeedPagerRef>(null);
+  useScrollToTop(feedPagerRef);
+
   const [activeTab, setActiveTab] = useState<ProfileFeedTab>('profile');
   const viewMode = useUserStore(state => state.profileFeedViewMode);
   const setProfileFeedViewMode = useUserStore(state => state.setProfileFeedViewMode);
@@ -174,7 +178,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
     const allowedFeeds = profileFeedOptions as readonly ProfileFeedTab[];
     if (!allowedFeeds.includes(activeTab)) {
       setActiveTab('profile');
-      tabRefs.profile?.setPage(0);
+      feedPagerRef.current?.setPage(0);
     }
   }, [profileFeedOptions, activeTab]);
 
@@ -522,9 +526,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
         <ProfileChannelFeedLoadingScreen backgroundColor={profileColors.chromeBackgroundColor} />
       ) : (
         <FeedPager
-          ref={r => {
-            tabRefs.profile = r as FeedPagerRef | null;
-          }}
+          ref={feedPagerRef}
           feedOptions={profileFeedOptions}
           userDid={profileDid}
           currentFeed={activeTab}
@@ -560,7 +562,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
                   onTabPress={tabId => {
                     setActiveTab(tabId as ProfileFeedTab);
                     const index = (profileFeedOptions as readonly string[]).indexOf(tabId);
-                    if (index >= 0) tabRefs.profile?.setPage(index);
+                    if (index >= 0) feedPagerRef.current?.setPage(index);
                   }}
                   textColor={profileColors.textColor}
                   inactiveTextColor={hexToRGBA(profileColors.textColor || Colors.neutral[50], 0.65)}

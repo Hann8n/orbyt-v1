@@ -430,9 +430,7 @@ const ExploreScreen: React.FC = () => {
 
   useExploreTabRefs({
     flashListRef,
-    searchInputRef,
     resetExploreSearch,
-    setIsSearchFocused,
     isSearching,
   });
 
