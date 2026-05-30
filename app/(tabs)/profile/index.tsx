@@ -40,7 +40,7 @@ import { useCurrentUser, useUserStore } from '@/stores/userStore';
 import { HeaderAction, HeaderActionButton } from '@/components/layout/header/UniversalHeader';
 import { Colors } from '@/theme';
 import { useAccountSwitcher } from '@/stores/modalStore';
-import { useVisibilityRouteIsActive } from '@/hooks';
+import { useScreenVisible } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   useFollowMutation,
@@ -83,9 +83,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const { presentAccountSwitcher } = useAccountSwitcher();
   const didLongPressMenuRef = useRef(false);
 
-  const profileRouteKey = providedIdentifier ? `profile:${providedIdentifier}` : 'profile:self';
-
-  const isRouteFocused = useVisibilityRouteIsActive(profileRouteKey);
+  const isRouteFocused = useScreenVisible();
 
   const queryClient = useQueryClient();
 
@@ -535,7 +533,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           pullToRefreshEnabled
           onPullToRefreshExtra={refreshProfileMetadata}
           queryOptions={queryOptions}
-          isVisible={isRouteFocused}
           headerComponent={
             <View style={styles.headerContainer} pointerEvents="box-none">
               <ProfileHeader

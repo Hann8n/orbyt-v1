@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
 import { useIsFocused } from 'expo-router/react-navigation';
 
@@ -101,6 +109,20 @@ export function useFeedVisibility({
   };
 }
 
-export function useVisibilityRouteIsActive(_routeKey: string | null | undefined): boolean {
-  return useIsFocused();
+/**
+ * True when a feed page is the active page of its pager. Defaults to `true` so feed surfaces
+ * rendered outside a pager (modal feed, channel, full-height video) are treated as active.
+ */
+const PagerPageActiveContext = createContext(true);
+export const PagerPageActiveProvider = PagerPageActiveContext.Provider;
+
+/**
+ * Whether a feed surface is currently on screen: focused in the navigation stack and — when inside
+ * a pager — the active page. Reads React Navigation's focus context directly, so the value never
+ * needs to be drilled down as a prop.
+ */
+export function useScreenVisible(): boolean {
+  const isFocused = useIsFocused();
+  const isPageActive = useContext(PagerPageActiveContext);
+  return isFocused && isPageActive;
 }

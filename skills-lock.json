@@ -1,35 +1,55 @@
 {
   "version": 1,
   "skills": {
-    "argent-create-flow": {
-      "source": "/Users/jack/.npm/_npx/f520494047e84823/node_modules/@swmansion/argent/skills",
+    "argent-android-emulator-setup": {
+      "source": "/Users/jack/.nvm/versions/node/v22.22.2/lib/node_modules/@swmansion/argent/skills",
       "sourceType": "local",
-      "computedHash": "8ef5dc1b2b2c09d0cb86ba772848dc24244d9400813cf70a68a799d62eddf59c"
+      "computedHash": "2e7edc2c85093d10dbb1e7f4b08db3ec64a85d42cdaac8838209cb0d7cbb6361"
+    },
+    "argent-create-flow": {
+      "source": "/Users/jack/.nvm/versions/node/v22.22.2/lib/node_modules/@swmansion/argent/skills",
+      "sourceType": "local",
+      "computedHash": "6dad6e7938c46d50fdf98ceadffcd94988a3d6c7571b5be1990665971eb3c646"
+    },
+    "argent-device-interact": {
+      "source": "/Users/jack/.nvm/versions/node/v22.22.2/lib/node_modules/@swmansion/argent/skills",
+      "sourceType": "local",
+      "computedHash": "aecff8920a357b1565e8b94d92b291887812756b2c747909672698af09031c90"
     },
     "argent-ios-profiler": {
       "source": "/Users/jack/.npm/_npx/f520494047e84823/node_modules/@swmansion/argent/skills",
       "sourceType": "local",
       "computedHash": "2a5e205a190f24b89a5781a439255ce5ac2b0ad1db62ff68d1aebda06706eb3b"
     },
-    "argent-metro-debugger": {
-      "source": "/Users/jack/.npm/_npx/f520494047e84823/node_modules/@swmansion/argent/skills",
+    "argent-ios-simulator-setup": {
+      "source": "/Users/jack/.nvm/versions/node/v22.22.2/lib/node_modules/@swmansion/argent/skills",
       "sourceType": "local",
-      "computedHash": "acc11a68c3db98b18556a121331060c0f7cc48ce535d1e73de6c925fa6452d7c"
+      "computedHash": "7a7ff28c1be09600ca2c5a14794003d5544eaf4ea5e5348504d4fd0c79e562c5"
+    },
+    "argent-metro-debugger": {
+      "source": "/Users/jack/.nvm/versions/node/v22.22.2/lib/node_modules/@swmansion/argent/skills",
+      "sourceType": "local",
+      "computedHash": "dde9dd9d275053f7b627512fa2a0ba2e9020a0585e3fef02b5061dd2bde5fb6b"
+    },
+    "argent-native-profiler": {
+      "source": "/Users/jack/.nvm/versions/node/v22.22.2/lib/node_modules/@swmansion/argent/skills",
+      "sourceType": "local",
+      "computedHash": "a6230e85a2a61112e3aaa593ec33fc63e4206593ef5cabaaa289d086945e6be7"
     },
     "argent-react-native-app-workflow": {
-      "source": "/Users/jack/.npm/_npx/f520494047e84823/node_modules/@swmansion/argent/skills",
+      "source": "/Users/jack/.nvm/versions/node/v22.22.2/lib/node_modules/@swmansion/argent/skills",
       "sourceType": "local",
-      "computedHash": "2c957274fded16fb8a2183e3a65c02fcb9559461a1a7905d27e0a77c38eda388"
+      "computedHash": "c5076f3fe579c3d266138b0e0dc934dcb70ef00da3b7e018e3c8c124c9bfdb7c"
     },
     "argent-react-native-optimization": {
-      "source": "/Users/jack/.npm/_npx/f520494047e84823/node_modules/@swmansion/argent/skills",
+      "source": "/Users/jack/.nvm/versions/node/v22.22.2/lib/node_modules/@swmansion/argent/skills",
       "sourceType": "local",
-      "computedHash": "6b6874240a82ac8b993e13379b801933948139e50d4be1f2f582583cf7f24ab5"
+      "computedHash": "fc04dda9d52c5add1ddb226c6bcc2a984bbd066bda44461f48311de9c2524049"
     },
     "argent-react-native-profiler": {
-      "source": "/Users/jack/.npm/_npx/f520494047e84823/node_modules/@swmansion/argent/skills",
+      "source": "/Users/jack/.nvm/versions/node/v22.22.2/lib/node_modules/@swmansion/argent/skills",
       "sourceType": "local",
-      "computedHash": "b5fce425f286088792fb5e78c18b5b365eff636d21b2e9324a9b7a734a0dcd0d"
+      "computedHash": "553945dae8b923dc37bff5e7251e615f5191dcf8c668663ddf4b10e18754f734"
     },
     "argent-simulator-interact": {
       "source": "/Users/jack/.npm/_npx/f520494047e84823/node_modules/@swmansion/argent/skills",
@@ -42,9 +62,9 @@
       "computedHash": "73f1f2f086b299b0678b5524c331d383f4b22e3ab442f166babf54e33e89ec53"
     },
     "argent-test-ui-flow": {
-      "source": "/Users/jack/.npm/_npx/f520494047e84823/node_modules/@swmansion/argent/skills",
+      "source": "/Users/jack/.nvm/versions/node/v22.22.2/lib/node_modules/@swmansion/argent/skills",
       "sourceType": "local",
-      "computedHash": "bef2df9a308b247b3e42d8f0b5347817dabeb650ecb4d8c0b79a8af04c78957b"
+      "computedHash": "89232a3463fb88bdbf22a0e61e77f42056da26358e99aa5612bfae0f28eabaaa"
     },
     "building-native-ui": {
       "source": "expo/skills",

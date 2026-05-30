@@ -25,7 +25,7 @@ const computeShouldPlayVideo = ({
   canPlay,
   hasError,
   userPaused,
-  isVisible,
+  isActiveCard,
   videoUrl,
 }: {
   cannotShowMedia: boolean;
@@ -33,7 +33,7 @@ const computeShouldPlayVideo = ({
   canPlay: boolean;
   hasError: boolean;
   userPaused: boolean;
-  isVisible: boolean;
+  isActiveCard: boolean;
   videoUrl: string | null;
 }): boolean =>
   !cannotShowMedia &&
@@ -41,14 +41,14 @@ const computeShouldPlayVideo = ({
   canPlay &&
   !hasError &&
   !userPaused &&
-  isVisible &&
+  isActiveCard &&
   Boolean(videoUrl);
 
 export interface UseVideoCardPlayerArgs {
   videoUrl: string | null;
   postUri: string;
   feedOption?: string;
-  isVisible: boolean;
+  isActiveCard: boolean;
   holdSource: boolean;
   canPlay: boolean;
   cannotShowMedia: boolean;
@@ -75,7 +75,7 @@ export function useVideoCardPlayer({
   videoUrl,
   postUri,
   feedOption,
-  isVisible,
+  isActiveCard,
   holdSource,
   canPlay,
   cannotShowMedia,
@@ -108,7 +108,7 @@ export function useVideoCardPlayer({
 
   useEffect(() => {
     const abortController = new AbortController();
-    const shouldLoad = holdSource || (hasError && isVisible);
+    const shouldLoad = holdSource || (hasError && isActiveCard);
     const source = shouldLoad && videoSource ? videoSource : null;
 
     const sourceChanged = source !== lastReplacedSourceRef.current;
@@ -129,7 +129,7 @@ export function useVideoCardPlayer({
     return () => {
       abortController.abort();
     };
-  }, [holdSource, videoSource, hasError, isVisible]);
+  }, [holdSource, videoSource, hasError, isActiveCard]);
 
   const [videoState, setVideoState] = useRecyclingState({ userPaused: false }, [
     postUri,
@@ -179,12 +179,12 @@ export function useVideoCardPlayer({
 
   const wasActiveRef = useRef(false);
   useEffect(() => {
-    const becameActive = isVisible && !wasActiveRef.current;
+    const becameActive = isActiveCard && !wasActiveRef.current;
     if (becameActive && videoState.userPaused && !hasError) {
       setUserPaused(false);
     }
-    wasActiveRef.current = isVisible;
-  }, [isVisible, hasError, videoState.userPaused, setUserPaused]);
+    wasActiveRef.current = isActiveCard;
+  }, [isActiveCard, hasError, videoState.userPaused, setUserPaused]);
 
   useEffect(() => {
     if (playerStatus === 'readyToPlay') onVideoStatus?.(postUri, 'loaded');
@@ -198,7 +198,7 @@ export function useVideoCardPlayer({
     canPlay,
     hasError,
     userPaused: videoState.userPaused,
-    isVisible,
+    isActiveCard,
     videoUrl,
   });
 

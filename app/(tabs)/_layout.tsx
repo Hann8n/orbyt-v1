@@ -44,7 +44,7 @@ export default function TabsLayout() {
   return (
     <Tabs>
       <DetailNavTabSegmentSync />
-      <TabSlot />
+      <TabSlot detachInactiveScreens={false} />
       <TabList asChild>
         <AppTabBar>
           <TabTrigger name="home" href="/home" asChild>

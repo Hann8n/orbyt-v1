@@ -31,6 +31,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { FeedPagerRef } from '../../../utils/navigation/tabRefs';
 import { useTabBarVisibility } from '../../../context/FeedIndicatorContext';
+import { PagerPageActiveProvider } from '../../../core/visibility/hooks';
 import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
 export type FeedOption = string;
@@ -66,7 +67,6 @@ interface FeedPagerRendererProps {
     refetchInterval?: number | false;
     refetchIntervalInBackground?: boolean;
   };
-  isVisible?: boolean;
   /** When false, the screen manages its own StatusBar. */
   controlStatusBar?: boolean;
   /** When true, each feed tab shows pull-to-refresh. */
@@ -152,7 +152,6 @@ function FeedPager({
   onViewModeChange,
   contentScrollProgressOutput,
   queryOptions: queryOptionsProp,
-  isVisible = true,
   controlStatusBar = true,
   pullToRefreshEnabled = false,
   onPullToRefreshExtra,
@@ -355,22 +354,24 @@ function FeedPager({
       >
         {feedOptions.map((feedOption, index) => (
           <View key={feedOption} style={feedPageStyle}>
-            <FeedRenderer
-              ref={feedRendererRefCallbacks[feedOption]}
-              feedOption={String(feedOption)}
-              userDid={userDid}
-              headerComponent={headerComponent}
-              backgroundColor={backgroundColor}
-              secondaryColor={secondaryColor}
-              viewMode={viewMode}
-              onViewModeChange={onViewModeChange}
-              contentScrollProgressOutput={contentScrollProgressOutput}
-              queryOptions={feedQueryOptions}
-              isVisible={isVisible && index === currentFeedIndex}
-              forceError={forceError}
-              pullToRefreshEnabled={pullToRefreshEnabled}
-              onPullToRefreshExtra={onPullToRefreshExtra}
-            />
+            {/* Only the active page is "visible"; descendants read this via useScreenVisible(). */}
+            <PagerPageActiveProvider value={index === currentFeedIndex}>
+              <FeedRenderer
+                ref={feedRendererRefCallbacks[feedOption]}
+                feedOption={String(feedOption)}
+                userDid={userDid}
+                headerComponent={headerComponent}
+                backgroundColor={backgroundColor}
+                secondaryColor={secondaryColor}
+                viewMode={viewMode}
+                onViewModeChange={onViewModeChange}
+                contentScrollProgressOutput={contentScrollProgressOutput}
+                queryOptions={feedQueryOptions}
+                forceError={forceError}
+                pullToRefreshEnabled={pullToRefreshEnabled}
+                onPullToRefreshExtra={onPullToRefreshExtra}
+              />
+            </PagerPageActiveProvider>
           </View>
         ))}
       </PagerView>

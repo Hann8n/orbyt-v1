@@ -51,13 +51,6 @@ const cardHeightStyleCache = new Map<number, { height: number }>();
 const getDistanceFromActive = (activeIndex: number | undefined, currentIndex: number): number =>
   activeIndex !== undefined ? Math.abs(activeIndex - currentIndex) : Infinity;
 
-const getIsVisible = (
-  activeIndex: number | undefined,
-  currentIndex: number,
-  isVisibleProp: boolean
-): boolean =>
-  activeIndex !== undefined ? activeIndex === currentIndex && isVisibleProp : isVisibleProp;
-
 const getRenderHeavyChrome = (
   activeIndex: number | undefined,
   distanceFromActive: number,
@@ -92,7 +85,6 @@ export interface VideoCardRef {
 export interface VideoCardProps {
   post: Post;
   feedItem?: ExtendedFeedViewPost;
-  isVisible?: boolean;
   onVideoStatus?: (uri: string, status: string) => void;
   height?: number;
   canPlay?: boolean;
@@ -110,7 +102,6 @@ export interface VideoCardProps {
 function VideoCard({
   post,
   feedItem,
-  isVisible: isVisibleProp = true,
   onVideoStatus,
   height,
   canPlay = true,
@@ -143,7 +134,9 @@ function VideoCard({
 
   const idx = index ?? 0;
   const distanceFromActive = getDistanceFromActive(activeIndex, idx);
-  const isVisible = getIsVisible(activeIndex, idx, isVisibleProp);
+  // The active row is the one the list reports as most-visible; screen/app/foreground gating is
+  // already folded into `canPlay`, so this is purely "is this the focused card in the list".
+  const isActiveCard = activeIndex !== undefined ? activeIndex === idx : true;
   const renderHeavyChrome = getRenderHeavyChrome(
     activeIndex,
     distanceFromActive,
@@ -180,7 +173,7 @@ function VideoCard({
     videoUrl,
     postUri: postView.uri,
     feedOption,
-    isVisible,
+    isActiveCard,
     holdSource,
     canPlay,
     cannotShowMedia,
@@ -363,14 +356,14 @@ function VideoCard({
   });
 
   useEffect(() => {
-    if (isVisible) {
+    if (isActiveCard) {
       queueSeenInteractionOnce(INTERACTIONSEEN);
       seenVideoService.markAsSeen(postView.uri);
       logSelectContent(getAnalytics(), { content_type: 'video', item_id: postView.uri }).catch(
         () => {}
       );
     }
-  }, [isVisible, queueSeenInteractionOnce, postView.uri]);
+  }, [isActiveCard, queueSeenInteractionOnce, postView.uri]);
 
   const textDimOpacitySV = useSharedValue(0);
   useEffect(() => {
@@ -379,11 +372,11 @@ function VideoCard({
   const textDimAnimatedStyle = useAnimatedStyle(() => ({ opacity: textDimOpacitySV.value }));
   const handleOverlayCollapsedChange = useCallback(
     (isCollapsed: boolean) => {
-      if (!isVisible) return;
+      if (!isActiveCard) return;
       const isExpanded = !isCollapsed;
       textDimOpacitySV.value = withTiming(isExpanded ? 0.65 : 0, { duration: 120 });
     },
-    [textDimOpacitySV, isVisible]
+    [textDimOpacitySV, isActiveCard]
   );
 
   const seekingAnimationSV = useSharedValue(0);
@@ -399,7 +392,7 @@ function VideoCard({
     playerDuration < MIN_SCRUBBER_DURATION_SECONDS
   );
 
-  const posterPriority: 'low' | 'normal' | 'high' = isVisible ? 'high' : 'normal';
+  const posterPriority: 'low' | 'normal' | 'high' = isActiveCard ? 'high' : 'normal';
 
   const overlayProps = useMemo<VideoOverlayUIProps>(
     () => ({
@@ -474,8 +467,8 @@ function VideoCard({
       <VideoCardOverlayLayers
         renderHeavyChrome={renderHeavyChrome}
         shouldRenderScrubber={!shouldHideScrubberForShortVideo}
-        scrubberActive={isVisible && !hasError}
-        isActive={isVisible}
+        scrubberActive={isActiveCard && !hasError}
+        isActive={isActiveCard}
         player={player}
         seekingAnimationSV={seekingAnimationSV}
         overlayOpacitySV={overlayOpacitySV}

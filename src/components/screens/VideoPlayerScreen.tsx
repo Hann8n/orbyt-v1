@@ -12,10 +12,8 @@ import { VideoItem } from '@/components/features/feed/VideoItem';
 import { feedService } from '@/services/FeedService';
 import { useViewportHeight } from '@/hooks/useViewportHeight';
 import type { EdgeInsets } from 'react-native-safe-area-context';
-import { useFeedVisibility } from '@/core/visibility/hooks';
-import { useVisibilityRouteIsActive } from '@/hooks';
+import { useFeedVisibility, useScreenVisible } from '@/core/visibility/hooks';
 
-const ROUTE_KEY = 'full-height-video-modal';
 const FEED_OPTION = 'full-height-video';
 
 type ContentProps = {
@@ -50,8 +48,7 @@ const VideoPlayerScreen = memo(() => {
   const params = useLocalSearchParams<{ postUri?: string }>();
   const postUri = typeof params.postUri === 'string' ? params.postUri : '';
 
-  const isRouteFocused = useVisibilityRouteIsActive(ROUTE_KEY);
-  const { canPlay } = useFeedVisibility({ isActive: isRouteFocused });
+  const { canPlay } = useFeedVisibility({ isActive: useScreenVisible() });
 
   const items = feedService.getCurrentFeed();
   const feedItem = postUri && items[0]?.post?.uri === postUri ? items[0] : undefined;

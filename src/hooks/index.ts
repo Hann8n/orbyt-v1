@@ -5,5 +5,5 @@ export * from './useFeed';
 export { useProfileChannelNavigation } from './useProfileChannelNavigation';
 export { useAppStore } from '../stores/appStore';
 export { useModerationSettings } from './useModerationSettings';
-export { useFeedVisibility, useVisibilityRouteIsActive } from '../core/visibility/hooks';
+export { useFeedVisibility, useScreenVisible } from '../core/visibility/hooks';
 export { useSheetPresentation } from './useSheetPresentation';

@@ -60,7 +60,7 @@ import { useViewportHeight } from '@/hooks/useViewportHeight';
 import type { FeedListItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
 import { ExtendedFeedViewPost } from '../../../services/api/types';
 import { isFeedHeaderItem } from '../../../types';
-import { useFeedVisibility } from '../../../core/visibility/hooks';
+import { useFeedVisibility, useScreenVisible } from '../../../core/visibility/hooks';
 import { useTranslation } from 'react-i18next';
 import { Typography, FontFamily } from '@/utils/components/typography';
 
@@ -231,7 +231,6 @@ function ListFeedViewComponent({
   isLoading,
   isError,
   onRetry,
-  isVisible = true,
   viewMode,
   onViewModeChange: _onViewModeChange,
   hasTabBar: hasTabBarProp,
@@ -283,7 +282,7 @@ function ListFeedViewComponent({
   const [activeIndex, setActiveIndex] = useState(seedActiveIndex);
 
   const tabBarVisibility = useTabBarVisibility();
-  const listSurfaceActive = isVisible && resolvedViewMode === 'list';
+  const listSurfaceActive = useScreenVisible() && resolvedViewMode === 'list';
   const chromeVisibleMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
 
   useEffect(() => {

@@ -22,6 +22,7 @@ import {
   type ParamListBase,
 } from 'expo-router/react-navigation';
 import { getActiveTabFromNavigation, type DetailNavTab } from '@/utils/navigation/detailRoutes';
+import { useScreenVisible } from '@/core/visibility/hooks';
 
 import ListFeedView from './ListFeedView';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
@@ -48,7 +49,6 @@ interface FeedRendererProps {
   secondaryColor?: string;
 
   // Feed state
-  isVisible?: boolean;
   /** When set, overrides list tab-bar inset behavior. */
   hasTabBar?: boolean;
 
@@ -98,7 +98,6 @@ const FeedRendererComponent = ({
   secondaryColor,
   onRetryFeed,
   queryOptions = defaultQueryOptions,
-  isVisible = true,
   viewMode = 'list',
   onViewModeChange,
   contentScrollProgressOutput,
@@ -170,11 +169,13 @@ const FeedRendererComponent = ({
     onRetryFeed?.();
   }, [refetch, onRetryFeed]);
 
+  // Don't paginate a feed that isn't on screen (blurred tab / inactive pager page).
+  const isScreenVisible = useScreenVisible();
   const handleLoadMore = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage && isVisible) {
+    if (hasNextPage && !isFetchingNextPage && isScreenVisible) {
       fetchNextPage();
     }
-  }, [hasNextPage, isFetchingNextPage, isVisible, fetchNextPage]);
+  }, [hasNextPage, isFetchingNextPage, isScreenVisible, fetchNextPage]);
 
   const router = useRouter();
   const routerRef = useRef(router);
@@ -300,7 +301,6 @@ const FeedRendererComponent = ({
       hasNextPage={hasNextPage}
       onRetry={handleRetry}
       isProfileFeed={isProfileFeed}
-      isVisible={isVisible}
       viewMode={viewMode}
       onViewModeChange={onViewModeChange}
       contentScrollProgressOutput={contentScrollProgressOutput}

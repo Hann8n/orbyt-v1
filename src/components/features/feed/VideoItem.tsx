@@ -12,7 +12,6 @@ export interface VideoItemProps {
   feedItem?: ExtendedFeedViewPost; // Preferred - contains feedContext and reqId natively
   height: number;
   feedOption?: string;
-  isVisible?: boolean;
   index?: number;
   isAppleZoomTarget?: boolean;
   onHashtagPress?: (hashtag: string) => void;
@@ -25,7 +24,6 @@ function VideoItemComponent({
   feedItem,
   height,
   feedOption,
-  isVisible,
   canPlay,
   index = 0,
   isAppleZoomTarget = false,
@@ -48,7 +46,6 @@ function VideoItemComponent({
       feedItem={feedItem}
       feedOption={feedOption}
       height={height}
-      isVisible={isVisible}
       canPlay={canPlay}
       index={index}
       activeIndex={activeIndex}

@@ -28,7 +28,6 @@ import { useChannelColors, useChannel } from '@/services/data/ChannelService';
 import { prefetchProfile } from '@/services/data/ProfileService';
 import { useUserStore } from '@/stores/userStore';
 import { hexToRGBA } from '@/utils/formatting/colors';
-import { useVisibilityRouteIsActive } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getEffectiveTopInset } from '@/utils/device/screen';
 import { isOrbytChannel, getChannelByUri, channelToHashtag } from '@/utils/channels/orbyt';
@@ -44,7 +43,6 @@ const Channel: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const queryClient = useQueryClient();
-  const isRouteFocused = useVisibilityRouteIsActive('channel');
   const uriParam = (params.id as string) || '';
   const uri = uriParam ? decodeURIComponent(uriParam) : '';
 
@@ -274,7 +272,6 @@ const Channel: React.FC = () => {
           pullToRefreshEnabled
           onPullToRefreshExtra={refreshChannelMetadata}
           queryOptions={queryOptions}
-          isVisible={isRouteFocused}
           headerComponent={headerComponent}
           backgroundColor={Colors.black}
           secondaryColor={channelColors.textColor}

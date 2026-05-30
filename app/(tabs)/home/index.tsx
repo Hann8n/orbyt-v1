@@ -7,7 +7,6 @@ import { useScrollToTop } from 'expo-router/react-navigation';
 import { queryKeys } from '@/utils/query/queryKeys';
 import FeedPager from '@/components/features/feed/FeedPager';
 import type { FeedOption } from '@/types';
-import { useVisibilityRouteIsActive } from '@/hooks';
 import { Colors } from '@/theme';
 import type { FeedPagerRef } from '@/utils/navigation/tabRefs';
 import { useUserStore } from '@/stores/userStore';
@@ -22,7 +21,6 @@ function HomeScreenComponent() {
   const feedBootstrapStatus = useUserStore(state => state.feedBootstrapStatus);
   const feedBootstrapDid = useUserStore(state => state.feedBootstrapDid);
   const insets = useSafeAreaInsets();
-  const isRouteFocused = useVisibilityRouteIsActive('home');
   const shouldGateHomeFeed =
     !!currentUser?.did && (feedBootstrapStatus !== 'ready' || feedBootstrapDid !== currentUser.did);
 
@@ -72,7 +70,6 @@ function HomeScreenComponent() {
           currentFeed={currentFeed}
           onFeedChange={handleFeedChange}
           applySafeArea={true}
-          isVisible={isRouteFocused}
           pullToRefreshEnabled
           onPullToRefreshExtra={triggerRefresh}
         />
