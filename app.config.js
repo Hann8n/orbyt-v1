@@ -8,6 +8,7 @@ module.exports = {
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.getorbyt.app',
+    googleServicesFile: './GoogleService-Info.plist',
     appleTeamId: 'D8VXFBV8SJ',
     buildNumber: '7',
     icon: './src/assets/AppIcons/iOS/Orbyt.icon',
@@ -165,6 +166,7 @@ module.exports = {
       },
     ],
     '@sentry/react-native',
+    '@react-native-firebase/app',
   ],
   extra: {
     eas: {

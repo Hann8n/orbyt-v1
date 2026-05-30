@@ -54,3 +54,5 @@ orbyt-adp-*.zip
 perf/export/
 
 .build-version.json
+GoogleService-Info.plist
+ios/orbyt/GoogleService-Info.plist
