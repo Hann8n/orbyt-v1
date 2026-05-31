@@ -258,6 +258,7 @@ function ListFeedViewComponent({
   const [activeIndex, setActiveIndex] = useState(seedActiveIndex);
 
   const tabBarVisibility = useTabBarVisibility();
+  // react-compiler treats the value returned from a hook as immutable; mutating via ref.current is fine.
   const tabBarVisibilityRef = useRef(tabBarVisibility);
   const listSurfaceActive = useScreenVisible() && resolvedViewMode === 'list';
 
@@ -282,7 +283,13 @@ function ListFeedViewComponent({
     [cardHeight, cardWidth, insets.top]
   );
 
+  // Viewability fires at mount offset 0; gate it until the imperative scrollToItem reaches the target.
+  const scrollToTargetPendingRef = useRef(!!zoomTargetPostUri);
   const didScrollToTargetRef = useRef(false);
+  useEffect(() => {
+    didScrollToTargetRef.current = false;
+    scrollToTargetPendingRef.current = !!zoomTargetPostUri;
+  }, [zoomTargetPostUri]);
   useEffect(() => {
     if (didScrollToTargetRef.current || !zoomTargetPostUri || feed.length === 0) return;
     const idx = feed.findIndex(
@@ -291,12 +298,26 @@ function ListFeedViewComponent({
     if (idx < 0 || !flashListRef.current) return;
     const adjustedIdx = idx + (isHeaderFeed ? 1 : 0);
     didScrollToTargetRef.current = true;
+    scrollToTargetPendingRef.current = false;
     setActiveIndex(adjustedIdx);
     flashListRef.current.scrollToItem({ item: feed[idx], animated: false, viewPosition: 0 });
   }, [zoomTargetPostUri, feed, isHeaderFeed]);
 
+  const handleActiveIndexChange = useCallback((index: number) => {
+    if (scrollToTargetPendingRef.current) return;
+    setActiveIndex(prev => (prev === index ? prev : index));
+  }, []);
+
+  // Clamp to current data length so a stale activeIndex can never point past the end of the feed.
+  const renderableCount = feed.length + (headerComponent ? 1 : 0);
   const activeIndexForRender =
-    activeIndex >= 0 ? activeIndex : feed.length > 0 ? (isHeaderFeed ? 1 : 0) : -1;
+    feed.length === 0
+      ? -1
+      : activeIndex >= 0 && activeIndex < renderableCount
+        ? activeIndex
+        : isHeaderFeed
+          ? 1
+          : 0;
 
   const listData = useMemo(() => {
     if (headerComponent) {
@@ -317,11 +338,9 @@ function ListFeedViewComponent({
     });
   }, [isHeaderFeed, headerHeight, cardHeight, listData.length, itemSpacing]);
 
-  const { canPlay, onMomentumScrollEnd } = useFeedVisibility({
+  const { canPlay, onViewableItemsChanged, viewabilityConfig } = useFeedVisibility({
     isActive: listSurfaceActive,
-    onPageIndexChange: setActiveIndex,
-    cardHeight,
-    snapToOffsets: isHeaderFeed ? snapToOffsets : undefined,
+    onActiveIndexChange: handleActiveIndexChange,
   });
 
   const profileColors = useMemo(
@@ -549,7 +568,7 @@ function ListFeedViewComponent({
           data={listData}
           renderItem={renderItem}
           extraData={listRenderExtraData}
-          drawDistance={FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE}
+          drawDistance={cardHeight > 0 ? cardHeight : undefined}
           keyExtractor={listKeyExtractor}
           getItemType={getListItemType}
           refreshControl={refreshControlElement}
@@ -565,7 +584,8 @@ function ListFeedViewComponent({
           renderScrollComponent={renderScrollComponent}
           onEndReached={onLoadMore}
           onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-          onMomentumScrollEnd={onMomentumScrollEnd}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
           maintainVisibleContentPosition={MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED}
           scrollEnabled
           showsVerticalScrollIndicator={

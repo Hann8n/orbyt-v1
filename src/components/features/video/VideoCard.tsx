@@ -17,6 +17,7 @@ import {
 } from 'react-native-reanimated';
 
 import { useFeedLayout } from '../feed/feedViewShared';
+import { useScreenVisible } from '../../../core/visibility/hooks';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { seenVideoService } from '../../../services/SeenVideoService';
 import { prefetchProfile, useFollowMutation } from '../../../services/data/ProfileService';
@@ -128,6 +129,9 @@ function VideoCard({
   const posterUrl = videoView?.thumbnail || null;
   const recyclingKey = postView?.uri || postView?.cid || `item-${idx}`;
 
+  // Off-screen pager pages (e.g. your-mix while on following) must not buffer — gate by page visibility.
+  const surfaceVisible = useScreenVisible();
+
   const {
     videoSource,
     player,
@@ -145,7 +149,7 @@ function VideoCard({
     postUri: postView.uri,
     feedOption,
     isActiveCard: isActive,
-    holdSource: true,
+    holdSource: surfaceVisible,
     canPlay,
     cannotShowMedia,
     isBlurred,

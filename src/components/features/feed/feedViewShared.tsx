@@ -11,7 +11,6 @@ import { isValidAtUri } from '../../../utils/atproto/uriValidation';
 
 export const FEED_VIEW_CONSTANTS = {
   LIST_ITEM_GAP: 0,
-  FLASHLIST_DRAW_DISTANCE: 220,
   GRID_CELL_GAP: 2,
   HEADER_HEIGHT_TABS: 280,
   HEADER_BLOCKING_THRESHOLD: 250,
