@@ -32,7 +32,6 @@ import {
 import ProfileService from '@/services/data/ProfileService';
 import { useUserStore } from '@/stores/userStore';
 import { extractColorsFromImage, hexToRGBA } from '@/utils/formatting/colors';
-import { useVisibilityRouteIsActive } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getEffectiveTopInset } from '@/utils/device/screen';
 import { isOrbytChannel, getChannelByUri, channelToHashtag } from '@/utils/channels/orbyt';
@@ -45,7 +44,6 @@ const Channel: React.FC = memo(() => {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams();
-  const isRouteFocused = useVisibilityRouteIsActive('channel');
   const uriParam = (params.id as string) || '';
   const uri = uriParam ? decodeURIComponent(uriParam) : '';
 
@@ -359,7 +357,6 @@ const Channel: React.FC = memo(() => {
           pullToRefreshEnabled
           onPullToRefreshExtra={refreshChannelMetadata}
           queryOptions={queryOptions}
-          isVisible={isRouteFocused}
           headerComponent={headerComponent}
           backgroundColor={Colors.black}
           secondaryColor={channelColors.textColor}

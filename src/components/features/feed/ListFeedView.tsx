@@ -546,7 +546,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     const snapTopInset =
       useManualIosGlassTabPaddingLayout && !isCompact ? getEffectiveTopInset(insets.top) : 0;
-
     const snapDisabledCompactLiquidGlass =
       useManualIosGlassTabPaddingLayout && !hasHeader && isCompact;
     const snapWaitHeaderLayout = hasHeader && headerHeight <= 0;

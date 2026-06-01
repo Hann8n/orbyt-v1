@@ -1,6 +1,6 @@
 import React, { useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { tabRefs } from '@/utils/navigation/tabRefs';
+import { useScrollToTop } from '@react-navigation/native';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import type { Edge } from 'react-native-safe-area-context';
 import { NativePressable } from '@/components/ui/NativePressable';
@@ -76,8 +76,17 @@ const ActivityScreen: React.FC = () => {
 
   const pages = useMemo<Array<'chats' | 'notifications'>>(() => ['notifications', 'chats'], []);
   const safeAreaEdges = useMemo<Edge[]>(() => ['top'], []);
-  const notificationsTabRef = useRef<typeof tabRefs.activity>(null);
-  const chatsTabRef = useRef<typeof tabRefs.activity>(null);
+  const notificationsTabRef = useRef<{ scrollToTop: () => void } | null>(null);
+  const chatsTabRef = useRef<{ scrollToTop: () => void } | null>(null);
+  const currentPageRef = useRef(0);
+
+  const activeScrollRef = useRef({
+    scrollToTop: () => {
+      if (currentPageRef.current === 0) notificationsTabRef.current?.scrollToTop();
+      else chatsTabRef.current?.scrollToTop();
+    },
+  });
+  useScrollToTop(activeScrollRef);
 
   return (
     <View style={styles.container}>
@@ -127,11 +136,7 @@ const ActivityScreen: React.FC = () => {
           onPageSelected={e => {
             const index = e.nativeEvent.position;
             pageScrollProgress.value = index;
-            if (index === 0 && notificationsTabRef.current) {
-              tabRefs.activity = notificationsTabRef.current;
-            } else if (index === 1 && chatsTabRef.current) {
-              tabRefs.activity = chatsTabRef.current;
-            }
+            currentPageRef.current = index;
           }}
           scrollEnabled={true}
           pageMargin={0}

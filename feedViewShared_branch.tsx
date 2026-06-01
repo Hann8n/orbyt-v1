@@ -5,26 +5,19 @@ import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import { FEED_TYPES } from '../../../utils/constants';
 import type { FeedListItem } from '../../../types';
+import { isFeedHeaderItem } from '../../../types';
 import { blendColors, hexToRGBA } from '../../../utils/formatting/colors';
+import { isValidAtUri } from '../../../utils/atproto/uriValidation';
 
 export const FEED_VIEW_CONSTANTS = {
-  LIST_ITEM_GAP: 3,
-  FLASHLIST_DRAW_DISTANCE: 220,
+  LIST_ITEM_GAP: 0,
   GRID_CELL_GAP: 2,
   HEADER_HEIGHT_TABS: 280,
   HEADER_BLOCKING_THRESHOLD: 250,
-  HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y: 10,
 } as const;
 
-export const IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING = 12;
-
 export const isHeaderFeed = (feedOption: string, headerComponent?: ReactNode): boolean =>
-  feedOption === FEED_TYPES.PROFILE ||
-  feedOption === FEED_TYPES.LIKES ||
-  feedOption === FEED_TYPES.REPOSTS ||
-  (feedOption && feedOption.startsWith('at://')) ||
-  (feedOption && feedOption.startsWith('hashtag:orbyt-channel-')) ||
-  Boolean(headerComponent);
+  Boolean(headerComponent) || isValidAtUri(feedOption);
 
 export const getProfileColors = (backgroundColor?: string, secondaryColor?: string) =>
   secondaryColor
@@ -43,8 +36,7 @@ export const getPullToRefreshTintColor = (
     : secondaryColor || Colors.neutral[50];
 
 export const getFeedItemKey = (item: FeedListItem | ExtendedFeedViewPost, index = 0): string => {
-  // Check for header items (items without post data)
-  if (!item.post) {
+  if (isFeedHeaderItem(item)) {
     return `header-${index}`;
   }
   return item.post?.uri ?? item.post?.cid ?? `feed-${index}`;
@@ -70,10 +62,7 @@ export const getEndOfFeedOverscrollTextColor = (
 ): string => {
   const raw = profileTextColor ?? secondaryColor;
   const hex = raw ? normalizeHexRgb(raw) : null;
-  if (!hex) {
-    return Colors.neutral[300];
-  }
-
+  if (!hex) return Colors.neutral[300];
   return hexToRGBA(hex, 0.98);
 };
 

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+} from 'react';
 import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 
@@ -83,4 +90,16 @@ export function useFeedVisibility({
  */
 export function useVisibilityRouteIsActive(_routeKey: string | null | undefined): boolean {
   return useIsFocused();
+}
+
+// Defaults to true so surfaces rendered outside a pager (modal, channel, full-height video) are
+// treated as active without needing a provider.
+const PagerPageActiveContext = createContext(true);
+export const PagerPageActiveProvider = PagerPageActiveContext.Provider;
+
+// Combines navigation focus with pager-page active state so neither has to be prop-drilled.
+export function useScreenVisible(): boolean {
+  const isFocused = useIsFocused();
+  const isPageActive = useContext(PagerPageActiveContext);
+  return isFocused && isPageActive;
 }

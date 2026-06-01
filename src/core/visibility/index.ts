@@ -1,4 +1,9 @@
-export { useFeedVisibility, useVisibilityRouteIsActive } from './hooks';
+export {
+  useFeedVisibility,
+  useVisibilityRouteIsActive,
+  useScreenVisible,
+  PagerPageActiveProvider,
+} from './hooks';
 export {
   createFeedListPlaybackStore,
   FeedListPlaybackContext,

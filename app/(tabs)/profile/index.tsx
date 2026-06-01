@@ -50,6 +50,7 @@ import ProfileMenu from '@/components/features/profile/ProfileMenu';
 import SubscriptionOptionsSheet from '@/components/features/profile/SubscriptionOptionsSheet';
 import LiveStreamInfoSheet from '@/components/features/profile/LiveStreamInfoSheet';
 import type { MenuAction } from '@react-native-menu/menu';
+import { useScrollToTop } from '@react-navigation/native';
 import { tabRefs, type FeedPagerRef } from '@/utils/navigation/tabRefs';
 import type { ViewMode } from '@/types';
 import { useOrbytColors } from '@/services/colors';
@@ -465,6 +466,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }
   }, [onLogout]);
 
+  const feedPagerRef = useRef<FeedPagerRef>(null);
+  useScrollToTop(feedPagerRef);
+
   const insets = useSafeAreaInsets();
   const topInset = getEffectiveTopInset(insets.top);
   const defaultTop = topInset + PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET;
@@ -660,6 +664,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       ) : (
         <FeedPager
           ref={r => {
+            feedPagerRef.current = r as FeedPagerRef | null;
             tabRefs.profile = r as FeedPagerRef | null;
           }}
           feedOptions={profileFeedOptions}
@@ -670,7 +675,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           pullToRefreshEnabled
           onPullToRefreshExtra={refreshProfileMetadata}
           queryOptions={queryOptions}
-          isVisible={isRouteFocused}
           headerComponent={
             <View style={styles.headerContainer} pointerEvents="box-none">
               <ProfileHeader
