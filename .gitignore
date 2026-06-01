@@ -1,56 +1,91 @@
-# dependencies
+```gitignore
+# Dependencies
 node_modules/
 
-.expo/
+# Build outputs
 dist/
-web-build/
+build/
+target/
 
-# Native
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-/android
-/ios
-
-.yarn/cache/
-.yarn/install-state.gz
-
-.metro-health-check*
-
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-.DS_Store
-*.pem
-
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
 .env
-.env*.local
+.env.local
+.env.*
 
-*.tsbuildinfo
+# Logs
+*.log
 
-# OAuth private keys (never commit these!)
-private-key.pem
-private-keys.json
-docs/BYTE_REVERSE_ENGINEERING_INSIGHTS.md
-docs/BYTE_FEATURE_PARITY_ANALYSIS.md
-
-# Android keystore credentials
-**/keystore.properties
-
-.reassure/
+# Coverage
+.coverage
 coverage/
-.jest-cache/
+htmlcov/
 
-# AltStore ADP build artifacts
-adp-extracted/
-orbyt-adp-*.zip
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
 
-# Perf exports
-perf/export/
+# OS
+.DS_Store
+Thumbs.db
 
-.build-version.json
+# Testing
+.pytest_cache/
+.mypy_cache/
+nyc_output/
+coverage/
+
+# Distribution / packaging
+*.tar.gz
+*.whl
+*.egg
+*.egg-info/
+
+# Environment specific
+.env*
+!.env.example
+
+# Compiled Binary Files
+*.class
+*.o
+*.so
+*.dll
+*.exe
+*.a
+*.obj
+*.out
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```

@@ -15,10 +15,8 @@ import React, {
   useState,
 } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
-import type { NavigationProp, ParamListBase } from '@react-navigation/native';
-import { getActiveTabFromNavigation, type DetailNavTab } from '@/utils/navigation/detailRoutes';
+import { useRouter, useSegments } from 'expo-router';
+import type { DetailNavTab } from '@/utils/navigation/detailRoutes';
 
 import ListFeedView from './ListFeedView';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
