@@ -8,7 +8,6 @@ import {
   RefreshControl,
   ActivityIndicator,
   type ViewStyle,
-  type ScrollViewProps,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Link, type Href } from 'expo-router';
@@ -40,7 +39,7 @@ import {
   getProfileColors,
   getPullToRefreshTintColor,
   isHeaderFeed as getIsHeaderFeed,
-  createReanimatedScrollComponent,
+  useReanimatedScrollComponent,
 } from './feedViewShared';
 import type { SharedValue } from 'react-native-reanimated';
 import type { Ref } from 'react';
@@ -180,10 +179,7 @@ function GridFeedView({
   const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
 
   const animatedScrollRef = useAnimatedRef<Animated.ScrollView>();
-  const renderScrollComponent = useCallback(
-    (props: ScrollViewProps) => createReanimatedScrollComponent(animatedScrollRef, props),
-    [animatedScrollRef]
-  );
+  const renderScrollComponent = useReanimatedScrollComponent(animatedScrollRef);
   const scrollOffsetYSV = useScrollOffset(animatedScrollRef);
 
   useAnimatedReaction(

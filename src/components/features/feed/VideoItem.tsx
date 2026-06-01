@@ -18,6 +18,8 @@ export interface VideoItemProps {
   /** Whether this specific card is the active (focused) card in the list. */
   isActive?: boolean;
   canPlay?: boolean;
+  /** Whether the pager page containing this feed is currently visible. */
+  surfaceVisible?: boolean;
 }
 
 function VideoItemComponent({
@@ -30,6 +32,7 @@ function VideoItemComponent({
   isAppleZoomTarget = false,
   onHashtagPress,
   isActive = false,
+  surfaceVisible,
 }: VideoItemProps) {
   const embed = 'embed' in post ? (post.embed as PostView['embed']) : undefined;
   const videoView = getVideoView(embed);
@@ -51,6 +54,7 @@ function VideoItemComponent({
       index={index}
       isActive={isActive}
       onHashtagPress={onHashtagPress}
+      surfaceVisible={surfaceVisible}
     />
   );
 

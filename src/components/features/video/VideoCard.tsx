@@ -17,7 +17,6 @@ import {
 } from 'react-native-reanimated';
 
 import { useFeedLayout } from '../feed/feedViewShared';
-import { useScreenVisible } from '../../../core/visibility/hooks';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { seenVideoService } from '../../../services/SeenVideoService';
 import { prefetchProfile, useFollowMutation } from '../../../services/data/ProfileService';
@@ -48,6 +47,7 @@ type Post = ExtendedPostView | ExtendedFeedViewPost;
 
 const MIN_SCRUBBER_DURATION_SECONDS = 7;
 const cardHeightStyleCache = new Map<number, { height: number }>();
+const videoBoxStyleCache = new Map<number, { height: number }>();
 
 const getCardHeightStyle = (cardHeight: number): { height: number } => {
   const normalized = Math.max(0, Math.round(cardHeight));
@@ -55,6 +55,15 @@ const getCardHeightStyle = (cardHeight: number): { height: number } => {
   if (cached) return cached;
   const style = { height: normalized };
   cardHeightStyleCache.set(normalized, style);
+  return style;
+};
+
+const getVideoBoxStyle = (videoBoxHeight: number): { height: number } => {
+  const normalized = Math.max(0, Math.round(videoBoxHeight));
+  const cached = videoBoxStyleCache.get(normalized);
+  if (cached) return cached;
+  const style = { height: normalized };
+  videoBoxStyleCache.set(normalized, style);
   return style;
 };
 
@@ -82,6 +91,8 @@ export interface VideoCardProps {
   onHashtagPress?: (hashtag: string) => void;
   ref?: Ref<VideoCardRef>;
   isActive?: boolean;
+  /** Whether the pager page containing this card is visible — gates video buffering. */
+  surfaceVisible?: boolean;
 }
 
 function VideoCard({
@@ -96,6 +107,7 @@ function VideoCard({
   isActive = true,
   onHashtagPress,
   ref,
+  surfaceVisible = true,
 }: VideoCardProps) {
   const feedContext = feedItem?.feedContext;
   const reqId = feedItem?.reqId;
@@ -117,8 +129,7 @@ function VideoCard({
 
   const feedLayout = useFeedLayout();
   const cardHeight = height ?? feedLayout.viewportHeight;
-  const topInset = feedLayout.topInset;
-  const bottomInset = feedLayout.bottomInset;
+  const videoBoxHeight = Math.min(cardHeight, Math.round(feedLayout.viewportWidth * (16 / 9)));
 
   const [userChoseToView, setUserChoseToView] = useRecyclingState(false, [postView.uri]);
   const { cannotShowMedia, isBlurred, warningDescription, handleViewContent } =
@@ -128,9 +139,6 @@ function VideoCard({
   const videoUrl = videoView?.playlist || null;
   const posterUrl = videoView?.thumbnail || null;
   const recyclingKey = postView?.uri || postView?.cid || `item-${idx}`;
-
-  // Off-screen pager pages (e.g. your-mix while on following) must not buffer — gate by page visibility.
-  const surfaceVisible = useScreenVisible();
 
   const {
     videoSource,
@@ -420,8 +428,10 @@ function VideoCard({
 
   return (
     <View style={StyleSheet.compose(styles.container, getCardHeightStyle(cardHeight))}>
-      <View style={getCardHeightStyle(topInset)} pointerEvents="none" />
-      <View style={styles.videoBox} pointerEvents="box-none">
+      <View
+        style={StyleSheet.compose(styles.videoBox, getVideoBoxStyle(videoBoxHeight))}
+        pointerEvents="box-none"
+      >
         <VideoCardMediaGestureLayer
           videoGesture={gesture}
           posterUrl={posterUrl}
@@ -454,7 +464,6 @@ function VideoCard({
           onViewContent={handleViewContent}
         />
       </View>
-      <View style={getCardHeightStyle(bottomInset)} pointerEvents="none" />
     </View>
   );
 }
@@ -464,14 +473,11 @@ export default VideoCard;
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    position: 'relative',
-    overflow: 'hidden',
     backgroundColor: Colors.black,
     flexDirection: 'column',
+    justifyContent: 'flex-end',
   },
   videoBox: {
-    flex: 1,
     overflow: 'hidden',
-    position: 'relative',
   },
 });

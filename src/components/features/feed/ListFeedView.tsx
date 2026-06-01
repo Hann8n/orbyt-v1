@@ -17,7 +17,6 @@ import {
   RefreshControl,
   Text,
   useWindowDimensions,
-  type ScrollViewProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -49,7 +48,7 @@ import {
   getProfileColors,
   getPullToRefreshTintColor,
   isHeaderFeed as getIsHeaderFeed,
-  createReanimatedScrollComponent,
+  useReanimatedScrollComponent,
   type FeedLayout,
 } from './feedViewShared';
 import { Colors } from '../../../theme';
@@ -236,10 +235,7 @@ function ListFeedViewComponent({
   const gridRef = useRef<ListFeedViewRef>(null);
 
   const animatedScrollRef = useAnimatedRef<Animated.ScrollView>();
-  const renderScrollComponent = useCallback(
-    (props: ScrollViewProps) => createReanimatedScrollComponent(animatedScrollRef, props),
-    [animatedScrollRef]
-  );
+  const renderScrollComponent = useReanimatedScrollComponent(animatedScrollRef);
 
   const scrollOffsetYSV = useScrollOffset(animatedScrollRef);
   const endOfFeedOverscrollOpacitySV = useSharedValue(0);
@@ -260,7 +256,8 @@ function ListFeedViewComponent({
   const tabBarVisibility = useTabBarVisibility();
   // react-compiler treats the value returned from a hook as immutable; mutating via ref.current is fine.
   const tabBarVisibilityRef = useRef(tabBarVisibility);
-  const listSurfaceActive = useScreenVisible() && resolvedViewMode === 'list';
+  const screenVisible = useScreenVisible();
+  const listSurfaceActive = screenVisible && resolvedViewMode === 'list';
 
   useEffect(() => {
     if (listSurfaceActive) tabBarVisibilityRef.current.value = 1;
@@ -373,8 +370,17 @@ function ListFeedViewComponent({
       onHashtagPress,
       activeIndex: activeIndexForRender,
       canPlay,
+      surfaceVisible: screenVisible,
     }),
-    [cardHeight, feedOption, zoomTargetPostUri, onHashtagPress, activeIndexForRender, canPlay]
+    [
+      cardHeight,
+      feedOption,
+      zoomTargetPostUri,
+      onHashtagPress,
+      activeIndexForRender,
+      canPlay,
+      screenVisible,
+    ]
   );
 
   const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
@@ -414,6 +420,7 @@ function ListFeedViewComponent({
           onHashtagPress={xd.onHashtagPress}
           isActive={xd.activeIndex === index}
           canPlay={xd.canPlay}
+          surfaceVisible={xd.surfaceVisible}
         />
       );
     },

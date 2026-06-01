@@ -58,52 +58,54 @@ export function useVideoCardInteraction({
   );
 
   const displayRef = useRef(display);
-  const pendingRef = useRef({ isLikePending: false, isRepostPending: false });
+  // Refs for mutation objects so callbacks don't re-create when isPending flips
+  const likeMutationRef = useRef(likeMutation);
+  const repostMutationRef = useRef(repostMutation);
 
   useLayoutEffect(() => {
     displayRef.current = display;
-    pendingRef.current.isLikePending = likeMutation.isPending;
-    pendingRef.current.isRepostPending = repostMutation.isPending;
-  }, [display, likeMutation.isPending, repostMutation.isPending]);
+    likeMutationRef.current = likeMutation;
+    repostMutationRef.current = repostMutation;
+  }, [display, likeMutation, repostMutation]);
 
   const handleLike = useCallback(async () => {
-    if (likeMutation.isPending) return;
+    if (likeMutationRef.current.isPending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { isLiked, likeUri, likeCount } = displayRef.current;
-    await likeMutation.mutateAsync({
+    await likeMutationRef.current.mutateAsync({
       postUri: postView.uri,
       postCid: postView.cid,
       isLiked,
       likeUri,
       likeCount,
     });
-  }, [likeMutation, postView.uri, postView.cid]);
+  }, [postView.uri, postView.cid]);
 
   const handleLikeOnly = useCallback(async () => {
-    if (displayRef.current.isLiked || likeMutation.isPending) return;
+    if (displayRef.current.isLiked || likeMutationRef.current.isPending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { likeUri, likeCount } = displayRef.current;
-    await likeMutation.mutateAsync({
+    await likeMutationRef.current.mutateAsync({
       postUri: postView.uri,
       postCid: postView.cid,
       isLiked: false,
       likeUri,
       likeCount,
     });
-  }, [likeMutation, postView.uri, postView.cid]);
+  }, [postView.uri, postView.cid]);
 
   const handleRepost = useCallback(async () => {
-    if (repostMutation.isPending) return;
+    if (repostMutationRef.current.isPending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { isReposted, repostUri, repostCount } = displayRef.current;
-    await repostMutation.mutateAsync({
+    await repostMutationRef.current.mutateAsync({
       postUri: postView.uri,
       postCid: postView.cid,
       isReposted,
       repostUri,
       repostCount,
     });
-  }, [repostMutation, postView.uri, postView.cid]);
+  }, [postView.uri, postView.cid]);
 
   return {
     display,
