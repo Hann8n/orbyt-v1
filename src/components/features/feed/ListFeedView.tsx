@@ -43,7 +43,6 @@ import type {
   FeedScrollLayoutValue,
   FeedScrollMotionValue,
 } from '../../../context/FeedScrollContext';
-import { useTabBarVisibility } from '../../../context/FeedIndicatorContext';
 import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
@@ -199,8 +198,6 @@ const ListEmptyComponent = ({
 ListEmptyComponent.displayName = 'ListEmptyComponent';
 
 const END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX = 56;
-const CHROME_SHOW_DIRECTION_THRESHOLD_PX = 4;
-const CHROME_HIDE_DIRECTION_THRESHOLD_PX = 18;
 
 const END_OF_FEED_HINT_BOTTOM_OFFSET = 40;
 type EndOfFeedOverscrollHintProps = {
@@ -310,41 +307,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     const headerBlockingBaseSuppressedSV = useSharedValue(1);
 
-    const tabBarVisibility = useTabBarVisibility();
     const listSurfaceActive = isVisible && resolvedViewMode === 'list';
-    const isVisibleSV = useSharedValue(listSurfaceActive ? 1 : 0);
-    const chromeVisibleMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
-    useEffect(() => {
-      isVisibleSV.value = listSurfaceActive ? 1 : 0;
-    }, [listSurfaceActive, isVisibleSV]);
-
-    useAnimatedReaction(
-      () => [scrollOffsetYSV.value, isVisibleSV.value] as const,
-      (current, previous) => {
-        'worklet';
-
-        if (!isVisibleSV.value) return;
-
-        const y = Math.max(0, current[0]);
-        const prevY = previous === null ? y : Math.max(0, previous[0]);
-        const prevVisible = previous === null ? 0 : previous[1];
-
-        // Re-evaluate immediately when becoming visible (feed switch / screen focus)
-        if (previous === null || prevVisible < 0.5) {
-          tabBarVisibility.value = 1;
-          return;
-        }
-
-        if (y < chromeVisibleMaxY) {
-          tabBarVisibility.value = 1;
-        } else if (y > prevY + CHROME_HIDE_DIRECTION_THRESHOLD_PX) {
-          tabBarVisibility.value = 0;
-        } else if (y < prevY - CHROME_SHOW_DIRECTION_THRESHOLD_PX) {
-          tabBarVisibility.value = 1;
-        }
-      },
-      [scrollOffsetYSV, tabBarVisibility, isVisibleSV, chromeVisibleMaxY]
-    );
 
     const patchHeaderBlockingPlayback = useCallback(
       (blocked: boolean) => listPlaybackStore.patch({ headerBlockingPlayback: blocked }),

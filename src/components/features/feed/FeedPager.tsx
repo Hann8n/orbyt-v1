@@ -30,7 +30,6 @@ import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { FeedPagerRef } from '../../../utils/navigation/tabRefs';
-import { useTabBarVisibility } from '../../../context/FeedIndicatorContext';
 import { PagerPageActiveProvider } from '../../../core/visibility/hooks';
 import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
@@ -165,8 +164,6 @@ function FeedPager({
   const pagerViewRef = useRef<PagerView>(null);
   const feedRendererRefs = useRef<{ [key: string]: ListFeedViewRef | null }>({});
   const router = useRouter();
-  const tabBarVisibility = useTabBarVisibility();
-
   const feedOptions = feedOptionsProp ?? DEFAULT_FEED_OPTIONS;
 
   const initialPageIndex = (() => {
@@ -205,17 +202,6 @@ function FeedPager({
     },
     [contentScrollProgressOutput]
   );
-
-  const feedBarAnimatedStyle = useAnimatedStyle(() => ({
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 2,
-    backgroundColor: Colors.transparent,
-    opacity: tabBarVisibility.value,
-    transform: [{ translateY: (1 - tabBarVisibility.value) * -18 }],
-  }));
 
   const handlePageScroll = useCallback(
     (event: PagerViewOnPageScrollEvent) => {
@@ -321,7 +307,7 @@ function FeedPager({
       {controlStatusBar && <StatusBar barStyle="light-content" backgroundColor={Colors.black} />}
 
       {showFeedIndicator && (
-        <Animated.View style={feedBarAnimatedStyle}>
+        <View style={styles.feedBar}>
           <SafeAreaView edges={applySafeArea ? SAFE_AREA_TOP_EDGES : SAFE_AREA_NO_EDGES}>
             <View style={styles.indicatorContainer}>
               <View style={styles.feedIndicators}>
@@ -342,7 +328,7 @@ function FeedPager({
               </NativePressable>
             </View>
           </SafeAreaView>
-        </Animated.View>
+        </View>
       )}
 
       <PagerView
@@ -408,6 +394,14 @@ const styles = StyleSheet.create({
   },
   feedPage: {
     height: '100%',
+  },
+  feedBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+    backgroundColor: Colors.transparent,
   },
 });
 

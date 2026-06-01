@@ -23,7 +23,6 @@ import { queryClient } from '@/utils/query/queryClient';
 import { QueryErrorBoundary } from '@/components/ui/QueryErrorBoundary';
 import { useModalStore } from '@/stores/modalStore';
 import { dismissAllSheets } from '@/utils/navigation';
-import { TabBarProvider } from '@/context/FeedIndicatorContext';
 import { seenVideoService } from '@/services/SeenVideoService';
 import { storage } from '@/utils/storage/storage';
 import { logger } from '@/utils/logger';
@@ -129,7 +128,7 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                 maxElementsCaptured: 20,
               }}
             >
-              <TabBarProvider>{children}</TabBarProvider>
+              {children}
             </PostHogProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>
