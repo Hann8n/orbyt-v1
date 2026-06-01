@@ -148,11 +148,11 @@ const arePropsEqual = (
 
 const styles = StyleSheet.create({
   videoScrubberLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 10,
   },
   videoOverlayLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 14,
   },
 });

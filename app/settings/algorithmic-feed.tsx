@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   glassBackgroundFull: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 18,
   },
   subscribeButtonText: {

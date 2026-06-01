@@ -217,11 +217,7 @@ const EndOfFeedOverscrollHint = memo(
       opacity: opacitySV.value,
     }));
     const hintContainerStyle = useMemo(
-      () =>
-        StyleSheet.compose(
-          StyleSheet.compose(styles.endOfFeedOverscrollHint, hintLayoutStyle),
-          animatedStyle
-        ),
+      () => [styles.endOfFeedOverscrollHint, hintLayoutStyle, animatedStyle],
       [hintLayoutStyle, animatedStyle]
     );
     return (

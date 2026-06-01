@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   headerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: Colors.overlay.black35,
     justifyContent: 'flex-end',
   },

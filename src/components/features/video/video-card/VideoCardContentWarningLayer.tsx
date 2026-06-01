@@ -60,11 +60,11 @@ const VideoCardContentWarningLayer = memo(function VideoCardContentWarningLayer(
 
 const styles = StyleSheet.create({
   contentWarningBlur: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 20,
   },
   contentWarningOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 21,
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     minWidth: 120,
   },
   glassBackground: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: BORDER_RADIUS.FULL,
   },
   buttonContent: {

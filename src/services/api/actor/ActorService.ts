@@ -400,7 +400,7 @@ export class ActorService {
       return profiles.map(profile => ({
         ...profile,
         orbytRecord: null,
-        orbytColors: (profile.did ? (colorMap[profile.did] ?? null) : null) ?? null,
+        orbytColors: profile.did ? colorMap[profile.did] ?? null : null,
       }));
     } catch {
       return [];

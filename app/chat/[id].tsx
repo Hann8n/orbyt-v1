@@ -2727,7 +2727,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   embedVideoThumbnail: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
   },
   embedVideoPlaceholder: {

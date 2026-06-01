@@ -34,14 +34,14 @@ export function useDetailHeaderScrollPresentation({
     'worklet';
     if (scrollLinkedDimDisabled) {
       return {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         opacity: 0,
         pointerEvents: 'none',
       };
     }
     const progress = contentScrollProgress != null ? contentScrollProgress.value : 0;
     return {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: Colors.black,
       opacity: interpolate(progress, [0, 0.5, 1], [0, 0, 0.3], Extrapolate.CLAMP),
       pointerEvents: 'none',

@@ -1086,7 +1086,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   thumbnailVideo: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
   },
   thumbnailPlaceholder: {

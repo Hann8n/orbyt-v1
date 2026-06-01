@@ -325,7 +325,7 @@ export default Sentry.wrap(function RootLayout() {
   // Set Android navigation bar button style (light)
   useEffect(() => {
     if (Platform.OS === 'android') {
-      NavigationBar.setButtonStyleAsync('light').catch(() => {});
+      NavigationBar.setStyle('light');
     }
   }, []);
 

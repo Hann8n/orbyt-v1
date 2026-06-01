@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   blurUnderlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   listRowContainer: sharedListRowStyles.container,
   accountButtonContent: sharedItemStyles.accountButtonContent,

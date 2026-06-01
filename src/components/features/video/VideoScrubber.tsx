@@ -393,19 +393,19 @@ function VideoScrubberActive({
   }));
 
   const composedTimeStyle = useMemo(
-    () => StyleSheet.compose(styles.timeContainer, timeStyle),
+    () => [styles.timeContainer, timeStyle],
     [timeStyle]
   );
   const composedTrackContainerStyle = useMemo(
-    () => StyleSheet.compose(styles.trackContainer, trackContainerStyle),
+    () => [styles.trackContainer, trackContainerStyle],
     [trackContainerStyle]
   );
   const composedTrackBarStyle = useMemo(
-    () => StyleSheet.compose(styles.trackBar, trackBarStyle),
+    () => [styles.trackBar, trackBarStyle],
     [trackBarStyle]
   );
   const composedProgressBarStyle = useMemo(
-    () => StyleSheet.compose(styles.progressBar, progressBarStyle),
+    () => [styles.progressBar, progressBarStyle],
     [progressBarStyle]
   );
 

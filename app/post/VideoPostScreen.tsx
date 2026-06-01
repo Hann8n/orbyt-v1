@@ -1750,7 +1750,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   glassBackground: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: BORDER_RADIUS.FULL,
   },
   buttonContent: {

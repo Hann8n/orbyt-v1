@@ -272,7 +272,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
           {useLiquidGlassSignIn ? (
             <>
               <GlassView
-                style={[StyleSheet.absoluteFillObject, styles.signInGlassUnderlay]}
+                style={[StyleSheet.absoluteFill, styles.signInGlassUnderlay]}
                 glassEffectStyle="clear"
                 tintColor={Colors.neutral[50]}
                 isInteractive

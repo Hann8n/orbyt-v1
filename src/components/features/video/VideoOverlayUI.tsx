@@ -128,7 +128,7 @@ function VideoOverlayUI({
     return { opacity: opacityValue };
   });
   const overlayContainerStyle = useMemo(
-    () => StyleSheet.compose(styles.overlayContainer, overlayAnimatedStyle),
+    () => [styles.overlayContainer, overlayAnimatedStyle],
     [overlayAnimatedStyle]
   );
 

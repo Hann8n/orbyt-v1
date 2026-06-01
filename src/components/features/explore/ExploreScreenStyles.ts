@@ -66,7 +66,7 @@ export const exploreScreenStyles = StyleSheet.create({
     backgroundColor: Colors.neutral[50],
   },
   searchContainerGlassBackground: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: BORDER_RADIUS.SMALL,
   },
   searchBarContent: {

@@ -543,7 +543,7 @@ const ActionButton = memo<{
     }, [backgroundColor, shadowColor]);
 
     const animatedButtonLayerStyle = useMemo(
-      () => [StyleSheet.absoluteFillObject, animatedButtonStyle],
+      () => [StyleSheet.absoluteFill, animatedButtonStyle],
       [animatedButtonStyle]
     );
 
@@ -567,12 +567,12 @@ const ActionButton = memo<{
     );
 
     const actionButtonSquircleClipStyle = useMemo(
-      () => [StyleSheet.absoluteFillObject, styles.actionButtonSquircleClip],
+      () => [StyleSheet.absoluteFill, styles.actionButtonSquircleClip],
       []
     );
 
     const actionButtonInnerFillStyle = useMemo(
-      () => [StyleSheet.absoluteFillObject, styles.actionButtonInner],
+      () => [StyleSheet.absoluteFill, styles.actionButtonInner],
       []
     );
 
@@ -1420,7 +1420,7 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
   followContentLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1474,7 +1474,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actionButtonGlassBackground: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: BORDER_RADIUS.FULL,
   },
   inlineBadgesContainerCentered: {
