@@ -1,6 +1,7 @@
 import { ActorService } from '../api/actor/ActorService';
 import { GraphService } from '../api/graph/GraphService';
 import { RepoService } from '../api/repo/RepoService';
+import { syncOrbytColorsQuery, type OrbytColorData } from '../colors';
 import {
   useQuery,
   useMutation,
@@ -754,23 +755,12 @@ export function useProfileUpdateMutation() {
         profileKeys.detail(did)
       );
 
-      // Optimistically update the query cache
       if (previousProfile) {
         const optimistic: ProfileViewWithOrbyt = {
           ...previousProfile,
           ...(updates.displayName !== undefined ? { displayName: updates.displayName } : {}),
           ...(updates.description !== undefined ? { description: updates.description } : {}),
           ...(updates.avatar !== undefined ? { avatar: updates.avatar } : {}),
-          ...(updates.customColors
-            ? {
-                orbytColors: {
-                  backgroundColor: updates.customColors.backgroundColor,
-                  textColor: updates.customColors.textColor,
-                  joinedAt: previousProfile.orbytColors?.joinedAt ?? new Date().toISOString(),
-                  isBeta: previousProfile.orbytColors?.isBeta ?? false,
-                },
-              }
-            : {}),
         };
 
         queryClient.setQueryData(profileKeys.detail(did), optimistic);
@@ -778,38 +768,27 @@ export function useProfileUpdateMutation() {
 
       return { previousProfile, did };
     },
-    onSuccess: ({ updatedProfile, updatedColors }, { updates }, context) => {
+    onSuccess: ({ updatedProfile, updatedColors }, _vars, context) => {
       try {
         const did = context?.did;
         if (!did) return;
 
-        // If colors were updated, update orbyt record in cache
         if (updatedColors) {
-          const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
-
-          if (prev && updates.customColors) {
-            // Update the profile with new colors in the centralized orbytColors field
-            const updated: ProfileViewWithOrbyt = {
-              ...prev,
-              orbytColors: {
-                backgroundColor: updates.customColors.backgroundColor,
-                textColor: updates.customColors.textColor,
-                joinedAt: prev.orbytColors?.joinedAt ?? new Date().toISOString(),
-                isBeta: prev.orbytColors?.isBeta ?? false,
-              },
+          if (_vars.updates.customColors) {
+            const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
+            const newColors: OrbytColorData = {
+              backgroundColor: _vars.updates.customColors.backgroundColor,
+              textColor: _vars.updates.customColors.textColor,
+              joinedAt: prev?.orbytColors?.joinedAt ?? new Date().toISOString(),
+              isBeta: prev?.orbytColors?.isBeta ?? false,
             };
-
-            // Update React Query cache immediately
-            queryClient.setQueryData(profileKeys.detail(did), updated);
-          } else {
-            // Fallback: invalidate to trigger refetch
-            queryClient.invalidateQueries({ queryKey: profileKeys.detail(did) });
+            syncOrbytColorsQuery(did, newColors);
           }
           return;
         }
 
         if (!updatedProfile) {
-          return; // Skip if no profile was updated
+          return;
         }
 
         // Merge server-updated fields into the query cache immediately

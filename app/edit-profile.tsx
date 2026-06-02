@@ -47,7 +47,7 @@ import {
 import { useCurrentUser } from '@/stores/userStore';
 import { posthog } from '@/config/posthog';
 import { splitHandleSuffix } from '@/utils/formatting/handles';
-import { useOrbytColors, saveAndSyncColors } from '@/services/colors';
+import { useOrbytColors } from '@/services/colors';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import { FontFamily, Typography, TextStyles } from '@/utils/components/typography';
 
@@ -542,10 +542,6 @@ const EditProfileScreen: React.FC = () => {
           updates,
         });
 
-        if (currentUser?.did && updates.customColors) {
-          await saveAndSyncColors(currentUser.did, updates.customColors);
-        }
-
         posthog.capture('profile_edited', {
           updated_display_name: !!updates.displayName,
           updated_description: !!updates.description,
@@ -568,7 +564,6 @@ const EditProfileScreen: React.FC = () => {
     defaultColors,
     profileUpdateMutation,
     router,
-    currentUser,
     t,
   ]);
 

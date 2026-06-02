@@ -5,11 +5,11 @@ import {
   View,
   StyleSheet,
   Text,
-  StatusBar,
   useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
@@ -273,11 +273,10 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     };
   }, [channel, goToProfile, safeTextColor, isOrbyt]);
 
-  // Determine status bar style based on background color brightness
-  const statusBarStyle = useMemo(() => {
-    const style = getStatusBarStyle(safeBackgroundColor);
-    return style === 'light' ? 'light-content' : 'dark-content';
-  }, [safeBackgroundColor]);
+  const statusBarStyle = useMemo(
+    () => getStatusBarStyle(safeBackgroundColor),
+    [safeBackgroundColor]
+  );
 
   // Check if this is a category channel (hashtag feed) - postable orbyt channels have tabs
   const hasTabs = useMemo(() => {
@@ -326,11 +325,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 
   return (
     <>
-      <StatusBar
-        barStyle={statusBarStyle}
-        backgroundColor={safeBackgroundColor}
-        translucent={true}
-      />
+      <StatusBar style={statusBarStyle} animated />
       <UniversalHeader
         content={headerContent}
         backgroundColor={safeBackgroundColor}

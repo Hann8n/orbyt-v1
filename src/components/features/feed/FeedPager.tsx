@@ -9,7 +9,8 @@ import {
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, StatusBar, type StyleProp, type ViewStyle } from 'react-native';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { NativePressable } from '@/components/ui/NativePressable';
 import PagerView, {
   type PagerViewOnPageScrollEvent,
@@ -304,7 +305,7 @@ function FeedPager({
 
   return (
     <View style={styles.container}>
-      {controlStatusBar && <StatusBar barStyle="light-content" backgroundColor={Colors.black} />}
+      {controlStatusBar && <StatusBar style="light" animated />}
 
       {showFeedIndicator && (
         <View style={styles.feedBar}>

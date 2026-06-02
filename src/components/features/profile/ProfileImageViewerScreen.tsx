@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useIsFocused } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Colors } from '@/theme';
@@ -25,8 +25,6 @@ export default function ProfileImageViewerScreen() {
     }
   }, [params.uri]);
 
-  const isFocused = useIsFocused();
-
   const handleClose = () => {
     if (router.canGoBack()) {
       router.back();
@@ -45,9 +43,7 @@ export default function ProfileImageViewerScreen() {
 
   return (
     <>
-      {isFocused && (
-        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      )}
+      <StatusBar style="light" animated />
       <View style={styles.root} accessibilityLabel="Image viewer">
         <NativePressable
           style={styles.dismissArea}

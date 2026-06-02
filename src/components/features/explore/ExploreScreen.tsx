@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
-import { View, StyleSheet, TextInput, StatusBar, Platform } from 'react-native';
+import { View, StyleSheet, TextInput, Platform } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
@@ -453,7 +454,7 @@ const ExploreScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, Platform.OS === 'android' && styles.androidPaddingTop]}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.transparent} translucent={true} />
+      <StatusBar style="light" animated />
 
       <View style={StyleSheet.absoluteFill}>
         <FlashList<ListItem>
