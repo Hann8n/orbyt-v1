@@ -1,7 +1,6 @@
 import {
   useState,
   useEffect,
-  useLayoutEffect,
   useCallback,
   useMemo,
   useRef,
@@ -74,7 +73,9 @@ import {
   useFeedVisibility,
   createFeedListPlaybackStore,
   FeedListPlaybackContext,
+  useScreenVisible,
 } from '../../../core/visibility';
+import { FEED_ROW_VIEWABILITY_CONFIG } from '../../../core/visibility/feedRowVisibility';
 import { useTranslation } from 'react-i18next';
 import { TypographyText } from '@/utils/components/typography';
 
@@ -251,7 +252,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isLoading,
       isError,
       onRetry,
-      isVisible = true,
       viewMode,
       onViewModeChange: _onViewModeChange,
       hasTabBar: hasTabBarProp,
@@ -307,6 +307,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     const headerBlockingBaseSuppressedSV = useSharedValue(1);
 
+    const isVisible = useScreenVisible();
     const listSurfaceActive = isVisible && resolvedViewMode === 'list';
 
     const patchHeaderBlockingPlayback = useCallback(
@@ -360,43 +361,19 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [listPlaybackStore]
     );
 
-    useEffect(() => {
-      if (typeof initialScrollIndex !== 'number') return;
-      if (activeVisibleIndexRef.current === initialScrollIndex) return;
-      activeVisibleIndexRef.current = initialScrollIndex;
-      listPlaybackStore.patch({ activeIndex: initialScrollIndex });
-    }, [initialScrollIndex, listPlaybackStore]);
-
-    useEffect(() => {
-      if (feed.length === 0) {
-        if (activeVisibleIndexRef.current === -1) return;
-        activeVisibleIndexRef.current = -1;
-        listPlaybackStore.patch({ activeIndex: -1 });
-        return;
-      }
-      if (activeVisibleIndexRef.current >= 0) return;
-      activeVisibleIndexRef.current = 0;
-      listPlaybackStore.patch({ activeIndex: 0 });
-    }, [feed.length, listPlaybackStore]);
-
-    const { onViewableItemsChanged, viewabilityConfig, canPlay } = useFeedVisibility({
+    const { onViewableItemsChanged, canPlay } = useFeedVisibility({
       isActive: listSurfaceActive,
       onActiveVisibleIndexChange: handleActiveVisibleIndexChange,
     });
 
-    useLayoutEffect(() => {
+    useEffect(() => {
       listPlaybackStore.patch({ canPlay });
-      const suppressed = !headerComponent || !isVisible || resolvedViewMode !== 'list';
+      const suppressed = !headerComponent || resolvedViewMode !== 'list';
       headerBlockingBaseSuppressedSV.value = suppressed ? 1 : 0;
       if (suppressed) listPlaybackStore.patch({ headerBlockingPlayback: false });
-    }, [
-      canPlay,
-      headerComponent,
-      isVisible,
-      resolvedViewMode,
-      listPlaybackStore,
-      headerBlockingBaseSuppressedSV,
-    ]);
+    // listPlaybackStore and headerBlockingBaseSuppressedSV are stable refs, not deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [canPlay, headerComponent, resolvedViewMode]);
 
     const profileColors = getProfileColors(backgroundColor, secondaryColor);
     const endOfFeedHintColor = useMemo(
@@ -577,14 +554,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           const y = Math.max(0, event.contentOffset.y);
           scrollOffsetYSV.value = y;
 
-          if (fadeDist > 0) {
-            contentScrollProgressSV.value = Math.max(0, Math.min(1, y / fadeDist));
-          } else {
-            contentScrollProgressSV.value = 0;
-          }
+          contentScrollProgressSV.value = fadeDist > 0 ? Math.max(0, Math.min(1, y / fadeDist)) : 0;
 
-          if (contentScrollProgressOutput && fadeDist > 0) {
-            contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
+          if (contentScrollProgressOutput) {
+            contentScrollProgressOutput.value = contentScrollProgressSV.value;
           }
 
           const contentH = event.contentSize?.height ?? 0;
@@ -743,7 +716,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               onEndReached={onLoadMore}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
               onViewableItemsChanged={onViewableItemsChanged}
-              viewabilityConfig={viewabilityConfig}
+              viewabilityConfig={FEED_ROW_VIEWABILITY_CONFIG}
               maintainVisibleContentPosition={MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED}
               scrollEnabled={true}
               showsVerticalScrollIndicator={
@@ -779,7 +752,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         scrollHandler,
         onLoadMore,
         onViewableItemsChanged,
-        viewabilityConfig,
         listEmptyElement,
         listFooterElement,
         listContentContainerStyle,

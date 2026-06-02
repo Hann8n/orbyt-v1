@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useEvent } from 'expo';
 import { useVideoPlayer, type VideoPlayer, type VideoSource } from 'expo-video';
 import { useRecyclingState } from '@shopify/flash-list';
+import { useSharedValue, useAnimatedReaction } from 'react-native-reanimated';
 
 import {
   createVideoSource,
@@ -46,7 +47,8 @@ export interface UseVideoCardPlayerResult {
   userPaused: boolean;
   togglePlayback: (shouldPlay?: boolean) => void;
   seek: (position: number) => void;
-  firstFrameRendered: boolean;
+  /** UI-thread shared value: 1 = first frame rendered, 0 = poster visible. */
+  firstFrameSV: ReturnType<typeof useSharedValue<number>>;
   handleFirstFrameRender: () => void;
   /** Live ref for handlers that need to read the latest user-paused flag without re-running. */
   userPausedRef: React.RefObject<boolean>;
@@ -138,31 +140,23 @@ export function useVideoCardPlayer({
     [player]
   );
 
-  const [firstFrameRendered, setFirstFrameRendered] = useRecyclingState(false, [
-    postUri,
-    feedOption,
-  ]);
+  // UI-thread shared value: 1 = first frame has rendered into the VideoView, 0 = show poster.
+  // Reset to 0 when the card leaves the viewport so the poster is shown again on return.
+  const firstFrameSV = useSharedValue(0);
 
   const handleFirstFrameRender = useCallback(() => {
-    setFirstFrameRendered(true);
-  }, [setFirstFrameRendered]);
+    firstFrameSV.value = 1;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Reset poster readiness when the card leaves the viewport so the poster
-  // shows again while the preloaded stream renders its first frame on return.
-  useEffect(() => {
-    if (!isVisible) setFirstFrameRendered(false);
-  }, [isVisible, setFirstFrameRendered]);
-
-  // When a card becomes visible after being inactive, clear any sticky user-paused state
-  // (we only want explicit pauses to persist within a single visit).
-  const wasActiveRef = useRef(false);
-  useEffect(() => {
-    const becameActive = isVisible && !wasActiveRef.current;
-    if (becameActive && videoState.userPaused && !hasError) {
-      setVideoState(prev => ({ ...prev, userPaused: false }));
-    }
-    wasActiveRef.current = isVisible;
-  }, [isVisible, hasError, videoState.userPaused, setVideoState]);
+  // Reset when visibility goes false — runs on UI thread, no JS setState.
+  useAnimatedReaction(
+    () => isVisible,
+    (visible, prev) => {
+      if (!visible && prev) firstFrameSV.value = 0;
+    },
+    [isVisible]
+  );
 
   useEffect(() => {
     if (!player) return;
@@ -210,7 +204,7 @@ export function useVideoCardPlayer({
     userPaused: videoState.userPaused,
     togglePlayback,
     seek,
-    firstFrameRendered,
+    firstFrameSV,
     handleFirstFrameRender,
     userPausedRef,
     setUserPaused,

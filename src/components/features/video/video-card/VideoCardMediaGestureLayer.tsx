@@ -6,7 +6,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { VideoView as ExpoVideoView } from 'expo-video';
 import type { VideoPlayer } from 'expo-video';
@@ -22,7 +22,8 @@ export interface VideoCardMediaGestureLayerProps {
   videoGesture: GestureDetectorGestureProp;
   posterUrl: string | null;
   cannotShowMedia: boolean;
-  firstFrameRendered: boolean;
+  /** UI-thread shared value: 1 = first frame rendered (hide poster), 0 = show poster. */
+  firstFrameSV: SharedValue<number>;
   recyclingKey: string;
   videoSource: VideoSource | null;
   isBlurred: boolean;
@@ -45,7 +46,7 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
   videoGesture,
   posterUrl,
   cannotShowMedia,
-  firstFrameRendered,
+  firstFrameSV,
   recyclingKey,
   videoSource,
   isBlurred,
@@ -58,21 +59,27 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
   heartAnimatedStyle,
   posterPriority,
 }: VideoCardMediaGestureLayerProps) {
+  const posterAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: 1 - firstFrameSV.value,
+  }));
+
   return (
     <GestureDetector gesture={videoGesture}>
       <View style={styles.videoContainerPressable} collapsable={false}>
         <View style={styles.videoContainer}>
-          {!!posterUrl && !cannotShowMedia && !firstFrameRendered && (
-            <Image
-              source={{ uri: posterUrl }}
-              contentFit="contain"
-              style={styles.poster}
-              recyclingKey={recyclingKey}
-              cachePolicy="memory-disk"
-              priority={posterPriority}
-              allowDownscaling
-              accessible={false}
-            />
+          {!!posterUrl && !cannotShowMedia && (
+            <Animated.View style={[styles.poster, posterAnimatedStyle]} pointerEvents="none">
+              <Image
+                source={{ uri: posterUrl }}
+                contentFit="contain"
+                style={styles.posterImage}
+                recyclingKey={recyclingKey}
+                cachePolicy="memory-disk"
+                priority={posterPriority}
+                allowDownscaling
+                accessible={false}
+              />
+            </Animated.View>
           )}
 
           {!!videoSource && !cannotShowMedia && !isBlurred && player && (
@@ -142,6 +149,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
+  },
+  posterImage: {
+    ...StyleSheet.absoluteFillObject,
   },
   loadingText: {
     color: Colors.neutral[50],

@@ -46,8 +46,6 @@ interface FeedRendererProps {
   backgroundColor?: string;
   secondaryColor?: string;
 
-  // Feed state
-  isVisible?: boolean;
   /** When set, overrides list tab-bar inset behavior. */
   hasTabBar?: boolean;
 
@@ -101,7 +99,6 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
       secondaryColor,
       onRetryFeed,
       queryOptions = {},
-      isVisible = true,
       viewMode = 'list',
       onViewModeChange,
       contentScrollProgressOutput,
@@ -181,10 +178,10 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
     }, [refetch, onRetryFeed]);
 
     const handleLoadMore = useCallback(() => {
-      if (hasNextPage && !isFetchingNextPage && isVisible) {
+      if (hasNextPage && !isFetchingNextPage) {
         fetchNextPage();
       }
-    }, [hasNextPage, isFetchingNextPage, isVisible, fetchNextPage]);
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     const feedModalTab = useFeedModalTabSegment();
     const router = useRouter();
@@ -342,7 +339,6 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
         hasNextPage,
         onRetry: handleRetry,
         isProfileFeed,
-        isVisible,
         viewMode,
         onViewModeChange,
         contentScrollProgressOutput,
@@ -364,7 +360,6 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
         hasNextPage,
         handleRetry,
         isProfileFeed,
-        isVisible,
         viewMode,
         onViewModeChange,
         contentScrollProgressOutput,

@@ -6,10 +6,10 @@ import {
   useRef,
   useSyncExternalStore,
 } from 'react';
-import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
+import { AppState } from 'react-native';
+import type ViewToken from '@shopify/flash-list/dist/recyclerview/viewability/ViewToken';
 import { useIsFocused } from '@react-navigation/native';
 
-import { FEED_ROW_VIEWABILITY_CONFIG } from './feedRowVisibility';
 
 interface FeedVisibilityOptions {
   isActive: boolean;
@@ -18,21 +18,17 @@ interface FeedVisibilityOptions {
 }
 
 interface FeedVisibilityResult {
-  onViewableItemsChanged: ({ viewableItems }: { viewableItems: ViewToken[] }) => void;
-  viewabilityConfig: ViewabilityConfig;
+  onViewableItemsChanged: ({ viewableItems }: { viewableItems: ViewToken<unknown>[] }) => void;
   canPlay: boolean;
 }
 
 const selectViewableToken = (
-  viewableItems: ViewToken[]
-): (ViewToken & { index: number }) | undefined => {
-  let best: (ViewToken & { index: number }) | undefined;
-  for (const token of viewableItems) {
-    if (typeof token.index !== 'number' || !token.isViewable) continue;
-    if (!best || token.index < best.index) best = token as ViewToken & { index: number };
-  }
-  return best;
-};
+  viewableItems: ViewToken<unknown>[]
+): (ViewToken<unknown> & { index: number }) | undefined =>
+  viewableItems.find(
+    (t): t is ViewToken<unknown> & { index: number } =>
+      typeof t.index === 'number' && t.isViewable
+  );
 
 /**
  * Visibility hook keeps only environment gates (route/app state) and native viewability wiring.
@@ -60,7 +56,7 @@ export function useFeedVisibility({
   const lastEmittedIndexRef = useRef(-1);
 
   const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    ({ viewableItems }: { viewableItems: ViewToken<unknown>[] }) => {
       const token = selectViewableToken(viewableItems);
       const nextIndex = typeof token?.index === 'number' ? token.index : -1;
 
@@ -79,7 +75,6 @@ export function useFeedVisibility({
 
   return {
     onViewableItemsChanged,
-    viewabilityConfig: FEED_ROW_VIEWABILITY_CONFIG satisfies ViewabilityConfig,
     canPlay,
   };
 }

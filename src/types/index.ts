@@ -47,7 +47,6 @@ export interface ListFeedViewProps {
   isLoading: boolean;
   isError: boolean;
   onRetry?: () => void;
-  isVisible?: boolean;
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   /** When set, overrides tab-bar inset behavior for list height / liquid-glass snap. */

@@ -9,7 +9,6 @@ import { HashtagHeader } from '@/components/features/feed/HashtagHeader';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/theme';
-import { useVisibilityRouteIsActive } from '@/hooks';
 
 /**
  * Full-screen feed opened as a **stack screen inside a tab** (not a root modal), so the native
@@ -20,8 +19,6 @@ const FeedModalTabScreen = memo(() => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
-  const isRouteFocused = useVisibilityRouteIsActive('feed-modal');
-
   const routeParams = useMemo(() => {
     const initialIndex = params.initialIndex ? parseInt(params.initialIndex as string, 10) : null;
     const validInitialIndex = initialIndex !== null && !isNaN(initialIndex) ? initialIndex : null;
@@ -66,7 +63,6 @@ const FeedModalTabScreen = memo(() => {
         userDid={routeParams.userDid}
         backgroundColor={Colors.black}
         secondaryColor={Colors.neutral[50]}
-        isVisible={isRouteFocused}
         hasTabBar
         hasNextPage={routeParams.hasNextPage}
         isFetchingNextPage={routeParams.isFetchingNextPage}
