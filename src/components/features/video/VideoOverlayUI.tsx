@@ -21,7 +21,7 @@ type Post = ExtendedPostView;
 export interface VideoOverlayUIProps {
   post: Post;
   sourceFeed?: string;
-  /** Composed scroll-overlap × scrubbing opacity from VideoCard. */
+  /** Opacity driven by the active-row visibility bit (withTiming fade). */
   overlayOpacitySV?: SharedValue<number>;
   /** Fires when the description text collapses/expands (collapsed = 1 line). */
   onOverlayCollapsedChange?: (isCollapsed: boolean) => void;

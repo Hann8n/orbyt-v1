@@ -338,6 +338,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         headerHeight,
         viewportHeight: viewportDimensions.height,
         itemSpacing,
+        snapTopInset: 0,
       };
     }, [useScrollTracking, headerHeight, viewportDimensions.height, itemSpacing]);
 

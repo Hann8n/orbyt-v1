@@ -590,8 +590,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         headerHeight,
         viewportHeight: viewableAreaHeight,
         itemSpacing,
+        snapTopInset,
       }),
-      [headerHeight, viewableAreaHeight, itemSpacing]
+      [headerHeight, viewableAreaHeight, itemSpacing, snapTopInset]
     );
 
     useImperativeHandle(

@@ -27,8 +27,6 @@ interface VideoScrubberProps {
   seekingAnimationSV: SharedValue<number>;
   scrollGesture?: NativeGesture;
   children?: ReactNode;
-  /** Composed opacity from VideoCard (scroll overlap × scrubbing). */
-  overlayOpacitySV: SharedValue<number>;
 }
 
 const SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS = 0.1;
@@ -55,7 +53,6 @@ function VideoScrubberActive({
   seekingAnimationSV,
   scrollGesture,
   children,
-  overlayOpacitySV,
 }: VideoScrubberProps) {
   const deviceLayout = useDeviceLayout();
   const screenWidth = deviceLayout.screenWidth;
@@ -340,9 +337,8 @@ function VideoScrubberActive({
   // no Skia GPU surface, no extra render pass on every visible card.
   const trackContainerStyle = useAnimatedStyle(() => {
     const seekingAnim = seekingAnimationSV.get();
-    const containerOpacity = overlayOpacitySV.value;
     return {
-      opacity: seekingAnim > 0 ? Math.max(containerOpacity, 0.95) : Math.max(containerOpacity, 0.1),
+      opacity: seekingAnim > 0 ? 0.95 : 0.1,
     };
   });
 
@@ -388,10 +384,6 @@ function VideoScrubberActive({
     };
   }, [seekingAnimationSV, isSeekingSV, isPlayingSV, currentTimeSV, seekProgressSV]);
 
-  const childrenContainerStyle = useAnimatedStyle(() => ({
-    opacity: overlayOpacitySV.value,
-  }));
-
   const composedTimeStyle = useMemo(
     () => [styles.timeContainer, timeStyle],
     [timeStyle]
@@ -431,7 +423,7 @@ function VideoScrubberActive({
             <Animated.View style={composedTrackBarStyle} pointerEvents="none" />
             <Animated.View style={composedProgressBarStyle} pointerEvents="none" />
           </Animated.View>
-          <Animated.View style={childrenContainerStyle}>{children}</Animated.View>
+          <>{children}</>
         </Animated.View>
       </GestureDetector>
     </>
@@ -452,7 +444,6 @@ export const VideoScrubber = memo(VideoScrubberShell, (prevProps, nextProps) => 
     prevProps.player === nextProps.player &&
     prevProps.seekingAnimationSV === nextProps.seekingAnimationSV &&
     prevProps.scrollGesture === nextProps.scrollGesture &&
-    prevProps.overlayOpacitySV === nextProps.overlayOpacitySV &&
     prevProps.children === nextProps.children
   );
 });

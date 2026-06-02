@@ -401,12 +401,8 @@ function VideoCard({
     [textDimOpacitySV, isVisible]
   );
 
-  // ── Scrubber + overlay opacity (composed shared values). ───────────────────────────────
   const seekingAnimationSV = useSharedValue(0);
-  const uiOverlayOpacitySV = useVideoCardOverlayOpacity({
-    seekingAnimationSV,
-    idx,
-  });
+  const uiOverlayOpacitySV = useVideoCardOverlayOpacity({ idx });
 
   // ── Deferred heavy chrome mount: low-priority so scroll frames aren't blocked. ──────────
   // startTransition lets React yield the chrome mount if a higher-priority update (next swipe)
@@ -474,7 +470,6 @@ function VideoCard({
             active={isVisible && !hasError}
             player={player ?? undefined}
             seekingAnimationSV={seekingAnimationSV}
-            overlayOpacitySV={uiOverlayOpacitySV}
           />
         </View>
       )}

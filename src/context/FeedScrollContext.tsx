@@ -16,6 +16,7 @@ export interface FeedScrollLayoutValue {
   headerHeight: number;
   viewportHeight: number;
   itemSpacing: number;
+  snapTopInset: number;
 }
 
 const FeedScrollMotionContext = createContext<FeedScrollMotionValue | null>(null);

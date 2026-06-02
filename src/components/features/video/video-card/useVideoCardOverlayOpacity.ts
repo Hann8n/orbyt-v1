@@ -1,32 +1,34 @@
 import { useDerivedValue, interpolate, type SharedValue } from 'react-native-reanimated';
 import { useFeedScrollLayout, useFeedScrollMotion } from '../../../../context/FeedScrollContext';
 
+const OVERLAY_FADE_ZONE_PX = 80;
+
 export function useVideoCardOverlayOpacity({
-  seekingAnimationSV,
   idx,
 }: {
-  seekingAnimationSV: SharedValue<number>;
   idx: number;
 }): SharedValue<number> {
   const motion = useFeedScrollMotion();
   const layout = useFeedScrollLayout();
 
   return useDerivedValue(() => {
-    const seeking = interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp');
-    if (!motion || !layout) return seeking;
+    if (!motion || !layout) return 1;
 
     const { scrollOffsetYSV } = motion;
-    const { headerHeight, itemSpacing } = layout;
-    const cardTop = headerHeight + idx * itemSpacing;
-    const distanceFromCenter = scrollOffsetYSV.value - cardTop;
-    const fadeZone = itemSpacing * 0.25;
-    const visibility = interpolate(
-      distanceFromCenter,
-      [-itemSpacing + fadeZone, -fadeZone, fadeZone, itemSpacing - fadeZone],
-      [0, 1, 1, 0],
-      'clamp'
-    );
+    const { headerHeight, itemSpacing, snapTopInset } = layout;
 
-    return visibility * seeking;
+    const scrollY = scrollOffsetYSV.value;
+
+    // Layout not yet measured — headerHeight is 0 before the first onLayout fires.
+    // In this state scrollY is also 0 and the list is at its initial rest position,
+    // so treat the active card as fully visible rather than fading based on stale values.
+    if (headerHeight === 0 && scrollY === 0 && idx === 0) return 1;
+
+    const snapOffset =
+      (headerHeight > 0 ? headerHeight : 0) + idx * itemSpacing - snapTopInset;
+
+    const distanceFromSnap = Math.abs(scrollY - snapOffset);
+
+    return interpolate(distanceFromSnap, [0, OVERLAY_FADE_ZONE_PX], [1, 0], 'clamp');
   });
 }
