@@ -1,4 +1,5 @@
 import {
+  startTransition,
   useCallback,
   useContext,
   useEffect,
@@ -13,7 +14,6 @@ import { useTranslation } from 'react-i18next';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
-import { useFeedScrollLayout, useFeedScrollMotion } from '../../../context/FeedScrollContext';
 import {
   FeedListPlaybackContext,
   FEED_LIST_PLAYBACK_OUTSIDE_BITS,
@@ -34,7 +34,9 @@ import type { ExtendedFeedViewPost, ExtendedPostView } from '../../../services/a
 import { useQueryClient } from '@tanstack/react-query';
 
 import VideoCardMediaLayer from './video-card/VideoCardMediaLayer';
-import VideoCardOverlayLayers from './video-card/VideoCardOverlayLayers';
+import VideoCardContentWarningLayer from './video-card/VideoCardContentWarningLayer';
+import { VideoScrubber } from './VideoScrubber';
+import VideoOverlayUI from './VideoOverlayUI';
 import { useVideoCardOverlayOpacity } from './video-card/useVideoCardOverlayOpacity';
 import { useFeedInteractionQueue } from './video-card/hooks/useFeedInteractionQueue';
 import { useVideoCardModerationState } from './video-card/hooks/useVideoCardModerationState';
@@ -43,7 +45,6 @@ import { useVideoCardGesture } from './video-card/hooks/useVideoCardGesture';
 import { useVideoCardInteraction } from './video-card/hooks/useVideoCardInteraction';
 import { useVideoCardPlayer } from './video-card/hooks/useVideoCardPlayer';
 import { useRecyclingState } from '@shopify/flash-list';
-import type { VideoOverlayUIProps } from './VideoOverlayUI';
 
 type Post = ExtendedPostView | ExtendedFeedViewPost;
 
@@ -402,19 +403,22 @@ function VideoCard({
 
   // ── Scrubber + overlay opacity (composed shared values). ───────────────────────────────
   const seekingAnimationSV = useSharedValue(0);
-  const feedScrollMotion = useFeedScrollMotion();
-  const feedScrollLayout = useFeedScrollLayout();
-  const scrollOffsetYSV = feedScrollMotion?.scrollOffsetYSV;
-  const overlayScrollOffsetYSV = renderHeavyChrome ? scrollOffsetYSV : undefined;
   const uiOverlayOpacitySV = useVideoCardOverlayOpacity({
     seekingAnimationSV,
-    scrollOffsetYSV: overlayScrollOffsetYSV,
-    headerH: feedScrollLayout?.headerHeight ?? 0,
-    viewportH: feedScrollLayout?.viewportHeight ?? cardHeight,
-    itemSp: feedScrollLayout?.itemSpacing ?? cardHeight,
     idx,
-    cardHeight,
   });
+
+  // ── Deferred heavy chrome mount: low-priority so scroll frames aren't blocked. ──────────
+  // startTransition lets React yield the chrome mount if a higher-priority update (next swipe)
+  // arrives. No artificial delay — mounts in the next available frame after the snap settles.
+  const [chromeMounted, setChromeMounted] = useRecyclingState(renderHeavyChrome, [postView.uri]);
+  useEffect(() => {
+    if (!renderHeavyChrome) { setChromeMounted(false); return; }
+    if (chromeMounted) return;
+    startTransition(() => setChromeMounted(true));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renderHeavyChrome]);
+  const mountChrome = renderHeavyChrome && chromeMounted;
 
   const shouldHideScrubberForShortVideo = !!(
     player?.duration &&
@@ -461,83 +465,61 @@ function VideoCard({
     ]
   );
 
-  const overlayProps = useMemo<VideoOverlayUIProps>(
-    () => ({
-      post: postView,
-      overlayOpacitySV: uiOverlayOpacitySV,
-      sourceFeed: resolvedFeedUri,
-      onOverlayCollapsedChange: handleOverlayCollapsedChange,
-      onLike: handleLike,
-      onRepost: handleRepost,
-      isLiked: displayInteraction.isLiked,
-      isReposted: displayInteraction.isReposted,
-      likeCount: displayInteraction.likeCount,
-      commentCount: displayInteraction.commentCount,
-      repostCount: displayInteraction.repostCount,
-      isLikePending,
-      isRepostPending,
-      isFollowing: author.isFollowing,
-      hasProfile: author.hasProfile,
-      channelSlug: author.channelSlug,
-      onChannelPress: handleChannelPress,
-      authorProfileOverlay: author.authorProfileOverlay,
-      onAuthorPress: handleAuthorPress,
-      onRepostAuthorPress: handleRepostAuthorPress,
-      onOpenComments: handleOpenComments,
-      onSharePress: handleSharePress,
-      onFollowPress: handleFollowPress,
-      onHashtagPress,
-      isCurrentUserProfile: author.isCurrentUserProfile,
-    }),
-    [
-      postView,
-      uiOverlayOpacitySV,
-      resolvedFeedUri,
-      handleOverlayCollapsedChange,
-      handleLike,
-      handleRepost,
-      displayInteraction.isLiked,
-      displayInteraction.isReposted,
-      displayInteraction.likeCount,
-      displayInteraction.commentCount,
-      displayInteraction.repostCount,
-      isLikePending,
-      isRepostPending,
-      author.isFollowing,
-      author.hasProfile,
-      author.channelSlug,
-      author.authorProfileOverlay,
-      author.isCurrentUserProfile,
-      handleChannelPress,
-      handleAuthorPress,
-      handleRepostAuthorPress,
-      handleOpenComments,
-      handleSharePress,
-      handleFollowPress,
-      onHashtagPress,
-    ]
-  );
-
   return (
     <View style={StyleSheet.compose(styles.container, getCardHeightStyle(cardHeight))}>
       <VideoCardMediaLayer gestureStack={gestureVideoStackProps} />
 
-      <VideoCardOverlayLayers
-        renderHeavyChrome={renderHeavyChrome}
-        shouldRenderScrubber={!shouldHideScrubberForShortVideo}
-        scrubberActive={isVisible && !hasError}
-        isActive={isVisible}
-        player={player}
-        seekingAnimationSV={seekingAnimationSV}
-        overlayOpacitySV={uiOverlayOpacitySV}
-        showOverlay={showOverlay}
-        overlayProps={overlayProps}
-        showContentWarning={cannotShowMedia || isBlurred}
-        cannotShowMedia={cannotShowMedia}
-        isBlurred={isBlurred}
-        warningDescription={warningDescription}
-        onViewContent={handleViewContent}
-      />
+      {mountChrome && !shouldHideScrubberForShortVideo && (
+        <View style={styles.scrubberLayer} pointerEvents="box-none">
+          <VideoScrubber
+            active={isVisible && !hasError}
+            player={player ?? undefined}
+            seekingAnimationSV={seekingAnimationSV}
+            overlayOpacitySV={uiOverlayOpacitySV}
+          />
+        </View>
+      )}
+
+      {mountChrome && showOverlay && (
+        <View style={styles.overlayLayer} pointerEvents={isVisible ? 'box-none' : 'none'}>
+          <VideoOverlayUI
+            post={postView}
+            overlayOpacitySV={uiOverlayOpacitySV}
+            sourceFeed={resolvedFeedUri}
+            onOverlayCollapsedChange={handleOverlayCollapsedChange}
+            onLike={handleLike}
+            onRepost={handleRepost}
+            isLiked={displayInteraction.isLiked}
+            isReposted={displayInteraction.isReposted}
+            likeCount={displayInteraction.likeCount}
+            commentCount={displayInteraction.commentCount}
+            repostCount={displayInteraction.repostCount}
+            isLikePending={isLikePending}
+            isRepostPending={isRepostPending}
+            isFollowing={author.isFollowing}
+            hasProfile={author.hasProfile}
+            channelSlug={author.channelSlug}
+            onChannelPress={handleChannelPress}
+            authorProfileOverlay={author.authorProfileOverlay}
+            onAuthorPress={handleAuthorPress}
+            onRepostAuthorPress={handleRepostAuthorPress}
+            onOpenComments={handleOpenComments}
+            onSharePress={handleSharePress}
+            onFollowPress={handleFollowPress}
+            onHashtagPress={onHashtagPress}
+            isCurrentUserProfile={author.isCurrentUserProfile}
+          />
+        </View>
+      )}
+
+      {(cannotShowMedia || isBlurred) && (
+        <VideoCardContentWarningLayer
+          cannotShowMedia={cannotShowMedia}
+          isBlurred={isBlurred}
+          warningDescription={warningDescription}
+          onViewContent={handleViewContent}
+        />
+      )}
     </View>
   );
 }
@@ -548,6 +530,14 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     backgroundColor: Colors.neutral[950],
+  },
+  scrubberLayer: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 10,
+  },
+  overlayLayer: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 14,
   },
 });
 
