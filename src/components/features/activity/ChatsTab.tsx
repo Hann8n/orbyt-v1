@@ -531,32 +531,59 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
     refetch().finally(() => setIsUserRefreshing(false));
   }, [refetch]);
 
+  const acceptMutate = acceptConvoMutation.mutate;
+  const leaveMutate = leaveConvoMutation.mutate;
+
   const handleAcceptConvo = useCallback(
     (convoId: string) => {
-      acceptConvoMutation.mutate(convoId);
+      acceptMutate(convoId);
     },
-    [acceptConvoMutation]
+    [acceptMutate]
   );
 
   const handleDeclineConvo = useCallback(
     (convoId: string) => {
-      leaveConvoMutation.mutate(convoId);
+      leaveMutate(convoId);
     },
-    [leaveConvoMutation]
+    [leaveMutate]
+  );
+
+  const renderExtraData = useMemo(
+    () => ({
+      acceptingId: acceptConvoMutation.isPending ? (acceptConvoMutation.variables ?? null) : null,
+      decliningId: leaveConvoMutation.isPending ? (leaveConvoMutation.variables ?? null) : null,
+      navigation,
+      onAccept: handleAcceptConvo,
+      onDecline: handleDeclineConvo,
+    }),
+    [
+      acceptConvoMutation.isPending,
+      acceptConvoMutation.variables,
+      leaveConvoMutation.isPending,
+      leaveConvoMutation.variables,
+      navigation,
+      handleAcceptConvo,
+      handleDeclineConvo,
+    ]
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: ConvoView }) => (
-      <ConversationItem
-        item={item}
-        navigation={navigation}
-        onAccept={handleAcceptConvo}
-        onDecline={handleDeclineConvo}
-        isAccepting={acceptConvoMutation.isPending && acceptConvoMutation.variables === item.id}
-        isDeclining={leaveConvoMutation.isPending && leaveConvoMutation.variables === item.id}
-      />
-    ),
-    [navigation, acceptConvoMutation, leaveConvoMutation, handleAcceptConvo, handleDeclineConvo]
+    ({ item, extraData }: { item: ConvoView; extraData?: typeof renderExtraData }) => {
+      const xd = extraData ?? renderExtraData;
+      return (
+        <ConversationItem
+          item={item}
+          navigation={xd.navigation}
+          onAccept={xd.onAccept}
+          onDecline={xd.onDecline}
+          isAccepting={xd.acceptingId === item.id}
+          isDeclining={xd.decliningId === item.id}
+        />
+      );
+    },
+    // renderItem itself is stable — all dynamic data flows through extraData
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
   const keyExtractor = useCallback((item: ConvoView) => item.id, []);
@@ -612,6 +639,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
         contentInsetAdjustmentBehavior="never"
         data={isError ? [] : conversations}
         renderItem={renderItem}
+        extraData={renderExtraData}
         keyExtractor={keyExtractor}
         getItemType={getItemType}
         ItemSeparatorComponent={ChatDivider}

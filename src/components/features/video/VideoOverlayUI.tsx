@@ -1,11 +1,12 @@
 import { memo, useMemo } from 'react';
 import { Image } from 'expo-image';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 
 import { VideoOverlayActions } from './video-overlay/VideoOverlayActions';
 import { VideoOverlayAuthor } from './video-overlay/VideoOverlayAuthor';
 import { VideoOverlayCaption } from './video-overlay/VideoOverlayCaption';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import type { ProfileColorScheme } from '../../../utils/formatting/colors';
 import type {
   ExtendedPostView,
@@ -98,7 +99,7 @@ function VideoOverlayUI({
   onHashtagPress,
   authorProfileOverlay,
 }: VideoOverlayUIProps) {
-  const { width } = useWindowDimensions();
+  const { screenWidth: width } = useDeviceLayout();
 
   const { contentPadding, actionIconSize, authorAvatarSize, moreMenuIconSize } = useMemo(() => {
     const padding = Math.round(Math.max(8, Math.min(14, width * 0.025)));
@@ -127,10 +128,7 @@ function VideoOverlayUI({
     const opacityValue = overlayOpacitySV ? overlayOpacitySV.value : 1;
     return { opacity: opacityValue };
   });
-  const overlayContainerStyle = useMemo(
-    () => [styles.overlayContainer, overlayAnimatedStyle],
-    [overlayAnimatedStyle]
-  );
+  const overlayContainerStyle = [styles.overlayContainer, overlayAnimatedStyle];
 
   const isAuthorBlocked = authorProfileOverlay?.isAuthorBlocked ?? false;
   const profileColors = authorProfileOverlay?.profileColors;
