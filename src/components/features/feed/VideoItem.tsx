@@ -11,6 +11,10 @@ export interface VideoItemProps {
   post: ExtendedPostView | ExtendedFeedViewPost;
   feedItem?: ExtendedFeedViewPost; // Preferred - contains feedContext and reqId natively
   height: number;
+  /** Top safe-area inset; the video block may extend into it for vertical centering. */
+  topInset?: number;
+  /** Bottom safe-area inset; the video block reserves this and never covers it. */
+  bottomInset?: number;
   feedOption?: string;
   isVisible?: boolean;
   index?: number;
@@ -24,6 +28,8 @@ function VideoItemComponent({
   post,
   feedItem,
   height,
+  topInset,
+  bottomInset,
   feedOption,
   isVisible,
   canPlay,
@@ -48,6 +54,8 @@ function VideoItemComponent({
       feedItem={feedItem}
       feedOption={feedOption}
       height={height}
+      topInset={topInset}
+      bottomInset={bottomInset}
       isVisible={isVisible}
       canPlay={canPlay}
       index={index}

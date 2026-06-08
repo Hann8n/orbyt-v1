@@ -1,7 +1,6 @@
 import {
   useState,
   useEffect,
-  useLayoutEffect,
   useCallback,
   useMemo,
   useRef,
@@ -34,12 +33,6 @@ import {
   type ListRenderItemInfo,
   RenderTargetOptions,
 } from '@shopify/flash-list';
-import { FeedScrollProvider } from '../../../context/FeedScrollContext';
-import type { ScrollFadeParams } from '../../../context/FeedScrollContext';
-import type {
-  FeedScrollLayoutValue,
-  FeedScrollMotionValue,
-} from '../../../context/FeedScrollContext';
 import { useTabBarVisibility } from '../../../context/FeedIndicatorContext';
 import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
@@ -56,18 +49,14 @@ import {
   isHeaderFeed as getIsHeaderFeed,
   useReanimatedScrollComponent,
 } from './feedViewShared';
-import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { isIosLiquidGlassAvailable } from '@/stores/userStore';
-import { getEffectiveTopInset } from '../../../utils/device/screen';
-import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
 import {
   SCROLL_CONSTANTS,
   QUERY_CONSTANTS,
   SCROLL_INDICATOR_CONSTANTS,
 } from '../../../utils/constants';
-import { buildListSnapToOffsets } from '@/utils/feed/snapOffsets';
-import { useViewportHeight } from '@/hooks/useViewportHeight';
+import { useFeedPageLayout } from '@/hooks/useFeedPageLayout';
 import type { FeedListItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
 import { ExtendedFeedViewPost } from '../../../services/api/types';
 import { isFeedHeaderItem } from '../../../types';
@@ -90,8 +79,6 @@ const getListItemType = (item: FeedListItem): string => {
 };
 
 const listKeyExtractor = (item: FeedListItem, index: number): string => getFeedItemKey(item, index);
-
-const isFeedListHeaderItem = (item: unknown): boolean => isFeedHeaderItem(item as FeedListItem);
 
 interface ListEmptyComponentProps {
   isLoading: boolean;
@@ -277,11 +264,6 @@ function ListFeedViewComponent({
   const layoutHeightSV = useSharedValue(0);
   const endOfFeedEnabledSV = useSharedValue(0);
   const endOfFeedOverscrollOpacitySV = useSharedValue(0);
-  const scrollFadeParamsSV = useSharedValue<ScrollFadeParams>({
-    spacing: 0,
-    snapOrigin: 0,
-    firstVideoIdx: 0,
-  });
 
   const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
 
@@ -322,24 +304,18 @@ function ListFeedViewComponent({
     [scrollOffsetYSV, tabBarVisibility, listSurfaceActive, chromeVisibleMaxY]
   );
 
-  const { screenWidth, screenHeight, isCompact } = useDeviceLayout();
   const hasTabBar = hasTabBarProp ?? true;
   const useManualIosGlassTabPaddingLayout = hasTabBar && isIosLiquidGlassAvailable;
   const useNativeTabBottomSafeArea =
     hasTabBar && Platform.OS === 'ios' && !isIosLiquidGlassAvailable;
 
-  const viewableAreaHeight = useViewportHeight({
-    hasTabBar,
-    useManualIosGlassTabPaddingLayout,
-    feedLayoutHeight,
-  });
-  const cardHeight = useMemo(
-    () =>
-      useManualIosGlassTabPaddingLayout
-        ? getVideoCardHeight(screenWidth, screenHeight)
-        : viewableAreaHeight,
-    [useManualIosGlassTabPaddingLayout, screenWidth, screenHeight, viewableAreaHeight]
-  );
+  const {
+    pageHeight,
+    topInset: bandTopInset,
+    bottomInset: bandBottomInset,
+  } = useFeedPageLayout({ hasTabBar, feedLayoutHeight });
+  const cardHeight = pageHeight;
+  const viewableAreaHeight = pageHeight;
 
   // When a zoom target is pending, block viewability callbacks from overriding the seeded index
   // until the imperative scroll fires. Without this, the initial render at offset 0 reports
@@ -390,7 +366,7 @@ function ListFeedViewComponent({
   const { canPlay, onViewableItemsChanged, viewabilityConfig } = useFeedVisibility({
     isActive: listSurfaceActive,
     onActiveVisibleIndexChange: handleActiveVisibleIndexChange,
-    isHeaderItem: isFeedListHeaderItem,
+    isHeaderItem: item => isFeedHeaderItem(item as FeedListItem),
   });
 
   const profileColors = useMemo(
@@ -428,13 +404,24 @@ function ListFeedViewComponent({
   const listRenderExtraData = useMemo(
     () => ({
       cardHeight,
+      topInset: bandTopInset,
+      bottomInset: bandBottomInset,
       feedOption,
       zoomTargetPostUri: zoomTargetPostUri ?? null,
       onHashtagPress,
       activeIndex,
       canPlay,
     }),
-    [cardHeight, feedOption, zoomTargetPostUri, onHashtagPress, activeIndex, canPlay]
+    [
+      cardHeight,
+      bandTopInset,
+      bandBottomInset,
+      feedOption,
+      zoomTargetPostUri,
+      onHashtagPress,
+      activeIndex,
+      canPlay,
+    ]
   );
 
   const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
@@ -468,6 +455,8 @@ function ListFeedViewComponent({
           feedItem={item}
           post={item.post}
           height={xd.cardHeight}
+          topInset={xd.topInset}
+          bottomInset={xd.bottomInset}
           feedOption={xd.feedOption}
           index={index}
           isAppleZoomTarget={isAppleZoomTarget}
@@ -481,8 +470,6 @@ function ListFeedViewComponent({
     [handleHeaderLayout]
   );
 
-  const itemSpacing = useMemo(() => cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP, [cardHeight]);
-
   const listViewportForEmpty = feedLayoutHeight > 0 ? feedLayoutHeight : viewableAreaHeight;
   const emptyStateHeaderDeduction = ListComponent
     ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS
@@ -491,50 +478,20 @@ function ListFeedViewComponent({
       : 0;
   const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
 
-  const snapTopInset =
-    useManualIosGlassTabPaddingLayout && !isCompact ? getEffectiveTopInset(insets.top) : 0;
+  const headerOffset = isHeaderFeed ? headerHeight : 0;
+  const snapReady = cardHeight > 0 && (!isHeaderFeed || headerHeight > 0);
 
-  const snapBottomInset =
-    useManualIosGlassTabPaddingLayout && !isCompact
-      ? insets.bottom + IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING
-      : 0;
-
-  const snapDisabledCompactLiquidGlass =
-    useManualIosGlassTabPaddingLayout && !isHeaderFeed && isCompact;
-  const snapWaitHeaderLayout = isHeaderFeed && headerHeight <= 0;
-  const listSnapUsesInterval =
-    !snapDisabledCompactLiquidGlass &&
-    !snapWaitHeaderLayout &&
-    !isHeaderFeed &&
-    listData.length > 0;
-
-  const snapToIntervalValue = listSnapUsesInterval ? itemSpacing : undefined;
-
-  const snapToOffsets = useMemo((): number[] | undefined => {
-    return buildListSnapToOffsets({
-      snapDisabledCompactLiquidGlass,
-      snapWaitHeaderLayout,
-      listSnapUsesInterval,
-      isHeaderFeed,
-      headerHeight,
-      cardHeight,
-      itemCount: listData.length,
-      itemSpacing,
-      snapTopInset,
-      snapBottomInset,
-    });
-  }, [
-    snapDisabledCompactLiquidGlass,
-    snapWaitHeaderLayout,
-    listSnapUsesInterval,
-    isHeaderFeed,
-    headerHeight,
-    cardHeight,
-    listData.length,
-    itemSpacing,
-    snapTopInset,
-    snapBottomInset,
-  ]);
+  const videoSnapOffsets = useMemo(() => {
+    if (!snapReady) return undefined;
+    // Header feeds: listData = [header, ...videos], so video count excludes the header row.
+    const videoCount = isHeaderFeed ? Math.max(0, listData.length - 1) : listData.length;
+    const offsets = new Array<number>(videoCount + 1);
+    offsets[0] = 0;
+    for (let i = 0; i < videoCount; i++) {
+      offsets[i + 1] = Math.round(headerOffset + i * cardHeight);
+    }
+    return offsets;
+  }, [snapReady, isHeaderFeed, headerOffset, cardHeight, listData.length]);
 
   const handleFeedLayout = useCallback(
     (e: LayoutChangeEvent) => {
@@ -567,29 +524,6 @@ function ListFeedViewComponent({
       }
     },
     [contentScrollProgressOutput]
-  );
-
-  useLayoutEffect(() => {
-    const headerSnapAdjust = isHeaderFeed ? snapTopInset : 0;
-    scrollFadeParamsSV.value = {
-      spacing: itemSpacing,
-      snapOrigin: isHeaderFeed ? headerHeight - headerSnapAdjust : 0,
-      firstVideoIdx: isHeaderFeed ? 1 : 0,
-    };
-  }, [scrollFadeParamsSV, itemSpacing, isHeaderFeed, headerHeight, snapTopInset]);
-
-  const feedScrollMotion = useMemo<FeedScrollMotionValue>(
-    () => ({ scrollOffsetYSV, scrollFadeParamsSV }),
-    [scrollOffsetYSV, scrollFadeParamsSV]
-  );
-
-  const feedScrollLayout = useMemo<FeedScrollLayoutValue>(
-    () => ({
-      headerHeight,
-      viewportHeight: viewableAreaHeight,
-      itemSpacing,
-    }),
-    [headerHeight, viewableAreaHeight, itemSpacing]
   );
 
   useImperativeHandle(
@@ -659,8 +593,6 @@ function ListFeedViewComponent({
     );
   }, [pullToRefresh, profileColors?.textColor, secondaryColor, insets.top]);
 
-  const listHeaderElement = null;
-
   const listFooterElement = useMemo(() => {
     if (feed.length === 0 && headerComponent) {
       return listEmptyElement;
@@ -680,22 +612,13 @@ function ListFeedViewComponent({
       keyExtractor: listKeyExtractor,
       getItemType: getListItemType,
       refreshControl: refreshControlElement,
-      ListHeaderComponent: listHeaderElement,
-      pagingEnabled: false,
-      snapToOffsets,
-      snapToInterval: snapToIntervalValue,
-      snapToAlignment: (snapToIntervalValue != null ? 'start' : undefined) as 'start' | undefined,
+      snapToOffsets: videoSnapOffsets,
+      snapToAlignment: 'start' as const,
+      disableIntervalMomentum: true,
       decelerationRate:
         Platform.OS === 'ios'
           ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
           : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID,
-      disableIntervalMomentum: snapToIntervalValue != null,
-      contentInset:
-        Platform.OS === 'ios' && listSnapUsesInterval && snapTopInset > 0
-          ? { top: snapTopInset }
-          : undefined,
-      contentInsetAdjustmentBehavior:
-        listSnapUsesInterval && snapTopInset > 0 ? ('never' as const) : undefined,
       renderScrollComponent,
       onContentSizeChange: (_w: number, h: number) => {
         contentHeightSV.value = h;
@@ -722,11 +645,7 @@ function ListFeedViewComponent({
       renderItem,
       listRenderExtraData,
       refreshControlElement,
-      listHeaderElement,
-      snapToOffsets,
-      snapToIntervalValue,
-      snapTopInset,
-      listSnapUsesInterval,
+      videoSnapOffsets,
       renderScrollComponent,
       contentHeightSV,
       onLoadMore,
@@ -765,14 +684,7 @@ function ListFeedViewComponent({
     ]
   );
 
-  const listSurfaceNode = useMemo(
-    () => (
-      <FeedScrollProvider motion={feedScrollMotion} layout={feedScrollLayout}>
-        {listBody}
-      </FeedScrollProvider>
-    ),
-    [feedScrollMotion, feedScrollLayout, listBody]
-  );
+  const listSurfaceNode = listBody;
 
   const gridFeedData = useMemo(
     () => feed.filter(item => !isFeedHeaderItem(item)) as ExtendedFeedViewPost[],
@@ -798,8 +710,6 @@ function ListFeedViewComponent({
         isLoading={isLoading}
         ListComponent={ListComponent}
         contentScrollProgressOutput={contentScrollProgressOutput}
-        snapTopInset={snapTopInset}
-        snapBottomInset={snapBottomInset}
         useNativeTabBottomSafeArea={useNativeTabBottomSafeArea}
         pullToRefresh={pullToRefresh}
       />
@@ -820,7 +730,6 @@ function ListFeedViewComponent({
       isLoading,
       ListComponent,
       contentScrollProgressOutput,
-      snapTopInset,
       useNativeTabBottomSafeArea,
       pullToRefresh,
     ]

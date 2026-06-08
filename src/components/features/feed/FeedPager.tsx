@@ -31,10 +31,8 @@ import type { FeedPagerRef } from '../../../utils/navigation/tabRefs';
 import { useTabBarVisibility } from '../../../context/FeedIndicatorContext';
 import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
-// Define the feed options type
 export type FeedOption = string;
 
-// Default feed options and label keys for home screen (resolved via t() in component)
 const DEFAULT_FEED_OPTIONS: FeedOption[] = ['following', 'your-mix'];
 const FEED_LABEL_KEYS: { [key: string]: string } = {
   following: 'feed.following',
@@ -45,8 +43,6 @@ const FEED_LABEL_KEYS: { [key: string]: string } = {
   bookmarks: 'profile.saves',
   watched: 'profile.watched',
 };
-
-const NOOP = () => {};
 
 // Pass-through props for FeedRenderer when using custom feedOptions (e.g. profile)
 interface FeedPagerRendererProps {
@@ -171,14 +167,12 @@ function FeedPager({
 
   const feedOptions = feedOptionsProp ?? DEFAULT_FEED_OPTIONS;
 
-  // Same as PagerView's initialPage – single source of truth for "which page we're on" at mount.
   const initialPageIndex = (() => {
     const feed = currentFeed ?? initialFeed;
     const initialIndex = feedOptions.findIndex(option => option === feed);
     return initialIndex >= 0 ? initialIndex : 0;
   })();
 
-  // Must match initialPage: native PagerView does not fire onPageSelected for the initial page.
   const pageScrollProgress = useSharedValue(initialPageIndex);
   const pageScrollProgressRef = useRef(pageScrollProgress);
   const contentScrollProgressOutputRef = useRef(contentScrollProgressOutput);
@@ -204,7 +198,6 @@ function FeedPager({
     [scrollEnabled]
   );
 
-  // Sync controlled currentFeed -> pager page (handles store hydration and programmatic changes)
   useEffect(() => {
     if (currentFeed == null) return;
     const index = feedOptions.findIndex(option => option === currentFeed);
@@ -213,7 +206,6 @@ function FeedPager({
     }
   }, [currentFeed, feedOptions, setPagerPage]);
 
-  // Derive current feed option from current index
   const currentFeedOption = feedOptions[currentFeedIndex] || feedOptions[0] || 'following';
 
   useAnimatedReaction(
@@ -239,7 +231,6 @@ function FeedPager({
     };
   }, [tabBarVisibility]);
 
-  // Handle page scroll from PagerView - for smooth indicator animations
   const handlePageScroll = useCallback(
     (event: { nativeEvent: { position: number; offset: number } }) => {
       pageScrollProgressRef.current.value = event.nativeEvent.position + event.nativeEvent.offset;
@@ -247,7 +238,6 @@ function FeedPager({
     []
   );
 
-  // Handle page change from PagerView - final confirmation after transition completes
   const handlePageSelected = useCallback(
     (event: { nativeEvent: { position: number } }) => {
       const nextIndex = event.nativeEvent.position;
@@ -268,8 +258,6 @@ function FeedPager({
     [feedOptions, setPagerPage]
   );
 
-  // Memoized query options for feed rendering (merge profile-style overrides when provided)
-  // IMPORTANT: Must be memoized to prevent FeedRenderer re-renders on every parent frame
   const baseQueryOptions = useMemo(
     () => ({
       refetchOnMount: false,
@@ -320,7 +308,6 @@ function FeedPager({
         ? Typography.sizes.h3
         : Typography.sizes.title;
 
-  // Both feeds render side-by-side; each keeps its own scroll and cursor (fully independent).
   const renderFeed = useCallback(
     ({ item: feedOption, index }: { item: FeedOption; index: number }) => (
       <FeedRenderer
@@ -333,7 +320,7 @@ function FeedPager({
         viewMode={viewMode}
         onViewModeChange={onViewModeChange}
         contentScrollProgressOutput={contentScrollProgressOutput}
-        onRetryFeed={NOOP}
+        onRetryFeed={() => {}}
         queryOptions={feedQueryOptions}
         isVisible={isVisible && index === currentFeedIndex}
         forceError={forceError}
@@ -365,12 +352,14 @@ function FeedPager({
     return labelKey ? t(labelKey) : feedOption;
   };
 
-  // Expose scrollToTop and setPage (setPage used by profile to sync tab tap -> pager)
   useImperativeHandle(
     ref,
     () => ({
       scrollToTop: () => {
         feedRendererRefs.current[currentFeedOption]?.scrollToTop();
+      },
+      refresh: () => {
+        feedRendererRefs.current[currentFeedOption]?.refresh?.();
       },
       setPage: (index: number) => {
         if (index >= 0 && index < feedOptions.length) setPagerPage(index);
@@ -408,7 +397,6 @@ function FeedPager({
         </Animated.View>
       )}
 
-      {/* PagerView for feeds with optimized gesture handling */}
       <PagerView
         ref={pagerViewRef}
         style={styles.pagerView}

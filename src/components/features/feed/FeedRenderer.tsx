@@ -1,8 +1,6 @@
 /**
- * Optimized feed renderer: single entry for list/grid feeds with visibility-aware playback.
- * Uses useMemo/useCallback so FlashList-bound props (`data`, `onLoadMore`, `commonProps`) stay
- * stable when unrelated parent/query churn occurs — aligns with FlashList v2 prop-memo guidance.
- * React Compiler handles memoization automatically; no manual memo() wrapper needed.
+ * Feed renderer: single entry for list/grid feeds with visibility-aware playback.
+ * FlashList-bound props are memoized to remain stable during parent/query churn.
  */
 
 import React, {
@@ -106,7 +104,6 @@ const FeedRendererComponent = ({
 
   // Search props
   hasNextPage: searchHasNextPage,
-
   isFetchingNextPage: searchIsFetchingNextPage,
   fetchNextPage: searchFetchNextPage,
   forceError = false,
@@ -183,15 +180,13 @@ const FeedRendererComponent = ({
   const navigationRef = useRef(navigation);
 
   const gridStateRef = useRef({ feed, feedOption, userDid });
-  // eslint-disable-next-line react-hooks/refs
-  gridStateRef.current = { feed, feedOption, userDid };
 
   useLayoutEffect(() => {
     routerRef.current = router;
     navigationRef.current = navigation;
-  });
+    gridStateRef.current = { feed, feedOption, userDid };
+  }, [feed, feedOption, navigation, router, userDid]);
 
-  /** Reads the active tab from NativeTabs navigator state synchronously — no React state, no staleness. */
   const getTab = (): DetailNavTab => getActiveTabFromNavigation(navigationRef.current) ?? 'home';
 
   const handleHashtagPress = useCallback((hashtag: string) => {
@@ -275,8 +270,12 @@ const FeedRendererComponent = ({
     ref,
     () => ({
       scrollToTop: () => listFeedViewRef.current?.scrollToTop(),
+      refresh: () => {
+        listFeedViewRef.current?.scrollToTop();
+        handlePullToRefresh();
+      },
     }),
-    []
+    [handlePullToRefresh]
   );
 
   const prevFirstUriRef = useRef(feed[0]?.post?.uri ?? null);

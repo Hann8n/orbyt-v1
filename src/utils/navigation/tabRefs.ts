@@ -3,13 +3,10 @@ export interface ScrollToTopRef {
   scrollToTop: () => void;
 }
 
-/** Ref exposed by {@link FeedPager} (scroll-to-top + programmatic tab index). */
+/** Ref exposed by {@link FeedPager} (scroll-to-top + refresh + programmatic tab index). */
 export interface FeedPagerRef extends ScrollToTopRef {
-  setPage: (index: number) => void;
-}
-
-export interface HomeRef extends ScrollToTopRef {
   refresh: () => void;
+  setPage: (index: number) => void;
 }
 
 export interface ExploreRef {
@@ -20,7 +17,6 @@ export interface ExploreRef {
 }
 
 export const tabRefs = {
-  home: null as HomeRef | null,
   explore: null as ExploreRef | null,
   activity: null as ScrollToTopRef | null,
   profile: null as FeedPagerRef | null,

@@ -100,14 +100,6 @@ export interface TextOverlay {
  */
 
 /**
- * Ref interface for HomeScreen
- * @usage app/(tabs)/home/index.tsx:9
- */
-export interface HomeScreenRef {
-  refresh: () => void;
-}
-
-/**
  * Ref interface for ListFeedView
  * @usage src/components/features/feed/ListFeedView.tsx:144
  * @usage src/components/features/feed/FeedPager.tsx:20
@@ -117,6 +109,8 @@ export interface HomeScreenRef {
  */
 export interface ListFeedViewRef {
   scrollToTop: () => void;
+  /** Runs the standard pull-to-refresh (RefreshControl spinner + React Query refetch). */
+  refresh?: () => void;
 }
 
 // ============================================================================
