@@ -279,21 +279,7 @@ function ListFeedViewComponent({
   const activeVisibleIndexRef = useRef(seedActiveIndex);
   const [activeIndex, setActiveIndex] = useState(seedActiveIndex);
 
-  useEffect(() => {
-    if (zoomTargetPostUri && feed.length > 0 && flashListRef.current) {
-      const idx = feed.findIndex(
-        item => !isFeedHeaderItem(item) && item.post?.uri === zoomTargetPostUri
-      );
-      if (idx >= 0) {
-        const listIndex = idx + (isHeaderFeed ? 1 : 0);
-        flashListRef.current.scrollToIndex({
-          index: listIndex,
-          animated: false,
-          viewPosition: 0.5,
-        });
-      }
-    }
-  }, [zoomTargetPostUri, feed, isHeaderFeed]);
+  const scrollToTargetPendingRef = useRef(!!zoomTargetPostUri);
 
   const tabBarVisibility = useTabBarVisibility();
   const listSurfaceActive = isVisible && resolvedViewMode === 'list';
@@ -332,11 +318,39 @@ function ListFeedViewComponent({
   } = useFeedPageLayout({ hasTabBar, feedLayoutHeight });
   const cardHeight = pageHeight;
   const viewableAreaHeight = pageHeight;
+
   const handleActiveVisibleIndexChange = useCallback((index: number) => {
+    if (scrollToTargetPendingRef.current) return;
     if (activeVisibleIndexRef.current === index) return;
     activeVisibleIndexRef.current = index;
     setActiveIndex(index);
   }, []);
+
+  useEffect(() => {
+    scrollToTargetPendingRef.current = !!zoomTargetPostUri;
+  }, [zoomTargetPostUri]);
+
+  const didScrollToTargetRef = useRef(false);
+
+  useEffect(() => {
+    if (didScrollToTargetRef.current || !zoomTargetPostUri || feed.length === 0) return;
+    const idx = feed.findIndex(
+      item => !isFeedHeaderItem(item) && item.post?.uri === zoomTargetPostUri
+    );
+    if (idx < 0 || !flashListRef.current) return;
+    const adjustedIdx = idx + (isHeaderFeed ? 1 : 0);
+    didScrollToTargetRef.current = true;
+    scrollToTargetPendingRef.current = false;
+    if (activeVisibleIndexRef.current !== adjustedIdx) {
+      activeVisibleIndexRef.current = adjustedIdx;
+      setActiveIndex(adjustedIdx);
+    }
+    flashListRef.current.scrollToItem({
+      item: feed[idx],
+      animated: false,
+      viewPosition: 0,
+    });
+  }, [zoomTargetPostUri, feed, isHeaderFeed]);
 
   useEffect(() => {
     if (feed.length === 0) {
