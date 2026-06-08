@@ -69,6 +69,12 @@ interface FeedPagerRendererProps {
   pullToRefreshEnabled?: boolean;
   /** Runs with each visible tab's feed `refetch` when the user pulls to refresh. */
   onPullToRefreshExtra?: () => Promise<unknown>;
+  /**
+   * Relative pathname of this tab's `feed` screen from the hosting route, forwarded to each
+   * {@link FeedRenderer}. Defaults to `./feed` (depth-1 hosts like home/profile index); the channel
+   * screen sits deeper and passes `../../feed`.
+   */
+  feedRouteHref?: string;
 }
 
 interface FeedPagerProps extends FeedPagerRendererProps {
@@ -153,6 +159,7 @@ function FeedPager({
   controlStatusBar = true,
   pullToRefreshEnabled = false,
   onPullToRefreshExtra,
+  feedRouteHref,
   ref,
 }: FeedPagerProps & { ref?: Ref<FeedPagerRef> }) {
   const { t } = useTranslation();
@@ -326,6 +333,7 @@ function FeedPager({
         forceError={forceError}
         pullToRefreshEnabled={pullToRefreshEnabled}
         onPullToRefreshExtra={onPullToRefreshExtra}
+        feedRouteHref={feedRouteHref}
       />
     ),
     [
@@ -343,6 +351,7 @@ function FeedPager({
       forceError,
       pullToRefreshEnabled,
       onPullToRefreshExtra,
+      feedRouteHref,
     ]
   );
 

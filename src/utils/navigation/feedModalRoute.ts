@@ -17,10 +17,44 @@ export type FullHeightVideoModalParams = {
   postUri: string;
 };
 
-/** Typed `href` for the full-height video screen (push on current tab’s stack when possible). */
-export function buildFullHeightVideoHref(
+/**
+ * Relative `href` for the full-height video screen. Use with `{ relativeToDirectory: true }` (or a
+ * `<Link relativeToDirectory>`); Expo Router resolves it to the current tab's `full-height-video`
+ * route at press time, so the push always lands on the stack the user is on.
+ */
+export function buildFullHeightVideoHref(params: FullHeightVideoModalParams): Href {
+  return {
+    pathname: './full-height-video',
+    params: { postUri: params.postUri },
+  };
+}
+
+/**
+ * Relative `href` for the feed stack screen inside a tab. Use with `{ relativeToDirectory: true }`
+ * (or a `<Link relativeToDirectory>`) so it resolves against the current tab's stack at press time.
+ */
+export function buildFeedModalHref(params: FeedModalSearchParams): Href {
+  const routeParams: Record<string, string> = {
+    feedOption: params.feedOption,
+    initialPostUri: params.initialPostUri,
+  };
+  if (params.userDid) {
+    routeParams.userDid = params.userDid;
+  }
+  return {
+    pathname: './feed',
+    params: routeParams,
+  };
+}
+
+/**
+ * Absolute feed/full-height-video hrefs for callers that are **not inside a tab stack** (root
+ * screens like chat or deep links), where relative resolution has no tab to anchor to. The target
+ * tab is passed explicitly (typically `DEFAULT_DETAIL_TAB`).
+ */
+export function buildAbsoluteFullHeightVideoHref(
   params: FullHeightVideoModalParams,
-  tab: DetailNavTab = 'explore'
+  tab: DetailNavTab
 ): Href {
   return {
     pathname: `/(tabs)/${tab}/full-height-video`,
@@ -28,11 +62,7 @@ export function buildFullHeightVideoHref(
   };
 }
 
-/** Typed `href` for the feed stack screen inside a tab. */
-export function buildFeedModalHref(
-  params: FeedModalSearchParams,
-  tab: DetailNavTab = 'explore'
-): Href {
+export function buildAbsoluteFeedModalHref(params: FeedModalSearchParams, tab: DetailNavTab): Href {
   const routeParams: Record<string, string> = {
     feedOption: params.feedOption,
     initialPostUri: params.initialPostUri,

@@ -275,6 +275,9 @@ const Channel: React.FC = () => {
           onPullToRefreshExtra={refreshChannelMetadata}
           queryOptions={queryOptions}
           isVisible={isRouteFocused}
+          // Channel sits at `/(tabs)/{tab}/channel/[id]`, two directories deeper than the tab's
+          // `feed` route, so opening a video must walk up two levels (vs `./feed` for index hosts).
+          feedRouteHref="../../feed"
           headerComponent={headerComponent}
           backgroundColor={Colors.black}
           secondaryColor={channelColors.textColor}

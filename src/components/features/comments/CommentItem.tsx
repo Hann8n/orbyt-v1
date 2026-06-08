@@ -422,8 +422,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   }, [isLiking, uri, cid, isLiked, comment.viewer?.like, animateHeart, likeComment, t]);
 
   const navigation = useRouter();
-  const { navigateToProfile: goToProfile, currentTab: feedModalTab } =
-    useProfileChannelNavigation();
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
   const navigateToAuthorProfile = useCallback(
     (
@@ -480,16 +479,14 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const handleHashtagPress = useCallback(
     (hashtag: string) => {
       navigation.navigate(
-        buildFeedModalHref(
-          {
-            feedOption: `hashtag:${hashtag}`,
-            initialPostUri: '',
-          },
-          feedModalTab
-        )
+        buildFeedModalHref({
+          feedOption: `hashtag:${hashtag}`,
+          initialPostUri: '',
+        }),
+        { relativeToDirectory: true }
       );
     },
-    [navigation, feedModalTab]
+    [navigation]
   );
 
   const handleAuthorAvatarPress = () => {

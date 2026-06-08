@@ -1,53 +1,34 @@
-import { useSegments, type Href } from 'expo-router';
-import {
-  useNavigation,
-  type NavigationProp,
-  type ParamListBase,
-} from 'expo-router/react-navigation';
+import { type Href } from 'expo-router';
 
 export type DetailNavTab = 'home' | 'explore' | 'activity' | 'profile';
 
 const TAB_SEGMENTS: readonly DetailNavTab[] = ['home', 'explore', 'activity', 'profile'];
 
-function isDetailNavTab(s: string): s is DetailNavTab {
-  return (TAB_SEGMENTS as readonly string[]).includes(s);
-}
-
 /**
- * Read the active tab from NativeTabs navigator state. Returns `null` when the
- * calling component is not inside a tab navigator (e.g. root modals).
+ * Tab used for detail navigation that originates from a root screen presented over the tabs
+ * (settings, chat, deep links): those screens are not inside any tab stack, so there is no
+ * "current tab" to land on. We pick a single deterministic destination instead of guessing.
  */
-export function getActiveTabFromNavigation(
-  navigation: NavigationProp<ParamListBase>
-): DetailNavTab | null {
-  const tabNav = navigation.getParent?.();
-  if (!tabNav) return null;
-
-  const tabState = tabNav.getState?.();
-  if (!tabState || tabState.type !== 'tab') return null;
-
-  const activeRoute = tabState.routes[tabState.index ?? 0];
-  if (activeRoute && isDetailNavTab(activeRoute.name)) {
-    return activeRoute.name;
-  }
-  return null;
-}
+export const DEFAULT_DETAIL_TAB: DetailNavTab = 'home';
 
 /**
- * True when the current route is a root stack screen presented as a modal (slide-up or transparent).
- * Tab destinations should use `router.dismissTo(href)` so the modal closes and the detail lands on
- * the tab stack, not stacked above the modal.
+ * True when the current route is a root stack screen presented over the tabs (modal or card).
+ * From here, tab destinations must use an absolute href (the relative/segment-based resolution that
+ * works inside a tab stack has no tab to anchor to).
  */
 export function isRootModalStackContext(segments: readonly string[]): boolean {
-  const root = segments[0];
-  return root === 'settings' || root === 'edit-profile' || root === 'profile-image-viewer';
+  return segments[0] !== '(tabs)';
 }
 
-/** When the focused route is under `(tabs)`, returns that tab; otherwise `null` (e.g. root modal). */
-export function getDetailNavTabIfInsideTabs(segments: readonly string[]): DetailNavTab | null {
-  return (
-    (segments.find(s => (TAB_SEGMENTS as readonly string[]).includes(s)) as DetailNavTab) ?? null
-  );
+/**
+ * The tab that owns the currently focused route, read straight from the route segments
+ * (`['(tabs)', '<tab>', ...]`). Returns `null` for root screens outside the tabs. Read this at
+ * press time (inside an event handler) so it reflects the screen the user actually tapped on.
+ */
+export function getDetailNavTabFromSegments(segments: readonly string[]): DetailNavTab | null {
+  if (segments[0] !== '(tabs)') return null;
+  const tab = segments[1];
+  return tab && (TAB_SEGMENTS as readonly string[]).includes(tab) ? (tab as DetailNavTab) : null;
 }
 
 function profilePathnameForTab(
@@ -102,20 +83,4 @@ export function buildProfileDetailHref(did: string, tab: DetailNavTab): Href {
 
 export function buildChannelDetailHref(encodedChannelId: string, tab: DetailNavTab): Href {
   return { pathname: channelPathnameForTab(tab), params: { id: encodedChannelId } };
-}
-
-/**
- * Resolves the active tab using React Navigation state (reliable with NativeTabs).
- * Falls back to segments for root screens outside the tab navigator.
- */
-export function useCurrentDetailNavTab(): DetailNavTab {
-  const navigation = useNavigation<NavigationProp<ParamListBase>>();
-  const segments = useSegments();
-
-  const navTab = getActiveTabFromNavigation(navigation);
-  if (navTab) return navTab;
-
-  return (
-    (segments.find(s => (TAB_SEGMENTS as readonly string[]).includes(s)) as DetailNavTab) ?? 'home'
-  );
 }

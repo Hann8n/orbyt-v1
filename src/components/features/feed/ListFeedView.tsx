@@ -600,7 +600,6 @@ function ListFeedViewComponent({
     return feed.length > 0 ? <View style={styles.itemSeparator} /> : null;
   }, [feed.length, headerComponent, listEmptyElement]);
 
-  // Memoize FlashList props separately to reduce listBody dependency count
   const flashListProps = useMemo(
     () => ({
       ref: flashListRef,

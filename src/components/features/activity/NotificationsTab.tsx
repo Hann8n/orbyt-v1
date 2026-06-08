@@ -522,7 +522,9 @@ const NotificationItem = React.memo<NotificationItemProps>(
           currentUser?.did ?? undefined
         );
         if (!ok) return;
-        navigation.navigate(buildFullHeightVideoHref({ postUri }, 'activity'));
+        navigation.navigate(buildFullHeightVideoHref({ postUri }), {
+          relativeToDirectory: true,
+        });
       },
       [navigation, item.uri, currentUser?.did]
     );
@@ -645,7 +647,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
 
     const videoPostUri = postData?.uri?.trim() ?? '';
     const fullHeightVideoHref = videoPostUri
-      ? buildFullHeightVideoHref({ postUri: videoPostUri }, 'activity')
+      ? buildFullHeightVideoHref({ postUri: videoPostUri })
       : null;
 
     const handleThumbnailApplePress = useCallback(
@@ -752,7 +754,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
           </NativePressable>
         </View>
         {shouldShowThumbnailContainer && fullHeightVideoHref && Platform.OS === 'ios' ? (
-          <Link href={fullHeightVideoHref} asChild>
+          <Link relativeToDirectory href={fullHeightVideoHref} asChild>
             <Pressable
               onPress={handleThumbnailApplePress}
               collapsable={false}

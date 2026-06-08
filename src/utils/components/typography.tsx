@@ -265,8 +265,6 @@ export const TextStyles = {
   },
 } as const;
 
-// Hook to subscribe to font scale and dimension changes.
-// useWindowDimensions automatically updates when screen size or font scale changes per React Native docs.
 export const useResponsiveTypography = () => {
   const { width, height, fontScale } = useWindowDimensions();
 

@@ -111,9 +111,7 @@ function VideoScrubberActive({
             currentTimeSV.set(currentTime);
           }
         });
-      } catch (_error) {
-        // ignored
-      }
+      } catch (_error) {}
     }
   }, [active, player, isSeekingSV, isPlayingSV, currentTimeSV, seekProgressSV, seekingAnimationSV]);
 
@@ -273,9 +271,7 @@ function VideoScrubberActive({
             seekingAnimationSV.set(withTiming(0, { duration: 500 }));
           });
         }, 50);
-      } catch (_error) {
-        // ignored
-      }
+      } catch (_error) {}
     },
     [player, isSeekingSV, seekingAnimationSV, currentTimeSV]
   );

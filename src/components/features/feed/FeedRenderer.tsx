@@ -14,12 +14,6 @@ import React, {
 } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import {
-  useNavigation,
-  type NavigationProp,
-  type ParamListBase,
-} from 'expo-router/react-navigation';
-import { getActiveTabFromNavigation, type DetailNavTab } from '@/utils/navigation/detailRoutes';
 
 import ListFeedView from './ListFeedView';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
@@ -85,6 +79,14 @@ interface FeedRendererProps {
   pullToRefreshEnabled?: boolean;
   /** Runs in parallel with the feed infinite-query `refetch` (e.g. profile/channel metadata). */
   onPullToRefreshExtra?: () => Promise<unknown>;
+  /**
+   * Relative pathname (resolved with `relativeToDirectory` at press time) of this tab's `feed`
+   * screen, expressed from the route that hosts this renderer. Depth-1 hosts (home/profile index)
+   * use the default `./feed`; the channel screen sits two directories deeper, so it passes
+   * `../../feed`. Relative resolution at press time anchors to the focused (tapped) screen, so the
+   * detail always lands on the current tab's stack — no tab detection, no frozen segment.
+   */
+  feedRouteHref?: string;
 }
 
 const FeedRendererComponent = ({
@@ -102,7 +104,6 @@ const FeedRendererComponent = ({
   contentScrollProgressOutput,
   hasTabBar: hasTabBarProp,
 
-  // Search props
   hasNextPage: searchHasNextPage,
   isFetchingNextPage: searchIsFetchingNextPage,
   fetchNextPage: searchFetchNextPage,
@@ -111,6 +112,7 @@ const FeedRendererComponent = ({
   zoomTargetPostUri,
   pullToRefreshEnabled = false,
   onPullToRefreshExtra,
+  feedRouteHref = './feed',
 }: FeedRendererProps & {
   ref?: React.Ref<ListFeedViewRef>;
 }) => {
@@ -176,24 +178,23 @@ const FeedRendererComponent = ({
   const router = useRouter();
   const routerRef = useRef(router);
 
-  const navigation = useNavigation<NavigationProp<ParamListBase>>();
-  const navigationRef = useRef(navigation);
-
-  const gridStateRef = useRef({ feed, feedOption, userDid });
+  const gridStateRef = useRef({ feed, feedOption, userDid, feedRouteHref });
 
   useLayoutEffect(() => {
     routerRef.current = router;
-    navigationRef.current = navigation;
-    gridStateRef.current = { feed, feedOption, userDid };
-  }, [feed, feedOption, navigation, router, userDid]);
+    gridStateRef.current = { feed, feedOption, userDid, feedRouteHref };
+  }, [feed, feedOption, router, userDid, feedRouteHref]);
 
-  const getTab = (): DetailNavTab => getActiveTabFromNavigation(navigationRef.current) ?? 'home';
-
+  // Relative pushes resolve against the focused (tapped) route at press time, so the detail always
+  // lands on the tab stack the user is currently on — no tab detection / no frozen segment.
   const handleHashtagPress = useCallback((hashtag: string) => {
-    routerRef.current.push({
-      pathname: `/(tabs)/${getTab()}/feed` as const,
-      params: { feedOption: `hashtag:${hashtag}`, initialPostUri: '' },
-    });
+    routerRef.current.push(
+      {
+        pathname: gridStateRef.current.feedRouteHref,
+        params: { feedOption: `hashtag:${hashtag}`, initialPostUri: '' },
+      },
+      { relativeToDirectory: true }
+    );
   }, []);
 
   const handleGridItemPress = useCallback((index: number) => {
@@ -209,8 +210,9 @@ const FeedRendererComponent = ({
         initialPostUri,
       };
       routerRef.current.push(
-        { pathname: `/(tabs)/${getTab()}/feed` as const, params },
+        { pathname: s.feedRouteHref, params },
         {
+          relativeToDirectory: true,
           dangerouslySingular: () =>
             [feedOption, s.userDid, initialPostUri].filter(Boolean).join('|'),
         }
@@ -252,8 +254,10 @@ const FeedRendererComponent = ({
         const s = gridStateRef.current;
         const item = s.feed[index] as FeedItem | undefined;
         const initialPostUri = item?.post?.uri ?? '';
+        // Relative href — the Apple-Zoom <Link> sets `relativeToDirectory`, so it resolves to the
+        // current tab's `feed` route at press time.
         return {
-          pathname: `/(tabs)/${getTab()}/feed` as const,
+          pathname: s.feedRouteHref,
           params: {
             feedOption: s.feedOption || 'search',
             ...(s.userDid ? { userDid: s.userDid } : {}),

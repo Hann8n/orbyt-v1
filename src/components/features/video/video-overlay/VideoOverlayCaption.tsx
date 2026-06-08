@@ -261,7 +261,6 @@ const styles = StyleSheet.create({
   },
 });
 
-// Static compositions — computed once at module load, not per render.
 const descriptionCollapsedTextStyle = StyleSheet.compose(
   styles.descriptionText,
   styles.descriptionTextFlexible
