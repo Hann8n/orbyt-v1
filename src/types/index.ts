@@ -52,7 +52,6 @@ export interface ListFeedViewProps {
   onViewModeChange?: (mode: ViewMode) => void;
   /** When set, overrides tab-bar inset behavior for list height / liquid-glass snap. */
   hasTabBar?: boolean;
-  isProfileFeed?: boolean;
   /** When provided, list writes its scroll progress (0..1) here on the UI thread. Used by overlay fade. */
   contentScrollProgressOutput?: SharedValue<number>;
   forceError?: boolean;

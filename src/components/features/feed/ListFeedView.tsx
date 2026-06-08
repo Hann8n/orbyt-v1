@@ -279,6 +279,22 @@ function ListFeedViewComponent({
   const activeVisibleIndexRef = useRef(seedActiveIndex);
   const [activeIndex, setActiveIndex] = useState(seedActiveIndex);
 
+  useEffect(() => {
+    if (zoomTargetPostUri && feed.length > 0 && flashListRef.current) {
+      const idx = feed.findIndex(
+        item => !isFeedHeaderItem(item) && item.post?.uri === zoomTargetPostUri
+      );
+      if (idx >= 0) {
+        const listIndex = idx + (isHeaderFeed ? 1 : 0);
+        flashListRef.current.scrollToIndex({
+          index: listIndex,
+          animated: false,
+          viewPosition: 0.5,
+        });
+      }
+    }
+  }, [zoomTargetPostUri, feed, isHeaderFeed]);
+
   const tabBarVisibility = useTabBarVisibility();
   const listSurfaceActive = isVisible && resolvedViewMode === 'list';
   const chromeVisibleMaxY = HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
@@ -316,39 +332,11 @@ function ListFeedViewComponent({
   } = useFeedPageLayout({ hasTabBar, feedLayoutHeight });
   const cardHeight = pageHeight;
   const viewableAreaHeight = pageHeight;
-
-  // When a zoom target is pending, block viewability callbacks from overriding the seeded index
-  // until the imperative scroll fires. Without this, the initial render at offset 0 reports
-  // item 0 as visible and resets activeIndex before scrollToItem can run.
-  const scrollToTargetPendingRef = useRef(!!zoomTargetPostUri);
-
   const handleActiveVisibleIndexChange = useCallback((index: number) => {
-    if (scrollToTargetPendingRef.current) return;
     if (activeVisibleIndexRef.current === index) return;
     activeVisibleIndexRef.current = index;
     setActiveIndex(index);
   }, []);
-
-  const didScrollToTargetRef = useRef(false);
-  useEffect(() => {
-    didScrollToTargetRef.current = false;
-    scrollToTargetPendingRef.current = !!zoomTargetPostUri;
-  }, [zoomTargetPostUri]);
-  useEffect(() => {
-    if (didScrollToTargetRef.current || !zoomTargetPostUri || feed.length === 0) return;
-    const idx = feed.findIndex(
-      item => !isFeedHeaderItem(item) && item.post?.uri === zoomTargetPostUri
-    );
-    if (idx < 0 || !flashListRef.current) return;
-    const adjustedIdx = idx + (isHeaderFeed ? 1 : 0);
-    didScrollToTargetRef.current = true;
-    scrollToTargetPendingRef.current = false;
-    if (activeVisibleIndexRef.current !== adjustedIdx) {
-      activeVisibleIndexRef.current = adjustedIdx;
-      setActiveIndex(adjustedIdx);
-    }
-    flashListRef.current.scrollToItem({ item: feed[idx], animated: false, viewPosition: 0 });
-  }, [zoomTargetPostUri, feed, isHeaderFeed]);
 
   useEffect(() => {
     if (feed.length === 0) {
@@ -478,21 +466,6 @@ function ListFeedViewComponent({
       : 0;
   const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
 
-  const headerOffset = isHeaderFeed ? headerHeight : 0;
-  const snapReady = cardHeight > 0 && (!isHeaderFeed || headerHeight > 0);
-
-  const videoSnapOffsets = useMemo(() => {
-    if (!snapReady) return undefined;
-    // Header feeds: listData = [header, ...videos], so video count excludes the header row.
-    const videoCount = isHeaderFeed ? Math.max(0, listData.length - 1) : listData.length;
-    const offsets = new Array<number>(videoCount + 1);
-    offsets[0] = 0;
-    for (let i = 0; i < videoCount; i++) {
-      offsets[i + 1] = Math.round(headerOffset + i * cardHeight);
-    }
-    return offsets;
-  }, [snapReady, isHeaderFeed, headerOffset, cardHeight, listData.length]);
-
   const handleFeedLayout = useCallback(
     (e: LayoutChangeEvent) => {
       const h = Math.round(e.nativeEvent.layout.height);
@@ -611,9 +584,7 @@ function ListFeedViewComponent({
       keyExtractor: listKeyExtractor,
       getItemType: getListItemType,
       refreshControl: refreshControlElement,
-      snapToOffsets: videoSnapOffsets,
-      snapToAlignment: 'start' as const,
-      disableIntervalMomentum: true,
+      pagingEnabled: !isHeaderFeed,
       decelerationRate:
         Platform.OS === 'ios'
           ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
@@ -626,6 +597,7 @@ function ListFeedViewComponent({
       onEndReachedThreshold: QUERY_CONSTANTS.END_REACHED_THRESHOLD,
       onViewableItemsChanged,
       viewabilityConfig,
+      initialScrollIndex: seedActiveIndex > 0 ? seedActiveIndex : undefined,
       maintainVisibleContentPosition: MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED,
       scrollEnabled: true,
       showsVerticalScrollIndicator:
@@ -644,7 +616,6 @@ function ListFeedViewComponent({
       renderItem,
       listRenderExtraData,
       refreshControlElement,
-      videoSnapOffsets,
       renderScrollComponent,
       contentHeightSV,
       onLoadMore,
@@ -654,6 +625,8 @@ function ListFeedViewComponent({
       listFooterElement,
       listContentContainerStyle,
       cardHeight,
+      seedActiveIndex,
+      isHeaderFeed,
     ]
   );
 

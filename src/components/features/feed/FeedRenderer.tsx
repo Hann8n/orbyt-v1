@@ -149,7 +149,6 @@ const FeedRendererComponent = ({
   const fetchNextPage = isSearchFeed ? searchFeedQuery.fetchNextPage : feedQuery.fetchNextPage;
   const refetch = isSearchFeed ? noopFeedRefetch : feedQuery.refetch;
   const isPaused = isSearchFeed ? searchFeedQuery.isPaused : feedQuery.isPaused;
-  const isProfileFeed = isSearchFeed ? false : feedQuery.isProfileFeed;
   const dataUpdatedAt = isSearchFeed ? 0 : feedQuery.dataUpdatedAt;
 
   const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
@@ -266,7 +265,7 @@ const FeedRendererComponent = ({
         };
       },
     };
-  }, []);
+  }, [feed, feedOption, userDid, feedRouteHref]);
 
   const listFeedViewRef = useRef<ListFeedViewRef>(null);
 
@@ -309,7 +308,6 @@ const FeedRendererComponent = ({
       onLoadMore={handleLoadMore}
       hasNextPage={hasNextPage}
       onRetry={handleRetry}
-      isProfileFeed={isProfileFeed}
       isVisible={isVisible}
       viewMode={viewMode}
       onViewModeChange={onViewModeChange}
