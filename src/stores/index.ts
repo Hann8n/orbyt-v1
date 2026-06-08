@@ -4,4 +4,3 @@ export * from './postInteractionStore';
 export * from './modalStore';
 export * from './uiStore';
 export * from './videoPostDraftStore';
-export * from './detailNavTabStore';

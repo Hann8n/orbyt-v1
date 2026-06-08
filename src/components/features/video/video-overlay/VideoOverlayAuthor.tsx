@@ -292,7 +292,6 @@ const styles = StyleSheet.create({
   },
 });
 
-// Static compositions — computed once at module load, not per render.
 const avatarContainerStyle = StyleSheet.compose(
   styles.avatarContainer,
   sharedItemStyles.avatarContainer

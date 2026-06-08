@@ -281,9 +281,14 @@ export default Sentry.wrap(function RootLayout() {
     return navRef.current?.addListener('state', () => {
       const route = navRef.current?.getCurrentRoute() as { name?: string } | undefined;
       if (route?.name) {
-        logScreenView(getAnalytics(), { screen_name: route.name, screen_class: route.name }).catch(
-          () => {}
-        );
+        try {
+          const analytics = getAnalytics();
+          logScreenView(analytics, { screen_name: route.name, screen_class: route.name }).catch(
+            () => {}
+          );
+        } catch (_error) {
+          // Firebase not initialized yet, ignore
+        }
       }
     });
   }, [navRef]);

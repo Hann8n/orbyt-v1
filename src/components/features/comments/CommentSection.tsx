@@ -619,10 +619,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       },
       {
         onSuccess: () => {
-          logEvent(getAnalytics(), 'post_comment', {
-            post_uri: rootUri,
-            has_media: hasImages || hasGif,
-          }).catch(() => {});
+          try {
+            logEvent(getAnalytics(), 'post_comment', {
+              post_uri: rootUri,
+              has_media: hasImages || hasGif,
+            }).catch(() => {});
+          } catch (_error) {
+            // Firebase not initialized yet, ignore
+          }
           setNewCommentText('');
           setSelectedGif(null);
           setSelectedImages([]);

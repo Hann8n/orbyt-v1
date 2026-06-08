@@ -1,5 +1,6 @@
-import { type ReactNode } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { createContext, useCallback, useContext, useRef, type ReactNode } from 'react';
+import { View, StyleSheet, Platform, type ScrollViewProps } from 'react-native';
+import Animated from 'react-native-reanimated';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import { FEED_TYPES } from '../../../utils/constants';
@@ -9,12 +10,10 @@ import { blendColors, hexToRGBA } from '../../../utils/formatting/colors';
 import { isValidAtUri } from '../../../utils/atproto/uriValidation';
 
 export const FEED_VIEW_CONSTANTS = {
-  LIST_ITEM_GAP: 3,
-  FLASHLIST_DRAW_DISTANCE: 220,
+  LIST_ITEM_GAP: 0,
   GRID_CELL_GAP: 2,
   HEADER_HEIGHT_TABS: 280,
   HEADER_BLOCKING_THRESHOLD: 250,
-  HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y: 10,
 } as const;
 
 export const IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING = 12;
@@ -105,3 +104,64 @@ const feedSurfaceStyles = StyleSheet.create({
   on: { opacity: 1, zIndex: 1 },
   off: { opacity: 0, zIndex: 0 },
 });
+
+/**
+ * Returns a stable `renderScrollComponent` for FlashList that attaches both the
+ * Reanimated animated ref (for useScrollOffset) and FlashList's internal scroll ref.
+ *
+ * The returned function is memoized and the merged ref callback never changes identity,
+ * so FlashList re-renders do not trigger Reanimated event-handler re-registration or
+ * create new closure objects that pressure the GC.
+ */
+export function useReanimatedScrollComponent(
+  animatedScrollRef: (instance: Animated.ScrollView | null) => void
+): (props: ScrollViewProps) => React.ReactElement {
+  // Stores the ref that FlashList passes in via renderScrollComponent props
+  const flashListScrollRefStorage = useRef<React.Ref<Animated.ScrollView> | null>(null);
+
+  // Stable merged ref — identity never changes, preventing Reanimated from
+  // unregistering/re-registering the scroll-offset event handler on every FlashList render.
+  const mergedScrollRef = useCallback(
+    (node: Animated.ScrollView | null) => {
+      animatedScrollRef(node);
+      const stored = flashListScrollRefStorage.current;
+      if (typeof stored === 'function') {
+        (stored as (instance: Animated.ScrollView | null) => void)(node);
+      } else if (stored != null) {
+        (stored as React.MutableRefObject<Animated.ScrollView | null>).current = node;
+      }
+    },
+    [animatedScrollRef]
+  );
+
+  return useCallback(
+    (props: ScrollViewProps) => {
+      const { ref: flashListScrollRef, ...rest } = props as ScrollViewProps & {
+        ref?: React.Ref<Animated.ScrollView>;
+      };
+      // Capture FlashList's ref each render (it's a stable useRef, but we capture it
+      // here so mergedScrollRef can forward to it at commit time).
+      flashListScrollRefStorage.current = flashListScrollRef ?? null;
+      return <Animated.ScrollView {...rest} ref={mergedScrollRef} />;
+    },
+    [mergedScrollRef]
+  );
+}
+
+export type FeedLayout = {
+  viewportHeight: number;
+  viewportWidth: number;
+  topInset: number;
+  bottomInset: number;
+};
+
+const FeedLayoutContext = createContext<FeedLayout | null>(null);
+export const FeedLayoutProvider = FeedLayoutContext.Provider;
+
+export function useFeedLayout(): FeedLayout {
+  const value = useContext(FeedLayoutContext);
+  if (!value) {
+    throw new Error('useFeedLayout must be used inside a FeedLayoutProvider');
+  }
+  return value;
+}

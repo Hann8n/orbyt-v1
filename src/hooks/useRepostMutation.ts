@@ -49,11 +49,15 @@ export function useRepostMutation() {
     onSuccess: (repostUri, { postUri, isReposted }) => {
       const newIsReposted = !isReposted;
       if (newIsReposted) {
-        logShare(getAnalytics(), {
-          content_type: 'video',
-          item_id: postUri,
-          method: 'repost',
-        }).catch(() => {});
+        try {
+          logShare(getAnalytics(), {
+            content_type: 'video',
+            item_id: postUri,
+            method: 'repost',
+          }).catch(() => {});
+        } catch (_error) {
+          // Firebase not initialized yet, ignore
+        }
       }
       queryClient.setQueriesData<InfiniteData<FeedResponse>>(
         { queryKey: queryKeys.feed.all },

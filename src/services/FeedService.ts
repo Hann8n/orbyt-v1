@@ -58,7 +58,6 @@ const FEED_CONFIG = {
   cacheTime: 60 * 60 * 1000, // 60 minutes - increased to reduce unnecessary refetching
 } as const;
 
-// Search results state — module-level, no class boilerplate
 let searchResults: ExtendedFeedViewPost[] = [];
 
 function setSearchResults(feed: ExtendedFeedViewPost[]) {

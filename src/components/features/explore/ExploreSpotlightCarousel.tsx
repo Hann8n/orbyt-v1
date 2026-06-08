@@ -75,7 +75,7 @@ const SpotlightVideoCell = React.memo(
 
     if (zoomLink) {
       return (
-        <Link href={zoomLink.href} asChild>
+        <Link relativeToDirectory href={zoomLink.href} asChild>
           <Pressable style={flattenedOuterStyle} onPress={zoomLink.onBeforeNavigate}>
             <Link.AppleZoom>
               <View collapsable={false} style={styles.spotlightAppleZoomSourceInner}>
@@ -121,13 +121,10 @@ export const ExploreSpotlightCarousel = React.memo(({ videos }: Props) => {
       buildHref: (index: number) => {
         const item = formattedFeed[index];
         const postUri = item?.post?.uri ?? '';
-        return buildFeedModalHref(
-          {
-            initialPostUri: postUri,
-            feedOption: 'search',
-          },
-          'explore'
-        );
+        return buildFeedModalHref({
+          initialPostUri: postUri,
+          feedOption: 'search',
+        });
       },
     };
   }, [formattedFeed]);
@@ -138,13 +135,11 @@ export const ExploreSpotlightCarousel = React.memo(({ videos }: Props) => {
       feedService.setCurrentFeed(formattedFeed);
       const videoUri = formattedFeed[index]?.post?.uri ?? '';
       router.navigate(
-        buildFeedModalHref(
-          {
-            initialPostUri: videoUri,
-            feedOption: 'search',
-          },
-          'explore'
-        )
+        buildFeedModalHref({
+          initialPostUri: videoUri,
+          feedOption: 'search',
+        }),
+        { relativeToDirectory: true }
       );
     },
     [formattedFeed, router]

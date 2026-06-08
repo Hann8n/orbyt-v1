@@ -185,9 +185,15 @@ const ShareSheet: React.FC = () => {
         url: Platform.OS === 'ios' ? shareUrl : '',
         title: t('share.checkOutPost'),
       });
-      logShare(getAnalytics(), { content_type: 'video', item_id: postUri, method: 'native' }).catch(
-        () => {}
-      );
+      try {
+        logShare(getAnalytics(), {
+          content_type: 'video',
+          item_id: postUri,
+          method: 'native',
+        }).catch(() => {});
+      } catch (_error) {
+        // Firebase not initialized yet, ignore
+      }
     } catch (_error: unknown) {
       // ignore
     }

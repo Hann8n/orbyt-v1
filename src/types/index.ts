@@ -52,7 +52,6 @@ export interface ListFeedViewProps {
   onViewModeChange?: (mode: ViewMode) => void;
   /** When set, overrides tab-bar inset behavior for list height / liquid-glass snap. */
   hasTabBar?: boolean;
-  isProfileFeed?: boolean;
   /** When provided, list writes its scroll progress (0..1) here on the UI thread. Used by overlay fade. */
   contentScrollProgressOutput?: SharedValue<number>;
   forceError?: boolean;
@@ -100,14 +99,6 @@ export interface TextOverlay {
  */
 
 /**
- * Ref interface for HomeScreen
- * @usage app/(tabs)/home/index.tsx:9
- */
-export interface HomeScreenRef {
-  refresh: () => void;
-}
-
-/**
  * Ref interface for ListFeedView
  * @usage src/components/features/feed/ListFeedView.tsx:144
  * @usage src/components/features/feed/FeedPager.tsx:20
@@ -117,6 +108,8 @@ export interface HomeScreenRef {
  */
 export interface ListFeedViewRef {
   scrollToTop: () => void;
+  /** Runs the standard pull-to-refresh (RefreshControl spinner + React Query refetch). */
+  refresh?: () => void;
 }
 
 // ============================================================================

@@ -16,6 +16,7 @@ import PagerView from 'react-native-pager-view';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedReaction,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -24,16 +25,14 @@ import { NanoIcon } from '../../ui/NanoIcon';
 import { Colors } from '../../../theme';
 import FeedRenderer from './FeedRenderer';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { FeedPagerRef } from '../../../utils/navigation/tabRefs';
 import { useTabBarVisibility } from '../../../context/FeedIndicatorContext';
 import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
-// Define the feed options type
 export type FeedOption = string;
 
-// Default feed options and label keys for home screen (resolved via t() in component)
 const DEFAULT_FEED_OPTIONS: FeedOption[] = ['following', 'your-mix'];
 const FEED_LABEL_KEYS: { [key: string]: string } = {
   following: 'feed.following',
@@ -44,8 +43,6 @@ const FEED_LABEL_KEYS: { [key: string]: string } = {
   bookmarks: 'profile.saves',
   watched: 'profile.watched',
 };
-
-const NOOP = () => {};
 
 // Pass-through props for FeedRenderer when using custom feedOptions (e.g. profile)
 interface FeedPagerRendererProps {
@@ -72,6 +69,12 @@ interface FeedPagerRendererProps {
   pullToRefreshEnabled?: boolean;
   /** Runs with each visible tab's feed `refetch` when the user pulls to refresh. */
   onPullToRefreshExtra?: () => Promise<unknown>;
+  /**
+   * Relative pathname of this tab's `feed` screen from the hosting route, forwarded to each
+   * {@link FeedRenderer}. Defaults to `./feed` (depth-1 hosts like home/profile index); the channel
+   * screen sits deeper and passes `../../feed`.
+   */
+  feedRouteHref?: string;
 }
 
 interface FeedPagerProps extends FeedPagerRendererProps {
@@ -156,32 +159,38 @@ function FeedPager({
   controlStatusBar = true,
   pullToRefreshEnabled = false,
   onPullToRefreshExtra,
+  feedRouteHref,
   ref,
 }: FeedPagerProps & { ref?: Ref<FeedPagerRef> }) {
   const { t } = useTranslation();
   const { screenWidth: width, isTablet } = useDeviceLayout();
   const pagerViewRef = useRef<PagerView>(null);
   const feedRendererRefs = useRef<{ [key: string]: ListFeedViewRef | null }>({});
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const tabBarVisibility = useTabBarVisibility();
 
+  const SAFE_AREA_TOP_EDGES = { top: true } as const;
+  const SAFE_AREA_NO_EDGES = {} as const;
+
   const feedOptions = feedOptionsProp ?? DEFAULT_FEED_OPTIONS;
 
-  // Same as PagerView's initialPage – single source of truth for "which page we're on" at mount.
   const initialPageIndex = (() => {
     const feed = currentFeed ?? initialFeed;
     const initialIndex = feedOptions.findIndex(option => option === feed);
     return initialIndex >= 0 ? initialIndex : 0;
   })();
 
-  // Must match initialPage: native PagerView does not fire onPageSelected for the initial page.
   const pageScrollProgress = useSharedValue(initialPageIndex);
   const pageScrollProgressRef = useRef(pageScrollProgress);
+  const contentScrollProgressOutputRef = useRef(contentScrollProgressOutput);
 
   useLayoutEffect(() => {
     pageScrollProgressRef.current = pageScrollProgress;
   }, [pageScrollProgress]);
+
+  useLayoutEffect(() => {
+    contentScrollProgressOutputRef.current = contentScrollProgressOutput;
+  }, [contentScrollProgressOutput]);
 
   const [currentFeedIndex, setCurrentFeedIndex] = useState(initialPageIndex);
 
@@ -196,7 +205,6 @@ function FeedPager({
     [scrollEnabled]
   );
 
-  // Sync controlled currentFeed -> pager page (handles store hydration and programmatic changes)
   useEffect(() => {
     if (currentFeed == null) return;
     const index = feedOptions.findIndex(option => option === currentFeed);
@@ -205,35 +213,41 @@ function FeedPager({
     }
   }, [currentFeed, feedOptions, setPagerPage]);
 
-  // Derive current feed option from current index
   const currentFeedOption = feedOptions[currentFeedIndex] || feedOptions[0] || 'following';
 
-  // Animate header back to visible when switching tabs
-  useEffect(() => {
-    if (!contentScrollProgressOutput) return;
-    contentScrollProgressOutput.set(withTiming(0, { duration: 150 }));
-  }, [currentFeedIndex, contentScrollProgressOutput]);
+  useAnimatedReaction(
+    () => pageScrollProgress.value,
+    (index: number, prev: number | null) => {
+      const contentScrollProgress = contentScrollProgressOutputRef.current;
+      if (prev === null || index === prev || !contentScrollProgress) return;
+      contentScrollProgress.value = withTiming(0, { duration: 150 });
+    },
+    []
+  );
 
   const feedBarAnimatedStyle = useAnimatedStyle(() => {
-    const visible = tabBarVisibility.value > 0.5;
     return {
       position: 'absolute',
+      top: 0,
       left: 0,
       right: 0,
       zIndex: 2,
       backgroundColor: Colors.transparent,
-      top: applySafeArea ? 12 + insets.top : 12,
-      opacity: withTiming(visible ? 1 : 0, { duration: 200 }),
-      transform: [{ translateY: withTiming(visible ? 0 : -18, { duration: 200 }) }],
+      opacity: tabBarVisibility.value,
+      transform: [{ translateY: (1 - tabBarVisibility.value) * -18 }],
     };
-  }, [tabBarVisibility, applySafeArea, insets.top]);
+  }, [tabBarVisibility]);
 
-  // Handle page change from PagerView - final confirmation after transition completes
+  const handlePageScroll = useCallback(
+    (event: { nativeEvent: { position: number; offset: number } }) => {
+      pageScrollProgressRef.current.value = event.nativeEvent.position + event.nativeEvent.offset;
+    },
+    []
+  );
+
   const handlePageSelected = useCallback(
     (event: { nativeEvent: { position: number } }) => {
       const nextIndex = event.nativeEvent.position;
-      // Update shared value to exact position after transition
-      pageScrollProgressRef.current.value = nextIndex;
       setCurrentFeedIndex(nextIndex);
       const newFeedOption = feedOptions[nextIndex];
       if (newFeedOption) {
@@ -251,8 +265,6 @@ function FeedPager({
     [feedOptions, setPagerPage]
   );
 
-  // Memoized query options for feed rendering (merge profile-style overrides when provided)
-  // IMPORTANT: Must be memoized to prevent FeedRenderer re-renders on every parent frame
   const baseQueryOptions = useMemo(
     () => ({
       refetchOnMount: false,
@@ -303,7 +315,6 @@ function FeedPager({
         ? Typography.sizes.h3
         : Typography.sizes.title;
 
-  // Both feeds render side-by-side; each keeps its own scroll and cursor (fully independent).
   const renderFeed = useCallback(
     ({ item: feedOption, index }: { item: FeedOption; index: number }) => (
       <FeedRenderer
@@ -316,12 +327,13 @@ function FeedPager({
         viewMode={viewMode}
         onViewModeChange={onViewModeChange}
         contentScrollProgressOutput={contentScrollProgressOutput}
-        onRetryFeed={NOOP}
+        onRetryFeed={() => {}}
         queryOptions={feedQueryOptions}
         isVisible={isVisible && index === currentFeedIndex}
         forceError={forceError}
         pullToRefreshEnabled={pullToRefreshEnabled}
         onPullToRefreshExtra={onPullToRefreshExtra}
+        feedRouteHref={feedRouteHref}
       />
     ),
     [
@@ -339,6 +351,7 @@ function FeedPager({
       forceError,
       pullToRefreshEnabled,
       onPullToRefreshExtra,
+      feedRouteHref,
     ]
   );
 
@@ -348,12 +361,14 @@ function FeedPager({
     return labelKey ? t(labelKey) : feedOption;
   };
 
-  // Expose scrollToTop and setPage (setPage used by profile to sync tab tap -> pager)
   useImperativeHandle(
     ref,
     () => ({
       scrollToTop: () => {
         feedRendererRefs.current[currentFeedOption]?.scrollToTop();
+      },
+      refresh: () => {
+        feedRendererRefs.current[currentFeedOption]?.refresh?.();
       },
       setPage: (index: number) => {
         if (index >= 0 && index < feedOptions.length) setPagerPage(index);
@@ -368,32 +383,34 @@ function FeedPager({
 
       {showFeedIndicator && (
         <Animated.View style={feedBarAnimatedStyle}>
-          <View style={styles.indicatorContainer}>
-            <View style={styles.feedIndicators}>
-              {feedOptions.map((feedOption, index) => (
-                <FeedIndicatorItem
-                  key={feedOption}
-                  feedIndex={index}
-                  indicatorBaseFontSize={indicatorBaseFontSize}
-                  pageScrollProgress={pageScrollProgress}
-                  label={getLabel(feedOption)}
-                  onPress={indicatorPressHandlers[feedOption]}
-                  pressableStyle={styles.indicatorItem}
-                />
-              ))}
+          <SafeAreaView edges={applySafeArea ? SAFE_AREA_TOP_EDGES : SAFE_AREA_NO_EDGES}>
+            <View style={styles.indicatorContainer}>
+              <View style={styles.feedIndicators}>
+                {feedOptions.map((feedOption, index) => (
+                  <FeedIndicatorItem
+                    key={feedOption}
+                    feedIndex={index}
+                    indicatorBaseFontSize={indicatorBaseFontSize}
+                    pageScrollProgress={pageScrollProgress}
+                    label={getLabel(feedOption)}
+                    onPress={indicatorPressHandlers[feedOption]}
+                    pressableStyle={styles.indicatorItem}
+                  />
+                ))}
+              </View>
+              <NativePressable onPress={handleCreatePress} style={styles.createButton}>
+                <NanoIcon name="camera-2-fill" size={24} color={Colors.neutral[50]} />
+              </NativePressable>
             </View>
-            <NativePressable onPress={handleCreatePress} style={styles.createButton}>
-              <NanoIcon name="camera-2-fill" size={26} color={Colors.neutral[50]} />
-            </NativePressable>
-          </View>
+          </SafeAreaView>
         </Animated.View>
       )}
 
-      {/* PagerView for feeds with optimized gesture handling */}
       <PagerView
         ref={pagerViewRef}
         style={styles.pagerView}
         initialPage={initialPageIndex}
+        onPageScroll={handlePageScroll}
         onPageSelected={handlePageSelected}
         scrollEnabled={scrollEnabled}
         overdrag={false}

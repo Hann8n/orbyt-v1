@@ -1,5 +1,5 @@
 import { useCallback, useEffect, memo, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Text, StyleSheet, Platform } from 'react-native';
+import { Text, StyleSheet, Platform, View } from 'react-native';
 import { GestureDetector, Gesture, type NativeGesture } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -31,6 +31,8 @@ interface VideoScrubberProps {
   children?: ReactNode;
   /** Composed opacity from VideoCard (scroll overlap × scrubbing). */
   overlayOpacitySV: SharedValue<number>;
+  /** Bottom safe-area inset so the scrubber sits above the home indicator. */
+  bottomInset?: number;
 }
 
 const SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS = 0.1;
@@ -45,8 +47,8 @@ const SCRUBBER_TOUCH_AREA_HEIGHT = 32;
 const SCRUBBER_TOTAL_HEIGHT = SCRUBBER_TOUCH_AREA_HEIGHT + SCRUBBER_BAR_HEIGHT;
 const SCRUBBER_TRACK_CONTAINER_HEIGHT = 34;
 const SCRUBBER_BAR_HEIGHT_RANGE_PX = 5;
-const SCRUBBER_BAR_BASE_OPACITY = 0.7;
-const SCRUBBER_BAR_PLAYING_OPACITY = 0.9;
+const SCRUBBER_BAR_BASE_OPACITY = 0.85;
+const SCRUBBER_BAR_PLAYING_OPACITY = 1;
 const SCRUBBER_TRACK_OPACITY = 0.4;
 
 function VideoScrubberActive({
@@ -56,9 +58,19 @@ function VideoScrubberActive({
   scrollGesture,
   children,
   overlayOpacitySV,
+  bottomInset = 0,
 }: VideoScrubberProps) {
   const deviceLayout = useDeviceLayout();
   const screenWidth = deviceLayout.screenWidth;
+  // Match chrome gutter: 2.5% of screen width, clamped 8–14px
+  const contentPadding = useMemo(
+    () => Math.round(Math.max(8, Math.min(14, screenWidth * 0.025))),
+    [screenWidth]
+  );
+  const scrubberWidth = useMemo(
+    () => Math.max(0, screenWidth - contentPadding * 2),
+    [screenWidth, contentPadding]
+  );
 
   const setScrubbingState = useUIStore(state => state.setVisibility);
   const currentTimeSV = useSharedValue(0);
@@ -99,9 +111,7 @@ function VideoScrubberActive({
             currentTimeSV.set(currentTime);
           }
         });
-      } catch (_error) {
-        // ignored
-      }
+      } catch (_error) {}
     }
   }, [active, player, isSeekingSV, isPlayingSV, currentTimeSV, seekProgressSV, seekingAnimationSV]);
 
@@ -261,9 +271,7 @@ function VideoScrubberActive({
             seekingAnimationSV.set(withTiming(0, { duration: 500 }));
           });
         }, 50);
-      } catch (_error) {
-        // ignored
-      }
+      } catch (_error) {}
     },
     [player, isSeekingSV, seekingAnimationSV, currentTimeSV]
   );
@@ -341,11 +349,10 @@ function VideoScrubberActive({
     };
   });
 
-  const trackBarStyle = useAnimatedStyle(() => {
+  // Shared height animation for both bars to prevent drift
+  const barHeightStyle = useAnimatedStyle(() => {
     const seekingAnim = seekingAnimationSV.get();
-    return {
-      height: seekingAnim * SCRUBBER_BAR_HEIGHT_RANGE_PX + SCRUBBER_BAR_HEIGHT,
-    };
+    return { height: seekingAnim * SCRUBBER_BAR_HEIGHT_RANGE_PX + SCRUBBER_BAR_HEIGHT };
   });
 
   const progressBarStyle = useAnimatedStyle(() => {
@@ -355,10 +362,9 @@ function VideoScrubberActive({
     const dur = durationSV.get();
     const currentTime = isSeeking ? seekProgressSV.get() : currentTimeSV.get();
     const width =
-      dur === 0 ? 0 : interpolate(currentTime, [0, dur], [0, screenWidth], Extrapolation.CLAMP);
+      dur === 0 ? 0 : interpolate(currentTime, [0, dur], [0, scrubberWidth], Extrapolation.CLAMP);
     return {
       width,
-      height: seekingAnim * SCRUBBER_BAR_HEIGHT_RANGE_PX + SCRUBBER_BAR_HEIGHT,
       opacity: interpolate(
         seekingAnim,
         [0, 1],
@@ -387,12 +393,22 @@ function VideoScrubberActive({
     opacity: overlayOpacitySV.value,
   }));
 
-  const composedTimeStyle = useMemo(() => [styles.timeContainer, timeStyle], [timeStyle]);
+  const composedScrubberContainerStyle = useMemo(
+    () => [styles.scrubberContainer, { bottom: bottomInset }],
+    [bottomInset]
+  );
+  const composedTimeStyle = useMemo(
+    () => [styles.timeContainer, { bottom: SCRUBBER_TOTAL_HEIGHT + 5 + bottomInset }, timeStyle],
+    [timeStyle, bottomInset]
+  );
   const composedTrackContainerStyle = useMemo(
     () => [styles.trackContainer, trackContainerStyle],
     [trackContainerStyle]
   );
-  const composedTrackBarStyle = useMemo(() => [styles.trackBar, trackBarStyle], [trackBarStyle]);
+  const composedTrackBarWrapperStyle = useMemo(
+    () => [styles.trackBarWrapper, { marginHorizontal: contentPadding }, barHeightStyle],
+    [contentPadding, barHeightStyle]
+  );
   const composedProgressBarStyle = useMemo(
     () => [styles.progressBar, progressBarStyle],
     [progressBarStyle]
@@ -410,15 +426,17 @@ function VideoScrubberActive({
 
       <GestureDetector gesture={scrubPanGesture}>
         <Animated.View
-          style={styles.scrubberContainer}
+          style={composedScrubberContainerStyle}
           pointerEvents={active ? 'box-none' : 'none'}
         >
           <Animated.View
             style={composedTrackContainerStyle}
             pointerEvents={active ? 'auto' : 'none'}
           >
-            <Animated.View style={composedTrackBarStyle} pointerEvents="none" />
-            <Animated.View style={composedProgressBarStyle} pointerEvents="none" />
+            <Animated.View style={composedTrackBarWrapperStyle} pointerEvents="none">
+              <View style={styles.trackBar} pointerEvents="none" />
+              <Animated.View style={composedProgressBarStyle} pointerEvents="none" />
+            </Animated.View>
           </Animated.View>
           <Animated.View style={childrenContainerStyle}>{children}</Animated.View>
         </Animated.View>
@@ -445,7 +463,6 @@ const styles = StyleSheet.create({
     zIndex: OVERLAY_Z_INDEX.SCRUBBER_TIME,
     left: 0,
     right: 0,
-    bottom: SCRUBBER_TOTAL_HEIGHT + 5,
   },
   timeText: {
     textAlign: 'center',
@@ -473,7 +490,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
     width: '100%',
     zIndex: OVERLAY_Z_INDEX.SCRUBBER,
   },
@@ -483,17 +499,23 @@ const styles = StyleSheet.create({
     height: SCRUBBER_TRACK_CONTAINER_HEIGHT,
     position: 'relative',
   },
-  trackBar: {
+  trackBarWrapper: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
+    overflow: 'hidden',
+    borderRadius: 100,
+  },
+  trackBar: {
+    ...StyleSheet.absoluteFill,
     backgroundColor: Colors.brand.white,
     opacity: SCRUBBER_TRACK_OPACITY,
   },
   progressBar: {
     position: 'absolute',
     left: 0,
+    top: 0,
     bottom: 0,
     backgroundColor: Colors.brand.white,
   },

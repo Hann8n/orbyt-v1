@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import type { VideoPlayer } from 'expo-video';
@@ -24,6 +24,8 @@ export interface VideoCardOverlayLayersProps {
   isBlurred: boolean;
   warningDescription: string;
   onViewContent: () => void;
+  /** Bottom safe-area inset so chrome sits above the home indicator. */
+  bottomInset?: number;
 }
 
 function VideoCardOverlayLayers({
@@ -41,7 +43,12 @@ function VideoCardOverlayLayers({
   isBlurred,
   warningDescription,
   onViewContent,
+  bottomInset = 0,
 }: VideoCardOverlayLayersProps) {
+  const overlayLayerStyle = useMemo(
+    () => [styles.videoOverlayLayer, { bottom: bottomInset }],
+    [bottomInset]
+  );
   return (
     <>
       {renderHeavyChrome && shouldRenderScrubber ? (
@@ -51,12 +58,13 @@ function VideoCardOverlayLayers({
             player={player ?? undefined}
             seekingAnimationSV={seekingAnimationSV}
             overlayOpacitySV={overlayOpacitySV}
+            bottomInset={bottomInset}
           />
         </View>
       ) : null}
 
       {renderHeavyChrome && showOverlay ? (
-        <View style={styles.videoOverlayLayer} pointerEvents={isActive ? 'box-none' : 'none'}>
+        <View style={overlayLayerStyle} pointerEvents={isActive ? 'box-none' : 'none'}>
           <VideoOverlayUI {...overlayProps} />
         </View>
       ) : null}

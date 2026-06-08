@@ -82,8 +82,11 @@ import { ModerationService } from '@/services/moderation/ModerationService';
 import { useUserStore } from '@/stores/userStore';
 import type { MessageView, PostView, ProfileViewBasic } from '@/services/api/types';
 import { openPostInBluesky } from '@/utils/links/bluesky';
-import { buildFeedModalHref, buildFullHeightVideoHref } from '@/utils/navigation/feedModalRoute';
-import { useCurrentDetailNavTab } from '@/utils/navigation/detailRoutes';
+import {
+  buildAbsoluteFeedModalHref,
+  buildAbsoluteFullHeightVideoHref,
+} from '@/utils/navigation/feedModalRoute';
+import { DEFAULT_DETAIL_TAB } from '@/utils/navigation/detailRoutes';
 import { seedChatEmbedVideoFeed } from '@/utils/chat/seedChatEmbedVideoFeed';
 import { getVideoView } from '@/utils/video/helpers';
 import {
@@ -208,7 +211,7 @@ function ChatMessageRichText({
                 const clean = tag.replace(/^#/, '').trim();
                 if (!clean) return;
                 router.navigate(
-                  buildFeedModalHref(
+                  buildAbsoluteFeedModalHref(
                     { feedOption: `hashtag:${clean}`, initialPostUri: '' },
                     currentTab
                   )
@@ -966,7 +969,6 @@ function ChatEmbeddedPost({
 }) {
   const openFromRow = useContext(ReactionPickerRowContext);
   const handleLongPress = openFromRow ?? onLongPress;
-  const feedModalTab = useCurrentDetailNavTab();
   const record = (embed as { record?: EmbedRecordShape }).record;
   if (!record || typeof record !== 'object') return null;
 
@@ -1065,7 +1067,10 @@ function ChatEmbeddedPost({
         </View>
       </>
     );
-    const fullHeightVideoHref = buildFullHeightVideoHref({ postUri: record.uri }, feedModalTab);
+    const fullHeightVideoHref = buildAbsoluteFullHeightVideoHref(
+      { postUri: record.uri },
+      DEFAULT_DETAIL_TAB
+    );
 
     return (
       <View style={[styles.embedVideoOuter, isFromMe && styles.embedVideoOuterFromMe]}>

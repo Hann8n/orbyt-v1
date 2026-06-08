@@ -8,7 +8,7 @@ import {
   type Ref,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Platform, StyleSheet, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import {
   useSharedValue,
   useAnimatedStyle,
@@ -16,8 +16,6 @@ import {
   useDerivedValue,
   interpolate,
 } from 'react-native-reanimated';
-import { useFeedScrollMotion } from '../../../context/FeedScrollContext';
-
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { seenVideoService } from '../../../services/SeenVideoService';
 import { prefetchProfile, useFollowMutation } from '../../../services/data/ProfileService';
@@ -25,7 +23,11 @@ import { useShallow } from 'zustand/react/shallow';
 import { useModalStore } from '../../../stores/modalStore';
 import { useUserStore } from '../../../stores/userStore';
 import { Colors } from '../../../theme';
-import { getVideoView, normalizePostView } from '../../../utils/video/helpers';
+import {
+  getVideoView,
+  normalizePostView,
+  DEFAULT_VIDEO_ASPECT_RATIO,
+} from '../../../utils/video/helpers';
 import { INTERACTIONSEEN } from '../../../services/api/types';
 import type { ExtendedFeedViewPost, ExtendedPostView } from '../../../services/api/types';
 import { AppBskyFeedPost } from '@atproto/api';
@@ -59,6 +61,9 @@ const getIsVisible = (
 ): boolean =>
   activeIndex !== undefined ? activeIndex === currentIndex && isVisibleProp : isVisibleProp;
 
+// Mount chrome on the active card and its immediate neighbours so it is already on the
+// video (with safe-area insets applied) before the card pages into view, rather than
+// popping in on visibility.
 const getRenderHeavyChrome = (
   activeIndex: number | undefined,
   distanceFromActive: number,
@@ -67,7 +72,7 @@ const getRenderHeavyChrome = (
   activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 1 : defaultValue;
 
 const getHoldSource = (activeIndex: number | undefined, distanceFromActive: number): boolean =>
-  activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 2 : true;
+  activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 1 : true;
 
 const getCardHeightStyle = (cardHeight: number): { height: number } => {
   const normalized = Math.max(0, Math.round(cardHeight));
@@ -75,6 +80,52 @@ const getCardHeightStyle = (cardHeight: number): { height: number } => {
   if (cached) return cached;
   const style = { height: normalized };
   cardHeightStyleCache.set(normalized, style);
+  return style;
+};
+
+const bandStyleCache = new Map<string, ViewStyle>();
+
+/**
+ * Sizes and positions the video block from the bsky `aspectRatio` instead of letterboxing
+ * via `contain`. The block is full width with its rendered height derived from the aspect
+ * ratio, then anchored so its centre sits at the true centre between the safe-area insets.
+ * Its top is allowed to extend into the top safe area, but it is clamped so the bottom edge
+ * never crosses into the reserved bottom inset.
+ */
+const getBandStyle = (
+  cardWidth: number,
+  cardHeight: number,
+  topInset: number,
+  bottomInset: number,
+  aspectRatio: number
+): ViewStyle => {
+  const width = Math.max(0, Math.round(cardWidth));
+  const height = Math.max(0, Math.round(cardHeight));
+  const top = Math.max(0, Math.round(topInset));
+  const bottom = Math.max(0, Math.round(bottomInset));
+
+  // The block must fit between the top of the viewport and the reserved bottom inset.
+  const availableHeight = Math.max(0, height - bottom);
+  // Rendered video height for a full-width block at this aspect ratio, capped to the viewport.
+  const blockHeight = Math.min(availableHeight, Math.round(width / aspectRatio));
+
+  // Centre between the insets, then clamp so the block never goes off the top of the
+  // viewport nor covers the reserved bottom inset.
+  const centeredTop = top + (height - top - bottom - blockHeight) / 2;
+  const maxTop = availableHeight - blockHeight;
+  const blockTop = Math.round(Math.max(0, Math.min(centeredTop, maxTop)));
+
+  const key = `${width}:${height}:${top}:${bottom}:${blockHeight}`;
+  const cached = bandStyleCache.get(key);
+  if (cached) return cached;
+  const style: ViewStyle = {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: blockTop,
+    height: blockHeight,
+  };
+  bandStyleCache.set(key, style);
   return style;
 };
 
@@ -106,6 +157,10 @@ export interface VideoCardProps {
   ref?: Ref<VideoCardRef>;
   /** Active index in the list for computing relative visibility */
   activeIndex?: number;
+  /** Top safe-area inset; the video block may extend into it for vertical centering. */
+  topInset?: number;
+  /** Bottom safe-area inset; the video block reserves this and never covers it. */
+  bottomInset?: number;
 }
 
 function VideoCard({
@@ -120,6 +175,8 @@ function VideoCard({
   feedOption,
   index,
   activeIndex,
+  topInset = 0,
+  bottomInset = 0,
   onHashtagPress,
   ref,
 }: VideoCardProps) {
@@ -152,7 +209,7 @@ function VideoCard({
   );
   const holdSource = getHoldSource(activeIndex, distanceFromActive);
 
-  const { height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const cardHeight = height ?? windowHeight;
 
   const [userChoseToView, setUserChoseToView] = useRecyclingState(false, [postView.uri]);
@@ -162,6 +219,13 @@ function VideoCard({
   const videoView = getVideoView(postView.embed);
   const videoUrl = videoView?.playlist || null;
   const posterUrl = videoView?.thumbnail || null;
+
+  // Width / height aspect ratio from the bsky embed; fall back to 9:16 portrait.
+  const aspectRatio = useMemo(() => {
+    const ar = videoView?.aspectRatio;
+    if (ar && ar.width > 0 && ar.height > 0) return ar.width / ar.height;
+    return DEFAULT_VIDEO_ASPECT_RATIO;
+  }, [videoView?.aspectRatio]);
 
   const recyclingKey = postView?.uri || postView?.cid || `item-${idx}`;
 
@@ -367,46 +431,39 @@ function VideoCard({
     if (isVisible) {
       queueSeenInteractionOnce(INTERACTIONSEEN);
       seenVideoService.markAsSeen(postView.uri);
-      logSelectContent(getAnalytics(), { content_type: 'video', item_id: postView.uri }).catch(
-        () => {}
-      );
+      try {
+        logSelectContent(getAnalytics(), { content_type: 'video', item_id: postView.uri }).catch(
+          () => {}
+        );
+      } catch (_error) {
+        // Firebase not initialized yet, ignore
+      }
     }
   }, [isVisible, queueSeenInteractionOnce, postView.uri]);
 
   const textDimOpacitySV = useSharedValue(0);
+  const textDimOpacitySVRef = useRef(textDimOpacitySV);
   useEffect(() => {
-    textDimOpacitySV.value = 0;
-  }, [postView.uri, textDimOpacitySV]);
+    textDimOpacitySVRef.current = textDimOpacitySV;
+  }, [textDimOpacitySV]);
+  useEffect(() => {
+    textDimOpacitySVRef.current.value = 0;
+  }, [postView.uri]);
   const textDimAnimatedStyle = useAnimatedStyle(() => ({ opacity: textDimOpacitySV.value }));
   const handleOverlayCollapsedChange = useCallback(
     (isCollapsed: boolean) => {
       if (!isVisible) return;
       const isExpanded = !isCollapsed;
-      textDimOpacitySV.value = withTiming(isExpanded ? 0.65 : 0, { duration: 120 });
+      textDimOpacitySVRef.current.value = withTiming(isExpanded ? 0.65 : 0, { duration: 120 });
     },
-    [textDimOpacitySV, isVisible]
+    [isVisible]
   );
 
   const seekingAnimationSV = useSharedValue(0);
 
-  const feedScrollMotion = useFeedScrollMotion();
-  const scrollOffsetYSV = feedScrollMotion?.scrollOffsetYSV ?? null;
-  const scrollFadeParamsSV = feedScrollMotion?.scrollFadeParamsSV ?? null;
-
-  const overlayOpacitySV = useDerivedValue(() => {
-    const seekOpacity = interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp');
-    if (!scrollOffsetYSV || !scrollFadeParamsSV) return seekOpacity;
-    const { spacing, snapOrigin, firstVideoIdx } = scrollFadeParamsSV.value;
-    if (spacing === 0) return seekOpacity;
-
-    if (!renderHeavyChrome) return seekOpacity;
-
-    const cardTop = snapOrigin + (idx - firstVideoIdx) * spacing;
-    const distance = Math.abs(scrollOffsetYSV.value - cardTop);
-    const scrollOpacity =
-      1 - Math.max(0, Math.min(1, (distance - spacing * 0.15) / (spacing * 0.3)));
-    return Math.min(seekOpacity, scrollOpacity);
-  });
+  const overlayOpacitySV = useDerivedValue(() =>
+    interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp')
+  );
 
   const playerDuration = player?.duration;
   const shouldHideScrubberForShortVideo = !!(
@@ -468,23 +525,25 @@ function VideoCard({
 
   return (
     <View style={StyleSheet.compose(styles.container, getCardHeightStyle(cardHeight))}>
-      <VideoCardMediaGestureLayer
-        videoGesture={gesture}
-        posterUrl={posterUrl}
-        cannotShowMedia={cannotShowMedia}
-        firstFrameRendered={firstFrameRendered}
-        recyclingKey={recyclingKey}
-        videoSource={videoSource}
-        isBlurred={isBlurred}
-        player={player}
-        shouldLoadVideo={shouldLoadVideo}
-        loadingLabel={t('video.noHlsStream')}
-        onFirstFrameRender={handleFirstFrameRender}
-        surfaceType={Platform.OS === 'android' ? ('textureView' as const) : undefined}
-        textDimAnimatedStyle={textDimAnimatedStyle}
-        heartAnimatedStyle={heartAnimatedStyle}
-        posterPriority={posterPriority}
-      />
+      <View style={getBandStyle(windowWidth, cardHeight, topInset, bottomInset, aspectRatio)}>
+        <VideoCardMediaGestureLayer
+          videoGesture={gesture}
+          posterUrl={posterUrl}
+          cannotShowMedia={cannotShowMedia}
+          firstFrameRendered={firstFrameRendered}
+          recyclingKey={recyclingKey}
+          videoSource={videoSource}
+          isBlurred={isBlurred}
+          player={player}
+          shouldLoadVideo={shouldLoadVideo}
+          loadingLabel={t('video.noHlsStream')}
+          onFirstFrameRender={handleFirstFrameRender}
+          surfaceType={Platform.OS === 'android' ? ('textureView' as const) : undefined}
+          textDimAnimatedStyle={textDimAnimatedStyle}
+          heartAnimatedStyle={heartAnimatedStyle}
+          posterPriority={posterPriority}
+        />
+      </View>
 
       <VideoCardOverlayLayers
         renderHeavyChrome={renderHeavyChrome}
@@ -501,6 +560,7 @@ function VideoCard({
         isBlurred={isBlurred}
         warningDescription={warningDescription}
         onViewContent={handleViewContent}
+        bottomInset={bottomInset}
       />
     </View>
   );

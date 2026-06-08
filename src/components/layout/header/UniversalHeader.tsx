@@ -767,8 +767,7 @@ const HeaderContentComponent = memo<{
   customDescription?: React.ReactNode;
 }>(({ content, textColor, backgroundColor, shadowColor, customDescription }) => {
   const router = useRouter();
-  const { navigateToProfile: goToProfile, currentTab: feedModalTab } =
-    useProfileChannelNavigation();
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
   const germButtonShadow = useMemo(() => {
     if (!shadowColor) return {};
@@ -788,16 +787,14 @@ const HeaderContentComponent = memo<{
   const navigateToHashtagFeed = useCallback(
     (hashtag: string) => {
       router.navigate(
-        buildFeedModalHref(
-          {
-            feedOption: `hashtag:${hashtag}`,
-            initialPostUri: '',
-          },
-          feedModalTab
-        )
+        buildFeedModalHref({
+          feedOption: `hashtag:${hashtag}`,
+          initialPostUri: '',
+        }),
+        { relativeToDirectory: true }
       );
     },
-    [router, feedModalTab]
+    [router]
   );
 
   const contentOnAvatarMenuAction = content.onAvatarMenuAction;

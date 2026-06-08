@@ -1,8 +1,6 @@
 /**
- * Optimized feed renderer: single entry for list/grid feeds with visibility-aware playback.
- * Uses useMemo/useCallback so FlashList-bound props (`data`, `onLoadMore`, `commonProps`) stay
- * stable when unrelated parent/query churn occurs — aligns with FlashList v2 prop-memo guidance.
- * React Compiler handles memoization automatically; no manual memo() wrapper needed.
+ * Feed renderer: single entry for list/grid feeds with visibility-aware playback.
+ * FlashList-bound props are memoized to remain stable during parent/query churn.
  */
 
 import React, {
@@ -16,12 +14,6 @@ import React, {
 } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import {
-  useNavigation,
-  type NavigationProp,
-  type ParamListBase,
-} from 'expo-router/react-navigation';
-import { getActiveTabFromNavigation, type DetailNavTab } from '@/utils/navigation/detailRoutes';
 
 import ListFeedView from './ListFeedView';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
@@ -87,6 +79,14 @@ interface FeedRendererProps {
   pullToRefreshEnabled?: boolean;
   /** Runs in parallel with the feed infinite-query `refetch` (e.g. profile/channel metadata). */
   onPullToRefreshExtra?: () => Promise<unknown>;
+  /**
+   * Relative pathname (resolved with `relativeToDirectory` at press time) of this tab's `feed`
+   * screen, expressed from the route that hosts this renderer. Depth-1 hosts (home/profile index)
+   * use the default `./feed`; the channel screen sits two directories deeper, so it passes
+   * `../../feed`. Relative resolution at press time anchors to the focused (tapped) screen, so the
+   * detail always lands on the current tab's stack — no tab detection, no frozen segment.
+   */
+  feedRouteHref?: string;
 }
 
 const FeedRendererComponent = ({
@@ -104,9 +104,7 @@ const FeedRendererComponent = ({
   contentScrollProgressOutput,
   hasTabBar: hasTabBarProp,
 
-  // Search props
   hasNextPage: searchHasNextPage,
-
   isFetchingNextPage: searchIsFetchingNextPage,
   fetchNextPage: searchFetchNextPage,
   forceError = false,
@@ -114,6 +112,7 @@ const FeedRendererComponent = ({
   zoomTargetPostUri,
   pullToRefreshEnabled = false,
   onPullToRefreshExtra,
+  feedRouteHref = './feed',
 }: FeedRendererProps & {
   ref?: React.Ref<ListFeedViewRef>;
 }) => {
@@ -150,7 +149,6 @@ const FeedRendererComponent = ({
   const fetchNextPage = isSearchFeed ? searchFeedQuery.fetchNextPage : feedQuery.fetchNextPage;
   const refetch = isSearchFeed ? noopFeedRefetch : feedQuery.refetch;
   const isPaused = isSearchFeed ? searchFeedQuery.isPaused : feedQuery.isPaused;
-  const isProfileFeed = isSearchFeed ? false : feedQuery.isProfileFeed;
   const dataUpdatedAt = isSearchFeed ? 0 : feedQuery.dataUpdatedAt;
 
   const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
@@ -179,26 +177,23 @@ const FeedRendererComponent = ({
   const router = useRouter();
   const routerRef = useRef(router);
 
-  const navigation = useNavigation<NavigationProp<ParamListBase>>();
-  const navigationRef = useRef(navigation);
-
-  const gridStateRef = useRef({ feed, feedOption, userDid });
-  // eslint-disable-next-line react-hooks/refs
-  gridStateRef.current = { feed, feedOption, userDid };
+  const gridStateRef = useRef({ feed, feedOption, userDid, feedRouteHref });
 
   useLayoutEffect(() => {
     routerRef.current = router;
-    navigationRef.current = navigation;
-  });
+    gridStateRef.current = { feed, feedOption, userDid, feedRouteHref };
+  }, [feed, feedOption, router, userDid, feedRouteHref]);
 
-  /** Reads the active tab from NativeTabs navigator state synchronously — no React state, no staleness. */
-  const getTab = (): DetailNavTab => getActiveTabFromNavigation(navigationRef.current) ?? 'home';
-
+  // Relative pushes resolve against the focused (tapped) route at press time, so the detail always
+  // lands on the tab stack the user is currently on — no tab detection / no frozen segment.
   const handleHashtagPress = useCallback((hashtag: string) => {
-    routerRef.current.push({
-      pathname: `/(tabs)/${getTab()}/feed` as const,
-      params: { feedOption: `hashtag:${hashtag}`, initialPostUri: '' },
-    });
+    routerRef.current.push(
+      {
+        pathname: gridStateRef.current.feedRouteHref,
+        params: { feedOption: `hashtag:${hashtag}`, initialPostUri: '' },
+      },
+      { relativeToDirectory: true }
+    );
   }, []);
 
   const handleGridItemPress = useCallback((index: number) => {
@@ -214,8 +209,9 @@ const FeedRendererComponent = ({
         initialPostUri,
       };
       routerRef.current.push(
-        { pathname: `/(tabs)/${getTab()}/feed` as const, params },
+        { pathname: s.feedRouteHref, params },
         {
+          relativeToDirectory: true,
           dangerouslySingular: () =>
             [feedOption, s.userDid, initialPostUri].filter(Boolean).join('|'),
         }
@@ -257,8 +253,10 @@ const FeedRendererComponent = ({
         const s = gridStateRef.current;
         const item = s.feed[index] as FeedItem | undefined;
         const initialPostUri = item?.post?.uri ?? '';
+        // Relative href — the Apple-Zoom <Link> sets `relativeToDirectory`, so it resolves to the
+        // current tab's `feed` route at press time.
         return {
-          pathname: `/(tabs)/${getTab()}/feed` as const,
+          pathname: s.feedRouteHref,
           params: {
             feedOption: s.feedOption || 'search',
             ...(s.userDid ? { userDid: s.userDid } : {}),
@@ -267,7 +265,7 @@ const FeedRendererComponent = ({
         };
       },
     };
-  }, []);
+  }, [feed, feedOption, userDid, feedRouteHref]);
 
   const listFeedViewRef = useRef<ListFeedViewRef>(null);
 
@@ -275,8 +273,12 @@ const FeedRendererComponent = ({
     ref,
     () => ({
       scrollToTop: () => listFeedViewRef.current?.scrollToTop(),
+      refresh: () => {
+        listFeedViewRef.current?.scrollToTop();
+        handlePullToRefresh();
+      },
     }),
-    []
+    [handlePullToRefresh]
   );
 
   const prevFirstUriRef = useRef(feed[0]?.post?.uri ?? null);
@@ -306,7 +308,6 @@ const FeedRendererComponent = ({
       onLoadMore={handleLoadMore}
       hasNextPage={hasNextPage}
       onRetry={handleRetry}
-      isProfileFeed={isProfileFeed}
       isVisible={isVisible}
       viewMode={viewMode}
       onViewModeChange={onViewModeChange}
