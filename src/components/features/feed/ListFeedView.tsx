@@ -17,7 +17,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Text,
-  type ScrollViewProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView as RNScreensSafeAreaView } from 'react-native-screens/experimental';
@@ -55,6 +54,7 @@ import {
   getProfileColors,
   getPullToRefreshTintColor,
   isHeaderFeed as getIsHeaderFeed,
+  useReanimatedScrollComponent,
 } from './feedViewShared';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { isIosLiquidGlassAvailable } from '@/stores/userStore';
@@ -196,6 +196,7 @@ ListEmptyComponent.displayName = 'ListEmptyComponent';
 const END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX = 56;
 const CHROME_SHOW_DIRECTION_THRESHOLD_PX = 4;
 const CHROME_HIDE_DIRECTION_THRESHOLD_PX = 18;
+const HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y = 10;
 
 const END_OF_FEED_HINT_BOTTOM_OFFSET = 40;
 type EndOfFeedOverscrollHintProps = {
@@ -269,10 +270,7 @@ function ListFeedViewComponent({
   const gridRef = useRef<ListFeedViewRef>(null);
 
   const animatedScrollRef = useAnimatedRef<Animated.ScrollView>();
-  const renderScrollComponent = useCallback(
-    (props: ScrollViewProps) => <Animated.ScrollView ref={animatedScrollRef} {...props} />,
-    []
-  );
+  const renderScrollComponent = useReanimatedScrollComponent(animatedScrollRef);
 
   const scrollOffsetYSV = useScrollOffset(animatedScrollRef);
   const contentHeightSV = useSharedValue(0);
@@ -301,7 +299,7 @@ function ListFeedViewComponent({
 
   const tabBarVisibility = useTabBarVisibility();
   const listSurfaceActive = isVisible && resolvedViewMode === 'list';
-  const chromeVisibleMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
+  const chromeVisibleMaxY = HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
 
   useEffect(() => {
     if (listSurfaceActive) tabBarVisibility.value = 1;
@@ -496,6 +494,11 @@ function ListFeedViewComponent({
   const snapTopInset =
     useManualIosGlassTabPaddingLayout && !isCompact ? getEffectiveTopInset(insets.top) : 0;
 
+  const snapBottomInset =
+    useManualIosGlassTabPaddingLayout && !isCompact
+      ? insets.bottom + IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING
+      : 0;
+
   const snapDisabledCompactLiquidGlass =
     useManualIosGlassTabPaddingLayout && !isHeaderFeed && isCompact;
   const snapWaitHeaderLayout = isHeaderFeed && headerHeight <= 0;
@@ -518,6 +521,7 @@ function ListFeedViewComponent({
       itemCount: listData.length,
       itemSpacing,
       snapTopInset,
+      snapBottomInset,
     });
   }, [
     snapDisabledCompactLiquidGlass,
@@ -529,6 +533,7 @@ function ListFeedViewComponent({
     listData.length,
     itemSpacing,
     snapTopInset,
+    snapBottomInset,
   ]);
 
   const handleFeedLayout = useCallback(
@@ -671,7 +676,7 @@ function ListFeedViewComponent({
       data: listData,
       renderItem,
       extraData: listRenderExtraData,
-      drawDistance: FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE,
+      drawDistance: cardHeight > 0 ? cardHeight : undefined,
       keyExtractor: listKeyExtractor,
       getItemType: getListItemType,
       refreshControl: refreshControlElement,
@@ -730,6 +735,7 @@ function ListFeedViewComponent({
       listEmptyElement,
       listFooterElement,
       listContentContainerStyle,
+      cardHeight,
     ]
   );
 
@@ -793,6 +799,7 @@ function ListFeedViewComponent({
         ListComponent={ListComponent}
         contentScrollProgressOutput={contentScrollProgressOutput}
         snapTopInset={snapTopInset}
+        snapBottomInset={snapBottomInset}
         useNativeTabBottomSafeArea={useNativeTabBottomSafeArea}
         pullToRefresh={pullToRefresh}
       />

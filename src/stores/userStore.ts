@@ -579,8 +579,12 @@ export const useUserStore = create<UserState>()(
               feedBootstrapDid: null,
             });
 
-            setUserId(getAnalytics(), session.did).catch(() => {});
-            logLogin(getAnalytics(), { method: 'atproto' }).catch(() => {});
+            try {
+              setUserId(getAnalytics(), session.did).catch(() => {});
+              logLogin(getAnalytics(), { method: 'atproto' }).catch(() => {});
+            } catch (_error) {
+              // Firebase not initialized yet, ignore
+            }
 
             if (isEmailVerificationRequired(get().currentUser)) {
               set({ showEmailVerificationModal: true });
@@ -690,8 +694,12 @@ export const useUserStore = create<UserState>()(
               feedBootstrapDid: null,
             });
 
-            setUserId(getAnalytics(), session.did).catch(() => {});
-            logSignUp(getAnalytics(), { method: 'atproto' }).catch(() => {});
+            try {
+              setUserId(getAnalytics(), session.did).catch(() => {});
+              logSignUp(getAnalytics(), { method: 'atproto' }).catch(() => {});
+            } catch (_error) {
+              // Firebase not initialized yet, ignore
+            }
 
             requestIdleCallback(
               () => {
@@ -763,7 +771,11 @@ export const useUserStore = create<UserState>()(
 
             await get().clearAllCaches();
 
-            setUserId(getAnalytics(), null).catch(() => {});
+            try {
+              setUserId(getAnalytics(), null).catch(() => {});
+            } catch (_error) {
+              // Firebase not initialized yet, ignore
+            }
 
             if (clearAllAccounts) {
               await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCOUNTS);
@@ -858,7 +870,11 @@ export const useUserStore = create<UserState>()(
             feedBootstrapDid: null,
           });
 
-          setUserId(getAnalytics(), did).catch(() => {});
+          try {
+            setUserId(getAnalytics(), did).catch(() => {});
+          } catch (_error) {
+            // Firebase not initialized yet, ignore
+          }
 
           if (!get().activeAccountDid && isEmailVerificationRequired(get().currentUser)) {
             set({ showEmailVerificationModal: true });

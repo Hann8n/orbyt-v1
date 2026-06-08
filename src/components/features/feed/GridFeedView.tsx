@@ -135,6 +135,7 @@ interface GridFeedViewProps {
   ListComponent?: React.ComponentType<unknown> | null;
   contentScrollProgressOutput?: SharedValue<number>;
   snapTopInset: number;
+  snapBottomInset: number;
   useNativeTabBottomSafeArea?: boolean;
   pullToRefresh?: ListFeedPullToRefresh;
 }
@@ -157,6 +158,7 @@ function GridFeedView({
   ListComponent,
   contentScrollProgressOutput,
   snapTopInset,
+  snapBottomInset,
   useNativeTabBottomSafeArea = false,
   pullToRefresh,
   ref,
@@ -252,6 +254,7 @@ function GridFeedView({
       headerHeight,
       isHeaderFeed,
       snapTopInset,
+      snapBottomInset,
       itemCount: feed.length,
       numColumns,
       itemSpacing,
@@ -261,6 +264,7 @@ function GridFeedView({
     headerHeight,
     isHeaderFeed,
     snapTopInset,
+    snapBottomInset,
     feed.length,
     numColumns,
     itemSpacing,

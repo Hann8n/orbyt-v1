@@ -8,6 +8,7 @@ type ListSnapOffsetsParams = {
   itemCount: number;
   itemSpacing: number;
   snapTopInset: number;
+  snapBottomInset: number;
 };
 
 type GridSnapOffsetsParams = {
@@ -15,6 +16,7 @@ type GridSnapOffsetsParams = {
   headerHeight: number;
   isHeaderFeed: boolean;
   snapTopInset: number;
+  snapBottomInset: number;
   itemCount: number;
   numColumns: number;
   itemSpacing: number;
@@ -30,6 +32,7 @@ export function buildListSnapToOffsets({
   itemCount,
   itemSpacing,
   snapTopInset,
+  snapBottomInset,
 }: ListSnapOffsetsParams): number[] | undefined {
   if (snapDisabledCompactLiquidGlass || snapWaitHeaderLayout || listSnapUsesInterval) {
     return undefined;
@@ -50,6 +53,12 @@ export function buildListSnapToOffsets({
       }
     }
 
+    // Adjust the last offset to respect bottom safe area
+    if (offsets.length > 1 && snapBottomInset > 0) {
+      const lastOffset = offsets[offsets.length - 1];
+      offsets[offsets.length - 1] = Math.max(0, lastOffset - snapBottomInset);
+    }
+
     return offsets;
   }
 
@@ -61,6 +70,7 @@ export function buildGridSnapToOffsets({
   headerHeight,
   isHeaderFeed,
   snapTopInset,
+  snapBottomInset,
   itemCount,
   numColumns,
   itemSpacing,
@@ -74,6 +84,12 @@ export function buildGridSnapToOffsets({
 
   for (let row = 0; row < rowCount; row++) {
     offsets.push(firstRowY + row * itemSpacing);
+  }
+
+  // Adjust the last offset to respect bottom safe area
+  if (offsets.length > 1 && snapBottomInset > 0) {
+    const lastOffset = offsets[offsets.length - 1];
+    offsets[offsets.length - 1] = Math.max(0, lastOffset - snapBottomInset);
   }
 
   return offsets;

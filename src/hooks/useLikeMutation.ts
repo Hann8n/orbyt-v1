@@ -64,9 +64,14 @@ export function useLikeMutation() {
     onSuccess: (likeUri, { postUri, isLiked }) => {
       const newIsLiked = !isLiked;
       if (newIsLiked) {
-        logEvent(getAnalytics(), 'video_like', { post_uri: postUri, content_type: 'video' }).catch(
-          () => {}
-        );
+        try {
+          logEvent(getAnalytics(), 'video_like', {
+            post_uri: postUri,
+            content_type: 'video',
+          }).catch(() => {});
+        } catch (_error) {
+          // Firebase not initialized yet, ignore
+        }
       }
       queryClient.setQueriesData<InfiniteData<FeedResponse>>(
         { queryKey: queryKeys.feed.all },

@@ -367,24 +367,32 @@ function VideoCard({
     if (isVisible) {
       queueSeenInteractionOnce(INTERACTIONSEEN);
       seenVideoService.markAsSeen(postView.uri);
-      logSelectContent(getAnalytics(), { content_type: 'video', item_id: postView.uri }).catch(
-        () => {}
-      );
+      try {
+        logSelectContent(getAnalytics(), { content_type: 'video', item_id: postView.uri }).catch(
+          () => {}
+        );
+      } catch (_error) {
+        // Firebase not initialized yet, ignore
+      }
     }
   }, [isVisible, queueSeenInteractionOnce, postView.uri]);
 
   const textDimOpacitySV = useSharedValue(0);
+  const textDimOpacitySVRef = useRef(textDimOpacitySV);
   useEffect(() => {
-    textDimOpacitySV.value = 0;
-  }, [postView.uri, textDimOpacitySV]);
+    textDimOpacitySVRef.current = textDimOpacitySV;
+  }, [textDimOpacitySV]);
+  useEffect(() => {
+    textDimOpacitySVRef.current.value = 0;
+  }, [postView.uri]);
   const textDimAnimatedStyle = useAnimatedStyle(() => ({ opacity: textDimOpacitySV.value }));
   const handleOverlayCollapsedChange = useCallback(
     (isCollapsed: boolean) => {
       if (!isVisible) return;
       const isExpanded = !isCollapsed;
-      textDimOpacitySV.value = withTiming(isExpanded ? 0.65 : 0, { duration: 120 });
+      textDimOpacitySVRef.current.value = withTiming(isExpanded ? 0.65 : 0, { duration: 120 });
     },
-    [textDimOpacitySV, isVisible]
+    [isVisible]
   );
 
   const seekingAnimationSV = useSharedValue(0);
