@@ -280,6 +280,14 @@ function ListFeedViewComponent({
   const [activeIndex, setActiveIndex] = useState(seedActiveIndex);
 
   const scrollToTargetPendingRef = useRef(!!zoomTargetPostUri);
+  const didScrollToTargetRef = useRef(false);
+
+  useEffect(() => {
+    activeVisibleIndexRef.current = seedActiveIndex;
+    setActiveIndex(seedActiveIndex);
+    didScrollToTargetRef.current = false;
+    scrollToTargetPendingRef.current = !!zoomTargetPostUri;
+  }, [seedActiveIndex, zoomTargetPostUri]);
 
   const tabBarVisibility = useTabBarVisibility();
   const listSurfaceActive = isVisible && resolvedViewMode === 'list';
@@ -325,12 +333,6 @@ function ListFeedViewComponent({
     activeVisibleIndexRef.current = index;
     setActiveIndex(index);
   }, []);
-
-  useEffect(() => {
-    scrollToTargetPendingRef.current = !!zoomTargetPostUri;
-  }, [zoomTargetPostUri]);
-
-  const didScrollToTargetRef = useRef(false);
 
   useEffect(() => {
     if (didScrollToTargetRef.current || !zoomTargetPostUri || feed.length === 0) return;
