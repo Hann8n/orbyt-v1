@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSegments } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import { useDetailNavTabStore } from '@/stores/detailNavTabStore';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
@@ -64,7 +63,6 @@ export default function TabsLayout() {
 
         <NativeTabs.Trigger
           name="explore"
-          role={isLiquidGlassAvailable() ? 'search' : undefined}
           disableAutomaticContentInsets
         >
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/search_2_cute.png')} />

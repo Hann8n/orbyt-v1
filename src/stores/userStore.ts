@@ -21,7 +21,6 @@ import { orbytProfileQueryOptions, warmOrbytProfileCache } from '../services/col
 import { hydrateOrbytChannels } from '../services/OrbytChannelsService';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
 import { setAtprotoSession } from '../services/api/agentBridge';
-import { Platform } from 'react-native';
 
 export type SessionRestoreOutcome = 'ok' | 'reauth_required' | 'transient_failure' | 'cancelled';
 export type AuthStatus =
@@ -120,8 +119,8 @@ function restoreSessionWithRefresh(did: string): Promise<OAuthSession> {
   return promise;
 }
 
-export const isIosLiquidGlassAvailable =
-  Platform.OS === 'ios' && parseFloat(Platform.Version as string) >= 26;
+// Liquid glass support has been removed; all layout logic uses the non-liquid-glass fallback.
+export const isIosLiquidGlassAvailable = false;
 
 function seedCurrentUserProfileCache(
   did: string,

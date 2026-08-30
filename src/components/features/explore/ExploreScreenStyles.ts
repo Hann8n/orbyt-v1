@@ -59,16 +59,8 @@ export const exploreScreenStyles = StyleSheet.create({
     ...Shadows.medium,
     boxShadow: '0 4px 6px rgba(5,7,10,0.14)',
   },
-  searchContainerLiquidGlass: {
-    backgroundColor: Colors.transparent,
-  },
   searchContainerTintedWhite: {
-    // Non-glass fallback that matches the same shape metrics as liquid glass.
     backgroundColor: Colors.neutral[50],
-  },
-  searchContainerGlassBackground: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: BORDER_RADIUS.SMALL,
   },
   searchBarContent: {
     flex: 1,

@@ -239,10 +239,6 @@ export const retryPillLabel: TextStyle = {
   fontFamily: FontFamily.semibold,
 };
 
-export const retryGlassBackgroundRadius: ViewStyle = {
-  borderRadius: BORDER_RADIUS.FULL,
-};
-
 export const settingsPrimaryRowContainer: ViewStyle = {
   ...shape.rounded,
   backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),

@@ -281,9 +281,13 @@ export default Sentry.wrap(function RootLayout() {
     return navRef.current?.addListener('state', () => {
       const route = navRef.current?.getCurrentRoute() as { name?: string } | undefined;
       if (route?.name) {
-        logScreenView(getAnalytics(), { screen_name: route.name, screen_class: route.name }).catch(
-          () => {}
-        );
+        // Analytics must never break rendering (e.g. Firebase not configured in local dev builds)
+        try {
+          logScreenView(getAnalytics(), {
+            screen_name: route.name,
+            screen_class: route.name,
+          }).catch(() => {});
+        } catch {}
       }
     });
   }, [navRef]);
@@ -334,12 +338,16 @@ export default Sentry.wrap(function RootLayout() {
 
   useEffect(() => {
     const initializeApp = async () => {
-      const { preloadSpriteSheet } = require('@/components/ui/AnimatedTVStatic');
-      const { preloadRocketSpriteSheet } = require('@/components/ui/RocketBackground');
-      preloadSpriteSheet().catch(() => {});
-      preloadRocketSpriteSheet().catch(() => {});
+      try {
+        const { preloadSpriteSheet } = require('@/components/ui/AnimatedTVStatic');
+        const { preloadRocketSpriteSheet } = require('@/components/ui/RocketBackground');
+        preloadSpriteSheet().catch(() => {});
+        preloadRocketSpriteSheet().catch(() => {});
 
-      await initializeUserState();
+        await initializeUserState();
+      } catch (error) {
+        logger.error('[boot] initializeApp failed', error as Error);
+      }
     };
 
     initializeApp();

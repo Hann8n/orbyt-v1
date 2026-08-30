@@ -25,7 +25,6 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
 import { FFmpegKit } from 'ffmpeg-kit-react-native';
 import * as MediaLibrary from 'expo-media-library';
@@ -336,8 +335,6 @@ const PostButton: React.FC<{
   const numericWidth =
     buttonStyle === 'portrait' ? Math.max(width ?? (screenWidth ?? 0) * 0.6, 200) : undefined;
   const buttonWidth = buttonStyle === 'landscape' ? '100%' : numericWidth;
-  const glassStyle =
-    buttonStyle === 'landscape' ? styles.landscapePostButtonGlass : styles.floatingPostButtonGlass;
   const hostStyle =
     buttonStyle === 'landscape' ? styles.landscapePostButtonHost : styles.floatingPostButtonHost;
   const disabledStyle =
@@ -366,28 +363,11 @@ const PostButton: React.FC<{
 
   return (
     <SquircleNativePressable
-      style={[
-        glassStyle,
-        { width: buttonWidth },
-        !(Platform.OS === 'ios' && isLiquidGlassAvailable()) && hostStyle,
-        isPosting && disabledStyle,
-      ]}
+      style={[{ width: buttonWidth }, hostStyle, isPosting && disabledStyle]}
       onPress={onPress}
       disabled={isPosting}
     >
-      {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
-        <>
-          <GlassView
-            style={styles.glassBackground}
-            glassEffectStyle="clear"
-            tintColor="rgba(255,255,255,0.9)"
-            isInteractive
-          />
-          {buttonContent}
-        </>
-      ) : (
-        buttonContent
-      )}
+      {buttonContent}
     </SquircleNativePressable>
   );
 };
@@ -1706,22 +1686,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  floatingPostButtonGlass: {
-    height: 60,
-    borderRadius: BORDER_RADIUS.FULL,
-    shadowColor: Colors.neutral[200],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  glassBackground: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: BORDER_RADIUS.FULL,
-  },
   buttonContent: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -1786,18 +1750,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  landscapePostButtonGlass: {
-    height: 60,
-    borderRadius: BORDER_RADIUS.FULL,
-    shadowColor: Colors.neutral[200],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -7,7 +7,6 @@ import { useRouter } from 'expo-router';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { buildChannelDetailHref } from '@/utils/navigation/detailRoutes';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import ListHeader from '@/components/ui/ListHeader';
 import Icon, { PlusIcon, STROKE_WIDTH_THICK } from '@/components/ui/Icon';
 import { Colors } from '@/theme';
@@ -30,7 +29,7 @@ import {
   shouldShowChannelSlash,
 } from '@/utils/channels/orbyt';
 import { BORDER_RADIUS, ALGORITHMIC_FEED_PROVIDERS, LAYOUT_INSETS } from '@/utils/constants';
-import { hexToRGBA, isColorDark } from '@/utils/formatting/colors';
+import { isColorDark } from '@/utils/formatting/colors';
 import { AtprotoFeedService } from '@/services/api/feed/FeedService';
 import { logger } from '@/utils/logger';
 import { FontFamily, Typography } from '@/utils/components/typography';
@@ -348,10 +347,6 @@ const AlgorithmicFeedScreen: React.FC = () => {
                 const isSubscribed = channels.some(ch => ch.uri === channel.uri);
                 const isSubscribing = subscribingChannels.has(channel.uri || '');
                 const channelColor = channel.channelColor || Colors.neutral[200];
-                const useGlass = isLiquidGlassAvailable();
-                const glassTint = isSubscribed
-                  ? hexToRGBA(channelColor, 1)
-                  : hexToRGBA(Colors.neutral[50], 0.08);
                 const subscribedTextColor = isSubscribed
                   ? isColorDark(channelColor)
                     ? Colors.neutral[50]
@@ -400,14 +395,8 @@ const AlgorithmicFeedScreen: React.FC = () => {
                     <SquircleNativePressable
                       style={[
                         styles.subscribeButton,
-                        useGlass
-                          ? styles.subscribeButtonGlass
-                          : [
-                              styles.subscribeButtonBase,
-                              isSubscribed
-                                ? { backgroundColor: channelColor }
-                                : styles.subscribeButtonUnsub,
-                            ],
+                        styles.subscribeButtonBase,
+                        isSubscribed ? { backgroundColor: channelColor } : styles.subscribeButtonUnsub,
                       ]}
                       onPress={e => {
                         e.stopPropagation();
@@ -415,14 +404,6 @@ const AlgorithmicFeedScreen: React.FC = () => {
                       }}
                       disabled={isSubscribing}
                     >
-                      {useGlass && (
-                        <GlassView
-                          style={styles.glassBackgroundFull}
-                          glassEffectStyle="clear"
-                          tintColor={glassTint}
-                          isInteractive
-                        />
-                      )}
                       <View pointerEvents="none" style={styles.subscribeButtonInner}>
                         {isSubscribing ? (
                           <ActivityIndicator
@@ -571,11 +552,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.transparent,
     borderWidth: 0,
   },
-  subscribeButtonGlass: {
-    backgroundColor: Colors.transparent,
-    borderColor: Colors.transparent,
-    borderWidth: 0,
-  },
   subscribeButtonUnsub: {
     backgroundColor: Colors.overlay.white30,
   },
@@ -584,10 +560,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-  },
-  glassBackgroundFull: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: 18,
   },
   subscribeButtonText: {
     fontFamily: FontFamily.semibold,

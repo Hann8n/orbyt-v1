@@ -14,6 +14,8 @@ module.exports = {
     infoPlist: {
       CFBundleDevelopmentRegion: 'en',
       ITSAppUsesNonExemptEncryption: false,
+      // Opt out of iOS 26+ Liquid Glass for system chrome (tab bars, toolbars)
+      UIDesignRequiresCompatibility: true,
       NSCameraUsageDescription:
         'We need camera access to record videos for posts and take profile photos (e.g. on Create or when updating your avatar).',
       NSMicrophoneUsageDescription:

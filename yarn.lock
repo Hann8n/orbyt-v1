@@ -8652,7 +8652,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-glass-effect@npm:^56.0.4, expo-glass-effect@npm:~56.0.4":
+"expo-glass-effect@npm:^56.0.4":
   version: 56.0.4
   resolution: "expo-glass-effect@npm:56.0.4"
   peerDependencies:
@@ -13104,7 +13104,6 @@ __metadata:
     expo-doctor: "npm:^1.18.18"
     expo-file-system: "npm:~56.0.7"
     expo-font: "npm:~56.0.5"
-    expo-glass-effect: "npm:~56.0.4"
     expo-haptics: "npm:~56.0.3"
     expo-image: "npm:~56.0.9"
     expo-image-and-video-compressor: "npm:^1.0.1"

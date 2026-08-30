@@ -502,7 +502,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
                   action={action}
                   textColor={profileColors.textColor || Colors.neutral[50]}
                   backgroundColor={profileColors.backgroundColor || Colors.black}
-                  preferLiquidGlass={false}
                 />
               </View>
             ))}

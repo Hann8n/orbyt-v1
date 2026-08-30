@@ -202,14 +202,4 @@ export const COMPOSER_STYLES = StyleSheet.create({
     overflow: 'hidden' as const,
     zIndex: 11,
   },
-  sendButtonGlassBg: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: BORDER_RADIUS.FULL,
-  },
-  sendButtonContent: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
 });

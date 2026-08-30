@@ -1,9 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, TextInput, StyleSheet, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { MenuView } from '@react-native-menu/menu';
@@ -153,7 +152,6 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const shouldRenderSendButton = hasContent || showSendWhenEmpty;
   const isSendDisabled =
     isPosting || isSubmitDisabled || (!hasContent && !showSendWhenEmpty) || charCount > maxLength;
-  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   const currentUserDid = useUserStore(state => state.currentUser?.did ?? null);
   const { data: currentUserProfile } = useProfileByDid(currentUserDid);
@@ -291,7 +289,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                       <SquircleNativePressable
                         style={[
                           styles.sendButton,
-                          !useLiquidGlass && styles.sendButtonFallback,
+                          styles.sendButtonFallback,
                           isSendDisabled && styles.sendButtonDisabled,
                         ]}
                         onPress={onSubmit}
@@ -301,21 +299,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                         accessibilityRole="button"
                         accessibilityLabel={resolvedSubmitLabel}
                       >
-                        {useLiquidGlass ? (
-                          <>
-                            <GlassView
-                              style={styles.glassBackground}
-                              glassEffectStyle="clear"
-                              tintColor="rgba(255, 255, 255, 1)"
-                              isInteractive
-                            />
-                            <View style={styles.sendButtonContent} pointerEvents="none">
-                              <Icon name="up" size={22} color={Colors.black} />
-                            </View>
-                          </>
-                        ) : (
-                          <Icon name="up" size={22} color={Colors.neutral[300]} />
-                        )}
+                        <Icon name="up" size={22} color={Colors.neutral[300]} />
                       </SquircleNativePressable>
                     ) : replyContext && !hasText ? (
                       <SquircleNativePressable
@@ -448,8 +432,6 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     opacity: 0.6,
   },
-  glassBackground: COMPOSER_STYLES.sendButtonGlassBg,
-  sendButtonContent: COMPOSER_STYLES.sendButtonContent,
   cancelReplyButton: {
     backgroundColor: Colors.overlay.white10,
   },

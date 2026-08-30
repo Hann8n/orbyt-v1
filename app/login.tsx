@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { GlassView } from 'expo-glass-effect';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,12 +19,7 @@ import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
 import { Colors } from '@/theme';
 import AuthorItem from '@/components/ui/AuthorItem';
 import type { SavedAccount } from '@/stores/userStore';
-import {
-  AuthFlowError,
-  useAuth,
-  useAccountManagement,
-  isIosLiquidGlassAvailable,
-} from '@/stores/userStore';
+import { AuthFlowError, useAuth, useAccountManagement } from '@/stores/userStore';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import { hydrateAccountsWithCachedProfiles } from '@/utils/atproto/accountSwitching';
 import { hexToRGBA } from '@/utils/formatting/colors';
@@ -238,8 +232,6 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
   );
 
   const renderLoginButtons = () => {
-    const useLiquidGlassSignIn = isIosLiquidGlassAvailable;
-
     const signInButtonContent = (
       <View style={styles.buttonContent} pointerEvents="none">
         {isLoading ? (
@@ -260,23 +252,11 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
     return (
       <View style={[styles.loginButtonsContainer, loginButtonsInsetStyle]}>
         <SquircleNativePressable
-          style={[styles.signInWithHandleButton, !useLiquidGlassSignIn && styles.whiteButton]}
+          style={[styles.signInWithHandleButton, styles.whiteButton]}
           onPress={() => !isLoading && router.push('/login-sign-in')}
           disabled={isLoading}
         >
-          {useLiquidGlassSignIn ? (
-            <>
-              <GlassView
-                style={[StyleSheet.absoluteFill, styles.signInGlassUnderlay]}
-                glassEffectStyle="clear"
-                tintColor={Colors.neutral[50]}
-                isInteractive
-              />
-              {signInButtonContent}
-            </>
-          ) : (
-            signInButtonContent
-          )}
+          {signInButtonContent}
         </SquircleNativePressable>
 
         <View style={styles.manualSignInLink}>
@@ -410,9 +390,6 @@ const styles = StyleSheet.create({
   },
   whiteButton: {
     backgroundColor: Colors.neutral[50],
-  },
-  signInGlassUnderlay: {
-    borderRadius: BORDER_RADIUS.FULL,
   },
   blueskyButtonText: {
     color: Colors.neutral[975],

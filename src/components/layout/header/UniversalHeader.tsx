@@ -14,7 +14,6 @@ import {
   Platform,
 } from 'react-native';
 import { Image, ImageBackground } from 'expo-image';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Animated, {
   type SharedValue,
   useAnimatedStyle,
@@ -170,7 +169,6 @@ const ActionButton = memo<{
   backgroundColor: string;
   shadowColor?: string;
   size?: 'small' | 'medium' | 'large';
-  preferLiquidGlass?: boolean;
 }>(
   ({
     action,
@@ -178,7 +176,6 @@ const ActionButton = memo<{
     backgroundColor,
     shadowColor,
     size = 'medium',
-    preferLiquidGlass = false,
   }) => {
     const hasFilledBackground = useMemo(() => {
       const isIconOnlyFollowingState = action.id === 'follow' && !action.label;
@@ -220,22 +217,13 @@ const ActionButton = memo<{
       return { opacity: animationProgress.value };
     });
 
-    const canUseLiquidGlass =
-      preferLiquidGlass &&
-      Platform.OS === 'ios' &&
-      isLiquidGlassAvailable() &&
-      action.variant !== 'danger' &&
-      action.variant !== 'secondary';
-
     const buttonStyle = useMemo(() => {
       const showFilledState = hasFilledBackground;
 
       const baseStyle = {
-        backgroundColor: canUseLiquidGlass
-          ? Colors.transparent
-          : showFilledState
-            ? textColor
-            : blendColors(backgroundColor, textColor, 0.2),
+        backgroundColor: showFilledState
+          ? textColor
+          : blendColors(backgroundColor, textColor, 0.2),
         opacity: action.disabled ? 0.4 : 1,
       };
 
@@ -259,26 +247,12 @@ const ActionButton = memo<{
       textColor,
       backgroundColor,
       hasFilledBackground,
-      canUseLiquidGlass,
     ]);
 
-    const liquidGlassTintColor = useMemo(() => {
-      const isActive = hasFilledBackground;
-      const activeTint = textColor;
-      const inactiveTint = hexToRGBA(Colors.black, 0.12);
-      return isActive ? activeTint : inactiveTint;
-    }, [hasFilledBackground, textColor]);
-
     const contentColor = useMemo(() => {
-      if (canUseLiquidGlass) {
-        const isActive = hasFilledBackground;
-        const activeContent = backgroundColor;
-        const inactiveContent = textColor;
-        return isActive ? activeContent : inactiveContent;
-      }
       const showFilledState = hasFilledBackground;
       return showFilledState ? backgroundColor : textColor;
-    }, [textColor, backgroundColor, hasFilledBackground, canUseLiquidGlass]);
+    }, [textColor, backgroundColor, hasFilledBackground]);
 
     const buttonContainerSize = useMemo(() => {
       const hasLabel = !!action.label;
@@ -451,7 +425,6 @@ const ActionButton = memo<{
 
     const isFollowButton = action.id === 'follow';
     const shouldAnimate =
-      !canUseLiquidGlass &&
       isFollowButton &&
       action.variant !== 'danger' &&
       action.variant !== 'secondary';
@@ -542,12 +515,8 @@ const ActionButton = memo<{
     );
 
     const actionButtonOuterStyle = useMemo(
-      () => [
-        shadowStyle,
-        canUseLiquidGlass && styles.actionButtonOuterNoShadow,
-        buttonContainerSize,
-      ],
-      [shadowStyle, canUseLiquidGlass, buttonContainerSize]
+      () => [shadowStyle, buttonContainerSize],
+      [shadowStyle, buttonContainerSize]
     );
 
     const actionButtonInnerStyle = useMemo(
@@ -597,16 +566,7 @@ const ActionButton = memo<{
           delayLongPress={action.delayLongPress}
           disabled={action.disabled || action.loading}
         >
-          <>
-            {canUseLiquidGlass && (
-              <GlassView
-                style={styles.actionButtonGlassBackground}
-                glassEffectStyle="clear"
-                tintColor={liquidGlassTintColor}
-              />
-            )}
-            {renderContent()}
-          </>
+          {renderContent()}
         </NativePressable>
       </SquircleView>
     );
@@ -1379,9 +1339,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     boxShadow: '0 2px 3px rgba(5,7,10,0.1)',
   },
-  actionButtonOuterNoShadow: {
-    boxShadow: 'none',
-  },
   actionButtonSquircleClip: {
     borderRadius: BORDER_RADIUS.FULL,
     overflow: 'hidden',
@@ -1453,10 +1410,6 @@ const styles = StyleSheet.create({
     ...TextStyles.headerAction,
     fontFamily: FontFamily.bold,
     textAlign: 'center',
-  },
-  actionButtonGlassBackground: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: BORDER_RADIUS.FULL,
   },
   inlineBadgesContainerCentered: {
     justifyContent: 'center',

@@ -6,7 +6,6 @@ import { StatusBar } from 'expo-status-bar';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
-import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import Reanimated, {
@@ -284,9 +283,6 @@ const ExploreScreen: React.FC = () => {
   const gradientStyle = useAnimatedStyle(() => ({
     opacity: 1 - searchOverlayOpacity.value,
   }));
-
-  const useLiquidGlassSearchBar =
-    Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
 
   const { data: activeChannels = [], isPending: isOrbytChannelsMetadataPending } =
     useOrbytChannels();
@@ -594,22 +590,13 @@ const ExploreScreen: React.FC = () => {
           <SquircleView
             style={[
               styles.searchContainer,
-              useLiquidGlassSearchBar
-                ? styles.searchContainerLiquidGlass
-                : styles.searchContainerTintedWhite,
+              styles.searchContainerTintedWhite,
               {
                 top: EXPLORE_SEARCH_LAYOUT.BAR_OFFSET_TOP,
                 height: EXPLORE_SEARCH_LAYOUT.BAR_HEIGHT,
               },
             ]}
           >
-            {useLiquidGlassSearchBar && (
-              <GlassView
-                style={styles.searchContainerGlassBackground}
-                glassEffectStyle="clear"
-                tintColor={Colors.neutral[50]}
-              />
-            )}
             <View style={styles.searchBarContent} pointerEvents="box-none">
               <View style={styles.searchIconContainer}>
                 <SearchIcon size={24} color={Colors.black} style={styles.searchIconMirror} />

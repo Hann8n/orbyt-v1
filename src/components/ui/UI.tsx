@@ -9,7 +9,6 @@ import {
   TextInput,
   StyleProp,
   ImageStyle,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
 import { NativePressable } from './NativePressable';
@@ -23,7 +22,6 @@ import {
   buttonSizeLabel,
   buttonVariantContainer,
   buttonVariantLabel,
-  retryGlassBackgroundRadius,
   retryPillContainer,
   retryPillLabel,
   shape,
@@ -32,7 +30,6 @@ import { fontSizeFor } from '@/utils/components/typography';
 import { Image } from 'expo-image';
 import { Modal as RNModal } from 'react-native';
 // SafeAreaView is imported elsewhere; no direct usage in this module
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Icon, { STROKE_WIDTH_THICK } from './Icon';
 import {
   hexToRGBA,
@@ -150,7 +147,6 @@ interface RetryButtonProps {
 
 export const RetryButton: React.FC<RetryButtonProps> = ({ onPress, style, textStyle }) => {
   const { t } = useTranslation();
-  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   const buttonContent = (
     <View style={retryButtonStyles.buttonContent} pointerEvents="none">
@@ -162,22 +158,10 @@ export const RetryButton: React.FC<RetryButtonProps> = ({ onPress, style, textSt
 
   return (
     <SquircleNativePressable
-      style={[retryPillContainer, !useLiquidGlass && retryButtonStyles.whiteButton, style]}
+      style={[retryPillContainer, retryButtonStyles.whiteButton, style]}
       onPress={onPress}
     >
-      {useLiquidGlass ? (
-        <>
-          <GlassView
-            style={[StyleSheet.absoluteFill, retryGlassBackgroundRadius]}
-            glassEffectStyle="clear"
-            tintColor="rgba(255, 255, 255, 1)"
-            isInteractive
-          />
-          {buttonContent}
-        </>
-      ) : (
-        buttonContent
-      )}
+      {buttonContent}
     </SquircleNativePressable>
   );
 };
@@ -201,7 +185,6 @@ interface GoBackButtonProps {
 
 const GoBackButton: React.FC<GoBackButtonProps> = ({ onPress, style }) => {
   const { t } = useTranslation();
-  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   const buttonContent = (
     <View style={goBackButtonStyles.buttonContent} pointerEvents="none">
@@ -213,22 +196,10 @@ const GoBackButton: React.FC<GoBackButtonProps> = ({ onPress, style }) => {
 
   return (
     <SquircleNativePressable
-      style={[retryPillContainer, !useLiquidGlass && goBackButtonStyles.whiteButton, style]}
+      style={[retryPillContainer, goBackButtonStyles.whiteButton, style]}
       onPress={onPress}
     >
-      {useLiquidGlass ? (
-        <>
-          <GlassView
-            style={[StyleSheet.absoluteFill, retryGlassBackgroundRadius]}
-            glassEffectStyle="clear"
-            tintColor="rgba(255, 255, 255, 1)"
-            isInteractive
-          />
-          {buttonContent}
-        </>
-      ) : (
-        buttonContent
-      )}
+      {buttonContent}
     </SquircleNativePressable>
   );
 };
