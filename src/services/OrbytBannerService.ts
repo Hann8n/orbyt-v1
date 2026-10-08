@@ -1,23 +1,25 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
-import {
-  getCurrentLocaleTag,
-  resolveLocalizedText,
-  type TranslationMap,
-} from '@/i18n/resolveLocalizedText';
-import { queryKeys } from '@/utils/query/queryKeys';
-import { fetchOrbytPublicJson } from '@/services/orbyt/orbytPublicFetch';
-import { logger } from '@/utils/logger';
+/**
+ * Explore header banners.
+ *
+ * The Orbyt AppView has no banner endpoint (the legacy `/v1/headers/active`
+ * CMS is gone), so the carousel features the most popular Communities that
+ * have artwork, from the same `com.getorbyt.community.listCommunities`
+ * directory the channel grid uses. Tapping a banner opens its Community.
+ */
+import { useOrbytChannels } from './OrbytChannelsService';
+import type { CommunityView } from './orbyt/communities';
 
-// Header types
+const FEATURED_COMMUNITY_COUNT = 5;
+
 interface Header {
   id: string;
   imageUrl: string;
   destinationUrl?: string | null;
+  /** The featured Community; banners open it in-app. */
+  communityUri?: string;
   title: string | null;
-  titleTranslations?: TranslationMap;
   /** Secondary text used by the header banner. */
   subtitle?: string | null;
-  subtitleTranslations?: TranslationMap;
   titleColor?: string;
   /** Color for subtitle text. */
   subtitleColor?: string;
@@ -45,116 +47,25 @@ interface Header {
   overlayColor?: string;
 }
 
-interface HeadersApiResponse {
-  headers: Header[];
+function communityToHeader(community: CommunityView): Header {
+  return {
+    id: community.uri,
+    imageUrl: community.avatar || community.avatarFallback || '',
+    communityUri: community.uri,
+    title: `/${community.name}`,
+    subtitle: community.description ?? null,
+    textOrder: 'title-first',
+    bottomShimEnabled: true,
+  };
 }
 
-// Header Service
-class HeaderService {
-  protected static lastSuccessfulBaseUrl: string | null = null;
-
-  private static getHeaderCandidates(): string[] {
-    const env = process.env as Record<string, string | undefined>;
-    const candidates: string[] = [];
-    const envVarNames = ['EXPO_PUBLIC_BANNERS_URL', 'EXPO_PUBLIC_HEADERS_URL'];
-
-    for (const envVarName of envVarNames) {
-      const envUrl = env[envVarName];
-      if (envUrl && envUrl.trim().length > 0) {
-        candidates.push(envUrl.trim());
-      }
-    }
-
-    candidates.push('https://api.getorbyt.com/v1/headers/active');
-    return candidates;
-  }
-
-  private static getBaseUrl(url: string): string {
-    const parsed = new URL(url);
-    const path = parsed.pathname.replace(/\/[^/]*$/, '/');
-    return `${parsed.origin}${path}`;
-  }
-
-  static async getHeaders(signal?: globalThis.AbortSignal): Promise<Header[]> {
-    let lastError: unknown = null;
-
-    for (const candidate of HeaderService.getHeaderCandidates()) {
-      try {
-        const data = await fetchOrbytPublicJson<HeadersApiResponse>(candidate, {
-          signal,
-          timeoutMs: 8000,
-        });
-
-        if (!Array.isArray(data.headers)) {
-          continue;
-        }
-
-        HeaderService.setLastSuccessfulBaseUrl(candidate);
-        return data.headers.map(header => ({
-          ...header,
-          title: resolveLocalizedText(header.title, header.titleTranslations),
-          subtitle: resolveLocalizedText(header.subtitle ?? null, header.subtitleTranslations),
-        }));
-      } catch (error) {
-        lastError = error;
-      }
-    }
-
-    logger.warn('No header endpoints returned valid data; using empty banner list', {
-      component: 'HeaderService',
-      error: lastError instanceof Error ? lastError.message : String(lastError),
-    });
-    return [];
-  }
-
-  static getHeadersQueryOptions(locale: string) {
-    return queryOptions({
-      queryKey: queryKeys.orbyt.headers(locale),
-      queryFn: ({ signal }) => HeaderService.getHeaders(signal),
-      staleTime: 5 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
-      refetchOnMount: false,
-    });
-  }
-
-  static getImageUrl(imageUrl: string): string {
-    if (!imageUrl) return '';
-
-    if (imageUrl.startsWith('http')) {
-      return imageUrl;
-    }
-
-    const base = HeaderService.lastSuccessfulBaseUrl || 'https://getorbyt.com/';
-
-    if (imageUrl.startsWith('../')) {
-      // Remove one level from base path
-      try {
-        const u = new URL(base);
-        const trimmedPath = u.pathname.replace(/\/[^/]+\/?$/, '/');
-        return `${u.origin}${trimmedPath}${imageUrl.substring(3)}`;
-      } catch {
-        return `https://getorbyt.com/${imageUrl.substring(3)}`;
-      }
-    }
-
-    try {
-      const resolved = new URL(imageUrl, base);
-      return resolved.toString();
-    } catch {
-      return `https://getorbyt.com/${imageUrl}`;
-    }
-  }
-
-  static setLastSuccessfulBaseUrl(url: string): void {
-    HeaderService.lastSuccessfulBaseUrl = HeaderService.getBaseUrl(url);
-  }
+function selectFeaturedHeaders(communities: CommunityView[]): Header[] {
+  return communities
+    .filter(community => community.avatar || community.avatarFallback)
+    .slice(0, FEATURED_COMMUNITY_COUNT)
+    .map(communityToHeader);
 }
 
-// TanStack Query hooks for the services
-export const useHeaders = () => {
-  const locale = getCurrentLocaleTag();
-  return useQuery(HeaderService.getHeadersQueryOptions(locale));
-};
+export const useHeaders = () => useOrbytChannels(selectFeaturedHeaders);
 
-export { HeaderService };
 export type { Header };

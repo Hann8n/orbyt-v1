@@ -1,43 +1,43 @@
 import i18n from '../../i18n';
 import { Colors } from '@/theme';
-import type { RemoteOrbytChannel } from '@/services/OrbytChannelsService';
-import type { TranslationMap } from '@/i18n/resolveLocalizedText';
 import {
   getActiveRemoteChannels,
   getRemoteChannelBySlug,
   getRemoteChannelByUri,
   isKnownOrbytChannelUri,
 } from '@/services/OrbytChannelsService';
-import { isValidAtUri } from '../atproto/uriValidation';
+import { COMMUNITY_FEED_PREFIX, type CommunityView } from '@/services/orbyt/communities';
 
+/** An Orbyt Community, in the shape the channel UI renders. */
 export interface OrbytChannel {
   uri: string;
+  /** The Community's unique lowercase name. */
   slug: string;
   displayName: string;
-  displayNameTranslations?: TranslationMap;
   description?: string;
-  descriptionTranslations?: TranslationMap;
   channelColor: string;
   mediaUrl: string;
   showSlash?: boolean;
   isPostable?: boolean;
   isActive?: boolean;
+  memberCount?: number;
 }
 const DEFAULT_CHANNEL_COLOR = Colors.pink[300];
 
-function mapRemoteChannel(channel: RemoteOrbytChannel): OrbytChannel {
+function mapCommunity(community: CommunityView): OrbytChannel {
   return {
-    uri: channel.uri,
-    slug: channel.slug,
-    displayName: channel.displayName,
-    displayNameTranslations: channel.displayNameTranslations,
-    description: channel.description || undefined,
-    descriptionTranslations: channel.descriptionTranslations,
-    channelColor: channel.channelColor || DEFAULT_CHANNEL_COLOR,
-    mediaUrl: channel.mediaUrl,
-    showSlash: channel.showSlash,
-    isPostable: channel.isPostable,
-    isActive: channel.active,
+    uri: community.uri,
+    slug: community.name,
+    displayName: community.name,
+    description: community.description || undefined,
+    channelColor: community.accentColor || DEFAULT_CHANNEL_COLOR,
+    mediaUrl: community.avatar || community.avatarFallback || '',
+    showSlash: true,
+    // `members` and `moderators` Communities refuse posts from most viewers;
+    // only open Communities are offered as composer destinations.
+    isPostable: (community.postPolicy ?? 'anyone') === 'anyone',
+    isActive: true,
+    memberCount: community.memberCount,
   };
 }
 
@@ -49,12 +49,11 @@ export function getLocalizedChannelDisplayName(uri: string, fallback?: string): 
   if (!uri || !isOrbytChannel(uri)) return fallback ?? '';
   const slug = extractFeedSlug(uri);
   if (!slug) return fallback ?? '';
-  return i18n.t(`channels.orbyt.${slug}.displayName`, { defaultValue: fallback ?? slug });
+  return i18n.t(`channels.orbyt.${slug}.displayName`, { defaultValue: fallback || slug });
 }
 
 /**
- * Get localized display name from a channel slug (e.g. from post tags).
- * Use when you have the slug but not the URI, e.g. when displaying channel on video cards.
+ * Get localized display name from a channel slug (Community name).
  */
 export function getLocalizedChannelDisplayNameFromSlug(slug: string, fallback?: string): string {
   if (!slug || typeof slug !== 'string') return fallback ?? '';
@@ -73,76 +72,55 @@ export function getLocalizedChannelDescription(uri: string, fallback?: string): 
 }
 
 /**
- * Extract feed slug from a feed generator URI or local channel URI
- * @param uri - Feed generator URI (e.g., "at://did:plc:.../app.bsky.feed.generator/art") or local URI (e.g., "at://local.orbyt.channel/art")
- * @returns The slug (e.g., "art") or null if invalid
+ * The short name of a channel URI: a Community's name, or the record key of a
+ * feed generator URI.
  */
 export function extractFeedSlug(uri: string): string | null {
   if (!uri || typeof uri !== 'string') {
     return null;
   }
 
-  if (uri.startsWith('at://local.orbyt.channel/')) {
-    const parts = uri.split('/');
-    if (parts.length >= 4) {
-      let slug = parts[3].trim();
-      // Remove query parameters and fragments
-      slug = slug.split('?')[0].split('#')[0];
-      return slug || null;
-    }
-    return null;
+  const community = getRemoteChannelByUri(uri);
+  if (community) {
+    return community.name;
   }
 
   if (!uri.includes('/app.bsky.feed.generator/')) {
     return null;
   }
 
-  const parts = uri.split('/app.bsky.feed.generator/');
-  if (parts.length < 2) {
-    return null;
-  }
-
-  let slug = parts[1].trim();
-  slug = slug.replace(/\/+$/, '');
-  slug = slug.split('?')[0].split('#')[0];
-  slug = slug.trim();
+  const slug = uri
+    .split('/app.bsky.feed.generator/')[1]
+    ?.replace(/\/+$/, '')
+    .split('?')[0]
+    .split('#')[0]
+    .trim();
 
   return slug || null;
 }
 
 /**
- * Get a channel by its slug
- * @param slug - Channel slug (e.g., "art")
- * @returns Channel object or undefined if not found
+ * Get a channel by its slug (Community name)
  */
 export function getChannelBySlug(slug: string): OrbytChannel | undefined {
   if (!slug) {
     return undefined;
   }
-  const channel = getRemoteChannelBySlug(slug);
-  return channel ? mapRemoteChannel(channel) : undefined;
-}
-
-/**
- * Get only active channels (for display in explore and channel selection)
- * @returns Array of active channel definitions
- */
-function getActiveChannels(): OrbytChannel[] {
-  return getActiveRemoteChannels().map(mapRemoteChannel);
+  const community = getRemoteChannelBySlug(slug);
+  return community ? mapCommunity(community) : undefined;
 }
 
 /**
  * Get channels that users can post to
- * @returns Array of postable channel definitions
  */
 export function getPostableChannels(): OrbytChannel[] {
-  return getActiveChannels().filter(channel => channel.isPostable !== false);
+  return getActiveRemoteChannels()
+    .map(mapCommunity)
+    .filter(channel => channel.isPostable !== false);
 }
 
 /**
  * Check if a channel should show the slash indicator
- * @param uri - Channel URI
- * @returns true if the channel should show the slash
  */
 export function shouldShowChannelSlash(uri: string): boolean {
   const channel = getChannelByUri(uri);
@@ -151,21 +129,17 @@ export function shouldShowChannelSlash(uri: string): boolean {
 
 /**
  * Get channel by URI
- * @param uri - Channel URI
- * @returns Channel object or undefined if not found
  */
 export function getChannelByUri(uri: string): OrbytChannel | undefined {
   if (!uri) {
     return undefined;
   }
-  const channel = getRemoteChannelByUri(uri);
-  return channel ? mapRemoteChannel(channel) : undefined;
+  const community = getRemoteChannelByUri(uri);
+  return community ? mapCommunity(community) : undefined;
 }
 
 /**
- * Check if a feed URI belongs to getorbyt.com (is an orbyt channel)
- * @param uri - Feed generator URI or local channel URI to check
- * @returns true if the URI belongs to getorbyt.com
+ * Whether a URI is a known Orbyt Community.
  */
 export function isOrbytChannel(uri: string): boolean {
   if (!uri) return false;
@@ -173,10 +147,7 @@ export function isOrbytChannel(uri: string): boolean {
 }
 
 /**
- * Get the channel avatar URI from API-managed channel metadata.
- * @param uri - Channel URI
- * @param fallbackAvatar - Fallback avatar URI from channel data
- * @returns Avatar URI string or undefined
+ * The channel avatar from the Community's artwork.
  */
 export function getChannelAvatarUri(uri: string, fallbackAvatar?: string): string | undefined {
   if (!uri) return fallbackAvatar;
@@ -190,59 +161,12 @@ export function getChannelAvatarUri(uri: string, fallbackAvatar?: string): strin
 }
 
 /**
- * Convert a channel URI or slug to hashtag format for feed loading
- * @param uriOrSlug - Channel URI (local or feed generator) or slug (e.g., "at://local.orbyt.channel/art", "at://did:plc:.../app.bsky.feed.generator/art", or "art")
- * @returns Hashtag feed option (e.g., "hashtag:orbyt-channel-art") or null if invalid
+ * The feed option that loads a Community's feed from the Orbyt AppView.
+ * @returns `community:<at-uri>` or null when the URI is not a known Community
  */
-export function channelToHashtag(uriOrSlug: string): string | null {
-  if (!uriOrSlug || typeof uriOrSlug !== 'string') {
+export function channelToFeedOption(uri: string): string | null {
+  if (!uri || !isOrbytChannel(uri)) {
     return null;
   }
-
-  if (uriOrSlug.startsWith('hashtag:')) {
-    return uriOrSlug;
-  }
-
-  let slug: string | null = null;
-
-  if (isValidAtUri(uriOrSlug)) {
-    // It's a URI (local or feed generator), extract slug
-    slug = extractFeedSlug(uriOrSlug);
-  } else {
-    // It's already a slug, use it directly
-    slug = uriOrSlug.trim();
-  }
-
-  if (!slug) {
-    return null;
-  }
-
-  return `hashtag:orbyt-channel-${slug}`;
-}
-
-/**
- * Convert a hashtag feed option back to channel slug
- * @param hashtagFeedOption - Hashtag feed option (e.g., "hashtag:orbyt-channel-art")
- * @returns Channel slug (e.g., "art") or null if invalid
- */
-export function hashtagToChannelSlug(hashtagFeedOption: string): string | null {
-  if (!hashtagFeedOption || typeof hashtagFeedOption !== 'string') {
-    return null;
-  }
-
-  if (!hashtagFeedOption.startsWith('hashtag:')) {
-    return null;
-  }
-
-  const hashtag = hashtagFeedOption.substring(8).trim(); // Remove 'hashtag:' prefix
-
-  if (hashtag.startsWith('orbyt-channel-')) {
-    return hashtag.substring(15); // Remove 'orbyt-channel-' prefix (15 chars) to get the slug
-  }
-
-  if (hashtag.startsWith('orbyt-')) {
-    return hashtag.substring(7); // Remove 'orbyt-' prefix to get the slug
-  }
-
-  return hashtag || null;
+  return `${COMMUNITY_FEED_PREFIX}${uri}`;
 }

@@ -176,20 +176,13 @@ export const queryKeys = {
   // Channel queries (merged from ChannelService)
   channels: {
     all: ['channels'] as const,
-    metadata: (locale?: string) =>
-      locale
-        ? ([...queryKeys.channels.all, 'metadata', locale] as const)
-        : ([...queryKeys.channels.all, 'metadata'] as const),
+    /** The Orbyt Community directory (`com.getorbyt.community.listCommunities`). */
+    metadata: () => [...queryKeys.channels.all, 'metadata'] as const,
+    /** The Community a post was published to (`com.getorbyt.community.getPostCommunities`). */
+    postCommunity: (postUri: string) =>
+      [...queryKeys.channels.all, 'post-community', postUri] as const,
     detail: (uri: string) => [...queryKeys.channels.all, 'detail', uri] as const,
     colors: (uri: string) => [...queryKeys.channels.all, 'colors', uri] as const,
-  },
-
-  orbyt: {
-    all: ['orbyt'] as const,
-    headers: (locale?: string) =>
-      locale
-        ? ([...queryKeys.orbyt.all, 'headers', locale] as const)
-        : ([...queryKeys.orbyt.all, 'headers'] as const),
   },
 
   // Moderation settings queries

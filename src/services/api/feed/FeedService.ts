@@ -22,7 +22,7 @@ export class AtprotoFeedService {
   static getRepostedVideos = feedQueries.getRepostedVideos;
   static searchPopularFeeds = feedQueries.searchPopularFeeds;
   static getSuggestedFeeds = feedQueries.getSuggestedFeeds;
-  static getStaticChannels = feedQueries.getStaticChannels;
+  static getCommunityVideoFeed = feedQueries.getCommunityVideoFeed;
 
   static likePost = feedInteractions.likePost;
   static deleteLike = feedInteractions.deleteLike;

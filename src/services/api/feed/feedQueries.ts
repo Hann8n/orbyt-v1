@@ -32,7 +32,7 @@ import type {
 import i18n from '../../../i18n';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
 import { logger } from '../../../utils/logger';
-import { hydrateOrbytChannels } from '../../OrbytChannelsService';
+import { getCommunityFeed, type CommunityFeedSort } from '../../orbyt/communities';
 
 function hasVideoEmbed(embed: PostView['embed'] | null | undefined): boolean {
   if (!embed) return false;
@@ -663,32 +663,38 @@ export async function getSuggestedFeeds(limit: number = 10): Promise<GeneratorVi
 }
 
 /**
- * Get static channels (feed generators)
- * @param limit - Number of channels to return
- * @returns Array of feed generator objects
+ * A Community's videos: the Orbyt AppView serves the feed skeleton
+ * (`com.getorbyt.community.getFeed`), hydrated through the Bluesky AppView.
+ * Moderator-removed items (returned only to authors and moderators) are dropped.
  */
-export async function getStaticChannels(limit: number = 10): Promise<GeneratorView[]> {
-  try {
-    const remoteChannels = await hydrateOrbytChannels();
-    const channelUris = remoteChannels.map(channel => channel.uri);
+export async function getCommunityVideoFeed(
+  communityUri: string,
+  cursor: string | null = null,
+  limit: number = QUERY_CONSTANTS.FEED_PAGE_DEFAULT,
+  sort: CommunityFeedSort = 'latest'
+): Promise<FeedResponse> {
+  const skeleton = await getCommunityFeed(communityUri, {
+    sort,
+    cursor,
+    limit,
+    viewer: AtprotoCore.getCurrentUserDid(),
+  });
+  const items = skeleton.feed.filter(item => item.status !== 'removed');
+  const posts = await getPosts(items.map(item => item.post));
 
-    if (!channelUris || channelUris.length === 0) {
-      return [];
+  const feed: ExtendedFeedViewPost[] = [];
+  for (const item of items) {
+    const post = posts.get(item.post);
+    if (
+      !post ||
+      AppBskyFeedDefs.isNotFoundPost(post) ||
+      AppBskyFeedDefs.isBlockedPost(post) ||
+      !hasVideoEmbed((post as PostView).embed)
+    ) {
+      continue;
     }
-
-    const { api } = await AtprotoCore.getApiClient();
-    const response = await api.app.bsky.feed.getFeedGenerators({ feeds: channelUris });
-    const feedGenerators = response.data.feeds ?? [];
-
-    if (channelUris.length > 0 && feedGenerators.length === 0) {
-      logger.warn('getStaticChannels: no feed generators returned for remote channel URIs', {
-        component: 'feedQueries',
-        uriCount: channelUris.length,
-      });
-    }
-
-    return feedGenerators.slice(0, limit);
-  } catch (_error: unknown) {
-    return [];
+    feed.push({ post: { ...(post as PostView) } as ExtendedPostView, uniqueKey: item.post });
   }
+
+  return { feed: await applyModerationBatch(feed), cursor: skeleton.cursor ?? null };
 }

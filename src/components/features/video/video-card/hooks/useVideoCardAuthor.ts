@@ -1,10 +1,11 @@
-import { AppBskyActorDefs, AppBskyFeedPost } from '@atproto/api';
+import { AppBskyActorDefs } from '@atproto/api';
 
 import { useProfileByDid } from '../../../../../services/data/ProfileService';
 import { useOrbytProfile } from '../../../../../services/colors';
 import { isCurrentUser } from '../../../../../utils/atproto/isCurrentUser';
 import { getProfileColors, type ProfileColorScheme } from '../../../../../utils/formatting/colors';
-import { getChannelBySlug } from '../../../../../utils/channels/orbyt';
+import { getChannelByUri } from '../../../../../utils/channels/orbyt';
+import { usePostCommunity } from '../../../../../services/orbyt/postCommunities';
 import type { ExtendedPostView } from '../../../../../services/api/types';
 import type { UserState } from '../../../../../stores/userStore';
 
@@ -41,6 +42,7 @@ export function useVideoCardAuthor({
   const author = postView.author;
   const { data: cachedProfile } = useProfileByDid(author?.did);
   const { data: orbytRecord } = useOrbytProfile(author?.did);
+  const { data: postCommunityUri } = usePostCommunity(postView.uri);
   const authorDid = author?.did;
 
   // Prefer React Query cache for follow/block state — mutations update the cache optimistically,
@@ -61,10 +63,10 @@ export function useVideoCardAuthor({
     verification: author?.verification,
   };
 
-  const postRecord = postView.record as AppBskyFeedPost.Record;
-  const channelTag = (postRecord.tags ?? []).find(t => t.startsWith('orbyt-channel-'));
-  const channelSlug = channelTag ? channelTag.replace(/^orbyt-channel-/, '') || null : null;
-  const channelUri = channelSlug ? (getChannelBySlug(channelSlug)?.uri ?? null) : null;
+  // The AppView resolves a post's Community (link record first, legacy tag second).
+  const community = postCommunityUri ? getChannelByUri(postCommunityUri) : undefined;
+  const channelUri = community?.uri ?? null;
+  const channelSlug = community?.slug ?? null;
 
   const isCurrentUserProfile = isCurrentUser(author?.did, author?.handle, currentUser);
 

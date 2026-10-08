@@ -18,7 +18,8 @@ import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
 import { queryKeys } from '../utils/query/queryKeys';
 import { orbytProfileQueryOptions, warmOrbytProfileCache } from '../services/colors';
-import { hydrateOrbytChannels } from '../services/OrbytChannelsService';
+import { hydrateOrbytChannels, migrateLegacyChannelUri } from '../services/OrbytChannelsService';
+import { isCommunityUri, joinCommunity, leaveCommunity } from '../services/orbyt/communities';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
 import { setAtprotoSession } from '../services/api/agentBridge';
 
@@ -313,6 +314,36 @@ const BUILT_IN_CHANNELS = ['following', 'your-mix'];
 
 const filterBuiltInChannels = (uris: string[]): string[] => {
   return uris.filter(uri => !BUILT_IN_CHANNELS.includes(uri));
+};
+
+/**
+ * Following an Orbyt Community is joining it: a `com.getorbyt.community.membership`
+ * record in the viewer's repo, which the AppView projects into member counts and
+ * viewer state. Best-effort — the local subscription list stays authoritative
+ * for the viewer's own feeds.
+ */
+const syncCommunityMemberships = async (
+  agent: Agent | null | undefined,
+  did: string,
+  uris: string[],
+  join: boolean
+): Promise<void> => {
+  const communityUris = uris.filter(isCommunityUri);
+  if (!agent || communityUris.length === 0) return;
+  const results = await Promise.allSettled(
+    communityUris.map(uri =>
+      join ? joinCommunity(agent, did, uri) : leaveCommunity(agent, did, uri)
+    )
+  );
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      logger.warn(join ? 'Failed to join community' : 'Failed to leave community', {
+        component: 'userStore',
+        community: communityUris[index],
+        error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+      });
+    }
+  });
 };
 
 const getUserScopedKey = (baseKey: string, did: string): string => {
@@ -1272,6 +1303,7 @@ export const useUserStore = create<UserState>()(
             } catch {
               // ignore
             }
+            await syncCommunityMemberships(get().agent, currentUser.did, [channelData.uri], true);
           } catch (error) {
             logger.error('Error subscribing to channel', error, { component: 'userStore' });
             throw error;
@@ -1315,6 +1347,7 @@ export const useUserStore = create<UserState>()(
             } catch {
               // ignore
             }
+            await syncCommunityMemberships(get().agent, currentUser.did, [uri], false);
           } catch (error) {
             logger.error('Error unsubscribing from channel', error, { component: 'userStore' });
             throw error;
@@ -1397,6 +1430,12 @@ export const useUserStore = create<UserState>()(
             } catch {
               // ignore
             }
+            await syncCommunityMemberships(
+              get().agent,
+              currentUser.did,
+              channels.map(channel => channel.uri),
+              true
+            );
           } catch (error) {
             logger.error('Error batch subscribing to channels', error, { component: 'userStore' });
             throw error;
@@ -1438,6 +1477,7 @@ export const useUserStore = create<UserState>()(
             } catch {
               // ignore
             }
+            await syncCommunityMemberships(get().agent, currentUser.did, validUris, false);
           } catch (error) {
             logger.error('Error batch unsubscribing from channels', error, {
               component: 'userStore',
@@ -1877,9 +1917,33 @@ export const useUserStore = create<UserState>()(
 
             savedChannels = savedChannels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri));
 
-            const remoteUris: string[] = Array.isArray(orbytProfileRecord?.subscribedChannels)
+            // Pre-Communities channels (`at://local.orbyt.channel/<slug>`) become the
+            // Community of the same name; the migrated Communities are joined once.
+            const migratedUris: string[] = [];
+            const rawRemoteUris: string[] = Array.isArray(orbytProfileRecord?.subscribedChannels)
               ? orbytProfileRecord.subscribedChannels!
               : [];
+            const remoteUris = Array.from(
+              new Set(
+                rawRemoteUris.map(rawUri => {
+                  const uri = migrateLegacyChannelUri(rawUri);
+                  if (savedChannels.length === 0 && uri !== rawUri) migratedUris.push(uri);
+                  return uri;
+                })
+              )
+            );
+
+            const seenUris = new Set<string>();
+            savedChannels = savedChannels.flatMap(channel => {
+              const uri = migrateLegacyChannelUri(channel.uri);
+              if (seenUris.has(uri)) return [];
+              seenUris.add(uri);
+              if (uri !== channel.uri) migratedUris.push(uri);
+              return [{ ...channel, uri, isOrbytChannel: isOrbytChannel(uri) }];
+            });
+            if (savedChannels.length > 0 && migratedUris.length > 0) {
+              storage.set(key, JSON.stringify(savedChannels));
+            }
 
             if (savedChannels.length === 0 && remoteUris.length > 0) {
               const filteredUris = filterBuiltInChannels(remoteUris);
@@ -1892,6 +1956,10 @@ export const useUserStore = create<UserState>()(
                 }));
                 storage.set(key, JSON.stringify(savedChannels));
               }
+            }
+
+            if (migratedUris.length > 0) {
+              void syncCommunityMemberships(get().agent, did, migratedUris, true);
             }
 
             // Double-check: filter built-ins from state (in case persisted state had them)

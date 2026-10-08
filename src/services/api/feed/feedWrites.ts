@@ -6,6 +6,11 @@ import { RichText, AtUri, BlobRef } from '@atproto/api';
 import { Platform } from 'react-native';
 import { AtprotoCore } from '../core';
 import { logger } from '../../../utils/logger';
+import {
+  COMMUNITY_POST_COLLECTION,
+  nextRecordKey,
+  requestCommunitySync,
+} from '../../orbyt/communities';
 import type { PostRecord, CreateRecordResponse } from '../types';
 
 /**
@@ -14,7 +19,8 @@ import type { PostRecord, CreateRecordResponse } from '../types';
  * @param videoPath - Path to the video file
  * @param contentWarnings - Optional content warnings
  * @param commentFilter - Comment filtering settings
- * @param feedSlug - Optional feed slug for tagging
+ * @param communityUri - Optional Orbyt Community to publish into (written as a
+ *   `com.getorbyt.community.post` link sharing the post's record key)
  * @returns The response from creating the post
  */
 export async function createVideoPost(
@@ -22,7 +28,7 @@ export async function createVideoPost(
   videoPath: string,
   contentWarnings?: string[],
   commentFilter?: 'all' | 'followers' | 'mentioned' | 'none',
-  feedSlug?: string,
+  communityUri?: string,
   onProgress?: (progress: number) => void,
   jobId?: string,
   videoBlob?: BlobRef,
@@ -42,7 +48,7 @@ export async function createVideoPost(
     };
   }
 
-  await AtprotoCore.ensureSession();
+  const session = await AtprotoCore.ensureSession();
 
   try {
     const { useUserStore } = await import('../../../stores/userStore');
@@ -114,11 +120,9 @@ export async function createVideoPost(
       platformTag = 'orbyt-ios';
     }
 
-    // Build tags array
+    // Community membership is carried only by the com.getorbyt.community.post
+    // link below; the AppView no longer reads `orbyt-channel-*` tags.
     const tags: string[] = [platformTag];
-    if (feedSlug) {
-      tags.push(`orbyt-channel-${feedSlug}`);
-    }
 
     const postRecord: PostRecord = {
       $type: 'app.bsky.feed.post',
@@ -174,7 +178,7 @@ export async function createVideoPost(
       onProgress(95);
     }
 
-    const postResponse = await api.post(postRecord);
+    const postResponse = await publishPost(api, session.did, postRecord, communityUri);
 
     // Set comment filtering if specified
     if (commentFilter && commentFilter !== 'all') {
@@ -334,4 +338,61 @@ export async function mutePostComments(postUri: string): Promise<boolean> {
   } catch (_error: unknown) {
     return false;
   }
+}
+
+/**
+ * Write the post, and its Community link when one is chosen, in one
+ * `applyWrites` transaction so a post is never published half-linked.
+ */
+async function publishPost(
+  api: Awaited<ReturnType<typeof AtprotoCore.getApiClient>>['api'],
+  did: string,
+  postRecord: PostRecord,
+  communityUri?: string
+): Promise<CreateRecordResponse> {
+  if (!communityUri) {
+    return api.post(postRecord);
+  }
+
+  const rkey = nextRecordKey();
+  const postUri = `at://${did}/app.bsky.feed.post/${rkey}`;
+  const { data } = await api.com.atproto.repo.applyWrites({
+    repo: did,
+    writes: [
+      {
+        $type: 'com.atproto.repo.applyWrites#create',
+        collection: 'app.bsky.feed.post',
+        rkey,
+        value: postRecord,
+      },
+      {
+        $type: 'com.atproto.repo.applyWrites#create',
+        collection: COMMUNITY_POST_COLLECTION,
+        rkey,
+        value: {
+          $type: COMMUNITY_POST_COLLECTION,
+          community: communityUri,
+          post: postUri,
+          createdAt: postRecord.createdAt,
+        },
+      },
+    ],
+  });
+
+  const created = data.results?.[0];
+  const result: CreateRecordResponse = {
+    uri: created && 'uri' in created ? created.uri : postUri,
+    cid: created && 'cid' in created ? created.cid : '',
+  };
+
+  // Ingestion hint so the post shows in the Community without waiting for the
+  // ingester; the records are already durable on the PDS.
+  requestCommunitySync(api, [`at://${did}/${COMMUNITY_POST_COLLECTION}/${rkey}`]).catch(error => {
+    logger.warn('Community sync request failed', {
+      component: 'feedWrites',
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+
+  return result;
 }

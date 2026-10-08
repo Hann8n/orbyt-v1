@@ -735,13 +735,13 @@ const VideoPostScreen: React.FC = () => {
       allContentWarnings.push('other:' + otherWarning.trim());
     }
 
-    let channelSlug: string | undefined;
+    let communityUri: string | undefined;
 
     try {
       setIsPosting(true);
       setUploadProgress(0);
 
-      channelSlug = selectedChannel ? extractFeedSlug(selectedChannel.uri) || undefined : undefined;
+      communityUri = selectedChannel?.uri || undefined;
 
       const videoPathToUpload = videoPathToUse;
 
@@ -793,7 +793,7 @@ const VideoPostScreen: React.FC = () => {
         videoPath: videoPathToUpload,
         contentWarnings: allContentWarnings.length > 0 ? allContentWarnings : undefined,
         commentFilter: (commentFilter || 'all') as 'all' | 'followers' | 'mentioned' | 'none',
-        channelSlug,
+        communityUri,
       };
 
       router.replace('/(tabs)/home');
@@ -809,7 +809,7 @@ const VideoPostScreen: React.FC = () => {
             postMetadata.videoPath,
             postMetadata.contentWarnings,
             postMetadata.commentFilter,
-            postMetadata.channelSlug,
+            postMetadata.communityUri,
             progress => {
               useUIStore.getState().setProgress(UPLOAD_KEY, progress);
             },

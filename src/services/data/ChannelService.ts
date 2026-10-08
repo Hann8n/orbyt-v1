@@ -1,15 +1,13 @@
 import { AtprotoFeedService } from '../api/feed/FeedService';
 import { useQuery, skipToken, UseQueryResult } from '@tanstack/react-query';
 import { Colors } from '../../theme';
+import { isOrbytChannel } from '../../utils/channels/orbyt';
 import {
-  isOrbytChannel,
-  getChannelByUri,
-  getChannelBySlug,
-  extractFeedSlug,
-  hashtagToChannelSlug,
-} from '../../utils/channels/orbyt';
-import { hydrateOrbytChannels } from '../OrbytChannelsService';
-import { resolveLocalizedText } from '@/i18n/resolveLocalizedText';
+  getRemoteChannelByUri,
+  hydrateOrbytChannels,
+  migrateLegacyChannelUri,
+} from '../OrbytChannelsService';
+import { getCommunity, isCommunityUri, type CommunityView } from '../orbyt/communities';
 import { queryKeys } from '@/utils/query/queryKeys';
 import { isValidAtUri } from '../../utils/atproto/uriValidation';
 
@@ -65,44 +63,30 @@ class ChannelService {
     if (!uriOrFeed) return null;
     await this.ensureChannelsHydrated();
 
-    if (isOrbytChannel(uriOrFeed)) {
-      const slug = extractFeedSlug(uriOrFeed);
-      if (!slug) return null;
-
-      const orbytChannel = getChannelBySlug(slug);
-      if (!orbytChannel) return null;
-
-      return this.createOrbytChannelCache(orbytChannel);
+    const uri = migrateLegacyChannelUri(uriOrFeed);
+    const community = getRemoteChannelByUri(uri);
+    if (community) {
+      return this.createOrbytChannelCache(community);
     }
 
-    if (uriOrFeed.startsWith('hashtag:')) {
-      const slug = hashtagToChannelSlug(uriOrFeed);
-      if (!slug) return null;
-
-      const orbytChannel = getChannelBySlug(slug);
-      if (!orbytChannel) return null;
-
-      return this.createOrbytChannelCache(orbytChannel);
-    }
-
-    if (!isValidAtUri(uriOrFeed)) {
+    if (uri.startsWith('hashtag:') || !isValidAtUri(uri)) {
       return null;
     }
 
-    return this.fetchAndCacheChannel(uriOrFeed);
+    if (isCommunityUri(uri)) {
+      // Not in the directory pages we cached (or not published): ask for it directly.
+      try {
+        return this.createOrbytChannelCache(await getCommunity({ community: uri }));
+      } catch {
+        return null;
+      }
+    }
+
+    return this.fetchAndCacheChannel(uri);
   }
 
   private static async fetchAndCacheChannel(uri: string): Promise<CachedChannel | null> {
     if (!uri) return null;
-
-    const orbytChannel = getChannelByUri(uri);
-    if (orbytChannel) {
-      return this.createOrbytChannelCache(orbytChannel);
-    }
-
-    if (!isValidAtUri(uri)) {
-      return null;
-    }
 
     try {
       const channel = await AtprotoFeedService.getFeedGenerator(uri);
@@ -145,31 +129,23 @@ class ChannelService {
     }
   }
 
-  private static createOrbytChannelCache(
-    orbytChannel: import('../../utils/channels/orbyt').OrbytChannel
-  ): CachedChannel {
+  private static createOrbytChannelCache(community: CommunityView): CachedChannel {
     return {
-      uri: orbytChannel.uri,
-      cid: '',
-      did: 'did:plc:2xrqztnmzlckb3xfuuukupso',
+      uri: community.uri,
+      cid: community.cid,
+      did: community.ownerDid,
       creator: undefined,
-      displayName:
-        resolveLocalizedText(orbytChannel.displayName, orbytChannel.displayNameTranslations) ||
-        orbytChannel.displayName,
-      description:
-        resolveLocalizedText(
-          orbytChannel.description || '',
-          orbytChannel.descriptionTranslations
-        ) || '',
-      avatar: orbytChannel.mediaUrl,
+      displayName: community.name,
+      description: community.description || '',
+      avatar: community.avatar || community.avatarFallback,
       likeCount: 0,
-      subscriberCount: 0,
-      indexedAt: new Date().toISOString(),
+      subscriberCount: community.memberCount ?? 0,
+      indexedAt: community.updatedAt || community.createdAt,
       isOrbytChannel: true,
       channelColors: {
         backgroundColor: Colors.black,
         foregroundColor: '#FFFFFF',
-        accentColor: Colors.black,
+        accentColor: community.accentColor || Colors.black,
         statusBarStyle: 'light' as const,
       },
       lastUpdated: Date.now(),
