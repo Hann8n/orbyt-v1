@@ -3,11 +3,12 @@
  * Provides consistent, type-safe query keys for all React Query operations
  * Follows React Query best practices for hierarchical key structure
  *
- * Auth/session cache invalidation (see `userStore`):
- * - **signOut / account switch / corrupted-session reset**: `clearAllCaches()` cancels and removes
- *   every query except public roots (`auth`, `channels`, `klipy`, `discourse`), since
- *   viewer state (likes, follows, bookmarks) is cached under keys that are not DID-scoped.
- * - **Account switch**: After successful restore, also invalidates notifications and unread.
+ * Auth/session cache invalidation (see `userStore`): viewer state (likes, follows, bookmarks,
+ * notifications) is cached under keys that are not DID-scoped, so every query outside the public
+ * roots (`auth`, `channels`, `klipy`, `discourse`, `orbyt`) belongs to the signed-in account.
+ * - **signOut / corrupted-session reset**: `clearAllCaches()` cancels and removes those queries.
+ * - **Account switch**: once the new session is active, those queries are reset, so every
+ *   mounted screen refetches as the new account.
  * - **Login / restore**: User-scoped queries pick up the new DID via key changes; no global wipe.
  */
 

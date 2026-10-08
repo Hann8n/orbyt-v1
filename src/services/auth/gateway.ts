@@ -179,14 +179,26 @@ export async function restore(did: string, { verify = false } = {}): Promise<Gat
   return makeSession(did, stored);
 }
 
+/** How long sign-out waits on the gateway before giving up; the token is already forgotten. */
+const LOGOUT_TIMEOUT_MS = 5000;
+
 /** Ends the gateway session (best effort) and forgets it on this device. */
 export async function signOut(did: string): Promise<void> {
   const stored = await readStored(did);
   await SecureStore.deleteItemAsync(storageKey(did)).catch(() => {});
-  if (stored) {
+  if (!stored) return;
+  // Offline or a slow gateway must not hang sign-out.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LOGOUT_TIMEOUT_MS);
+  try {
     await fetch(`${GATEWAY_ORIGIN}/auth/logout`, {
       method: 'POST',
       headers: authorized(stored.token),
-    }).catch(() => {});
+      signal: controller.signal,
+    });
+  } catch {
+    // Best effort: the server session expires on its own.
+  } finally {
+    clearTimeout(timer);
   }
 }

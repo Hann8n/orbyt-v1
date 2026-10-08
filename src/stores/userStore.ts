@@ -378,6 +378,8 @@ const PUBLIC_QUERY_ROOTS: ReadonlySet<unknown> = new Set([
   queryKeys.channels.all[0],
   queryKeys.klipy.all[0],
   queryKeys.discourse.all[0],
+  // Orbyt service info and providers (services/orbyt/serviceInfo.ts).
+  'orbyt',
 ]);
 
 const isAccountScopedQuery = (query: Query): boolean => !PUBLIC_QUERY_ROOTS.has(query.queryKey[0]);
@@ -676,8 +678,6 @@ export const useUserStore = create<UserState>()(
             await Promise.allSettled(didsToEnd.map(did => gatewaySignOut(did)));
 
             await get().clearAllCaches();
-            // Notification query keys aren't DID-scoped; never show them to the next account.
-            queryClient.clear();
 
             setUserId(getAnalytics(), null).catch(() => {});
 
@@ -805,18 +805,6 @@ export const useUserStore = create<UserState>()(
               throw new Error('Account not found');
             }
 
-            const outgoingDid = get().activeAccountDid;
-            if (outgoingDid && outgoingDid !== did) {
-              void queryClient.cancelQueries({
-                predicate: q => {
-                  const key = q.queryKey;
-                  return Array.isArray(key) && key.includes(outgoingDid);
-                },
-              });
-            }
-
-            await get().clearAllCaches();
-
             // Update account statuses
             const savedAccounts = get().savedAccounts;
             const accounts = savedAccounts.map(acc => ({
@@ -893,6 +881,15 @@ export const useUserStore = create<UserState>()(
               });
               await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, did);
 
+              // The new agent is active: every account-scoped query goes back to its initial
+              // state (fetches still running as the old account are cancelled) and each one a
+              // mounted screen observes refetches as the new account.
+              void queryClient.resetQueries({ predicate: isAccountScopedQuery });
+              seedCurrentUserProfileCache(did, account.handle, {
+                displayName: account.displayName,
+                avatar: account.avatar,
+              });
+
               await get().bootstrapUserFeedSettings(did);
 
               set({ isSwitchingAccount: false, switchingToHandle: null, switchingToAvatar: null });
@@ -903,9 +900,6 @@ export const useUserStore = create<UserState>()(
                 },
                 { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
               );
-
-              void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
-              void queryClient.invalidateQueries({ queryKey: queryKeys.unread.summary() });
             } catch (restoreErr) {
               const restoreOutcome = getSessionRestoreOutcome(restoreErr);
               if (restoreOutcome === 'reauth_required') {
