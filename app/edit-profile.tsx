@@ -33,6 +33,12 @@ import { Avatar } from '@/components/ui/UI';
 import { CheckIcon, STROKE_WIDTH_THICK } from '@/components/ui/Icon';
 import { useProfileUpdateMutation, useProfileByDid } from '@/services/data/ProfileService';
 import { useOrbytProfile } from '@/services/colors';
+import {
+  findPaletteMatch,
+  normalizeProfileHex,
+  useProfileColorPalette,
+  type ProfileColorSwatch,
+} from '@/services/colors/profileColorPalette';
 import { hexToRGBA, blendColors } from '@/utils/formatting/colors';
 import { BORDER_RADIUS } from '@/utils/constants';
 import {
@@ -50,7 +56,7 @@ import { splitHandleSuffix } from '@/utils/formatting/handles';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import { FontFamily, Typography, TextStyles } from '@/utils/components/typography';
 
-export interface ProfileColorOption {
+interface ProfileColorOption {
   backgroundColor: string;
   textColor: string;
 }
@@ -69,61 +75,7 @@ const COLOR_DIVIDER_MARGIN = 8;
 const COLOR_DIVIDER_TOTAL_WIDTH = COLOR_DIVIDER_WIDTH + COLOR_DIVIDER_MARGIN * 2;
 const COLOR_ITEM_WIDTH = COLOR_SQUARE_WIDTH + COLOR_PICKER_GAP;
 
-// Predefined color options — module-level constant (no deps, never changes)
-const PREDEFINED_COLORS: ProfileColorOption[] = [
-  // Neutral/Universal (orbyt grey - matches DEFAULT_PROFILE_COLORS / palette)
-  { backgroundColor: Colors.neutral[900], textColor: Colors.neutral[200] },
-  // Primary - colored backgrounds with white text
-  { backgroundColor: '#C6142E', textColor: Colors.neutral[50] },
-  { backgroundColor: '#CC9900', textColor: Colors.neutral[50] },
-  { backgroundColor: '#3D9812', textColor: Colors.neutral[50] },
-  { backgroundColor: '#0B9997', textColor: Colors.neutral[50] },
-  { backgroundColor: '#0E94C6', textColor: Colors.neutral[50] },
-  { backgroundColor: '#0E46C6', textColor: Colors.neutral[50] },
-  { backgroundColor: '#5913C6', textColor: Colors.neutral[50] },
-  { backgroundColor: '#B713C6', textColor: Colors.neutral[50] },
-  { backgroundColor: '#f34965', textColor: Colors.neutral[900] },
-  { backgroundColor: '#f3c949', textColor: Colors.neutral[900] },
-  { backgroundColor: '#73f349', textColor: Colors.neutral[900] },
-  { backgroundColor: '#49f3f1', textColor: Colors.neutral[900] },
-  { backgroundColor: '#49c9f3', textColor: Colors.neutral[900] },
-  { backgroundColor: '#5c8ff5', textColor: Colors.neutral[900] },
-  { backgroundColor: '#8c57f4', textColor: Colors.neutral[900] },
-  { backgroundColor: '#e549f3', textColor: Colors.neutral[900] },
-  // Complementary
-  { backgroundColor: '#fba9d5', textColor: '#45498f' },
-  { backgroundColor: '#02e4bf', textColor: '#414a76' },
-  { backgroundColor: '#c9d3fe', textColor: '#b71431' },
-  { backgroundColor: '#fbb300', textColor: '#2b212a' },
-  { backgroundColor: '#1f1d46', textColor: '#f85d4a' },
-  { backgroundColor: '#2d615e', textColor: '#fdc1b8' },
-  { backgroundColor: '#03df6e', textColor: '#19304d' },
-  { backgroundColor: '#ddf59c', textColor: '#367746' },
-  { backgroundColor: '#523b99', textColor: '#fba2c3' },
-  { backgroundColor: '#ecf9fb', textColor: '#66737e' },
-  { backgroundColor: '#34333f', textColor: '#f88667' },
-  { backgroundColor: '#524864', textColor: '#91f7f8' },
-  { backgroundColor: '#fbc36e', textColor: '#575567' },
-  { backgroundColor: '#cfdae7', textColor: '#b61a59' },
-  { backgroundColor: '#0e1420', textColor: '#ff2c6f' },
-  { backgroundColor: '#61678a', textColor: '#c6f6ad' },
-  { backgroundColor: '#297873', textColor: '#f4fcc3' },
-  { backgroundColor: '#71acab', textColor: '#3a383f' },
-  { backgroundColor: '#84366e', textColor: '#fcb1d4' },
-  { backgroundColor: '#926879', textColor: '#fef9fb' },
-  { backgroundColor: '#4f4085', textColor: '#fda29f' },
-  { backgroundColor: '#464b61', textColor: '#caf7fb' },
-  { backgroundColor: '#9584da', textColor: '#2d234b' },
-  { backgroundColor: '#581b34', textColor: '#ff6340' },
-  // Neon
-  { backgroundColor: '#00132e', textColor: '#42aefa' },
-  { backgroundColor: '#2e0005', textColor: '#fa4254' },
-  { backgroundColor: '#11002e', textColor: '#ce42fa' },
-  { backgroundColor: '#002e2e', textColor: '#42fadb' },
-  { backgroundColor: '#002e13', textColor: '#42fa8f' },
-  { backgroundColor: '#092e00', textColor: '#83fa42' },
-  { backgroundColor: '#2e1b00', textColor: '#faad42' },
-];
+const EMPTY_PALETTE: ProfileColorSwatch[] = [];
 
 // Color swatch flex split: background ~80%, text accent ~20% (3 / (3 + 0.75))
 const FLEX_BG = 3;
@@ -133,21 +85,6 @@ const FLEX_TEXT = 0.75;
 const SPRING_LAYOUT = Layout.springify().duration(280);
 const FADE_IN_SLOW = FadeIn.duration(280).easing(Easing.out(Easing.ease));
 const FADE_OUT_FAST = FadeOut.duration(100).easing(Easing.in(Easing.ease));
-
-// Find a color match in PREDEFINED_COLORS — normal or inverted
-function findColorMatch(colors: { backgroundColor: string; textColor: string }) {
-  for (let i = 0; i < PREDEFINED_COLORS.length; i++) {
-    const p = PREDEFINED_COLORS[i]!;
-    if (p.backgroundColor === colors.backgroundColor && p.textColor === colors.textColor)
-      return { index: i, inverted: false };
-  }
-  for (let i = 0; i < PREDEFINED_COLORS.length; i++) {
-    const p = PREDEFINED_COLORS[i]!;
-    if (p.backgroundColor === colors.textColor && p.textColor === colors.backgroundColor)
-      return { index: i, inverted: true };
-  }
-  return null;
-}
 
 // Animated Color Square Component
 interface AnimatedColorSquareProps {
@@ -237,6 +174,8 @@ const EditProfileScreen: React.FC = () => {
         : undefined,
   });
   const { data: orbytRecord } = useOrbytProfile(userDid);
+  // Swatches come from the AppView (`actor.getColorPalette`), shared with Byte.
+  const { data: palette = EMPTY_PALETTE, isFetched: isPaletteSettled } = useProfileColorPalette();
 
   const [isAboutFocused, setIsAboutFocused] = useState(false);
   const [isDisplayNameFocused, setIsDisplayNameFocused] = useState(false);
@@ -269,7 +208,7 @@ const EditProfileScreen: React.FC = () => {
 
   // Color picker state — seeded once when orbytRecord first resolves
   const savedColors = orbytRecord?.colors ?? null;
-  const savedMatch = savedColors ? findColorMatch(savedColors) : null;
+  const savedMatch = savedColors ? findPaletteMatch(palette, savedColors) : null;
   const [selectedColorIndex, setSelectedColorIndex] = useState<number | null>(0);
   const selectedColorIndexRef = useRef<number | null>(0);
   const [customColors, setCustomColors] = useState<{
@@ -289,7 +228,7 @@ const EditProfileScreen: React.FC = () => {
 
   // Seed color picker once when orbytRecord arrives (or immediately if already in cache)
   useEffect(() => {
-    if (orbytRecord !== undefined && !seededColors) {
+    if (orbytRecord !== undefined && isPaletteSettled && !seededColors) {
       setSeededColors(true);
       const isCustom = !!savedColors && !savedMatch;
       const index = !savedColors ? 0 : savedMatch ? savedMatch.index : null;
@@ -304,7 +243,7 @@ const EditProfileScreen: React.FC = () => {
         setInvertedStates({ [index]: true });
       }
     }
-  }, [orbytRecord, savedColors, savedMatch, seededColors]);
+  }, [orbytRecord, isPaletteSettled, savedColors, savedMatch, seededColors]);
 
   // Mutation
   const profileUpdateMutation = useProfileUpdateMutation();
@@ -330,12 +269,12 @@ const EditProfileScreen: React.FC = () => {
     const contentWidth =
       2 * COLOR_PICKER_PADDING +
       customOffset +
-      (PREDEFINED_COLORS.length - 1) * COLOR_ITEM_WIDTH +
+      (palette.length - 1) * COLOR_ITEM_WIDTH +
       COLOR_SQUARE_WIDTH;
     const maxScroll = Math.max(0, contentWidth - screenWidth);
     const scrollX = Math.min(Math.max(0, colorCenterX - screenWidth / 2), maxScroll);
     colorPickerScrollRef.current?.scrollTo({ x: scrollX, animated });
-  }, [selectedColorIndex, hasCustomColors]);
+  }, [selectedColorIndex, hasCustomColors, palette.length]);
 
   const handleOpenCamera = useCallback(async () => {
     try {
@@ -450,9 +389,8 @@ const EditProfileScreen: React.FC = () => {
 
   // Stable per-index press handlers — recreated only if handleColorSelect changes (which is now rare)
   const colorPressHandlers = useMemo(
-    () =>
-      PREDEFINED_COLORS.map((colorOption, index) => () => handleColorSelect(index, colorOption)),
-    [handleColorSelect]
+    () => palette.map((colorOption, index) => () => handleColorSelect(index, colorOption)),
+    [palette, handleColorSelect]
   );
 
   // Handle save
@@ -499,7 +437,11 @@ const EditProfileScreen: React.FC = () => {
           customColors.backgroundColor !== defaultColors.backgroundColor ||
           customColors.textColor !== defaultColors.textColor);
       if (shouldIncludeColors) {
-        updates.customColors = customColors;
+        const backgroundColor = normalizeProfileHex(customColors.backgroundColor);
+        const textColor = normalizeProfileHex(customColors.textColor);
+        if (backgroundColor && textColor) {
+          updates.customColors = { backgroundColor, textColor };
+        }
       }
 
       // Only update if there are changes
@@ -681,9 +623,9 @@ const EditProfileScreen: React.FC = () => {
               </>
             )}
 
-            {PREDEFINED_COLORS.map((colorOption, index) => (
+            {palette.map((colorOption, index) => (
               <AnimatedColorSquare
-                key={`${colorOption.backgroundColor}-${colorOption.textColor}`}
+                key={colorOption.id}
                 colorOption={colorOption}
                 isSelected={selectedColorIndex === index}
                 isInverted={invertedStates[index] ?? false}

@@ -283,13 +283,6 @@ ${deviceInfo}`
         title: t('settings.appSettings'),
         items: [
           {
-            id: 'algorithmic-feed',
-            label: t('settings.yourMix'),
-            icon: 'sparkles',
-            onPress: () => router.navigate('/settings/algorithmic-feed'),
-            linkType: 'internal',
-          },
-          {
             id: 'profile-feed-view',
             label: t('settings.defaultFeedLayout'),
             icon: 'grid',

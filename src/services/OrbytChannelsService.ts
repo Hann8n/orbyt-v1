@@ -1,107 +1,72 @@
+/**
+ * Orbyt channels are Orbyt Communities.
+ *
+ * The directory comes from `com.getorbyt.community.listCommunities` on the
+ * Orbyt AppView; the legacy catalog (`/v1/channels/active`) was dropped
+ * server-side. This module owns the React Query cache of that directory and the
+ * synchronous lookups the UI uses against it.
+ */
 import { queryOptions, useQuery } from '@tanstack/react-query';
-import { Colors } from '@/theme';
+
 import { queryKeys } from '@/utils/query/queryKeys';
 import { queryClient } from '@/utils/query/queryClient';
-import {
-  getCurrentLocaleTag,
-  resolveLocalizedText,
-  type TranslationMap,
-} from '@/i18n/resolveLocalizedText';
-import {
-  fetchOrbytPublicJson,
-  ORBYT_PUBLIC_JSON_TIMEOUT_MS,
-} from '@/services/orbyt/orbytPublicFetch';
+import { isCommunityAvailable, listCommunities, type CommunityView } from './orbyt/communities';
 
-export interface RemoteOrbytChannel {
-  id: string;
-  slug: string;
-  uri: string;
-  displayName: string;
-  displayNameTranslations?: TranslationMap;
-  description: string | null;
-  descriptionTranslations?: TranslationMap;
-  channelColor: string | null;
-  mediaUrl: string;
-  showSlash: boolean;
-  isPostable: boolean;
-  active: boolean;
-  sortWeight: number;
-  startAt: string | null;
-  endAt: string | null;
-  updatedAt: string;
-}
-
-interface ChannelsResponse {
-  channels: RemoteOrbytChannel[];
-}
-
-const DEFAULT_CHANNELS_URL = 'https://api.getorbyt.com/v1/channels/active';
-
-function getChannelsFetchUrl(): string {
-  const env = process.env as Record<string, string | undefined>;
-  const fromEnv =
-    env.EXPO_PUBLIC_ORBYT_CHANNELS_URL?.trim() || env.EXPO_PUBLIC_CHANNELS_URL?.trim();
-  return fromEnv || DEFAULT_CHANNELS_URL;
-}
-
-function normalizeChannel(raw: RemoteOrbytChannel): RemoteOrbytChannel {
-  return {
-    ...raw,
-    displayName:
-      resolveLocalizedText(raw.displayName, raw.displayNameTranslations) || raw.displayName,
-    description: resolveLocalizedText(raw.description, raw.descriptionTranslations),
-    channelColor: raw.channelColor || Colors.pink[300],
-  };
-}
-
-async function fetchChannels(signal?: globalThis.AbortSignal): Promise<RemoteOrbytChannel[]> {
-  const payload = await fetchOrbytPublicJson<ChannelsResponse>(getChannelsFetchUrl(), {
-    signal,
-    timeoutMs: ORBYT_PUBLIC_JSON_TIMEOUT_MS,
-  });
-  const channels = Array.isArray(payload.channels) ? payload.channels : [];
-  return channels.map(normalizeChannel);
-}
-
-function getChannelsQueryOptions(locale: string) {
+function getCommunitiesQueryOptions() {
   return queryOptions({
-    queryKey: queryKeys.channels.metadata(locale),
-    queryFn: ({ signal }) => fetchChannels(signal),
+    queryKey: queryKeys.channels.metadata(),
+    queryFn: async ({ signal }) => (await listCommunities(signal)).filter(isCommunityAvailable),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnMount: false,
   });
 }
 
-function readCachedChannels(locale?: string): RemoteOrbytChannel[] {
-  const activeLocale = locale ?? getCurrentLocaleTag();
-  return (
-    queryClient.getQueryData<RemoteOrbytChannel[]>(queryKeys.channels.metadata(activeLocale)) ?? []
+function readCachedCommunities(): CommunityView[] {
+  return queryClient.getQueryData<CommunityView[]>(queryKeys.channels.metadata()) ?? [];
+}
+
+export async function hydrateOrbytChannels(): Promise<CommunityView[]> {
+  return queryClient.fetchQuery(getCommunitiesQueryOptions());
+}
+
+export function getActiveRemoteChannels(): CommunityView[] {
+  return readCachedCommunities();
+}
+
+export function getRemoteChannelByUri(uri: string): CommunityView | undefined {
+  return readCachedCommunities().find(
+    community => community.uri === uri || community.declarationUri === uri
   );
 }
 
-export async function hydrateOrbytChannels(): Promise<RemoteOrbytChannel[]> {
-  const locale = getCurrentLocaleTag();
-  return queryClient.fetchQuery(getChannelsQueryOptions(locale));
-}
-
-export function getActiveRemoteChannels(): RemoteOrbytChannel[] {
-  return readCachedChannels().filter(channel => channel.active !== false);
-}
-
-export function getRemoteChannelByUri(uri: string): RemoteOrbytChannel | undefined {
-  return readCachedChannels().find(channel => channel.uri === uri);
-}
-
-export function getRemoteChannelBySlug(slug: string): RemoteOrbytChannel | undefined {
-  return readCachedChannels().find(channel => channel.slug === slug);
+export function getRemoteChannelBySlug(slug: string): CommunityView | undefined {
+  const name = slug.trim().toLowerCase();
+  return readCachedCommunities().find(community => community.name === name);
 }
 
 export function isKnownOrbytChannelUri(uri: string): boolean {
-  return readCachedChannels().some(channel => channel.uri === uri);
+  return getRemoteChannelByUri(uri) !== undefined;
 }
 
-export function useOrbytChannels() {
-  const locale = getCurrentLocaleTag();
-  return useQuery(getChannelsQueryOptions(locale));
+/**
+ * Map a pre-Communities channel reference (`at://local.orbyt.channel/<slug>` or
+ * `hashtag:orbyt-channel-<slug>`) to the Community of the same name. Anything
+ * else is returned unchanged.
+ */
+export function migrateLegacyChannelUri(uri: string): string {
+  let slug: string | null = null;
+  if (uri.startsWith('at://local.orbyt.channel/')) {
+    slug = uri.slice('at://local.orbyt.channel/'.length).split(/[/?#]/)[0] || null;
+  } else if (uri.startsWith('hashtag:orbyt-channel-')) {
+    slug = uri.slice('hashtag:orbyt-channel-'.length).split(':')[0] || null;
+  }
+  if (!slug) return uri;
+  return getRemoteChannelBySlug(slug)?.uri ?? uri;
+}
+
+export function useOrbytChannels<T = CommunityView[]>(
+  select?: (communities: CommunityView[]) => T
+) {
+  return useQuery({ ...getCommunitiesQueryOptions(), select });
 }

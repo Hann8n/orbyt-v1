@@ -59,10 +59,16 @@ Agents should **verify** supported props and methods in:
 
 - **Canonical** “signed in with a usable ATProto session” check: `selectIsSessionValid` from [`src/stores/userStore.ts`](src/stores/userStore.ts) (backed by `hasAuthoritativeSdkSession`). Use this for Expo Router guards, `SessionProvider`, and React Query `enabled`.
 
-### Orbyt public CMS (env URLs)
+### Orbyt AppView (`api.getorbyt.com`)
 
-- **Explore/header banners**: `EXPO_PUBLIC_BANNERS_URL`, `EXPO_PUBLIC_HEADERS_URL` (see [`src/services/OrbytBannerService.ts`](src/services/OrbytBannerService.ts)).
-- **Channel metadata**: `EXPO_PUBLIC_ORBYT_CHANNELS_URL` or `EXPO_PUBLIC_CHANNELS_URL` (see [`src/services/OrbytChannelsService.ts`](src/services/OrbytChannelsService.ts)); falls back to production if unset.
+- Orbyt-native reads are `com.getorbyt.*` XRPC methods (lexicons: orbyt-platform `lexicons/com/getorbyt`). Call them through [`src/services/orbyt/orbytApi.ts`](src/services/orbyt/orbytApi.ts): `orbytPublicQuery` for unauthenticated reads, `orbytAuthedCall` for methods that need the viewer (proxied through the PDS with `atproto-proxy: did:web:api.getorbyt.com#orbyt_appview`). `EXPO_PUBLIC_ORBYT_API_URL` overrides the origin.
+- **Channels are Communities** ([`src/services/orbyt/communities.ts`](src/services/orbyt/communities.ts)): the directory is `community.listCommunities`, a channel feed is `community.getFeed` hydrated via `app.bsky.feed.getPosts`, and a post's Community is `community.getPostCommunities`. Posting to a Community writes a `com.getorbyt.community.post` link (same record key as the post) in the same `applyWrites`; following one writes a `com.getorbyt.community.membership` record. Never write `orbyt-channel-*` tags.
+- **Profiles** ([`src/services/orbyt/profileRecords.ts`](src/services/orbyt/profileRecords.ts)): name, bio and avatar are written to `com.getorbyt.actor.profile/self` (seeded from the Bluesky profile on first sign-in); `com.getorbyt.profile/self` holds styling only (`joinDate`, `updatedAt`, `colors` as `#RRGGBB`, `fontPreference`). Never write `subscribedChannels` or `algorithmicFeedProvider`. Reads use `actor.getProfile` / `actor.getProfiles`, whose Orbyt fields win over the network profile.
+- **Profile color swatches**: `actor.getColorPalette` ([`src/services/colors/profileColorPalette.ts`](src/services/colors/profileColorPalette.ts)), the pairs Orbyt iOS and Byte offer. No hardcoded palettes.
+- **Your Mix** follows the platform contract ([`src/services/orbyt/yourMixCursor.ts`](src/services/orbyt/yourMixCursor.ts), fixture in `src/__tests__/fixtures/your-mix.json`): the `getServiceInfo` discovery generator, then Bluesky top videos, in turn.
+- **Video search**: Following, hashtags, Your Mix's network run and hashtag suggestions use `app.bsky.feed.searchPostsV2` with `hasVideo` (server-side selection, no client media filtering), proxied to `getServiceInfo` `providers.appView`.
+- **Explore banners** feature popular Communities ([`src/services/OrbytBannerService.ts`](src/services/OrbytBannerService.ts)); the AppView has no banner endpoint.
+- Record writes stay PDS-direct.
 
 ## Full Documentation
 

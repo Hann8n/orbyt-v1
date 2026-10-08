@@ -32,12 +32,87 @@ import type {
 import i18n from '../../../i18n';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
 import { logger } from '../../../utils/logger';
-import { hydrateOrbytChannels } from '../../OrbytChannelsService';
+import { getCommunityFeed, type CommunityFeedSort } from '../../orbyt/communities';
+import { YOUR_MIX_NETWORK_SEARCH } from '../../orbyt/yourMixCursor';
+import { getOrbytProviders } from '../../orbyt/serviceInfo';
 
 function hasVideoEmbed(embed: PostView['embed'] | null | undefined): boolean {
   if (!embed) return false;
   if (AppBskyEmbedVideo.isView(embed)) return true;
   return AppBskyEmbedRecordWithMedia.isView(embed) && AppBskyEmbedVideo.isView(embed.media);
+}
+
+interface SearchPostsV2Params {
+  query?: string;
+  hashtags?: string[];
+  following?: boolean;
+  sort: 'top' | 'recent';
+  allTime?: boolean;
+  excludeReplies?: boolean;
+  cursor?: string | null;
+  limit: number;
+}
+
+/**
+ * `app.bsky.feed.searchPostsV2` with `hasVideo`, so the AppView selects videos
+ * and no page needs client-side media filtering (as Orbyt iOS and Byte read
+ * it). The installed SDK predates the method, so it goes through the
+ * session's fetch handler, proxied to the deployment's network AppView.
+ */
+async function searchVideoPostsV2(
+  params: SearchPostsV2Params
+): Promise<{ feed: ExtendedFeedViewPost[]; cursor: string | null }> {
+  const [{ api }, { appView }] = await Promise.all([
+    AtprotoCore.getApiClient(),
+    getOrbytProviders(),
+  ]);
+  const search = new URLSearchParams({
+    hasVideo: 'true',
+    sort: params.sort,
+    limit: String(params.limit),
+  });
+  if (params.query) search.set('query', params.query);
+  params.hashtags?.forEach(tag => search.append('hashtags', tag));
+  if (params.following) search.set('following', 'true');
+  if (params.allTime) search.set('allTime', 'true');
+  if (params.excludeReplies) search.set('excludeReplies', 'true');
+  if (params.cursor) search.set('cursor', params.cursor);
+
+  const response = await api.fetchHandler(`/xrpc/app.bsky.feed.searchPostsV2?${search}`, {
+    method: 'GET',
+    headers: { Accept: 'application/json', 'atproto-proxy': appView },
+  });
+  if (!response.ok) {
+    throw new Error(`searchPostsV2 failed with status ${response.status}`);
+  }
+  const data = (await response.json()) as { posts?: PostView[]; cursor?: string };
+  const feed = (data.posts ?? []).map(post => ({
+    post: { ...post } as ExtendedPostView,
+    uniqueKey: post.uri,
+  }));
+  return { feed: await applyModerationBatch(feed), cursor: data.cursor ?? null };
+}
+
+/** Videos from accounts the viewer follows, newest first — replaces a third-party generator. */
+export async function getFollowingVideos(
+  cursor: string | null,
+  limit: number
+): Promise<FeedResponse> {
+  return searchVideoPostsV2({
+    following: true,
+    sort: 'recent',
+    excludeReplies: true,
+    cursor,
+    limit,
+  });
+}
+
+/** Bluesky's top videos, Your Mix's network source. */
+export async function searchNetworkTopVideos(
+  cursor: string | null,
+  limit: number
+): Promise<FeedResponse> {
+  return searchVideoPostsV2({ ...YOUR_MIX_NETWORK_SEARCH, cursor, limit });
 }
 
 /**
@@ -392,40 +467,19 @@ export async function searchHashtagVideosPaginated(
   sort: 'top' | 'latest' = 'latest'
 ): Promise<VideoSearchResponse> {
   try {
-    // Search for posts with hashtag (include # in search query)
-    const searchQuery = `#${hashtag}`;
-    const { api } = await AtprotoCore.getApiClient();
-
-    // Build search params - only include sort if it's 'top'
-    const params: { q: string; limit: number; cursor?: string; sort?: 'top' | 'latest' } = {
-      q: searchQuery,
+    const { feed, cursor: next } = await searchVideoPostsV2({
+      hashtags: [hashtag],
+      sort: sort === 'top' ? 'top' : 'recent',
+      allTime: true,
+      cursor,
       limit,
-    };
-    if (cursor) {
-      params.cursor = cursor;
-    }
-    if (sort === 'top') {
-      params.sort = 'top';
-    }
-
-    const response = await api.app.bsky.feed.searchPosts(params);
-
-    const posts = response.data.posts ?? [];
-
-    const videos: ExtendedFeedViewPost[] = posts
-      .filter((post: PostView) => hasVideoEmbed(post.embed))
-      .map((post: PostView) => ({
-        post: { ...post } as ExtendedPostView,
-        uniqueKey: post.uri,
-      }));
-
-    const moderated = await applyModerationBatch(videos);
-
-    return {
-      videos: moderated,
-      cursor: response.data.cursor ?? null,
-    };
-  } catch (_error: unknown) {
+    });
+    return { videos: feed, cursor: next };
+  } catch (error: unknown) {
+    logger.warn('searchHashtagVideosPaginated failed', {
+      component: 'feedQueries',
+      error: error instanceof Error ? error.message : String(error),
+    });
     return { videos: [], cursor: null };
   }
 }
@@ -433,8 +487,8 @@ export async function searchHashtagVideosPaginated(
 /**
  * Search for hashtag suggestions by scraping hashtags from post search results.
  *
- * NOTE: Bluesky has no native hashtag suggestions API. This works by calling
- * `searchPosts` with `#<query>` and extracting hashtags from matching post text.
+ * NOTE: Bluesky has no native hashtag suggestions API. This works by searching
+ * video posts (`searchPostsV2`) for `#<query>` and extracting their hashtags.
  * As a result it is relatively slow and results depend on Bluesky's full-text
  * ranking rather than hashtag popularity. Callers should gate requests to a
  * minimum query length (≥ 3 chars) and cache results aggressively.
@@ -450,20 +504,16 @@ export async function searchHashtagSuggestions(
   if (!query.trim()) return [];
 
   try {
-    const { api } = await AtprotoCore.getApiClient();
-
-    const searchQuery = `#${query}`;
-
-    const response = await api.app.bsky.feed.searchPosts({
-      q: searchQuery,
-      limit: 50, // Get more posts to extract more hashtags
+    const { feed } = await searchVideoPostsV2({
+      query: `#${query}`,
+      sort: 'top',
+      allTime: true,
+      limit: 25,
     });
-
-    const posts = response.data.posts ?? [];
     const hashtagSet = new Set<string>();
 
     // Extract hashtags from post text
-    for (const post of posts) {
+    for (const { post } of feed) {
       const text = (post.record as PostRecord)?.text || '';
 
       // Extract hashtags from text
@@ -483,56 +533,6 @@ export async function searchHashtagSuggestions(
     return Array.from(hashtagSet).slice(0, limit);
   } catch (_error: unknown) {
     return [];
-  }
-}
-
-/**
- * Search for video posts with query support
- * @param query - Search query
- * @param cursor - Pagination cursor
- * @param limit - Number of results per page
- * @returns Array of video post results and next cursor
- */
-export async function searchVideosPaginated(
-  query: string,
-  cursor: string | null = null,
-  limit: number = 20
-): Promise<VideoSearchResponse> {
-  try {
-    // Use search posts endpoint for query-based search
-    if (!query || !query.trim()) {
-      // Return empty results when no query is provided
-      return { videos: [], cursor: null };
-    }
-
-    // Search for posts with the query
-    const { api } = await AtprotoCore.getApiClient();
-    const params: { q: string; limit: number; cursor?: string } = {
-      q: query,
-      limit,
-    };
-    if (cursor) {
-      params.cursor = cursor;
-    }
-    const response = await api.app.bsky.feed.searchPosts(params);
-
-    const posts = response.data.posts ?? [];
-
-    const videos: ExtendedFeedViewPost[] = posts
-      .filter((post: PostView) => hasVideoEmbed(post.embed))
-      .map((post: PostView) => ({
-        post: { ...post } as ExtendedPostView,
-        uniqueKey: post.uri,
-      }));
-
-    const moderated = await applyModerationBatch(videos);
-
-    return {
-      videos: moderated,
-      cursor: response.data.cursor ?? null,
-    };
-  } catch (_error) {
-    return { videos: [], cursor: null };
   }
 }
 
@@ -663,32 +663,38 @@ export async function getSuggestedFeeds(limit: number = 10): Promise<GeneratorVi
 }
 
 /**
- * Get static channels (feed generators)
- * @param limit - Number of channels to return
- * @returns Array of feed generator objects
+ * A Community's videos: the Orbyt AppView serves the feed skeleton
+ * (`com.getorbyt.community.getFeed`), hydrated through the Bluesky AppView.
+ * Moderator-removed items (returned only to authors and moderators) are dropped.
  */
-export async function getStaticChannels(limit: number = 10): Promise<GeneratorView[]> {
-  try {
-    const remoteChannels = await hydrateOrbytChannels();
-    const channelUris = remoteChannels.map(channel => channel.uri);
+export async function getCommunityVideoFeed(
+  communityUri: string,
+  cursor: string | null = null,
+  limit: number = QUERY_CONSTANTS.FEED_PAGE_DEFAULT,
+  sort: CommunityFeedSort = 'latest'
+): Promise<FeedResponse> {
+  const skeleton = await getCommunityFeed(communityUri, {
+    sort,
+    cursor,
+    limit,
+    viewer: AtprotoCore.getCurrentUserDid(),
+  });
+  const items = skeleton.feed.filter(item => item.status !== 'removed');
+  const posts = await getPosts(items.map(item => item.post));
 
-    if (!channelUris || channelUris.length === 0) {
-      return [];
+  const feed: ExtendedFeedViewPost[] = [];
+  for (const item of items) {
+    const post = posts.get(item.post);
+    if (
+      !post ||
+      AppBskyFeedDefs.isNotFoundPost(post) ||
+      AppBskyFeedDefs.isBlockedPost(post) ||
+      !hasVideoEmbed((post as PostView).embed)
+    ) {
+      continue;
     }
-
-    const { api } = await AtprotoCore.getApiClient();
-    const response = await api.app.bsky.feed.getFeedGenerators({ feeds: channelUris });
-    const feedGenerators = response.data.feeds ?? [];
-
-    if (channelUris.length > 0 && feedGenerators.length === 0) {
-      logger.warn('getStaticChannels: no feed generators returned for remote channel URIs', {
-        component: 'feedQueries',
-        uriCount: channelUris.length,
-      });
-    }
-
-    return feedGenerators.slice(0, limit);
-  } catch (_error: unknown) {
-    return [];
+    feed.push({ post: { ...(post as PostView) } as ExtendedPostView, uniqueKey: item.post });
   }
+
+  return { feed: await applyModerationBatch(feed), cursor: skeleton.cursor ?? null };
 }

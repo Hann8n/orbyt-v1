@@ -35,7 +35,7 @@ import { SearchIcon } from '@/components/ui/Icon';
 import { Colors } from '@/theme';
 import EmptyFeed from '@/components/features/feed/EmptyFeed';
 
-import { HeaderService, useHeaders, type Header } from '@/services/OrbytBannerService';
+import { useHeaders, type Header } from '@/services/OrbytBannerService';
 import { useFeed } from '@/hooks/useFeed';
 import { useUserStore } from '@/stores/userStore';
 import type { ExtendedFeedViewPost } from '@/services/api/types';
@@ -127,18 +127,21 @@ const ExploreScreen: React.FC = () => {
     [followMutation]
   );
 
-  const { data: fetchedHeaders = [], isPending: isHeadersPending } = useHeaders();
+  const { data: headers = [], isPending: isHeadersPending } = useHeaders();
 
   useEffect(() => {
     setHasHeaderBannerError(false);
-  }, [fetchedHeaders]);
+  }, [headers]);
 
-  const headers = useMemo(() => {
-    return fetchedHeaders.map((header: Header) => ({
-      ...header,
-      imageUrl: HeaderService.getImageUrl(header.imageUrl),
-    }));
-  }, [fetchedHeaders]);
+  const handleHeaderPress = useCallback(
+    (header: Header) => {
+      if (header.communityUri) {
+        addVisit('channel', { uri: header.communityUri });
+        navigateToEncodedChannelUri(header.communityUri, goToChannel);
+      }
+    },
+    [addVisit, goToChannel]
+  );
 
   const searchFeedOption = useMemo(() => {
     if (!debouncedQuery || debouncedQuery.trim() === '') {
@@ -503,6 +506,7 @@ const ExploreScreen: React.FC = () => {
         <HeaderBanner
           headers={headers}
           height={computedHeaderHeight}
+          onHeaderPress={handleHeaderPress}
           onImageError={() => setHasHeaderBannerError(true)}
         />
       );

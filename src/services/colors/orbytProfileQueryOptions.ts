@@ -3,59 +3,101 @@ import type { QueryClient } from '@tanstack/react-query';
 
 import { QUERY_CONSTANTS } from '@/utils/constants';
 import { queryKeys } from '@/utils/query/queryKeys';
-import { fetchOrbytPublicJson } from '@/services/orbyt/orbytPublicFetch';
+import { orbytPublicQuery, OrbytXrpcError } from '@/services/orbyt/orbytApi';
 import type { OrbytProfileRecord } from '@/services/api/types';
 
 const ORBYT_PROFILE_GC_TIME = 24 * 60 * 60 * 1000;
+/** `com.getorbyt.actor.getProfiles` accepts at most 25 actors per call. */
+const GET_PROFILES_MAX = 25;
 
-interface ColorResponse {
-  textColor: string | null;
-  backgroundColor: string | null;
-  fontPreference: string | null;
-  joinedAt: string;
-  isBeta: boolean;
+/**
+ * `com.getorbyt.actor.defs#profileView`: Orbyt profile fields win, anything
+ * absent is filled from the network profile.
+ */
+export interface OrbytActorView {
+  did: string;
+  isOrbytUser: boolean;
+  handle?: string;
+  displayName?: string;
+  description?: string;
+  avatar?: string;
+  avatarVideo?: string;
+  banner?: string;
+  joinedAt?: string;
+  isBeta?: boolean;
+  showNetworkLink?: boolean;
+  colors?: { backgroundColor: string; textColor: string };
+  followersCount?: number;
+  followsCount?: number;
 }
 
-function toRecord(r: ColorResponse): OrbytProfileRecord {
+/** Accounts known only from the network have no Orbyt styling: cache null. */
+export function toOrbytProfileRecord(
+  view: OrbytActorView | null | undefined
+): OrbytProfileRecord | null {
+  if (!view?.isOrbytUser) return null;
   return {
     $type: 'com.getorbyt.profile',
     colors:
-      r.backgroundColor && r.textColor
-        ? { backgroundColor: r.backgroundColor, textColor: r.textColor }
+      view.colors?.backgroundColor && view.colors?.textColor
+        ? { backgroundColor: view.colors.backgroundColor, textColor: view.colors.textColor }
         : null,
-    joinDate: r.joinedAt ?? undefined,
+    joinDate: view.joinedAt,
   };
 }
 
-async function fetchOrbytProfileColors(did: string): Promise<OrbytProfileRecord | null> {
-  const result = await fetchOrbytPublicJson<ColorResponse | null>(
-    `https://api.getorbyt.com/v1/colors/${encodeURIComponent(did)}`
-  );
-  return result ? toRecord(result) : null;
+async function fetchOrbytActor(did: string): Promise<OrbytActorView | null> {
+  try {
+    return await orbytPublicQuery<OrbytActorView>('com.getorbyt.actor.getProfile', {
+      actor: did,
+    });
+  } catch (error) {
+    if (error instanceof OrbytXrpcError && error.error === 'ProfileNotFound') return null;
+    throw error;
+  }
+}
+
+/** The merged Orbyt actor view for `did`, or null when the AppView has none. */
+export function orbytActorQueryOptions(did: string | null | undefined) {
+  return queryOptions({
+    queryKey: queryKeys.orbytProfile.actor(did ?? ''),
+    queryFn: did ? () => fetchOrbytActor(did) : skipToken,
+    staleTime: QUERY_CONSTANTS.STALE_TIME_LONG,
+    gcTime: ORBYT_PROFILE_GC_TIME,
+    enabled: !!did,
+  });
+}
+
+function cacheActor(qc: QueryClient, did: string, view: OrbytActorView | null) {
+  qc.setQueryData(queryKeys.orbytProfile.actor(did), view);
+  qc.setQueryData(queryKeys.orbytProfile.byDid(did), toOrbytProfileRecord(view));
 }
 
 export async function warmOrbytProfileCache(dids: string[], qc: QueryClient): Promise<void> {
   if (!dids.length) return;
-  const uncached = dids.filter(
+  const uncached = Array.from(new Set(dids)).filter(
     did => qc.getQueryData(queryKeys.orbytProfile.byDid(did)) === undefined
   );
   if (!uncached.length) return;
 
-  const result = await fetchOrbytPublicJson<Record<string, ColorResponse | null>>(
-    'https://api.getorbyt.com/v1/colors',
-    { method: 'POST', body: JSON.stringify({ dids: uncached }) }
-  );
-
-  for (const did of uncached) {
-    const entry = result[did];
-    qc.setQueryData(queryKeys.orbytProfile.byDid(did), entry ? toRecord(entry) : null);
+  for (let i = 0; i < uncached.length; i += GET_PROFILES_MAX) {
+    const batch = uncached.slice(i, i + GET_PROFILES_MAX);
+    const { profiles } = await orbytPublicQuery<{ profiles?: OrbytActorView[] }>(
+      'com.getorbyt.actor.getProfiles',
+      { actors: batch }
+    );
+    const byDid = new Map((profiles ?? []).map(profile => [profile.did, profile]));
+    for (const did of batch) {
+      cacheActor(qc, did, byDid.get(did) ?? null);
+    }
   }
 }
 
+/** Profile styling (`colors`, join date) projected from `com.getorbyt.profile`. */
 export function orbytProfileQueryOptions(did: string | null | undefined) {
   return queryOptions({
     queryKey: queryKeys.orbytProfile.byDid(did ?? ''),
-    queryFn: did ? () => fetchOrbytProfileColors(did) : skipToken,
+    queryFn: did ? async () => toOrbytProfileRecord(await fetchOrbytActor(did)) : skipToken,
     staleTime: QUERY_CONSTANTS.STALE_TIME_LONG,
     gcTime: ORBYT_PROFILE_GC_TIME,
     enabled: !!did,

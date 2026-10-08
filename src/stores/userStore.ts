@@ -23,8 +23,15 @@ import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
 import { queryKeys } from '../utils/query/queryKeys';
 import { orbytProfileQueryOptions, warmOrbytProfileCache } from '../services/colors';
-import { hydrateOrbytChannels } from '../services/OrbytChannelsService';
-import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
+import { hydrateOrbytChannels, migrateLegacyChannelUri } from '../services/OrbytChannelsService';
+import {
+  isCommunityUri,
+  joinCommunity,
+  leaveCommunity,
+  listJoinedCommunities,
+} from '../services/orbyt/communities';
+import { ensureOrbytActorProfile } from '../services/orbyt/profileRecords';
+import { APP_CONSTANTS } from '../utils/constants';
 import { setAtprotoSession } from '../services/api/agentBridge';
 
 export type SessionRestoreOutcome = 'ok' | 'reauth_required' | 'transient_failure' | 'cancelled';
@@ -118,19 +125,6 @@ export interface SubscribedChannel {
 
 export type FeedBootstrapStatus = 'idle' | 'loading' | 'ready' | 'error';
 
-const buildFeedSourceFingerprint = (
-  algorithmicFeedProvider: string | null,
-  subscribedChannels: SubscribedChannel[]
-): string => {
-  const provider = algorithmicFeedProvider ?? 'none';
-  const channelUris = subscribedChannels
-    .map(channel => channel.uri)
-    .filter(uri => !BUILT_IN_CHANNELS.includes(uri))
-    .sort()
-    .join(',');
-  return `${provider}|${channelUris}`;
-};
-
 export interface UserState {
   currentUser: {
     did: string | null; // Primary identifier - immutable
@@ -159,10 +153,7 @@ export interface UserState {
   feedDebugOverlayEnabled: boolean;
   profileFeedViewMode: 'list' | 'grid';
 
-  algorithmicFeedProvider: string | null;
-
   subscribedChannels: SubscribedChannel[];
-  feedSourceFingerprint: string;
 
   feedBootstrapStatus: FeedBootstrapStatus;
   feedBootstrapDid: string | null;
@@ -215,9 +206,6 @@ export interface UserState {
   getFeedDebugOverlayEnabled: () => Promise<boolean>;
   setProfileFeedViewMode: (mode: 'list' | 'grid') => Promise<void>;
 
-  setAlgorithmicFeedProvider: (uri: string | null) => Promise<void>;
-  getAlgorithmicFeedProvider: () => Promise<string | null>;
-
   setCurrentUser: (user: UserState['currentUser']) => void;
   setAuthenticating: (authenticating: boolean) => void;
   setAuthError: (error: string | null) => void;
@@ -233,10 +221,7 @@ export interface UserState {
   initializeUserState: () => Promise<void>;
   loadSavedAccounts: () => Promise<void>;
   bootstrapUserFeedSettings: (did: string) => Promise<boolean>;
-  loadUserSpecificSettings: (
-    did: string,
-    orbytProfileRecord: OrbytProfileRecord | null
-  ) => Promise<boolean>;
+  loadUserSpecificSettings: (did: string) => Promise<boolean>;
   loadSubscribedChannels: (
     did: string,
     orbytProfileRecord: OrbytProfileRecord | null
@@ -259,14 +244,39 @@ const STORAGE_KEYS = {
   ACCOUNTS: 'saved_accounts',
   ACTIVE_ACCOUNT: 'active_account_did',
   SUBSCRIBED_CHANNELS: 'subscribed_channels',
-  ALGORITHMIC_FEED_PROVIDER: 'algorithmic_feed_provider',
   ORBYT_PROFILE_RECORD: 'orbyt_profile_record',
 } as const;
 
 const BUILT_IN_CHANNELS = ['following', 'your-mix'];
 
-const filterBuiltInChannels = (uris: string[]): string[] => {
-  return uris.filter(uri => !BUILT_IN_CHANNELS.includes(uri));
+/**
+ * Following an Orbyt Community is joining it: a `com.getorbyt.community.membership`
+ * record in the viewer's repo, which the AppView projects into member counts and
+ * viewer state. Best-effort — the local subscription list stays authoritative
+ * for the viewer's own feeds.
+ */
+const syncCommunityMemberships = async (
+  agent: Agent | null | undefined,
+  did: string,
+  uris: string[],
+  join: boolean
+): Promise<void> => {
+  const communityUris = uris.filter(isCommunityUri);
+  if (!agent || communityUris.length === 0) return;
+  const results = await Promise.allSettled(
+    communityUris.map(uri =>
+      join ? joinCommunity(agent, did, uri) : leaveCommunity(agent, did, uri)
+    )
+  );
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      logger.warn(join ? 'Failed to join community' : 'Failed to leave community', {
+        component: 'userStore',
+        community: communityUris[index],
+        error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+      });
+    }
+  });
 };
 
 const getUserScopedKey = (baseKey: string, did: string): string => {
@@ -301,27 +311,6 @@ function seedModerationQueryCache(did: string, snapshot: ModerationPrefsSnapshot
   if (snapshot) {
     queryClient.setQueryData(queryKeys.moderation.byUser(did), snapshot);
   }
-}
-
-/** Profile record wins when present; otherwise MMKV + default generator URI. */
-function resolveAlgorithmicFeedProviderForDid(
-  did: string,
-  record: OrbytProfileRecord | null
-): string | null {
-  try {
-    const remoteProvider = record?.algorithmicFeedProvider;
-    if (remoteProvider !== undefined) {
-      const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
-      if (remoteProvider === null) storage.delete(key);
-      else storage.set(key, remoteProvider);
-      return remoteProvider;
-    }
-  } catch {
-    // fall through to local
-  }
-  const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
-  const local = storage.getString(key) ?? null;
-  return local ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
 }
 
 const isEmailVerificationRequired = (currentUser: UserState['currentUser']): boolean => {
@@ -431,12 +420,7 @@ export const useUserStore = create<UserState>()(
           oauthSession: null,
           agent: undefined,
           activeAccountDid: params.clearActiveDid ? null : get().activeAccountDid,
-          algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
           subscribedChannels: [],
-          feedSourceFingerprint: buildFeedSourceFingerprint(
-            DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-            []
-          ),
           feedBootstrapStatus: 'error',
           feedBootstrapDid: null,
           authError: params.authError,
@@ -463,13 +447,7 @@ export const useUserStore = create<UserState>()(
         feedDebugOverlayEnabled: false,
         profileFeedViewMode: 'list',
 
-        algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-
         subscribedChannels: [],
-        feedSourceFingerprint: buildFeedSourceFingerprint(
-          DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-          []
-        ),
 
         feedBootstrapStatus: 'idle',
         feedBootstrapDid: null,
@@ -539,7 +517,7 @@ export const useUserStore = create<UserState>()(
 
             requestIdleCallback(
               () => {
-                void RepoService.initOrbytProfileIfNeeded().catch(() => {});
+                void ensureOrbytActorProfile().catch(() => {});
               },
               { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
             );
@@ -631,7 +609,7 @@ export const useUserStore = create<UserState>()(
 
             requestIdleCallback(
               () => {
-                void RepoService.initOrbytProfileIfNeeded().catch(() => {});
+                void ensureOrbytActorProfile().catch(() => {});
               },
               { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
             );
@@ -711,12 +689,7 @@ export const useUserStore = create<UserState>()(
               agent: undefined, // Use undefined to match API expectations
               activeAccountDid: null,
               savedAccounts: clearAllAccounts ? [] : get().savedAccounts,
-              algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
               subscribedChannels: [],
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                []
-              ),
               feedBootstrapStatus: 'idle',
               feedBootstrapDid: null,
             });
@@ -796,7 +769,7 @@ export const useUserStore = create<UserState>()(
 
           requestIdleCallback(
             () => {
-              void RepoService.initOrbytProfileIfNeeded().catch(() => {});
+              void ensureOrbytActorProfile().catch(() => {});
             },
             { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
           );
@@ -849,8 +822,6 @@ export const useUserStore = create<UserState>()(
               agent: get().agent,
               activeAccountDid: get().activeAccountDid,
               subscribedChannels: get().subscribedChannels,
-              algorithmicFeedProvider: get().algorithmicFeedProvider,
-              feedSourceFingerprint: get().feedSourceFingerprint,
             };
 
             const rollbackToPreviousSessionAfterSwitchFailure = async (): Promise<boolean> => {
@@ -863,8 +834,6 @@ export const useUserStore = create<UserState>()(
                 agent: previousState.agent,
                 activeAccountDid: previousState.activeAccountDid,
                 subscribedChannels: previousState.subscribedChannels,
-                algorithmicFeedProvider: previousState.algorithmicFeedProvider,
-                feedSourceFingerprint: previousState.feedSourceFingerprint,
                 authStatus: 'authenticated',
                 authError: null,
                 authErrorCode: 'none',
@@ -919,7 +888,7 @@ export const useUserStore = create<UserState>()(
 
               requestIdleCallback(
                 () => {
-                  void RepoService.initOrbytProfileIfNeeded().catch(() => {});
+                  void ensureOrbytActorProfile().catch(() => {});
                 },
                 { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
               );
@@ -1150,12 +1119,8 @@ export const useUserStore = create<UserState>()(
                 isOrbytChannel: isOrbytChannel(channelData.uri),
                 subscribedAt: Date.now(),
               };
-              set(state => ({
+              set(() => ({
                 subscribedChannels: updatedChannels,
-                feedSourceFingerprint: buildFeedSourceFingerprint(
-                  state.algorithmicFeedProvider,
-                  updatedChannels
-                ),
               }));
             } else {
               // Add new channel/feed
@@ -1165,12 +1130,8 @@ export const useUserStore = create<UserState>()(
                 subscribedAt: Date.now(),
               };
               const nextChannels = [...channels, newChannel];
-              set(state => ({
+              set(() => ({
                 subscribedChannels: nextChannels,
-                feedSourceFingerprint: buildFeedSourceFingerprint(
-                  state.algorithmicFeedProvider,
-                  nextChannels
-                ),
               }));
             }
 
@@ -1183,13 +1144,7 @@ export const useUserStore = create<UserState>()(
             const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
             storage.set(key, JSON.stringify(channelsToSave));
 
-            // Sync subscribed channels to orbyt profile record (best-effort)
-            try {
-              const urisToSync = filterBuiltInChannels(get().subscribedChannels.map(ch => ch.uri));
-              await RepoService.updateOrbytProfileChannels(urisToSync);
-            } catch {
-              // ignore
-            }
+            await syncCommunityMemberships(get().agent, currentUser.did, [channelData.uri], true);
           } catch (error) {
             logger.error('Error subscribing to channel', error, { component: 'userStore' });
             throw error;
@@ -1211,12 +1166,8 @@ export const useUserStore = create<UserState>()(
             const channels = get().subscribedChannels;
             const updatedChannels = channels.filter(ch => ch.uri !== uri);
 
-            set(state => ({
+            set(() => ({
               subscribedChannels: updatedChannels,
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                state.algorithmicFeedProvider,
-                updatedChannels
-              ),
             }));
 
             // Save to storage (filter built-ins)
@@ -1226,13 +1177,7 @@ export const useUserStore = create<UserState>()(
             );
             storage.set(key, JSON.stringify(channelsToSave));
 
-            // Sync subscribed channels to orbyt profile record (best-effort)
-            try {
-              const urisToSync = filterBuiltInChannels(updatedChannels.map(ch => ch.uri));
-              await RepoService.updateOrbytProfileChannels(urisToSync);
-            } catch {
-              // ignore
-            }
+            await syncCommunityMemberships(get().agent, currentUser.did, [uri], false);
           } catch (error) {
             logger.error('Error unsubscribing from channel', error, { component: 'userStore' });
             throw error;
@@ -1293,12 +1238,8 @@ export const useUserStore = create<UserState>()(
 
             // Update state with remaining channels + new/updated channels
             const nextChannels = [...remainingChannels, ...newChannels];
-            set(state => ({
+            set(() => ({
               subscribedChannels: nextChannels,
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                state.algorithmicFeedProvider,
-                nextChannels
-              ),
             }));
 
             // Single storage operation for all changes (filter built-ins)
@@ -1308,13 +1249,12 @@ export const useUserStore = create<UserState>()(
             );
             storage.set(key, JSON.stringify(channelsToSave));
 
-            // Sync subscribed channels to orbyt profile record (best-effort)
-            try {
-              const urisToSync = filterBuiltInChannels(get().subscribedChannels.map(ch => ch.uri));
-              await RepoService.updateOrbytProfileChannels(urisToSync);
-            } catch {
-              // ignore
-            }
+            await syncCommunityMemberships(
+              get().agent,
+              currentUser.did,
+              channels.map(channel => channel.uri),
+              true
+            );
           } catch (error) {
             logger.error('Error batch subscribing to channels', error, { component: 'userStore' });
             throw error;
@@ -1334,12 +1274,8 @@ export const useUserStore = create<UserState>()(
             const currentChannels = get().subscribedChannels;
             // Filter out unsubscribed channels
             const updatedChannels = currentChannels.filter(ch => !validUris.includes(ch.uri));
-            set(state => ({
+            set(() => ({
               subscribedChannels: updatedChannels,
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                state.algorithmicFeedProvider,
-                updatedChannels
-              ),
             }));
 
             // Single storage operation for all changes (filter built-ins)
@@ -1349,13 +1285,7 @@ export const useUserStore = create<UserState>()(
             );
             storage.set(key, JSON.stringify(channelsToSave));
 
-            // Sync subscribed channels to orbyt profile record (best-effort)
-            try {
-              const urisToSync = filterBuiltInChannels(updatedChannels.map(ch => ch.uri));
-              await RepoService.updateOrbytProfileChannels(urisToSync);
-            } catch {
-              // ignore
-            }
+            await syncCommunityMemberships(get().agent, currentUser.did, validUris, false);
           } catch (error) {
             logger.error('Error batch unsubscribing from channels', error, {
               component: 'userStore',
@@ -1378,66 +1308,6 @@ export const useUserStore = create<UserState>()(
         setProfileFeedViewMode: async (mode: 'list' | 'grid') => {
           storage.set(getFlagKey('profile_feed_view_mode', get().currentUser?.did ?? null), mode);
           set({ profileFeedViewMode: mode });
-        },
-
-        setAlgorithmicFeedProvider: async (uri: string | null) => {
-          try {
-            const currentUser = get().currentUser;
-            const key = currentUser?.did
-              ? getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, currentUser.did)
-              : STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER;
-
-            if (uri === null) {
-              storage.delete(key);
-            } else {
-              storage.set(key, uri);
-            }
-
-            set(state => ({
-              algorithmicFeedProvider: uri,
-              feedSourceFingerprint: buildFeedSourceFingerprint(uri, state.subscribedChannels),
-            }));
-
-            // Sync algorithmic feed provider to orbyt profile record (best-effort)
-            try {
-              await RepoService.updateOrbytProfileAlgorithmicFeedProvider(uri);
-            } catch {
-              // ignore
-            }
-
-            // Remove all cached your-mix queries and refetch with new provider
-            const currentUserDid = get().currentUser?.did;
-            if (currentUserDid) {
-              queryClient.removeQueries({
-                queryKey: queryKeys.feed.byUser('your-mix', currentUserDid),
-              });
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.feed.byUser('your-mix', currentUserDid),
-                refetchType: 'active',
-              });
-            }
-          } catch (error) {
-            logger.error('Error setting algorithmic feed provider', error, {
-              component: 'userStore',
-            });
-            throw error;
-          }
-        },
-
-        getAlgorithmicFeedProvider: async () => {
-          try {
-            const currentUser = get().currentUser;
-            const key = currentUser?.did
-              ? getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, currentUser.did)
-              : STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER;
-            const value = storage.getString(key) ?? null;
-            return value ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
-          } catch (error) {
-            logger.error('Error getting algorithmic feed provider', error, {
-              component: 'userStore',
-            });
-            return DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
-          }
         },
 
         setCurrentUser: user => set({ currentUser: user }),
@@ -1578,12 +1448,7 @@ export const useUserStore = create<UserState>()(
                     oauthSession: null,
                     agent: undefined,
                     activeAccountDid: null,
-                    algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
                     subscribedChannels: [],
-                    feedSourceFingerprint: buildFeedSourceFingerprint(
-                      DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                      []
-                    ),
                     feedBootstrapStatus: 'error',
                     feedBootstrapDid: null,
                     authErrorCode: 'reauth_required',
@@ -1658,7 +1523,7 @@ export const useUserStore = create<UserState>()(
 
           if (cachedRecord !== null) {
             const [settingsLoaded, channelsLoaded] = await Promise.all([
-              get().loadUserSpecificSettings(did, cachedRecord),
+              get().loadUserSpecificSettings(did),
               get().loadSubscribedChannels(did, cachedRecord),
             ]);
 
@@ -1684,7 +1549,7 @@ export const useUserStore = create<UserState>()(
                 await hydrateOrbytChannels().catch(() => {});
                 if (get().currentUser?.did !== bgDid) return;
                 await Promise.all([
-                  get().loadUserSpecificSettings(bgDid, freshRecord),
+                  get().loadUserSpecificSettings(bgDid),
                   get().loadSubscribedChannels(bgDid, freshRecord),
                 ]);
               } catch {
@@ -1711,7 +1576,7 @@ export const useUserStore = create<UserState>()(
 
             await hydrateOrbytChannels().catch(() => {});
             const [settingsLoaded, channelsLoaded] = await Promise.all([
-              get().loadUserSpecificSettings(did, orbytProfileRecord),
+              get().loadUserSpecificSettings(did),
               get().loadSubscribedChannels(did, orbytProfileRecord),
             ]);
 
@@ -1740,28 +1605,13 @@ export const useUserStore = create<UserState>()(
           }
         },
 
-        loadUserSpecificSettings: async (
-          did: string,
-          orbytProfileRecord: OrbytProfileRecord | null
-        ) => {
+        loadUserSpecificSettings: async (did: string) => {
           try {
             const feedDebugOverlayEnabled =
               storage.getBoolean(getFlagKey('feed_debug_overlay_enabled', did)) ?? false;
 
-            const algorithmicFeedProvider = resolveAlgorithmicFeedProviderForDid(
-              did,
-              orbytProfileRecord
-            );
-
             // Update state with user-specific settings
-            set(state => ({
-              feedDebugOverlayEnabled,
-              algorithmicFeedProvider,
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                algorithmicFeedProvider,
-                state.subscribedChannels
-              ),
-            }));
+            set({ feedDebugOverlayEnabled });
             return true;
           } catch (error) {
             logger.error('Error loading user-specific settings', error, { component: 'userStore' });
@@ -1776,58 +1626,48 @@ export const useUserStore = create<UserState>()(
           try {
             const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, did);
             const savedChannelsStr = storage.getString(key) ?? null;
-
-            let savedChannels: SubscribedChannel[] = savedChannelsStr
+            const savedChannels: SubscribedChannel[] = savedChannelsStr
               ? JSON.parse(savedChannelsStr)
               : [];
 
-            savedChannels = savedChannels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri));
+            // Joined Communities live in the account's membership records, written
+            // by every Orbyt client; the device list adds non-Community feeds.
+            const agent = get().agent;
+            const joined = agent ? await listJoinedCommunities(agent, did).catch(() => null) : null;
 
-            const remoteUris: string[] = Array.isArray(orbytProfileRecord?.subscribedChannels)
+            // One-time migration of pre-Communities subscriptions (device list and the
+            // retired `com.getorbyt.profile#subscribedChannels`): channels become the
+            // Community of the same name and are joined.
+            const legacyUris = Array.isArray(orbytProfileRecord?.subscribedChannels)
               ? orbytProfileRecord.subscribedChannels!
               : [];
+            const migratedUris: string[] = [];
+            const byUri = new Map<string, SubscribedChannel>();
+            const add = (channel: SubscribedChannel) => {
+              const uri = migrateLegacyChannelUri(channel.uri);
+              if (BUILT_IN_CHANNELS.includes(uri) || byUri.has(uri)) return;
+              if (uri !== channel.uri) migratedUris.push(uri);
+              byUri.set(uri, { ...channel, uri, isOrbytChannel: isOrbytChannel(uri) });
+            };
+            const subscribedAt = Date.now();
+            savedChannels.forEach(add);
+            legacyUris.forEach(uri => add({ uri, displayName: '', subscribedAt }));
+            joined?.forEach(uri => add({ uri, displayName: '', subscribedAt }));
 
-            if (savedChannels.length === 0 && remoteUris.length > 0) {
-              const filteredUris = filterBuiltInChannels(remoteUris);
-              if (filteredUris.length > 0) {
-                savedChannels = filteredUris.map((uri: string) => ({
-                  uri,
-                  displayName: '',
-                  isOrbytChannel: isOrbytChannel(uri),
-                  subscribedAt: Date.now(),
-                }));
-                storage.set(key, JSON.stringify(savedChannels));
-              }
+            const channels = Array.from(byUri.values());
+            storage.set(key, JSON.stringify(channels));
+            const toJoin = joined
+              ? migratedUris.filter(uri => !joined.includes(uri))
+              : migratedUris;
+            if (toJoin.length > 0) {
+              void syncCommunityMemberships(agent, did, toJoin, true);
             }
 
-            // Double-check: filter built-ins from state (in case persisted state had them)
-            const filteredChannels = savedChannels.filter(
-              ch => !BUILT_IN_CHANNELS.includes(ch.uri)
-            );
-
-            // Set subscribed channels - no merging, no defaults, just the user's subscriptions
-            set(state => ({
-              subscribedChannels: filteredChannels,
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                state.algorithmicFeedProvider,
-                filteredChannels
-              ),
-            }));
-
-            const urisToSync = filterBuiltInChannels(filteredChannels.map(ch => ch.uri));
-            void RepoService.updateOrbytProfileChannels(urisToSync).catch(error => {
-              logger.warn('Failed to clean profile record of built-in channels', {
-                component: 'userStore',
-                error: error instanceof Error ? error.message : String(error),
-              });
-            });
+            set({ subscribedChannels: channels });
             return true;
           } catch (error) {
             logger.error('Error loading subscribed channels', error, { component: 'userStore' });
-            set(state => ({
-              subscribedChannels: [],
-              feedSourceFingerprint: buildFeedSourceFingerprint(state.algorithmicFeedProvider, []),
-            }));
+            set({ subscribedChannels: [] });
             return false;
           }
         },
@@ -1904,7 +1744,7 @@ export const useUserStore = create<UserState>()(
 
             requestIdleCallback(
               () => {
-                void RepoService.initOrbytProfileIfNeeded().catch(() => {});
+                void ensureOrbytActorProfile().catch(() => {});
               },
               { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
             );
@@ -1968,7 +1808,6 @@ export const useUserStore = create<UserState>()(
         currentUser: state.currentUser,
         feedDebugOverlayEnabled: state.feedDebugOverlayEnabled,
         profileFeedViewMode: state.profileFeedViewMode,
-        algorithmicFeedProvider: state.algorithmicFeedProvider,
         subscribedChannels: state.subscribedChannels.filter(
           ch => !BUILT_IN_CHANNELS.includes(ch.uri)
         ),
@@ -1981,10 +1820,6 @@ export const useUserStore = create<UserState>()(
         if (filteredChannels.length !== state.subscribedChannels.length) {
           state.subscribedChannels = filteredChannels;
         }
-        state.feedSourceFingerprint = buildFeedSourceFingerprint(
-          state.algorithmicFeedProvider ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-          state.subscribedChannels
-        );
         // no-op: orbyt profile colors are fetched via react-query, no local cache to load
       },
     }
@@ -2114,17 +1949,5 @@ export const useFeedSettings = () => {
     feedDebugOverlayEnabled,
     setFeedDebugOverlayEnabled,
     getFeedDebugOverlayEnabled,
-  };
-};
-
-export const useAlgorithmicFeedProvider = () => {
-  const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
-  const setAlgorithmicFeedProvider = useUserStore(state => state.setAlgorithmicFeedProvider);
-  const getAlgorithmicFeedProvider = useUserStore(state => state.getAlgorithmicFeedProvider);
-
-  return {
-    algorithmicFeedProvider,
-    setAlgorithmicFeedProvider,
-    getAlgorithmicFeedProvider,
   };
 };

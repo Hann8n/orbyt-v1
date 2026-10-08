@@ -12918,7 +12918,6 @@ __metadata:
     jest-expo: "npm:~56.0.4"
     knip: "npm:^6.1.0"
     lint-staged: "npm:^16.2.7"
-    multiformats: "npm:^9.9.0"
     patch-package: "npm:^8.0.0"
     pod-install: "npm:^1.0.7"
     prettier: "npm:^3.8.1"

@@ -68,23 +68,16 @@ export function useFeed(
 ): UseFeedReturn {
   const { enabled = true, ...queryOptions } = options;
 
-  const {
-    currentUser,
-    isSwitchingAccount,
-    feedSourceFingerprint,
-    feedBootstrapStatus,
-    feedBootstrapDid,
-    agent,
-  } = useUserStore(
-    useShallow(state => ({
-      currentUser: state.currentUser,
-      isSwitchingAccount: state.isSwitchingAccount,
-      feedSourceFingerprint: state.feedSourceFingerprint,
-      feedBootstrapStatus: state.feedBootstrapStatus,
-      feedBootstrapDid: state.feedBootstrapDid,
-      agent: state.agent,
-    }))
-  );
+  const { currentUser, isSwitchingAccount, feedBootstrapStatus, feedBootstrapDid, agent } =
+    useUserStore(
+      useShallow(state => ({
+        currentUser: state.currentUser,
+        isSwitchingAccount: state.isSwitchingAccount,
+        feedBootstrapStatus: state.feedBootstrapStatus,
+        feedBootstrapDid: state.feedBootstrapDid,
+        agent: state.agent,
+      }))
+    );
   const effectiveUserDid =
     feedOption === 'following' || feedOption === 'your-mix' ? currentUser?.did : userDid;
 
@@ -105,12 +98,7 @@ export function useFeed(
     modReady &&
     isFeedBootstrapReady;
 
-  const sourceFingerprintForQuery = isUserSpecificFeed ? feedSourceFingerprint : undefined;
-  const queryKey = queryKeys.feed.infinite(
-    feedOption,
-    effectiveUserDid ?? undefined,
-    sourceFingerprintForQuery
-  );
+  const queryKey = queryKeys.feed.infinite(feedOption, effectiveUserDid ?? undefined);
 
   const queryClient = useQueryClient();
 

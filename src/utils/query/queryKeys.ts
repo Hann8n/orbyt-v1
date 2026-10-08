@@ -39,16 +39,14 @@ export const queryKeys = {
   feed: {
     all: feedBase,
     byOption: (feedOption: string) => [...feedBase, feedOption] as const,
-    byUser: (feedOption: string, userDid?: string, sourceFingerprint?: string) =>
+    byUser: (feedOption: string, userDid?: string) =>
       userDid
-        ? sourceFingerprint
-          ? ([...feedBase, feedOption, userDid, sourceFingerprint] as const)
-          : ([...feedBase, feedOption, userDid] as const)
+        ? ([...feedBase, feedOption, userDid] as const)
         : ([...feedBase, feedOption] as const),
-    infinite: (feedOption: string, userDid?: string, sourceFingerprint?: string) =>
-      [...queryKeys.feed.byUser(feedOption, userDid, sourceFingerprint), 'infinite'] as const,
-    batch: (feedOption: string, userDid?: string, sourceFingerprint?: string) =>
-      [...queryKeys.feed.byUser(feedOption, userDid, sourceFingerprint), 'batch'] as const,
+    infinite: (feedOption: string, userDid?: string) =>
+      [...queryKeys.feed.byUser(feedOption, userDid), 'infinite'] as const,
+    batch: (feedOption: string, userDid?: string) =>
+      [...queryKeys.feed.byUser(feedOption, userDid), 'batch'] as const,
     search: (query: string) => [...feedBase, 'search', query] as const,
   },
 
@@ -72,6 +70,10 @@ export const queryKeys = {
     all: orbytProfileBase,
     byDid: (did: string) => [...orbytProfileBase, did] as const,
     current: () => [...orbytProfileBase, 'current'] as const,
+    /** `com.getorbyt.actor.getColorPalette` — server-owned pairs shared with Byte. */
+    colorPalette: () => [...orbytProfileBase, 'color-palette'] as const,
+    /** `com.getorbyt.actor.getProfile` — the merged Orbyt actor view. */
+    actor: (did: string) => [...orbytProfileBase, 'actor', did] as const,
   },
 
   // Comment queries (merged from FeedService)
@@ -145,20 +147,13 @@ export const queryKeys = {
   // Channel queries (merged from ChannelService)
   channels: {
     all: ['channels'] as const,
-    metadata: (locale?: string) =>
-      locale
-        ? ([...queryKeys.channels.all, 'metadata', locale] as const)
-        : ([...queryKeys.channels.all, 'metadata'] as const),
+    /** The Orbyt Community directory (`com.getorbyt.community.listCommunities`). */
+    metadata: () => [...queryKeys.channels.all, 'metadata'] as const,
+    /** The Community a post was published to (`com.getorbyt.community.getPostCommunities`). */
+    postCommunity: (postUri: string) =>
+      [...queryKeys.channels.all, 'post-community', postUri] as const,
     detail: (uri: string) => [...queryKeys.channels.all, 'detail', uri] as const,
     colors: (uri: string) => [...queryKeys.channels.all, 'colors', uri] as const,
-  },
-
-  orbyt: {
-    all: ['orbyt'] as const,
-    headers: (locale?: string) =>
-      locale
-        ? ([...queryKeys.orbyt.all, 'headers', locale] as const)
-        : ([...queryKeys.orbyt.all, 'headers'] as const),
   },
 
   // Moderation settings queries

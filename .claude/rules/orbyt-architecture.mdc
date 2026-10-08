@@ -44,7 +44,11 @@ Orbyt is a video app for Bluesky built on the AT Protocol. React Native + Expo.
 - `moderation/ModerationService.ts` — Moderation operations
 - `FeedService.ts` — App-level `FeedService` (bookmarks, seen videos); distinct from `AtprotoFeedService`
 - `SeenVideoService.ts` — Seen video tracking
-- `OrbytBannerService.ts` — Explore/header banner config (`HeaderService`, `useHeaders`, React Query)
+- `OrbytBannerService.ts` — Explore header banners (`useHeaders`), featuring popular Communities
+- `OrbytChannelsService.ts` — Community directory cache (channels are Orbyt Communities)
+- `orbyt/orbytApi.ts` — Orbyt AppView XRPC client (`orbytPublicQuery`, `orbytAuthedCall`)
+- `orbyt/communities.ts` — `com.getorbyt.community.*` reads and membership/post-link records
+- `orbyt/postCommunities.ts` — batched post → Community lookup (`usePostCommunity`)
 
 ### Utilities (`src/utils/`)
 
