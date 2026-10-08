@@ -1446,20 +1446,10 @@ export default function ChatScreen() {
     convoId: '',
     latestMessageId: undefined,
   });
-  const updateReadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const UPDATE_READ_DEBOUNCE_MS = 1500;
 
-  useEffect(() => {
-    if (!convoId || convo === null) return;
-    readSyncRef.current = { convoId, latestMessageId };
-
-    if (updateReadTimeoutRef.current != null) {
-      clearTimeout(updateReadTimeoutRef.current);
-      updateReadTimeoutRef.current = null;
-    }
-
-    const markRead = (cid: string, mid: string | undefined) => {
+  const markRead = useCallback(
+    (cid: string, mid: string | undefined) => {
       ChatService.updateRead(cid, mid)
         .then(updatedConvo => {
           queryClient.setQueryData(queryKeys.chat.conversations.detail(cid), updatedConvo);
@@ -1467,24 +1457,28 @@ export default function ChatScreen() {
           queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
         })
         .catch(() => {});
-    };
+    },
+    [queryClient]
+  );
 
-    updateReadTimeoutRef.current = setTimeout(() => {
-      updateReadTimeoutRef.current = null;
-      markRead(convoId, latestMessageId);
-    }, UPDATE_READ_DEBOUNCE_MS);
+  // Depend on whether the convo is loaded, not the convo object: markRead writes a fresh convo
+  // into the cache, which would otherwise re-run this effect and mark read again in a loop.
+  const hasConvo = convo !== null;
 
+  useEffect(() => {
+    if (!convoId || !hasConvo) return;
+    readSyncRef.current = { convoId, latestMessageId };
+    const timer = setTimeout(() => markRead(convoId, latestMessageId), UPDATE_READ_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [convoId, hasConvo, latestMessageId, markRead]);
+
+  // Flush once when leaving the conversation so the badge is right even inside the debounce window.
+  useEffect(() => {
     return () => {
-      if (updateReadTimeoutRef.current != null) {
-        clearTimeout(updateReadTimeoutRef.current);
-        updateReadTimeoutRef.current = null;
-      }
       const { convoId: cid, latestMessageId: mid } = readSyncRef.current;
-      if (cid) {
-        markRead(cid, mid);
-      }
+      if (cid && cid === convoId) markRead(cid, mid);
     };
-  }, [convoId, convo, latestMessageId, queryClient]);
+  }, [convoId, markRead]);
 
   const listData = useMemo(() => buildChatListData((messages ?? []) as MessageItem[]), [messages]);
 

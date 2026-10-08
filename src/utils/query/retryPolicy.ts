@@ -13,7 +13,7 @@ function isRetryableStatus(status: number): boolean {
  * Whether a failed request is worth retrying: transport errors, rate limits and 5xx are;
  * client errors (4xx), auth failures, aborts and malformed payloads are not.
  */
-export function isRetryableError(error: unknown): boolean {
+function isRetryableError(error: unknown): boolean {
   if (error instanceof XRPCError || error instanceof ApiRequestError) {
     return isRetryableStatus(error.status);
   }

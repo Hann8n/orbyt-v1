@@ -80,6 +80,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
 
   const { presentAccountSwitcher } = useAccountSwitcher();
   const didLongPressMenuRef = useRef(false);
+  // ProfileScreen backs both the own-profile tab and every pushed /user/[did] route; drive this
+  // instance's pager through a local ref so pushed profiles don't hijack the shared tab ref.
+  const pagerRef = useRef<FeedPagerRef | null>(null);
 
   const profileRouteKey = providedIdentifier ? `profile:${providedIdentifier}` : 'profile:self';
 
@@ -173,7 +176,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
     const allowedFeeds = profileFeedOptions as readonly ProfileFeedTab[];
     if (!allowedFeeds.includes(activeTab)) {
       setActiveTab('profile');
-      tabRefs.profile?.setPage(0);
+      pagerRef.current?.setPage(0);
     }
   }, [profileFeedOptions, activeTab]);
 
@@ -516,7 +519,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
       ) : (
         <FeedPager
           ref={r => {
-            tabRefs.profile = r as FeedPagerRef | null;
+            const pager = r as FeedPagerRef | null;
+            if (isViewingOwnProfile) {
+              if (pager) tabRefs.profile = pager;
+              else if (tabRefs.profile === pagerRef.current) tabRefs.profile = null;
+            }
+            pagerRef.current = pager;
           }}
           feedOptions={profileFeedOptions}
           userDid={profileDid}
@@ -553,7 +561,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
                   onTabPress={tabId => {
                     setActiveTab(tabId as ProfileFeedTab);
                     const index = (profileFeedOptions as readonly string[]).indexOf(tabId);
-                    if (index >= 0) tabRefs.profile?.setPage(index);
+                    if (index >= 0) pagerRef.current?.setPage(index);
                   }}
                   textColor={profileColors.textColor}
                   inactiveTextColor={hexToRGBA(profileColors.textColor || Colors.neutral[50], 0.65)}
