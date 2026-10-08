@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getAnalytics, logEvent } from '@react-native-firebase/analytics';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '@/utils/constants';
 import {
@@ -819,10 +818,6 @@ const VideoPostScreen: React.FC = () => {
             uri: result?.uri,
             cid: result?.cid,
           });
-          logEvent(getAnalytics(), 'post_video', {
-            post_uri: result?.uri,
-            content_type: 'video',
-          }).catch(() => {});
 
           setTimeout(() => {
             useUIStore.getState().setLoading(UPLOAD_KEY, false);

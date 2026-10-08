@@ -1,6 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { getAnalytics, logEvent } from '@react-native-firebase/analytics';
 import { AtprotoFeedService } from '../services/api/feed/FeedService';
 import {
   confirmToggle,
@@ -87,11 +86,6 @@ export function useLikeMutation() {
     },
 
     onSuccess: (likeUri, { postUri, isLiked }) => {
-      if (!isLiked) {
-        logEvent(getAnalytics(), 'video_like', { post_uri: postUri, content_type: 'video' }).catch(
-          () => {}
-        );
-      }
       setFeedPostToggle(queryClient, postUri, 'like', current =>
         confirmToggle(current, !isLiked, likeUri)
       );

@@ -43,7 +43,6 @@ import { useVideoCardInteraction } from './video-card/hooks/useVideoCardInteract
 import { useVideoCardPlayer, logVideoCardPlayerError } from './video-card/hooks/useVideoCardPlayer';
 import { useRecyclingState } from '@shopify/flash-list';
 import type { VideoOverlayUIProps } from './VideoOverlayUI';
-import { getAnalytics, logSelectContent } from '@react-native-firebase/analytics';
 
 type Post = ExtendedPostView | ExtendedFeedViewPost;
 
@@ -369,9 +368,6 @@ function VideoCard({
     if (isVisible) {
       queueSeenInteractionOnce(INTERACTIONSEEN);
       seenVideoService.markAsSeen(postView.uri);
-      logSelectContent(getAnalytics(), { content_type: 'video', item_id: postView.uri }).catch(
-        () => {}
-      );
     }
   }, [isVisible, queueSeenInteractionOnce, postView.uri]);
 

@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { getAnalytics, logShare } from '@react-native-firebase/analytics';
 import { AtprotoFeedService } from '../services/api/feed/FeedService';
 import { setFeedPostToggle } from '../utils/query/postToggleCache';
 import {
@@ -44,13 +43,6 @@ export function useRepostMutation() {
     },
 
     onSuccess: (repostUri, { postUri, isReposted }) => {
-      if (!isReposted) {
-        logShare(getAnalytics(), {
-          content_type: 'video',
-          item_id: postUri,
-          method: 'repost',
-        }).catch(() => {});
-      }
       setFeedPostToggle(queryClient, postUri, 'repost', current =>
         confirmToggle(current, !isReposted, repostUri)
       );

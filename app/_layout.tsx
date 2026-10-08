@@ -31,8 +31,6 @@ import { AppState, type AppStateStatus } from 'react-native';
 import * as Network from 'expo-network';
 import { LocaleSync } from '@/i18n/LocaleSync';
 import * as Sentry from '@sentry/react-native';
-import '@react-native-firebase/app';
-import { getAnalytics, logScreenView } from '@react-native-firebase/analytics';
 import { useResponsiveTypography } from '@/utils/components/typography';
 
 const navigationIntegration = Sentry.reactNavigationIntegration({
@@ -241,21 +239,6 @@ export default Sentry.wrap(function RootLayout() {
   const navRef = useNavigationContainerRef();
   useEffect(() => {
     navigationIntegration.registerNavigationContainer(navRef);
-  }, [navRef]);
-
-  useEffect(() => {
-    return navRef.current?.addListener('state', () => {
-      const route = navRef.current?.getCurrentRoute() as { name?: string } | undefined;
-      if (route?.name) {
-        // Analytics must never break rendering (e.g. Firebase not configured in local dev builds)
-        try {
-          logScreenView(getAnalytics(), {
-            screen_name: route.name,
-            screen_class: route.name,
-          }).catch(() => {});
-        } catch {}
-      }
-    });
   }, [navRef]);
 
   useResponsiveTypography();
