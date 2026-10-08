@@ -16,7 +16,8 @@ export interface VideoItemProps {
   index?: number;
   isAppleZoomTarget?: boolean;
   onHashtagPress?: (hashtag: string) => void;
-  activeIndex?: number;
+  /** See VideoCard `activeDistance`. */
+  activeDistance?: number;
   canPlay?: boolean;
 }
 
@@ -30,7 +31,7 @@ function VideoItemComponent({
   index = 0,
   isAppleZoomTarget = false,
   onHashtagPress,
-  activeIndex,
+  activeDistance,
 }: VideoItemProps) {
   const embed = 'embed' in post ? (post.embed as PostView['embed']) : undefined;
   const videoView = getVideoView(embed);
@@ -51,7 +52,7 @@ function VideoItemComponent({
       isVisible={isVisible}
       canPlay={canPlay}
       index={index}
-      activeIndex={activeIndex}
+      activeDistance={activeDistance}
       onHashtagPress={onHashtagPress}
     />
   );

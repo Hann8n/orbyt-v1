@@ -1044,6 +1044,7 @@ function ChatEmbeddedPost({
           <View style={[styles.embedVideoThumbnailWrap, thumbnailStyle]}>
             <Image
               source={{ uri: thumbnailUrl }}
+              recyclingKey={thumbnailUrl}
               style={[styles.embedVideoThumbnail, thumbnailStyle]}
               contentFit="contain"
               cachePolicy="memory-disk"
@@ -1156,8 +1157,10 @@ function ChatEmbeddedPost({
                 >
                   <Image
                     source={{ uri: img.thumb || img.fullsize }}
+                    recyclingKey={img.thumb || img.fullsize}
                     style={StyleSheet.absoluteFill}
                     contentFit="cover"
+                    cachePolicy="memory-disk"
                     accessible
                     accessibilityLabel={img.alt || i18n.t('chat.embedImage')}
                   />

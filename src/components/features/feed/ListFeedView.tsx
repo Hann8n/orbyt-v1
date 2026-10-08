@@ -145,6 +145,13 @@ const getOverscrollHintLayoutStyle = (
   overscrollHintLayoutStyleCache.set(normalized, style);
   return style;
 };
+/**
+ * Distance from the active row, clamped so every row beyond VideoCard's preload window gets the
+ * same value: their memoized props stay equal and they skip re-rendering on each swipe.
+ */
+const ACTIVE_DISTANCE_FAR = 3;
+const getActiveDistance = (activeIndex: number, index: number): number =>
+  activeIndex < 0 ? -1 : Math.min(Math.abs(activeIndex - index), ACTIVE_DISTANCE_FAR);
 const MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED = { disabled: true } as const;
 const SAFE_AREA_BOTTOM_EDGES = { bottom: true } as const;
 
@@ -259,6 +266,13 @@ function ListFeedViewComponent({
 }: ListFeedViewProps & { ref?: Ref<ListFeedViewRef> }) {
   'use no memo';
   const resolvedViewMode = viewMode ?? 'list';
+
+  // The grid surface is a second FlashList that loads thumbnails; most feeds never switch to it,
+  // so mount it on first use (set during render so the switch shows no blank frame).
+  const [gridSurfaceMounted, setGridSurfaceMounted] = useState(resolvedViewMode === 'grid');
+  if (resolvedViewMode === 'grid' && !gridSurfaceMounted) {
+    setGridSurfaceMounted(true);
+  }
 
   const insets = useSafeAreaInsets();
 
@@ -474,7 +488,7 @@ function ListFeedViewComponent({
           index={index}
           isAppleZoomTarget={isAppleZoomTarget}
           onHashtagPress={xd.onHashtagPress}
-          activeIndex={xd.activeIndex}
+          activeDistance={getActiveDistance(xd.activeIndex, index)}
           canPlay={xd.canPlay}
         />
       );
@@ -823,7 +837,7 @@ function ListFeedViewComponent({
     <FeedSurfaceStack
       listActive={resolvedViewMode === 'list'}
       listSurface={listSurfaceNode}
-      gridSurface={gridSurfaceNode}
+      gridSurface={gridSurfaceMounted ? gridSurfaceNode : null}
     />
   );
 

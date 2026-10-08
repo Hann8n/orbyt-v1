@@ -15,6 +15,7 @@ import { QUERY_CONSTANTS } from '../utils/constants';
 import { queryKeys } from '../utils/query/queryKeys';
 import type { FeedResponse } from '../services/api/types';
 import ProfileService from '../services/data/ProfileService';
+import { warmOrbytProfileCache } from '../services/colors';
 import { useQueryClient } from '@tanstack/react-query';
 import type { InfiniteData } from '@tanstack/react-query';
 import { isValidAtUri } from '../utils/atproto/uriValidation';
@@ -142,6 +143,12 @@ export function useFeed(
       // Warm profile cache immediately for the new page's authors
       if (response.feed.length > 0) {
         void ProfileService.warmProfileCacheFromFeed(response.feed, queryClient);
+        // One batched colour lookup per page instead of one request per card as rows mount.
+        const authorDids = new Set<string>();
+        for (const item of response.feed) {
+          if (item.post?.author?.did) authorDids.add(item.post.author.did);
+        }
+        warmOrbytProfileCache([...authorDids], queryClient).catch(() => {});
       }
       return response;
     },

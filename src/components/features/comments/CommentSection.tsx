@@ -300,7 +300,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [t]
   );
 
-  const { currentUser } = useUserStore();
+  const currentUser = useUserStore(state => state.currentUser);
   const { data: currentUserProfile } = useProfileByDid(currentUser?.did ?? null);
   const queryClient = useQueryClient();
 
