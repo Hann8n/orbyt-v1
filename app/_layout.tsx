@@ -313,9 +313,16 @@ export default Sentry.wrap(function RootLayout() {
       focusManager.setFocused(status === 'active');
     };
 
+    const applyNetworkState = (state: Network.NetworkState) => {
+      onlineManager.setOnline(state.isConnected !== false && state.isInternetReachable !== false);
+    };
+
     const syncOnlineState = async () => {
-      const state = await Network.getNetworkStateAsync().catch(() => null);
-      onlineManager.setOnline(state?.isInternetReachable ?? true);
+      try {
+        applyNetworkState(await Network.getNetworkStateAsync());
+      } catch {
+        onlineManager.setOnline(true);
+      }
     };
 
     setFocusedFromAppState(AppState.currentState);
@@ -326,11 +333,15 @@ export default Sentry.wrap(function RootLayout() {
       }
     });
 
+    // Track connectivity while foregrounded too, so paused queries resume as soon as the network returns.
+    const networkSub = Network.addNetworkStateListener(applyNetworkState);
+
     // Set initial online state and let onlineManager handle pausing offline queries
     void syncOnlineState();
 
     teardown = () => {
       appStateSub.remove();
+      networkSub.remove();
       teardown = null;
     };
 

@@ -75,7 +75,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@atproto/common-web@npm:^0.4.18, @atproto/common-web@npm:^0.4.21":
+"@atproto/common-web@npm:^0.4.18, @atproto/common-web@npm:^0.4.19, @atproto/common-web@npm:^0.4.21":
   version: 0.4.21
   resolution: "@atproto/common-web@npm:0.4.21"
   dependencies:
@@ -12836,6 +12836,7 @@ __metadata:
   resolution: "orbyt-app@workspace:."
   dependencies:
     "@atproto/api": "npm:^0.19.18"
+    "@atproto/common-web": "npm:^0.4.19"
     "@atproto/lexicon": "npm:^0.6.2"
     "@atproto/syntax": "npm:^0.5.4"
     "@babel/core": "npm:^7.28.6"

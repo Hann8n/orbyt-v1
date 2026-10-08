@@ -374,7 +374,8 @@ class FeedService {
         feedOption,
         userDid,
       });
-      return { feed: [], cursor: null };
+      // Surface the failure so React Query retries and the feed shows its error state.
+      throw error;
     }
   }
 

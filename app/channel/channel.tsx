@@ -39,6 +39,16 @@ import { useQueryClient } from '@tanstack/react-query';
 
 type ChannelCategoryTab = 'top' | 'latest';
 
+/** Malformed deep links (e.g. a lone `%`) make decodeURIComponent throw during render. */
+const decodeChannelParam = (value: string): string => {
+  if (!value) return '';
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
 const Channel: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -46,7 +56,7 @@ const Channel: React.FC = () => {
   const queryClient = useQueryClient();
   const isRouteFocused = useVisibilityRouteIsActive('channel');
   const uriParam = (params.id as string) || '';
-  const uri = uriParam ? decodeURIComponent(uriParam) : '';
+  const uri = decodeChannelParam(uriParam);
 
   const [categoryTabState, setCategoryTabState] = useState<{
     uri: string;

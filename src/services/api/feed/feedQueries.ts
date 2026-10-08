@@ -162,12 +162,7 @@ export async function getFeed(
         ) {
           return { feed: [], cursor: null };
         }
-        logger.warn('getFeed: unexpected author feed error', {
-          component: 'feedQueries',
-          feedType,
-          error: authorError instanceof Error ? authorError.message : String(authorError),
-        });
-        return { feed: [], cursor: null };
+        throw authorError;
       }
     } else if (feedType === 'likes') {
       // Liked posts feed
@@ -187,11 +182,7 @@ export async function getFeed(
         ) {
           return { feed: [], cursor: null };
         }
-        logger.warn('getFeed: likes fetch error', {
-          component: 'feedQueries',
-          error: likesError instanceof Error ? likesError.message : String(likesError),
-        });
-        return { feed: [], cursor: null };
+        throw likesError;
       }
     } else {
       // Custom feed handling
@@ -223,13 +214,7 @@ export async function getFeed(
         ) {
           return { feed: [], cursor: null };
         }
-        logger.warn('getFeed: custom feed error', {
-          component: 'feedQueries',
-          feedLink,
-          error:
-            customFeedError instanceof Error ? customFeedError.message : String(customFeedError),
-        });
-        return { feed: [], cursor: null };
+        throw customFeedError;
       }
     }
 
@@ -269,11 +254,15 @@ export async function getFeed(
 
     return { feed: feedData, cursor: responseData.cursor ?? null };
   } catch (error: unknown) {
-    logger.warn('getFeed: unexpected error', {
+    // Rethrow so React Query can retry and show the error state. Returning an empty page here
+    // would cache "no videos" as a success and end infinite scroll (null cursor).
+    logger.warn('getFeed: request failed', {
       component: 'feedQueries',
+      feedType,
+      feedLink,
       error: error instanceof Error ? error.message : String(error),
     });
-    return { feed: [], cursor: null };
+    throw error;
   }
 }
 

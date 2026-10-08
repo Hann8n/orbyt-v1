@@ -26,31 +26,37 @@ async function waitForAgent(timeoutMs: number = 6000): Promise<Agent | null> {
   if (bridged) return bridged;
 
   const { useUserStore } = await import('../../stores/userStore');
-  const start = Date.now();
 
   return new Promise(resolve => {
+    let settled = false;
+    let unsubscribe: (() => void) | null = null;
+    // The store only notifies on change, so a stuck restore needs a timer to give up.
+    const timer = setTimeout(() => settle(getAtprotoBridge().agent), timeoutMs);
+
+    function settle(agent: Agent | null) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      unsubscribe?.();
+      resolve(agent);
+    }
+
     const checkAndResolve = (state = useUserStore.getState()) => {
       const fromBridge = getAtprotoBridge().agent;
       if (fromBridge) {
-        unsubscribe();
-        resolve(fromBridge);
+        settle(fromBridge);
         return;
       }
       if (state.agent) {
-        unsubscribe();
-        resolve(state.agent);
+        settle(state.agent);
         return;
       }
-
-      const elapsed = Date.now() - start;
-      const readyState = !state.isAuthenticating && !state.isSwitchingAccount;
-      if (readyState || elapsed >= timeoutMs) {
-        unsubscribe();
-        resolve(getAtprotoBridge().agent);
+      if (!state.isAuthenticating && !state.isSwitchingAccount) {
+        settle(getAtprotoBridge().agent);
       }
     };
 
-    const unsubscribe = useUserStore.subscribe(checkAndResolve);
+    unsubscribe = useUserStore.subscribe(checkAndResolve);
     checkAndResolve();
   });
 }

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { InfiniteData, QueryKey } from '@tanstack/react-query';
+import type { InfiniteData } from '@tanstack/react-query';
 import { getAnalytics, logShare } from '@react-native-firebase/analytics';
 import { AtprotoFeedService } from '../services/api/feed/FeedService';
 import { queryKeys } from '../utils/query/queryKeys';
@@ -14,15 +14,25 @@ export interface RepostVars {
   repostCount: number;
 }
 
-type FeedSnapshot = [QueryKey, InfiniteData<FeedResponse> | undefined];
+const OPTIMISTIC_REPOST_URI = 'optimistic';
 
 export function useRepostMutation() {
   const queryClient = useQueryClient();
 
-  return useMutation<string | undefined, Error, RepostVars, { snapshots: FeedSnapshot[] }>({
+  const setPostRepost = (postUri: string, repost: string | undefined, repostCount?: number) =>
+    queryClient.setQueriesData<InfiniteData<FeedResponse>>({ queryKey: queryKeys.feed.all }, old =>
+      patchFeedPost(old, postUri, post => ({
+        ...post,
+        ...(repostCount === undefined ? null : { repostCount }),
+        viewer: { ...post.viewer, repost },
+      }))
+    );
+
+  return useMutation<string | undefined, Error, RepostVars>({
     mutationFn: async ({ postUri, postCid, isReposted, repostUri }) => {
       if (!isReposted) return AtprotoFeedService.repostPost(postUri, postCid);
-      if (!repostUri) throw new Error('No repost URI');
+      // Another surface's repost is still in flight; there is no record to delete yet.
+      if (!repostUri || repostUri === OPTIMISTIC_REPOST_URI) throw new Error('No repost URI');
       await AtprotoFeedService.deleteRepost(repostUri);
       return undefined;
     },
@@ -31,19 +41,7 @@ export function useRepostMutation() {
       await queryClient.cancelQueries({ queryKey: queryKeys.feed.all });
       const newIsReposted = !isReposted;
       const newCount = newIsReposted ? repostCount + 1 : Math.max(0, repostCount - 1);
-      const snapshots = queryClient.getQueriesData<InfiniteData<FeedResponse>>({
-        queryKey: queryKeys.feed.all,
-      }) as FeedSnapshot[];
-      queryClient.setQueriesData<InfiniteData<FeedResponse>>(
-        { queryKey: queryKeys.feed.all },
-        old =>
-          patchFeedPost(old, postUri, post => ({
-            ...post,
-            repostCount: newCount,
-            viewer: { ...post.viewer, repost: newIsReposted ? 'optimistic' : undefined },
-          }))
-      );
-      return { snapshots };
+      setPostRepost(postUri, newIsReposted ? OPTIMISTIC_REPOST_URI : undefined, newCount);
     },
 
     onSuccess: (repostUri, { postUri, isReposted }) => {
@@ -55,18 +53,12 @@ export function useRepostMutation() {
           method: 'repost',
         }).catch(() => {});
       }
-      queryClient.setQueriesData<InfiniteData<FeedResponse>>(
-        { queryKey: queryKeys.feed.all },
-        old =>
-          patchFeedPost(old, postUri, post => ({
-            ...post,
-            viewer: { ...post.viewer, repost: newIsReposted ? repostUri : undefined },
-          }))
-      );
+      setPostRepost(postUri, newIsReposted ? repostUri : undefined);
     },
 
-    onError: (_, __, context) => {
-      for (const [key, data] of context?.snapshots ?? []) queryClient.setQueryData(key, data);
+    // Roll back only this post; restoring whole-cache snapshots would undo concurrent mutations.
+    onError: (_, { postUri, isReposted, repostUri, repostCount }) => {
+      setPostRepost(postUri, isReposted ? repostUri : undefined, repostCount);
     },
   });
 }

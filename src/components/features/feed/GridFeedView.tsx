@@ -84,7 +84,7 @@ const VideoGridItem: React.FC<{
           style={styles.thumbnail}
           contentFit="contain"
           recyclingKey={recyclingKey}
-          cachePolicy="disk"
+          cachePolicy="memory-disk"
           transition={200}
         />
       )}

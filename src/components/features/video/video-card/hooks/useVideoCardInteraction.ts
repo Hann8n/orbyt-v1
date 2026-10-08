@@ -25,9 +25,9 @@ export interface UseVideoCardInteractionResult {
   display: VideoCardInteractionDisplay;
   isLikePending: boolean;
   isRepostPending: boolean;
-  handleLike: () => Promise<void>;
-  handleLikeOnly: () => Promise<void>;
-  handleRepost: () => Promise<void>;
+  handleLike: () => void;
+  handleLikeOnly: () => void;
+  handleRepost: () => void;
 }
 
 export function useVideoCardInteraction({
@@ -66,11 +66,11 @@ export function useVideoCardInteraction({
     pendingRef.current.isRepostPending = repostMutation.isPending;
   }, [display, likeMutation.isPending, repostMutation.isPending]);
 
-  const handleLike = useCallback(async () => {
+  const handleLike = useCallback(() => {
     if (likeMutation.isPending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { isLiked, likeUri, likeCount } = displayRef.current;
-    await likeMutation.mutateAsync({
+    likeMutation.mutate({
       postUri: postView.uri,
       postCid: postView.cid,
       isLiked,
@@ -79,11 +79,11 @@ export function useVideoCardInteraction({
     });
   }, [likeMutation, postView.uri, postView.cid]);
 
-  const handleLikeOnly = useCallback(async () => {
+  const handleLikeOnly = useCallback(() => {
     if (displayRef.current.isLiked || likeMutation.isPending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { likeUri, likeCount } = displayRef.current;
-    await likeMutation.mutateAsync({
+    likeMutation.mutate({
       postUri: postView.uri,
       postCid: postView.cid,
       isLiked: false,
@@ -92,11 +92,11 @@ export function useVideoCardInteraction({
     });
   }, [likeMutation, postView.uri, postView.cid]);
 
-  const handleRepost = useCallback(async () => {
+  const handleRepost = useCallback(() => {
     if (repostMutation.isPending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { isReposted, repostUri, repostCount } = displayRef.current;
-    await repostMutation.mutateAsync({
+    repostMutation.mutate({
       postUri: postView.uri,
       postCid: postView.cid,
       isReposted,

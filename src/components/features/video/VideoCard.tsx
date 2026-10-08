@@ -50,25 +50,22 @@ type Post = ExtendedPostView | ExtendedFeedViewPost;
 const MIN_SCRUBBER_DURATION_SECONDS = 7;
 const cardHeightStyleCache = new Map<number, { height: number }>();
 
-const getDistanceFromActive = (activeIndex: number | undefined, currentIndex: number): number =>
-  activeIndex !== undefined ? Math.abs(activeIndex - currentIndex) : Infinity;
-
-const getIsVisible = (
-  activeIndex: number | undefined,
-  currentIndex: number,
-  isVisibleProp: boolean
-): boolean =>
-  activeIndex !== undefined ? activeIndex === currentIndex && isVisibleProp : isVisibleProp;
+const getIsVisible = (activeDistance: number | undefined, isVisibleProp: boolean): boolean =>
+  activeDistance !== undefined ? activeDistance === 0 && isVisibleProp : isVisibleProp;
 
 const getRenderHeavyChrome = (
-  activeIndex: number | undefined,
-  distanceFromActive: number,
+  activeDistance: number | undefined,
   defaultValue: boolean
 ): boolean =>
-  activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 1 : defaultValue;
+  activeDistance !== undefined ? activeDistance >= 0 && activeDistance <= 1 : defaultValue;
 
-const getHoldSource = (activeIndex: number | undefined, distanceFromActive: number): boolean =>
-  activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 2 : true;
+/**
+ * Keep video sources loaded for the active row and its near neighbours so swipes start
+ * instantly, but only while the list can play: hidden lists (other pager pages, grid mode,
+ * covered screens, background) hold just the active row so they don't compete for decoders.
+ */
+const getHoldSource = (activeDistance: number | undefined, canPlay: boolean): boolean =>
+  activeDistance !== undefined ? activeDistance >= 0 && activeDistance <= (canPlay ? 2 : 0) : true;
 
 const getCardHeightStyle = (cardHeight: number): { height: number } => {
   const normalized = Math.max(0, Math.round(cardHeight));
@@ -105,8 +102,11 @@ export interface VideoCardProps {
   index?: number;
   onHashtagPress?: (hashtag: string) => void;
   ref?: Ref<VideoCardRef>;
-  /** Active index in the list for computing relative visibility */
-  activeIndex?: number;
+  /**
+   * Rows between this card and the list's active row, clamped by the list (-1: no active row).
+   * Omitted for standalone cards. A clamped distance keeps far rows' props stable across swipes.
+   */
+  activeDistance?: number;
 }
 
 function VideoCard({
@@ -120,7 +120,7 @@ function VideoCard({
   showOverlay = true,
   feedOption,
   index,
-  activeIndex,
+  activeDistance,
   onHashtagPress,
   ref,
 }: VideoCardProps) {
@@ -141,14 +141,9 @@ function VideoCard({
   const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
 
   const idx = index ?? 0;
-  const distanceFromActive = getDistanceFromActive(activeIndex, idx);
-  const isVisible = getIsVisible(activeIndex, idx, isVisibleProp);
-  const renderHeavyChrome = getRenderHeavyChrome(
-    activeIndex,
-    distanceFromActive,
-    renderHeavyChromeProp
-  );
-  const holdSource = getHoldSource(activeIndex, distanceFromActive);
+  const isVisible = getIsVisible(activeDistance, isVisibleProp);
+  const renderHeavyChrome = getRenderHeavyChrome(activeDistance, renderHeavyChromeProp);
+  const holdSource = getHoldSource(activeDistance, canPlay);
 
   const { height: windowHeight } = useWindowDimensions();
   const cardHeight = height ?? windowHeight;
