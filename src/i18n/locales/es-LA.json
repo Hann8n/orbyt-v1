@@ -309,6 +309,7 @@
     "checkConnection": "Verifica tu conexión e inténtalo de nuevo",
     "noPeopleFound": "No se encontraron personas",
     "noFeedsFound": "No se encontraron feeds",
+    "noChannelsFound": "No se encontraron canales",
     "noRecentVisits": "Sin visitas recientes",
     "spotlight": "destacados",
     "searchPlaceholder": "buscar",

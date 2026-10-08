@@ -8,7 +8,7 @@
  * and the synchronous lookups the UI uses against both. Whether a URI is a
  * Community never depends on these caches: see `isCommunityUri`.
  */
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { queryOptions, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import { queryKeys } from '@/utils/query/queryKeys';
 import { queryClient } from '@/utils/query/queryClient';
@@ -17,6 +17,7 @@ import {
   isCommunityAvailable,
   isCommunityUri,
   listCommunities,
+  searchCommunities,
   type CommunityView,
 } from './orbyt/communities';
 
@@ -64,6 +65,27 @@ export function useCommunity(uri: string | null | undefined) {
   return useQuery({
     ...communityQueryOptions(uri ?? ''),
     enabled: !!uri && isCommunityUri(uri),
+  });
+}
+
+/**
+ * Communities matching `query`, paged. Each result is cached as that Community
+ * so its screen and label open without another request.
+ */
+export function useCommunitySearch(query: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.channels.search(query),
+    queryFn: async ({ pageParam, signal }) => {
+      const page = await searchCommunities(query, { cursor: pageParam, signal });
+      for (const community of page.communities) {
+        queryClient.setQueryData(queryKeys.channels.community(community.uri), community);
+      }
+      return page;
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: lastPage => lastPage.cursor,
+    enabled: query.trim().length > 0,
+    staleTime: 30 * 1000,
   });
 }
 

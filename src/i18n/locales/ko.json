@@ -309,6 +309,7 @@
     "checkConnection": "연결을 확인하고 다시 시도해 주세요",
     "noPeopleFound": "사람을 찾을 수 없어요",
     "noFeedsFound": "피드를 찾을 수 없어요",
+    "noChannelsFound": "채널을 찾을 수 없어요",
     "noRecentVisits": "최근 방문 없음",
     "spotlight": "스포트라이트",
     "searchPlaceholder": "검색",

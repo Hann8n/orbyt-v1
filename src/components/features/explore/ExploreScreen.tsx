@@ -39,7 +39,7 @@ import { useHeaders, type Header } from '@/services/OrbytBannerService';
 import { useFeed } from '@/hooks/useFeed';
 import { useUserStore } from '@/stores/userStore';
 import type { ExtendedFeedViewPost } from '@/services/api/types';
-import { useOrbytChannels } from '@/services/OrbytChannelsService';
+import { useCommunitySearch, useOrbytChannels } from '@/services/OrbytChannelsService';
 import { useVisitHistory } from '@/hooks/useVisitHistory';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
@@ -51,7 +51,7 @@ import {
   type Profile,
 } from './types';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
-import type { CachedChannel } from '@/services/data/ChannelService';
+import { communityToChannel, type CachedChannel } from '@/services/data/ChannelService';
 import { prefetchProfileThenOpen } from './prefetchProfileThenOpen';
 import { exploreScreenStyles as styles } from './ExploreScreenStyles';
 import { SearchFeedRenderer, ExploreSuggestionsProfileRow } from './ExploreSearchResults';
@@ -162,7 +162,19 @@ const ExploreScreen: React.FC = () => {
     refetchOnMount: false,
   });
 
-  const { profiles: searchProfiles, channels: searchChannels } = useMemo(() => {
+  const {
+    data: communitySearch,
+    isLoading: isCommunitySearchLoading,
+    hasNextPage: hasMoreCommunities,
+    isFetchingNextPage: isFetchingMoreCommunities,
+    fetchNextPage: fetchMoreCommunities,
+  } = useCommunitySearch(debouncedQuery);
+  const searchCommunities = useMemo(
+    () => communitySearch?.pages.flatMap(page => page.communities.map(communityToChannel)) ?? [],
+    [communitySearch]
+  );
+
+  const { profiles: searchProfiles, channels: searchFeeds } = useMemo(() => {
     if (!searchFeedOption || !searchFeed.length) {
       return { profiles: [], channels: [] };
     }
@@ -192,7 +204,7 @@ const ExploreScreen: React.FC = () => {
     if (debouncedQuery.length === 0) {
       return ['recently-visited'];
     }
-    return ['profiles', 'channels'];
+    return ['profiles', 'channels', 'feeds'];
   }, [debouncedQuery.length]);
 
   useEffect(() => {
@@ -212,7 +224,9 @@ const ExploreScreen: React.FC = () => {
             ? t('feed.recentlyVisited')
             : tabId === 'profiles'
               ? t('feed.people')
-              : t('feed.feeds'),
+              : tabId === 'channels'
+                ? t('feed.channels')
+                : t('feed.feeds'),
       })),
     [pages, t]
   );
@@ -324,8 +338,10 @@ const ExploreScreen: React.FC = () => {
       <SearchFeedRenderer
         feedOption={tabId}
         profiles={searchProfiles}
-        channels={searchChannels}
+        communities={searchCommunities}
+        feeds={searchFeeds}
         isLoading={isSearchLoading}
+        isCommunitiesLoading={isCommunitySearchLoading}
         onProfilePress={handleProfileNavigation}
         onChannelPress={handleChannelNavigation}
         onFollow={handleFollow}
@@ -335,12 +351,20 @@ const ExploreScreen: React.FC = () => {
         hasNextPage={hasSearchNextPage}
         isFetchingNextPage={isSearchFetchingNextPage}
         fetchNextPage={fetchSearchNextPage}
+        hasMoreCommunities={hasMoreCommunities}
+        isFetchingMoreCommunities={isFetchingMoreCommunities}
+        fetchMoreCommunities={fetchMoreCommunities}
       />
     ),
     [
       searchProfiles,
-      searchChannels,
+      searchCommunities,
+      searchFeeds,
       isSearchLoading,
+      isCommunitySearchLoading,
+      hasMoreCommunities,
+      isFetchingMoreCommunities,
+      fetchMoreCommunities,
       handleProfileNavigation,
       handleChannelNavigation,
       handleFollow,

@@ -122,19 +122,33 @@ const ProfilesFeedRenderer = ({
 };
 ProfilesFeedRenderer.displayName = 'ProfilesFeedRenderer';
 
+/** Community and feed results: the same rows, each opening its channel screen. */
 const ChannelsFeedRenderer = ({
   channels,
   isLoading,
   onChannelPress,
   bottomPadding = 0,
+  emptyText,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
 }: {
   channels: CachedChannel[];
   isLoading?: boolean;
   onChannelPress?: (channel: CachedChannel) => void;
   bottomPadding?: number;
+  emptyText: string;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  fetchNextPage?: () => void;
 }) => {
-  const { t } = useTranslation();
   const { navigateToChannel: goToChannel } = useProfileChannelNavigation();
+
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage && fetchNextPage) {
+      fetchNextPage();
+    }
+  };
 
   if (isLoading) {
     return (
@@ -178,9 +192,11 @@ const ChannelsFeedRenderer = ({
       }
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
+      onEndReached={handleLoadMore}
+      onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
       ListEmptyComponent={() => (
         <View style={styles.emptyTabContent}>
-          <Text style={styles.emptyTabText}>{t('feed.noFeedsFound')}</Text>
+          <Text style={styles.emptyTabText}>{emptyText}</Text>
         </View>
       )}
     />
@@ -266,8 +282,10 @@ RecentlyVisitedFeedRenderer.displayName = 'RecentlyVisitedFeedRenderer';
 export const SearchFeedRenderer = ({
   feedOption,
   profiles,
-  channels,
+  communities,
+  feeds,
   isLoading,
+  isCommunitiesLoading,
   onProfilePress,
   onChannelPress,
   onFollow,
@@ -277,11 +295,18 @@ export const SearchFeedRenderer = ({
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
+  hasMoreCommunities,
+  isFetchingMoreCommunities,
+  fetchMoreCommunities,
 }: {
   feedOption: ExploreSearchTabId;
   profiles: ProfileViewWithOrbyt[];
-  channels: CachedChannel[];
+  /** Orbyt Communities matching the search. */
+  communities: CachedChannel[];
+  /** Bluesky feed generators matching the search. */
+  feeds: CachedChannel[];
   isLoading?: boolean;
+  isCommunitiesLoading?: boolean;
   onProfilePress?: (profile: ProfileViewWithOrbyt) => void;
   onChannelPress?: (channel: CachedChannel) => void;
   onFollow?: (profile: ProfileViewWithOrbyt) => void;
@@ -291,7 +316,11 @@ export const SearchFeedRenderer = ({
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
   fetchNextPage?: () => void;
+  hasMoreCommunities?: boolean;
+  isFetchingMoreCommunities?: boolean;
+  fetchMoreCommunities?: () => void;
 }) => {
+  const { t } = useTranslation();
   switch (feedOption) {
     case 'recently-visited':
       return (
@@ -319,10 +348,24 @@ export const SearchFeedRenderer = ({
     case 'channels':
       return (
         <ChannelsFeedRenderer
-          channels={channels}
+          channels={communities}
+          isLoading={isCommunitiesLoading}
+          onChannelPress={onChannelPress}
+          bottomPadding={bottomPadding}
+          emptyText={t('feed.noChannelsFound')}
+          hasNextPage={hasMoreCommunities}
+          isFetchingNextPage={isFetchingMoreCommunities}
+          fetchNextPage={fetchMoreCommunities}
+        />
+      );
+    case 'feeds':
+      return (
+        <ChannelsFeedRenderer
+          channels={feeds}
           isLoading={isLoading}
           onChannelPress={onChannelPress}
           bottomPadding={bottomPadding}
+          emptyText={t('feed.noFeedsFound')}
         />
       );
     default: {

@@ -74,9 +74,7 @@ class ChannelService {
       // The directory entry when cached; otherwise `getCommunity`, so Communities
       // beyond the cached pages open too.
       try {
-        return this.createOrbytChannelCache(
-          await queryClient.fetchQuery(communityQueryOptions(uri))
-        );
+        return communityToChannel(await queryClient.fetchQuery(communityQueryOptions(uri)));
       } catch {
         return null;
       }
@@ -132,29 +130,30 @@ class ChannelService {
       return null;
     }
   }
+}
 
-  private static createOrbytChannelCache(community: CommunityView): CachedChannel {
-    return {
-      uri: community.uri,
-      cid: community.cid,
-      did: community.ownerDid,
-      creator: undefined,
-      displayName: community.name,
-      description: community.description || '',
-      avatar: community.avatar || community.avatarFallback,
-      likeCount: 0,
-      subscriberCount: community.memberCount ?? 0,
-      indexedAt: community.updatedAt || community.createdAt,
-      isOrbytChannel: true,
-      channelColors: {
-        backgroundColor: Colors.black,
-        foregroundColor: '#FFFFFF',
-        accentColor: community.accentColor || Colors.black,
-        statusBarStyle: 'light' as const,
-      },
-      lastUpdated: Date.now(),
-    };
-  }
+/** An Orbyt Community in the channel shape the channel screen and result rows render. */
+export function communityToChannel(community: CommunityView): CachedChannel {
+  return {
+    uri: community.uri,
+    cid: community.cid,
+    did: community.ownerDid,
+    creator: undefined,
+    displayName: community.name,
+    description: community.description || '',
+    avatar: community.avatar || community.avatarFallback,
+    likeCount: 0,
+    subscriberCount: community.memberCount ?? 0,
+    indexedAt: community.updatedAt || community.createdAt,
+    isOrbytChannel: true,
+    channelColors: {
+      backgroundColor: Colors.black,
+      foregroundColor: '#FFFFFF',
+      accentColor: community.accentColor || Colors.black,
+      statusBarStyle: 'light' as const,
+    },
+    lastUpdated: Date.now(),
+  };
 }
 
 export function useChannel(uri: string | null | undefined): UseQueryResult<CachedChannel | null> {
