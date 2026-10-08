@@ -2,7 +2,7 @@ import '@/i18n';
 import React, { useEffect } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Stack, useNavigationContainerRef } from 'expo-router';
+import { Stack } from 'expo-router';
 import { DarkTheme, ThemeProvider } from 'expo-router/react-navigation';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -30,50 +30,7 @@ import { focusManager, onlineManager } from '@tanstack/react-query';
 import { AppState, type AppStateStatus } from 'react-native';
 import * as Network from 'expo-network';
 import { LocaleSync } from '@/i18n/LocaleSync';
-import * as Sentry from '@sentry/react-native';
 import { useResponsiveTypography } from '@/utils/components/typography';
-
-const navigationIntegration = Sentry.reactNavigationIntegration({
-  enableTimeToInitialDisplay: true,
-});
-
-Sentry.init({
-  dsn: 'https://f2e61d33071557e11913fd3407ba7421@o4510432459096064.ingest.us.sentry.io/4510432460537856',
-
-  sendDefaultPii: true,
-  enableLogs: true,
-  tracesSampleRate: 1.0,
-  enableUserInteractionTracing: true,
-
-  profilesSampleRate: 1.0,
-  _experiments: {
-    androidProfilingOptions: {
-      profileSessionSampleRate: 1.0,
-      lifecycle: 'trace',
-      startOnAppStart: true,
-    },
-  },
-
-  replaysSessionSampleRate: 0.1,
-  replaysOnErrorSampleRate: 1.0,
-
-  attachViewHierarchy: true,
-
-  integrations: [
-    navigationIntegration,
-    Sentry.mobileReplayIntegration({
-      maskAllText: true,
-      maskAllImages: true,
-    }),
-    Sentry.feedbackIntegration({
-      colorScheme: 'system',
-      enableTakeScreenshot: true,
-    }),
-  ],
-
-  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-  // spotlight: __DEV__,
-});
 
 const LazyShareSheet = React.lazy(async () => ({
   default: (await import('@/components/ui/share-sheet')).ShareSheet,
@@ -235,12 +192,7 @@ function RootNavigator() {
 // Catches render errors above QueryErrorBoundary (providers, locale, layout) instead of crashing.
 export { ErrorBoundary } from 'expo-router';
 
-export default Sentry.wrap(function RootLayout() {
-  const navRef = useNavigationContainerRef();
-  useEffect(() => {
-    navigationIntegration.registerNavigationContainer(navRef);
-  }, [navRef]);
-
+export default function RootLayout() {
   useResponsiveTypography();
 
   const isAuthenticated = useUserStore(selectIsSessionValid);
@@ -372,7 +324,7 @@ export default Sentry.wrap(function RootLayout() {
       </AppProviders>
     </ThemeProvider>
   );
-});
+}
 
 const styles = StyleSheet.create({
   rootView: {
