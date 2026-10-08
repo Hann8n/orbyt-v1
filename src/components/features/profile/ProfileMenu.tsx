@@ -26,7 +26,6 @@ interface ProfileMenuProps {
   isOwnProfile?: boolean;
   onLogout?: (clearAllAccounts?: boolean) => Promise<void>;
   onSwitchAccount?: () => void;
-  /** Whether the viewer follows this profile (for allowIncoming 'following' check) */
 }
 
 const ProfileMenu: React.FC<ProfileMenuProps> = ({
@@ -35,7 +34,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   handle,
   did,
   isOwnProfile = false,
-
   onLogout,
   onSwitchAccount,
 }) => {

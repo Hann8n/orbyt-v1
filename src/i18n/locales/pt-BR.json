@@ -142,12 +142,7 @@
     "noOrbytNotifications": "nada para abrir no Orbyt nesta página ainda",
     "filterOptions": "opções de filtro",
     "clear": "limpar",
-    "mutedConversation": "Conversa silenciada",
-    "youSentLast": "Você enviou a última mensagem",
     "showNotificationsFor": "Mostrar notificações de",
-    "everyone": "Todos",
-    "peopleYouFollow": "Pessoas que você segue",
-    "noOne": "Ninguém",
     "cantLoadNotifications": "Não foi possível carregar as notificações"
   },
   "channel": {
@@ -183,10 +178,6 @@
     "back": "Voltar",
     "edit": "Editar",
     "now": "agora",
-    "accept": "Aceitar",
-    "accepting": "Aceitando…",
-    "decline": "Recusar",
-    "declining": "Recusando…",
     "or": "ou",
     "discard": "Descartar",
     "cancel": "Cancelar",
@@ -228,7 +219,6 @@
     "contactSupportLink": "Contatar suporte",
     "networkConnection": "Erro de conexão. Verifique sua internet.",
     "authentication": "Erro de autenticação. Faça login novamente.",
-    "failedTryAgain": "Falhou. Tente novamente.",
     "cannotOpenPost": "Não é possível abrir a postagem",
     "cannotOpenList": "Não é possível abrir a lista",
     "unableToOpenPost": "Não é possível abrir esta postagem. Verifique sua conexão.",
@@ -647,7 +637,6 @@
     "checkOutPost": "veja esta postagem no Bluesky",
     "checkOutHandle": "veja @{{handle}} no Bluesky",
     "share": "Compartilhar",
-    "send": "Enviar",
     "save": "Salvar",
     "saved": "Salvo",
     "delete": "Excluir",
@@ -667,10 +656,7 @@
   },
   "a11y": {
     "back": "Voltar",
-    "betaTester": "Beta tester",
-    "viewProfile": "Ver perfil",
-    "mutedConversation": "Conversa silenciada",
-    "youSentLast": "Você enviou a última mensagem"
+    "betaTester": "Beta tester"
   },
   "editProfile": {
     "name": "Nome",

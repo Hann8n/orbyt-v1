@@ -142,12 +142,7 @@
     "noOrbytNotifications": "このページにOrbytで開ける通知はまだありません",
     "filterOptions": "フィルターオプション",
     "clear": "クリア",
-    "mutedConversation": "ミュートされた会話",
-    "youSentLast": "最後に送信したメッセージ",
     "showNotificationsFor": "通知を表示",
-    "everyone": "すべての人",
-    "peopleYouFollow": "フォローしている人",
-    "noOne": "誰も",
     "cantLoadNotifications": "通知を読み込めません"
   },
   "channel": {
@@ -201,10 +196,6 @@
     "goBack": "戻る",
     "back": "戻る",
     "now": "今",
-    "accept": "受け入れる",
-    "accepting": "受け入れ中…",
-    "decline": "辞退",
-    "declining": "辞退中…",
     "add": "追加",
     "copy": "コピー"
   },
@@ -227,7 +218,6 @@
     "contactSupportLink": "サポートに連絡",
     "networkConnection": "ネットワーク接続エラー。インターネット接続を確認してください。",
     "authentication": "認証エラー。再度ログインしてください。",
-    "failedTryAgain": "失敗しました。もう一度お試しください。",
     "cannotOpenPost": "投稿を開けません",
     "cannotOpenList": "リストを開けません",
     "unableToOpenPost": "この投稿を開けません。インターネット接続を確認してください。",
@@ -647,7 +637,6 @@
     "checkOutPost": "Blueskyでこの投稿をチェック",
     "checkOutHandle": "Blueskyで@{{handle}}をチェック",
     "share": "共有",
-    "send": "送信",
     "save": "保存",
     "saved": "保存しました",
     "delete": "削除",
@@ -656,10 +645,7 @@
   },
   "a11y": {
     "back": "戻る",
-    "betaTester": "ベータテスター",
-    "viewProfile": "プロフィールを表示",
-    "mutedConversation": "ミュートされた会話",
-    "youSentLast": "最後に送信したメッセージ"
+    "betaTester": "ベータテスター"
   },
   "tabs": {
     "home": "ホーム",

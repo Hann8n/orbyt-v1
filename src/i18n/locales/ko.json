@@ -142,12 +142,7 @@
     "noOrbytNotifications": "이 페이지에서 Orbyt로 열 수 있는 알림이 아직 없습니다",
     "filterOptions": "필터",
     "clear": "지우기",
-    "mutedConversation": "뮤트된 대화",
-    "youSentLast": "마지막 메시지를 보냄",
     "showNotificationsFor": "알림 표시 대상",
-    "everyone": "모든 사람",
-    "peopleYouFollow": "팔로우하는 사람",
-    "noOne": "아무도",
     "cantLoadNotifications": "알림을 불러올 수 없어요"
   },
   "channel": {
@@ -183,10 +178,6 @@
     "back": "뒤로",
     "edit": "편집",
     "now": "지금",
-    "accept": "수락",
-    "accepting": "수락 중…",
-    "decline": "거절",
-    "declining": "거절 중…",
     "or": "또는",
     "discard": "취소",
     "cancel": "취소",
@@ -228,7 +219,6 @@
     "contactSupportLink": "지원 문의",
     "networkConnection": "연결 오류. 인터넷 연결을 확인해 주세요.",
     "authentication": "인증 오류. 다시 로그인해 주세요.",
-    "failedTryAgain": "실패. 다시 시도해 주세요.",
     "cannotOpenPost": "게시물을 열 수 없어요",
     "cannotOpenList": "목록을 열 수 없어요",
     "unableToOpenPost": "게시물을 열 수 없어요. 연결을 확인해 주세요.",
@@ -647,7 +637,6 @@
     "checkOutPost": "Bluesky에서 이 게시물 보기",
     "checkOutHandle": "Bluesky에서 @{{handle}} 둘러보기",
     "share": "공유",
-    "send": "보내기",
     "save": "저장",
     "saved": "저장됨",
     "delete": "삭제",
@@ -667,10 +656,7 @@
   },
   "a11y": {
     "back": "뒤로",
-    "betaTester": "베타 테스터",
-    "viewProfile": "프로필 보기",
-    "mutedConversation": "뮤트된 대화",
-    "youSentLast": "마지막 메시지를 보냄"
+    "betaTester": "베타 테스터"
   },
   "editProfile": {
     "name": "이름",

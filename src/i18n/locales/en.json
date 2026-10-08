@@ -142,12 +142,7 @@
     "noOrbytNotifications": "nothing you can open in Orbyt on this page yet",
     "filterOptions": "filter options",
     "clear": "clear",
-    "mutedConversation": "Muted conversation",
-    "youSentLast": "You sent the last message",
     "showNotificationsFor": "Show notifications for",
-    "everyone": "Everyone",
-    "peopleYouFollow": "People you follow",
-    "noOne": "No one",
     "cantLoadNotifications": "Can't load notifications"
   },
   "channel": {
@@ -183,10 +178,6 @@
     "add": "Add",
     "edit": "Edit",
     "now": "now",
-    "accept": "Accept",
-    "accepting": "Accepting…",
-    "decline": "Decline",
-    "declining": "Declining…",
     "or": "or",
     "discard": "Discard",
     "cancel": "Cancel",
@@ -228,7 +219,6 @@
     "contactSupportLink": "Contact support",
     "networkConnection": "Network connection error. Please check your internet connection.",
     "authentication": "Authentication error. Please log in again.",
-    "failedTryAgain": "Failed. Please try again.",
     "cannotOpenPost": "Cannot Open Post",
     "cannotOpenList": "Cannot Open List",
     "unableToOpenPost": "Unable to open this post. Please check your internet connection.",
@@ -647,7 +637,6 @@
     "checkOutPost": "check out this post on bluesky",
     "checkOutHandle": "check out @{{handle}} on bluesky",
     "share": "Share",
-    "send": "Send",
     "save": "Save",
     "saved": "Saved",
     "delete": "Delete",
@@ -667,10 +656,7 @@
   },
   "a11y": {
     "back": "Back",
-    "betaTester": "Beta tester",
-    "viewProfile": "View profile",
-    "mutedConversation": "Muted conversation",
-    "youSentLast": "You sent the last message"
+    "betaTester": "Beta tester"
   },
   "editProfile": {
     "name": "Name",
