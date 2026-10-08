@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { InfiniteData, QueryKey } from '@tanstack/react-query';
+import type { InfiniteData } from '@tanstack/react-query';
 import { getAnalytics, logEvent } from '@react-native-firebase/analytics';
 import { AtprotoFeedService } from '../services/api/feed/FeedService';
 import { queryKeys } from '../utils/query/queryKeys';
@@ -30,15 +30,25 @@ export interface LikeVars {
   likeCount: number;
 }
 
-type FeedSnapshot = [QueryKey, InfiniteData<FeedResponse> | undefined];
+const OPTIMISTIC_LIKE_URI = 'optimistic';
 
 export function useLikeMutation() {
   const queryClient = useQueryClient();
 
-  return useMutation<string | undefined, Error, LikeVars, { snapshots: FeedSnapshot[] }>({
+  const setPostLike = (postUri: string, like: string | undefined, likeCount?: number) =>
+    queryClient.setQueriesData<InfiniteData<FeedResponse>>({ queryKey: queryKeys.feed.all }, old =>
+      patchFeedPost(old, postUri, post => ({
+        ...post,
+        ...(likeCount === undefined ? null : { likeCount }),
+        viewer: { ...post.viewer, like },
+      }))
+    );
+
+  return useMutation<string | undefined, Error, LikeVars>({
     mutationFn: async ({ postUri, postCid, isLiked, likeUri }) => {
       if (!isLiked) return AtprotoFeedService.likePost(postUri, postCid);
-      if (!likeUri) throw new Error('No like URI');
+      // Another surface's like is still in flight; there is no record to delete yet.
+      if (!likeUri || likeUri === OPTIMISTIC_LIKE_URI) throw new Error('No like URI');
       await AtprotoFeedService.deleteLike(likeUri);
       return undefined;
     },
@@ -46,19 +56,7 @@ export function useLikeMutation() {
     onMutate: ({ postUri, isLiked, likeCount }) => {
       const newIsLiked = !isLiked;
       const newCount = newIsLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
-      const snapshots = queryClient.getQueriesData<InfiniteData<FeedResponse>>({
-        queryKey: queryKeys.feed.all,
-      }) as FeedSnapshot[];
-      queryClient.setQueriesData<InfiniteData<FeedResponse>>(
-        { queryKey: queryKeys.feed.all },
-        old =>
-          patchFeedPost(old, postUri, post => ({
-            ...post,
-            likeCount: newCount,
-            viewer: { ...post.viewer, like: newIsLiked ? 'optimistic' : undefined },
-          }))
-      );
-      return { snapshots };
+      setPostLike(postUri, newIsLiked ? OPTIMISTIC_LIKE_URI : undefined, newCount);
     },
 
     onSuccess: (likeUri, { postUri, isLiked }) => {
@@ -68,18 +66,12 @@ export function useLikeMutation() {
           () => {}
         );
       }
-      queryClient.setQueriesData<InfiniteData<FeedResponse>>(
-        { queryKey: queryKeys.feed.all },
-        old =>
-          patchFeedPost(old, postUri, post => ({
-            ...post,
-            viewer: { ...post.viewer, like: newIsLiked ? likeUri : undefined },
-          }))
-      );
+      setPostLike(postUri, newIsLiked ? likeUri : undefined);
     },
 
-    onError: (_, __, context) => {
-      for (const [key, data] of context?.snapshots ?? []) queryClient.setQueryData(key, data);
+    // Roll back only this post; restoring whole-cache snapshots would undo concurrent mutations.
+    onError: (_, { postUri, isLiked, likeUri, likeCount }) => {
+      setPostLike(postUri, isLiked ? likeUri : undefined, likeCount);
     },
   });
 }

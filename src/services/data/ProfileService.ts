@@ -59,7 +59,7 @@ class ProfileService {
     if (!did || !isValidDid(did)) return null;
     const profile = await ActorService.getProfileByDid(did);
     if (!profile) throw new Error('Failed to fetch profile by DID');
-    void warmOrbytProfileCache([did], globalQueryClient);
+    warmOrbytProfileCache([did], globalQueryClient).catch(() => {});
     const orbytRecord =
       globalQueryClient.getQueryData<OrbytProfileRecord>(queryKeys.orbytProfile.byDid(did)) ?? null;
     return { ...profile, orbytRecord };

@@ -14,6 +14,7 @@ import { logger } from '../utils/logger';
 import { ModerationService } from '../services/moderation/ModerationService';
 import type { OrbytProfileRecord, ProfileViewWithOrbyt } from '../services/api/types';
 import { isOrbytChannel } from '../utils/channels/orbyt';
+import type { Query } from '@tanstack/react-query';
 import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
 import { queryKeys } from '../utils/query/queryKeys';
@@ -274,6 +275,8 @@ export interface UserState {
   clearAllCaches: () => Promise<void>;
 
   checkSessionHealth: () => Promise<boolean>;
+  /** Called by the OAuth client when it deletes a session (refresh failed or token revoked). */
+  handleSessionDeleted: (did: string) => void;
   clearCorruptedSessions: () => Promise<void>;
 
   initializeUserState: () => Promise<void>;
@@ -427,6 +430,17 @@ const scheduleFollowingOrbytColorsAfterFeedReady = (userDid: string) => {
 };
 
 const getFlagKey = (keyBase: string, did: string | null) => (did ? `${keyBase}_${did}` : keyBase);
+
+/** Query roots holding account-independent public data, kept across sign-out and account switch. */
+const PUBLIC_QUERY_ROOTS: ReadonlySet<unknown> = new Set([
+  queryKeys.auth.all[0],
+  queryKeys.channels.all[0],
+  queryKeys.orbyt.all[0],
+  queryKeys.klipy.all[0],
+  queryKeys.discourse.all[0],
+]);
+
+const isAccountScopedQuery = (query: Query): boolean => !PUBLIC_QUERY_ROOTS.has(query.queryKey[0]);
 
 export const useUserStore = create<UserState>()(
   persist(
@@ -1534,10 +1548,30 @@ export const useUserStore = create<UserState>()(
           try {
             usePostInteractionStore.getState().clearInteractions();
 
-            queryClient.removeQueries({ queryKey: queryKeys.moderation.all });
+            // Viewer state (likes, follows, blocks, DMs, bookmarks) lives under keys that are not
+            // DID-scoped, so drop everything except account-independent public data.
+            await queryClient.cancelQueries({ predicate: isAccountScopedQuery });
+            queryClient.removeQueries({ predicate: isAccountScopedQuery });
           } catch (error) {
             logger.error('Error clearing caches', error, { component: 'userStore' });
           }
+        },
+
+        handleSessionDeleted: (did: string) => {
+          const state = get();
+          // Sign-out, sign-in and account switches revoke or replace sessions on purpose.
+          if (state.isAuthenticating || state.isSwitchingAccount) return;
+          if (state.activeAccountDid !== did || state.oauthSession?.did !== did) return;
+          logger.warn('OAuth session deleted for active account; re-auth required', {
+            component: 'userStore',
+            did,
+          });
+          applyAuthFailureState({
+            clearActiveDid: true,
+            authError: 'oauth_reauth_required',
+            authStatus: 'reauth_required',
+            authErrorCode: 'reauth_required',
+          });
         },
 
         checkSessionHealth: async () => {

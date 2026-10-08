@@ -4,12 +4,10 @@
  * Follows React Query best practices for hierarchical key structure
  *
  * Auth/session cache invalidation (see `userStore`):
- * - **signOut**: `clearAllCaches()` clears Zustand-adjacent stores and `removeQueries` for
- *   `queryKeys.moderation.all` only; most React Query data is keyed by DID — session reset avoids
- *   further authenticated fetches. Add targeted removes here if a surface leaks after logout.
- * - **Account switch**: After successful restore, invalidates `queryKeys.notifications.all`,
- *   `queryKeys.chat.all`, and `queryKeys.unread.summary()` so badges/DMs refresh without a global
- *   feed invalidate (feed keys embed DID / fingerprint).
+ * - **signOut / account switch / corrupted-session reset**: `clearAllCaches()` cancels and removes
+ *   every query except public roots (`auth`, `channels`, `orbyt`, `klipy`, `discourse`), since
+ *   viewer state (likes, follows, DMs, bookmarks) is cached under keys that are not DID-scoped.
+ * - **Account switch**: After successful restore, also invalidates notifications, chat and unread.
  * - **Login / restore**: User-scoped queries pick up the new DID via key changes; no global wipe.
  */
 

@@ -9,6 +9,7 @@ import { chatReactQueryOptions } from '../utils/query/chatQueryOptions';
 /** Matches ChatsTab default "chats" segment — shared React Query cache for listConvos. */
 const CHAT_LIST_FILTER_ACCEPTED = { status: 'accepted' as const };
 const CHAT_LIST_FILTER_REQUESTS = { status: 'request' as const };
+const UNREAD_NOTIFICATIONS_POLL_MS = 60_000;
 
 export const useUnreadCount = () => {
   const sessionValid = useUserStore(selectIsSessionValid);
@@ -18,6 +19,10 @@ export const useUnreadCount = () => {
     queryFn: async () => (await NotificationService.getUnreadCount()).count,
     enabled: sessionValid,
     staleTime: QUERY_CONSTANTS.STALE_TIME_MEDIUM,
+    // The badge lives in the tab bar, which never remounts: refresh on resume and periodically
+    // while foregrounded (React Query pauses intervals in the background).
+    refetchOnWindowFocus: true,
+    refetchInterval: UNREAD_NOTIFICATIONS_POLL_MS,
     ...chatReactQueryOptions,
   });
 

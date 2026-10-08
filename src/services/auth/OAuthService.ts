@@ -32,6 +32,13 @@ export function getOAuthClient(): ExpoOAuthClient {
     clientInstance = new ExpoOAuthClient({
       handleResolver: 'https://bsky.social',
       clientMetadata: CLIENT_METADATA,
+      // Refresh failures and revocations delete the stored session; without this the app keeps a
+      // dead agent and every request fails. Lazy import: userStore imports this module.
+      onDelete: (sub: string) => {
+        void import('../../stores/userStore')
+          .then(({ useUserStore }) => useUserStore.getState().handleSessionDeleted(sub))
+          .catch(() => {});
+      },
     });
   }
   return clientInstance;
