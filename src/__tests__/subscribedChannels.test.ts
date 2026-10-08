@@ -1,4 +1,8 @@
-import { legacyChannelsToMigrate, planSubscribedChannels } from '@/utils/channels/subscriptions';
+import {
+  createMembershipWriteTracker,
+  legacyChannelsToMigrate,
+  planSubscribedChannels,
+} from '@/utils/channels/subscriptions';
 import type { SubscribedChannel } from '@/stores/userStore';
 
 const art = 'at://did:plc:a/com.getorbyt.community.declaration/art';
@@ -63,15 +67,29 @@ describe('planSubscribedChannels', () => {
     expect(plan.toJoin).toEqual([]);
   });
 
-  it('keeps device Communities when the list changed during the request', () => {
+  it('keeps a Community followed while the server was asked', () => {
     const plan = planSubscribedChannels({
-      saved: [channel(art)],
+      saved: [channel(art), channel(music)],
       joined: [],
-      prune: false,
+      pinned: new Set([art]),
       migrateUri,
       now: 2,
     });
     expect(plan.channels.map(c => c.uri)).toEqual([art]);
+    expect(plan.toJoin).toEqual([]);
+  });
+
+  it('does not bring back a Community left while the server was asked', () => {
+    const plan = planSubscribedChannels({
+      saved: [channel(feed)],
+      joined: [art, music],
+      legacy: [legacyArt],
+      pinned: new Set([art]),
+      migrateUri,
+      now: 2,
+    });
+    expect(plan.channels.map(c => c.uri)).toEqual([feed, music]);
+    expect(plan.toJoin).toEqual([]);
   });
 
   it('joins migrated legacy references the server does not list', () => {
@@ -96,5 +114,46 @@ describe('planSubscribedChannels', () => {
     });
     expect(plan.channels.map(c => c.uri)).toEqual([art]);
     expect(plan.toJoin).toEqual([]);
+  });
+});
+
+describe('createMembershipWriteTracker', () => {
+  const deferred = () => {
+    let resolve: () => void = () => {};
+    const promise = new Promise<void>(done => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  };
+
+  it('pins writes in flight when a reconcile starts and writes made while it runs', async () => {
+    const tracker = createMembershipWriteTracker();
+    const before = deferred();
+    const beforeWrite = tracker.track([art], () => before.promise);
+
+    const server = deferred();
+    let pinned: string[] = [];
+    const reconcile = tracker.watch(async written => {
+      await server.promise;
+      pinned = [...written];
+    });
+    const during = tracker.track([music], async () => {});
+    server.resolve();
+    await reconcile;
+    before.resolve();
+    await Promise.all([beforeWrite, during]);
+
+    expect(pinned.sort()).toEqual([art, music].sort());
+  });
+
+  it('pins nothing once writes have settled', async () => {
+    const tracker = createMembershipWriteTracker();
+    await tracker.track([art], async () => {});
+    await expect(tracker.track([music], () => Promise.reject(new Error('x')))).rejects.toThrow();
+    let pinned: string[] = ['unset'];
+    await tracker.watch(async written => {
+      pinned = [...written];
+    });
+    expect(pinned).toEqual([]);
   });
 });

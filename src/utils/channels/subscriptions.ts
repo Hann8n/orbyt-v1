@@ -44,22 +44,22 @@ export interface SubscribedChannelsPlan {
  * memberships. With `joined` null (the server has not answered) the device
  * list is only normalized.
  *
- * @param prune drop device Communities the server no longer lists (left on
- *   another client). Off when the device list changed while the server was
- *   being asked, so a join made meanwhile is not undone.
+ * @param pinned Communities followed or left on this device while the server
+ *   was being asked: the device list wins for them, so a follow or unfollow
+ *   still being written is neither undone nor re-added from a stale answer.
  */
 export function planSubscribedChannels({
   saved,
   joined,
   legacy = [],
-  prune = true,
+  pinned = new Set(),
   migrateUri,
   now,
 }: {
   saved: readonly SubscribedChannel[];
   joined: readonly string[] | null;
   legacy?: readonly string[];
-  prune?: boolean;
+  pinned?: ReadonlySet<string>;
   migrateUri: (uri: string) => string;
   now: number;
 }): SubscribedChannelsPlan {
@@ -67,23 +67,65 @@ export function planSubscribedChannels({
   const byUri = new Map<string, SubscribedChannel>();
   const toJoin: string[] = [];
 
-  const add = (channel: SubscribedChannel, isLegacy: boolean) => {
+  const add = (channel: SubscribedChannel, source: 'device' | 'legacy' | 'server') => {
     const uri = migrateUri(channel.uri);
     if (BUILT_IN_CHANNELS.includes(uri) || byUri.has(uri)) return;
+    if (source !== 'device' && pinned.has(uri)) return;
     const isCommunity = isCommunityUri(uri);
     // A legacy profile reference with no Community of its name has nothing to follow.
-    if (isLegacy && !isCommunity) return;
-    const migrated = isLegacy || uri !== channel.uri;
-    if (isCommunity && joined && !joinedSet.has(uri)) {
-      if (migrated) toJoin.push(uri);
-      else if (prune) return;
+    if (source === 'legacy' && !isCommunity) return;
+    if (isCommunity && joined && !joinedSet.has(uri) && !pinned.has(uri)) {
+      // Not migrating, so it was left on another client.
+      if (source === 'device' && uri === channel.uri) return;
+      toJoin.push(uri);
     }
     byUri.set(uri, { ...channel, uri, isOrbytChannel: isCommunity });
   };
 
-  saved.forEach(channel => add(channel, false));
-  legacy.forEach(uri => add({ uri, displayName: '', subscribedAt: now }, true));
-  joined?.forEach(uri => add({ uri, displayName: '', subscribedAt: now }, false));
+  saved.forEach(channel => add(channel, 'device'));
+  legacy.forEach(uri => add({ uri, displayName: '', subscribedAt: now }, 'legacy'));
+  joined?.forEach(uri => add({ uri, displayName: '', subscribedAt: now }, 'server'));
 
   return { channels: Array.from(byUri.values()), toJoin };
+}
+
+/**
+ * Which Communities this device followed or left while a reconcile asked the
+ * server, so the reconcile can pin them (`planSubscribedChannels` `pinned`).
+ */
+export function createMembershipWriteTracker() {
+  /** Communities with a membership write in flight, counted per URI. */
+  const pending = new Map<string, number>();
+  /** One set per running reconcile, collecting every Community written while it runs. */
+  const watchers = new Set<Set<string>>();
+
+  return {
+    /** Run a membership write for these Communities. */
+    async track<T>(uris: readonly string[], write: () => Promise<T>): Promise<T> {
+      uris.forEach(uri => {
+        pending.set(uri, (pending.get(uri) ?? 0) + 1);
+        watchers.forEach(written => written.add(uri));
+      });
+      try {
+        return await write();
+      } finally {
+        uris.forEach(uri => {
+          const remaining = (pending.get(uri) ?? 1) - 1;
+          if (remaining > 0) pending.set(uri, remaining);
+          else pending.delete(uri);
+        });
+      }
+    },
+
+    /** Run a reconcile, given every Community in flight when it starts or written while it runs. */
+    async watch<T>(reconcile: (written: ReadonlySet<string>) => Promise<T>): Promise<T> {
+      const written = new Set(pending.keys());
+      watchers.add(written);
+      try {
+        return await reconcile(written);
+      } finally {
+        watchers.delete(written);
+      }
+    },
+  };
 }

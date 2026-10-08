@@ -21,6 +21,7 @@ import type { OrbytProfileRecord, ProfileViewWithOrbyt } from '../services/api/t
 import { isOrbytChannel } from '../utils/channels/orbyt';
 import {
   BUILT_IN_CHANNELS,
+  createMembershipWriteTracker,
   legacyChannelsToMigrate,
   planSubscribedChannels,
 } from '../utils/channels/subscriptions';
@@ -248,6 +249,9 @@ const STORAGE_KEYS = {
 /** How long a bootstrap waits for the account's membership records before keeping the device list. */
 const JOINED_COMMUNITIES_TIMEOUT_MS = 8_000;
 
+/** Follows and unfollows a running reconcile must not undo. */
+const membershipWrites = createMembershipWriteTracker();
+
 /**
  * Following an Orbyt Community is joining it: a `com.getorbyt.community.membership`
  * record in the viewer's repo, which the AppView projects into member counts and
@@ -262,6 +266,17 @@ const syncCommunityMemberships = async (
   const communityUris = uris.filter(isCommunityUri);
   if (communityUris.length === 0) return true;
   if (!agent) return false;
+  return membershipWrites.track(communityUris, () =>
+    writeCommunityMemberships(agent, did, communityUris, join)
+  );
+};
+
+const writeCommunityMemberships = async (
+  agent: Agent,
+  did: string,
+  communityUris: string[],
+  join: boolean
+): Promise<boolean> => {
   const results = await Promise.allSettled(
     communityUris.map(uri =>
       join ? joinCommunity(agent, did, uri) : leaveCommunity(agent, did, uri)
@@ -314,9 +329,20 @@ async function reconcileSubscribedChannels(
 ): Promise<void> {
   const agent = useUserStore.getState().agent;
   if (!agent) return;
+  // A follow or unfollow written while the server is asked must survive its stale answer.
+  await membershipWrites.watch(written =>
+    reconcileSubscribedChannelsWatched(agent, did, orbytProfileRecord, written)
+  );
+}
+
+async function reconcileSubscribedChannelsWatched(
+  agent: Agent,
+  did: string,
+  orbytProfileRecord: OrbytProfileRecord | null,
+  written: ReadonlySet<string>
+): Promise<void> {
   const migratedKey = getUserScopedKey(STORAGE_KEYS.LEGACY_CHANNELS_MIGRATED, did);
   const alreadyMigrated = storage.getBoolean(migratedKey) === true;
-  const savedAtStart = readSavedChannels(did);
 
   const joined = await listJoinedCommunitiesWithTimeout(agent, did).catch(error => {
     logger.warn('Joined communities unavailable; keeping device channels', {
@@ -346,7 +372,7 @@ async function reconcileSubscribedChannels(
     saved: savedNow ? (JSON.parse(savedNow) as SubscribedChannel[]) : [],
     joined,
     legacy: directoryReady ? legacy : [],
-    prune: savedNow === savedAtStart,
+    pinned: written,
     migrateUri: migrateLegacyChannelUri,
     now: Date.now(),
   });
