@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getAnalytics, logEvent } from '@react-native-firebase/analytics';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -567,10 +566,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       },
       {
         onSuccess: () => {
-          logEvent(getAnalytics(), 'post_comment', {
-            post_uri: rootUri,
-            has_media: hasImages || hasGif,
-          }).catch(() => {});
           setNewCommentText('');
           setSelectedGif(null);
           setSelectedImages([]);

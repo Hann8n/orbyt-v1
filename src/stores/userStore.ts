@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { storageAdapter, storage } from '../utils/storage/storage';
 import * as SecureStore from 'expo-secure-store';
-import { getAnalytics, setUserId, logLogin, logSignUp } from '@react-native-firebase/analytics';
 import { Agent } from '@atproto/api';
 import {
   GatewaySessionExpiredError,
@@ -631,9 +630,6 @@ export const useUserStore = create<UserState>()(
 
             resetQueriesForAccount(previousDid, session.did, ownProfile);
 
-            setUserId(getAnalytics(), session.did).catch(() => {});
-            logLogin(getAnalytics(), { method: 'atproto' }).catch(() => {});
-
             await get().bootstrapUserFeedSettings(session.did);
 
             scheduleFollowingOrbytColorsAfterFeedReady(session.did);
@@ -717,9 +713,6 @@ export const useUserStore = create<UserState>()(
 
             resetQueriesForAccount(previousDid, session.did, ownProfile);
 
-            setUserId(getAnalytics(), session.did).catch(() => {});
-            logSignUp(getAnalytics(), { method: 'atproto' }).catch(() => {});
-
             await get().bootstrapUserFeedSettings(session.did);
             scheduleFollowingOrbytColorsAfterFeedReady(session.did);
           } catch (error) {
@@ -772,8 +765,6 @@ export const useUserStore = create<UserState>()(
             await Promise.allSettled(didsToEnd.map(did => gatewaySignOut(did)));
 
             await get().clearAllCaches();
-
-            setUserId(getAnalytics(), null).catch(() => {});
 
             if (clearAllAccounts) {
               await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCOUNTS);
@@ -856,8 +847,6 @@ export const useUserStore = create<UserState>()(
             feedBootstrapStatus: 'loading',
             feedBootstrapDid: null,
           });
-
-          setUserId(getAnalytics(), did).catch(() => {});
 
           // Seed the React Query profile cache so profile screens render without a loading flash.
           if (account) {

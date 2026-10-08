@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { getAnalytics, logShare } from '@react-native-firebase/analytics';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
@@ -182,9 +181,6 @@ const ShareSheet: React.FC = () => {
         url: Platform.OS === 'ios' ? shareUrl : '',
         title: t('share.checkOutPost'),
       });
-      logShare(getAnalytics(), { content_type: 'video', item_id: postUri, method: 'native' }).catch(
-        () => {}
-      );
     } catch (_error: unknown) {
       // ignore
     }
