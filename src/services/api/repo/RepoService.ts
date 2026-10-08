@@ -11,7 +11,6 @@
  */
 
 import { BlobRef } from '@atproto/lexicon';
-import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
 import { getAgentForRepo } from '../pdsEndpointResolver';
 
@@ -91,47 +90,6 @@ export class RepoService {
       }
     } catch {
       return null;
-    }
-  }
-
-  /**
-   * Delete the Germ declaration record from the current user's profile.
-   * This disconnects Germ DM from the profile (removes the Germ DM button).
-   * @returns True if successfully deleted or record did not exist
-   */
-  static async deleteGermDeclaration(): Promise<boolean> {
-    if (AtprotoCore.isOutgoingApiBlocked()) {
-      if (AtprotoCore.shouldFailOfflineWriteMock()) {
-        return false;
-      }
-      return true;
-    }
-
-    try {
-      const userDid = AtprotoCore.getCurrentUserDid();
-      if (!userDid) return false;
-
-      const { api } = await AtprotoCore.getApiClient();
-
-      // com.germnetwork.declaration uses rkey "self" (literal:self in lexicon)
-      await api.com.atproto.repo.deleteRecord({
-        repo: userDid,
-        collection: 'com.germnetwork.declaration',
-        rkey: 'self',
-      });
-
-      return true;
-    } catch (error) {
-      // Record may not exist (e.g. never connected Germ) - treat as success
-      const err = error as { status?: number; error?: string };
-      if (err?.status === 404 || err?.error === 'RecordNotFound') {
-        return true;
-      }
-      logger.error('Error deleting com.germnetwork.declaration', error, {
-        component: 'RepoService',
-        action: 'deleteGermDeclaration',
-      });
-      return false;
     }
   }
 }

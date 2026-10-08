@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BORDER_RADIUS, APP_CONSTANTS, ICON_SIZES } from '@/utils/constants';
 import { getEffectiveTopInset } from '@/utils/device/screen';
-import { View, StyleSheet, Platform, Linking, Alert } from 'react-native';
+import { View, StyleSheet, Platform, Linking } from 'react-native';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import FeedPager from '@/components/features/feed/FeedPager';
 import {
@@ -229,51 +229,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   );
   const isFollowing = !!profileData?.viewer?.following;
 
+  // Another user's Germ "message me" link; Orbyt does not manage the viewer's own declaration.
   const germSubtitleAction = (() => {
     if (!profileData?.did || !currentUser?.did) return undefined;
+    if (profileData.did === currentUser.did) return undefined;
     const germ = profileData?.associated?.germ;
     if (!germ?.messageMeUrl) return undefined;
-    const isOwnProfile = profileData.did === currentUser.did;
     if (
-      !isOwnProfile &&
-      ((germ.showButtonTo !== 'everyone' && germ.showButtonTo !== 'usersIFollow') ||
-        (germ.showButtonTo === 'usersIFollow' && !profileData?.viewer?.followedBy))
+      (germ.showButtonTo !== 'everyone' && germ.showButtonTo !== 'usersIFollow') ||
+      (germ.showButtonTo === 'usersIFollow' && !profileData?.viewer?.followedBy)
     )
       return undefined;
     const baseUrl = germ.messageMeUrl.replace(/\/$/, '');
     const platform = Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'android' : 'web';
     const url = `${baseUrl}/${platform}#${profileData.did}+${currentUser.did}`;
 
-    const onPress = () => {
-      if (isOwnProfile) {
-        Alert.alert(t('profile.germDm'), t('profile.germDisconnectSheetDescription'), [
-          {
-            text: t('profile.germDisconnect'),
-            onPress: async () => {
-              const ok = await (
-                await import('@/services/api/repo/RepoService')
-              ).RepoService.deleteGermDeclaration();
-              if (ok) {
-                queryClient.invalidateQueries({
-                  queryKey: queryKeys.profiles.detail(profileData.did),
-                });
-                Alert.alert(t('common.success'), t('profile.germDisconnected'));
-              } else {
-                Alert.alert(t('common.error'), t('errors.unexpected'));
-              }
-            },
-          },
-          {
-            text: t('common.ok'),
-            onPress: () => {},
-          },
-        ]);
-      } else {
-        Linking.openURL(url);
-      }
-    };
-
-    return { label: t('profile.germDm'), onPress };
+    return { label: t('profile.germDm'), onPress: () => Linking.openURL(url) };
   })();
 
   useEffect(() => {
