@@ -7,7 +7,7 @@ import { Colors } from '@/theme';
 import AuthorItem from '@/components/ui/AuthorItem';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { navigateToEncodedChannelUri } from '@/utils/navigation/navigateEncodedChannel';
-import { extractFeedSlug } from '@/utils/channels/orbyt';
+import { extractFeedSlug, getChannelSlashColor } from '@/utils/channels/orbyt';
 
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import type { CachedChannel } from '@/services/data/ChannelService';
@@ -15,6 +15,7 @@ import { type ExploreSearchTabId } from './types';
 import { prefetchProfileThenOpen } from './prefetchProfileThenOpen';
 import { exploreScreenStyles as styles } from './ExploreScreenStyles';
 import EmptyFeed from '@/components/features/feed/EmptyFeed';
+import type { FeedEmptyState } from '@/utils/feed/feedEmptyState';
 
 type ExploreSuggestionsProfileRowProps = {
   profile: ProfileViewWithOrbyt;
@@ -168,14 +169,14 @@ const ChannelsFeedRenderer = ({
         return (
           <AuthorItem
             handle={slug || ''}
-            did={channel.did}
             displayName={slug || channel.displayName}
             avatar={channel.avatar}
             size="large"
             showArrow={false}
             showFollowButton={false}
             isFollowing={false}
-            rectangularAvatar={true}
+            channel={{ slashColor: getChannelSlashColor(channel.uri) }}
+            skipServerProfileData
             onPress={() =>
               onChannelPress
                 ? onChannelPress(channel)
@@ -247,14 +248,15 @@ const RecentlyVisitedFeedRenderer = ({
           return (
             <AuthorItem
               handle={handle || ''}
-              did={isProfile ? item.did : item.did}
+              did={isProfile ? item.did : undefined}
               displayName={displayName}
-              avatar={isProfile ? item.avatar : item.avatar}
+              avatar={item.avatar}
               size="large"
               showArrow={false}
               showFollowButton={false}
               isFollowing={false}
-              rectangularAvatar={!isProfile}
+              channel={isProfile ? undefined : { slashColor: getChannelSlashColor(item.uri) }}
+              skipServerProfileData={!isProfile}
               handleAsDisplayName={isProfile}
               onPress={onPress}
               backgroundColor={Colors.transparent}
@@ -286,7 +288,8 @@ export const SearchFeedRenderer = ({
   communities,
   feeds,
   isLoading,
-  isCommunitiesLoading,
+  communitiesState,
+  onRetryCommunities,
   onProfilePress,
   onChannelPress,
   onFollow,
@@ -309,7 +312,9 @@ export const SearchFeedRenderer = ({
   /** Bluesky feed generators matching the search. */
   feeds: CachedChannel[];
   isLoading?: boolean;
-  isCommunitiesLoading?: boolean;
+  /** What the Communities tab shows without results (`getFeedEmptyState`). */
+  communitiesState: FeedEmptyState;
+  onRetryCommunities?: () => void;
   onProfilePress?: (profile: ProfileViewWithOrbyt) => void;
   onChannelPress?: (channel: CachedChannel) => void;
   onFollow?: (profile: ProfileViewWithOrbyt) => void;
@@ -330,6 +335,14 @@ export const SearchFeedRenderer = ({
   // `isError` is the people and feeds search; Communities have their own query.
   if (isError && (feedOption === 'profiles' || feedOption === 'feeds')) {
     return <EmptyFeed type="error" onRetry={onRetry} />;
+  }
+  if (
+    feedOption === 'channels' &&
+    (communitiesState === 'error' ||
+      communitiesState === 'unavailable' ||
+      communitiesState === 'no-connection')
+  ) {
+    return <EmptyFeed type={communitiesState} onRetry={onRetryCommunities} />;
   }
   switch (feedOption) {
     case 'recently-visited':
@@ -359,7 +372,7 @@ export const SearchFeedRenderer = ({
       return (
         <ChannelsFeedRenderer
           channels={communities}
-          isLoading={isCommunitiesLoading}
+          isLoading={communitiesState === 'loading'}
           onChannelPress={onChannelPress}
           bottomPadding={bottomPadding}
           emptyText={t('feed.noChannelsFound')}

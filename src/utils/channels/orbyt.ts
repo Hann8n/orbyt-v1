@@ -123,11 +123,14 @@ export function getPostableChannels(): OrbytChannel[] {
 }
 
 /**
- * Check if a channel should show the slash indicator
+ * The color of the "/" that leads a Community's name, or undefined when its name shows none (a
+ * feed, or a Community that hides it). Uncached Communities show it in the default color.
  */
-export function shouldShowChannelSlash(uri: string): boolean {
+export function getChannelSlashColor(uri: string): string | undefined {
+  if (!isOrbytChannel(uri)) return undefined;
   const channel = getChannelByUri(uri);
-  return channel?.showSlash !== false; // Default to true if not specified
+  if (channel?.showSlash === false) return undefined;
+  return channel?.channelColor || Colors.amber[400];
 }
 
 /**

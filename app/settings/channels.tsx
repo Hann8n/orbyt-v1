@@ -18,10 +18,9 @@ import VerticalListSheet, {
 import { SHEET_STYLES } from '@/utils/components/truesheet';
 import {
   isOrbytChannel,
-  getChannelByUri,
   getChannelAvatarUri,
   getLocalizedChannelDisplayName,
-  shouldShowChannelSlash,
+  getChannelSlashColor,
 } from '@/utils/channels/orbyt';
 import { logger } from '@/utils/logger';
 import { FontFamily, Typography } from '@/utils/components/typography';
@@ -34,7 +33,8 @@ interface ChannelUser {
   description?: string;
   isChannel?: boolean;
   isOrbytChannel?: boolean;
-  channelColor?: string;
+  /** The "/" leading a Community name (`getChannelSlashColor`). */
+  slashColor?: string;
   uri?: string;
 }
 
@@ -55,11 +55,7 @@ export default function ChannelManagementScreen() {
       selectedChannel.displayName ||
       selectedChannel.handle ||
       t('feed.unknownChannel');
-    if (
-      selectedChannel.isOrbytChannel &&
-      selectedChannel.uri &&
-      shouldShowChannelSlash(selectedChannel.uri)
-    ) {
+    if (selectedChannel.uri && getChannelSlashColor(selectedChannel.uri)) {
       return `/${name}`;
     }
     return name;
@@ -75,7 +71,6 @@ export default function ChannelManagementScreen() {
 
       // Check if this is an orbyt channel
       const isOrbyt = channel.isOrbytChannel ?? isOrbytChannel(channel.uri);
-      const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
 
       return {
         did: channel.uri,
@@ -85,7 +80,7 @@ export default function ChannelManagementScreen() {
         description: channel.description,
         isChannel: true,
         isOrbytChannel: isOrbyt,
-        channelColor: orbytChannel?.channelColor,
+        slashColor: getChannelSlashColor(channel.uri),
         uri: channel.uri,
       };
     });
@@ -157,12 +152,8 @@ export default function ChannelManagementScreen() {
           <View style={styles.channelContent}>
             {item.isOrbytChannel ? (
               <View style={styles.orbytChannelName}>
-                {item.uri && shouldShowChannelSlash(item.uri) && (
-                  <Text
-                    style={[styles.orbytSlash, { color: item.channelColor || Colors.amber[400] }]}
-                  >
-                    /
-                  </Text>
+                {item.slashColor && (
+                  <Text style={[styles.orbytSlash, { color: item.slashColor }]}>/</Text>
                 )}
                 <Text style={styles.displayName} numberOfLines={1}>
                   {item.displayName || item.handle || t('feed.unknownChannel')}

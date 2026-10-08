@@ -40,6 +40,8 @@ import { useFeed } from '@/hooks/useFeed';
 import { useUserStore } from '@/stores/userStore';
 import type { ExtendedFeedViewPost } from '@/services/api/types';
 import { useCommunitySearch, useOrbytChannels } from '@/services/OrbytChannelsService';
+import { getFeedEmptyState } from '@/utils/feed/feedEmptyState';
+import { isRetryableError } from '@/utils/query/retryPolicy';
 import { useVisitHistory } from '@/hooks/useVisitHistory';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
@@ -167,6 +169,10 @@ const ExploreScreen: React.FC = () => {
   const {
     data: communitySearch,
     isLoading: isCommunitySearchLoading,
+    isError: isCommunitySearchError,
+    isPaused: isCommunitySearchPaused,
+    error: communitySearchError,
+    refetch: refetchCommunitySearch,
     hasNextPage: hasMoreCommunities,
     isFetchingNextPage: isFetchingMoreCommunities,
     fetchNextPage: fetchMoreCommunities,
@@ -175,6 +181,14 @@ const ExploreScreen: React.FC = () => {
     () => communitySearch?.pages.flatMap(page => page.communities.map(communityToChannel)) ?? [],
     [communitySearch]
   );
+  const hasCommunityResults = searchCommunities.length > 0;
+  const communitiesState = getFeedEmptyState({
+    feedOption: '',
+    isLoading: isCommunitySearchLoading,
+    isError: isCommunitySearchError && !hasCommunityResults,
+    isErrorRetryable: isRetryableError(communitySearchError),
+    isPaused: isCommunitySearchPaused && !hasCommunityResults,
+  });
 
   const { profiles: searchProfiles, channels: searchFeeds } = useMemo(() => {
     if (!searchFeedOption || !searchFeed.length) {
@@ -343,7 +357,8 @@ const ExploreScreen: React.FC = () => {
         communities={searchCommunities}
         feeds={searchFeeds}
         isLoading={isSearchLoading}
-        isCommunitiesLoading={isCommunitySearchLoading}
+        communitiesState={communitiesState}
+        onRetryCommunities={refetchCommunitySearch}
         onProfilePress={handleProfileNavigation}
         onChannelPress={handleChannelNavigation}
         onFollow={handleFollow}
@@ -365,7 +380,8 @@ const ExploreScreen: React.FC = () => {
       searchCommunities,
       searchFeeds,
       isSearchLoading,
-      isCommunitySearchLoading,
+      communitiesState,
+      refetchCommunitySearch,
       hasMoreCommunities,
       isFetchingMoreCommunities,
       fetchMoreCommunities,
