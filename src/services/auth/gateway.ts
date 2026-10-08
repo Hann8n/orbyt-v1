@@ -96,8 +96,16 @@ function makeSession(did: string, stored: StoredSession): GatewaySession {
   };
 }
 
+/** Session checks gate sign-in and restore; a stalled gateway must not hang them. */
+const SESSION_CHECK_TIMEOUT_MS = 10_000;
+
 async function fetchViewer(token: string): Promise<{ did: string; handle: string }> {
-  const response = await fetch(`${GATEWAY_ORIGIN}/auth/session`, { headers: authorized(token) });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SESSION_CHECK_TIMEOUT_MS);
+  const response = await fetch(`${GATEWAY_ORIGIN}/auth/session`, {
+    headers: authorized(token),
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timer));
   if (response.status === 401) throw new GatewaySessionExpiredError();
   if (!response.ok) throw new Error(`Gateway session check failed: ${response.status}`);
   return (await response.json()) as { did: string; handle: string };

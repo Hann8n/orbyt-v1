@@ -94,14 +94,18 @@ export async function getCommunity(
   return response.community;
 }
 
-/** A Community's feed skeleton: post AT-URIs to hydrate through the Bluesky AppView. */
+/**
+ * A Community's feed skeleton: post AT-URIs to hydrate through the Bluesky AppView.
+ * Sent without `viewer`: a declared viewer only mints playback tokens, which this
+ * app does not use, and makes the AppView answer `private, no-store`, bypassing
+ * its edge cache.
+ */
 export async function getCommunityFeed(
   community: string,
   options: {
     sort?: CommunityFeedSort;
     cursor?: string | null;
     limit?: number;
-    viewer?: string | null;
   }
 ): Promise<{ feed: CommunityFeedItem[]; cursor?: string }> {
   const response = await orbytPublicQuery<{ feed?: CommunityFeedItem[]; cursor?: string }>(
@@ -111,7 +115,6 @@ export async function getCommunityFeed(
       sort: options.sort ?? 'latest',
       limit: options.limit,
       cursor: options.cursor ?? undefined,
-      viewer: options.viewer ?? undefined,
     }
   );
   return { feed: response.feed ?? [], cursor: response.cursor };
