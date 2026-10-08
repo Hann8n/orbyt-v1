@@ -19,12 +19,12 @@ import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
 import { Colors } from '@/theme';
 import AuthorItem from '@/components/ui/AuthorItem';
 import type { SavedAccount } from '@/stores/userStore';
-import { AuthFlowError, useAuth, useAccountManagement } from '@/stores/userStore';
+import { AuthFlowError, useAuth, useAccountManagement, useUserStore } from '@/stores/userStore';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import { hydrateAccountsWithCachedProfiles } from '@/utils/atproto/accountSwitching';
 import { hexToRGBA } from '@/utils/formatting/colors';
 import RocketBackground from '@/components/ui/RocketBackground';
-import { isUserCancellation } from '@/utils/errors/errorHandler';
+import { ErrorHandler, getErrorMessage, isUserCancellation } from '@/utils/errors/errorHandler';
 import { FontFamily, Typography } from '@/utils/components/typography';
 
 // Login logo: PNG 4x on Android (avoids SVG stroke clipping), SVG on iOS
@@ -137,6 +137,20 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
     [insets]
   );
 
+  const showSignInError = useCallback(
+    (error: unknown) => {
+      if (isUserCancellation(error)) return;
+      if (ErrorHandler.isNetworkError(error)) {
+        Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
+          { text: t('common.ok') },
+        ]);
+        return;
+      }
+      Alert.alert(t('auth.signInFailed'), getErrorMessage(error), [{ text: t('common.ok') }]);
+    },
+    [t]
+  );
+
   const handleSavedAccountLogin = useCallback(
     async (account: SavedAccount) => {
       setIsLoading(true);
@@ -153,29 +167,29 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
         if (isUserCancellation(error)) return;
 
         if (error instanceof AuthFlowError && error.kind === 'reauth_required') {
+          // Sessions saved before gateway sign-in can't be restored: sign in again as this account.
+          // Use the handle: older builds saved the account's PDS host as the identifier for sign-ups.
           try {
-            await signIn(account.originalIdentifier);
-            await switchAccount(account.did);
-            if (onAccountSwitch) {
+            await signIn(account.handle || account.did);
+            // `signIn` resolves without a session when the member backs out.
+            const signedInDid = useUserStore.getState().currentUser?.did;
+            if (!signedInDid) return;
+            if (signedInDid === account.did && onAccountSwitch) {
               await onAccountSwitch(account);
             }
             await loadSavedAccounts();
-          } catch {
-            Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
-              { text: t('common.ok') },
-            ]);
+          } catch (signInError) {
+            showSignInError(signInError);
           }
           return;
         }
 
-        Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
-          { text: t('common.ok') },
-        ]);
+        showSignInError(error);
       } finally {
         setIsLoading(false);
       }
     },
-    [clearAuthError, loadSavedAccounts, onAccountSwitch, signIn, switchAccount, t]
+    [clearAuthError, loadSavedAccounts, onAccountSwitch, showSignInError, signIn, switchAccount]
   );
 
   const renderSavedAccountsBottom = () => (
