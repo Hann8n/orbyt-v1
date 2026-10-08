@@ -271,6 +271,9 @@ function RootNavigator() {
   );
 }
 
+// Catches render errors above QueryErrorBoundary (providers, locale, layout) instead of crashing.
+export { ErrorBoundary } from 'expo-router';
+
 export default Sentry.wrap(function RootLayout() {
   const navRef = useNavigationContainerRef();
   useEffect(() => {
@@ -313,8 +316,8 @@ export default Sentry.wrap(function RootLayout() {
     };
 
     const syncOnlineState = async () => {
-      const state = await Network.getNetworkStateAsync();
-      onlineManager.setOnline(state.isInternetReachable ?? true);
+      const state = await Network.getNetworkStateAsync().catch(() => null);
+      onlineManager.setOnline(state?.isInternetReachable ?? true);
     };
 
     setFocusedFromAppState(AppState.currentState);

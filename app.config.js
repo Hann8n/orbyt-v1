@@ -1,7 +1,7 @@
 module.exports = {
   name: 'orbyt',
   slug: 'orbyt-video',
-  version: '1.1.5',
+  version: '1.1.6',
   orientation: 'portrait',
   icon: './src/assets/icon.png',
   userInterfaceStyle: 'dark',
@@ -9,6 +9,8 @@ module.exports = {
     supportsTablet: false,
     bundleIdentifier: 'com.getorbyt.app',
     appleTeamId: 'D8VXFBV8SJ',
+    // Sign-in returns through the gateway to https://getorbyt.com/oauth/callback (a universal link).
+    associatedDomains: ['applinks:getorbyt.com'],
     buildNumber: '7',
     icon: './src/assets/AppIcons/iOS/Orbyt.icon',
     infoPlist: {
@@ -35,6 +37,16 @@ module.exports = {
     },
     package: 'com.getorbyt.app',
     versionCode: 7,
+    // Gateway sign-in callback. Verification needs getorbyt.com/.well-known/assetlinks.json
+    // listing this package's signing certificate.
+    intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [{ scheme: 'https', host: 'getorbyt.com', pathPrefix: '/oauth/callback' }],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
     permissions: ['INTERNET', 'CAMERA', 'RECORD_AUDIO'],
   },
   web: {
@@ -78,7 +90,8 @@ module.exports = {
       'expo-build-properties',
       {
         ios: {
-          deploymentTarget: '17.0',
+          // 17.4: ASWebAuthenticationSession https callbacks (gateway sign-in).
+          deploymentTarget: '17.4',
         },
         android: {
           compileSdkVersion: 36,

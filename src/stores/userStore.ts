@@ -4,11 +4,16 @@ import { storageAdapter, storage } from '../utils/storage/storage';
 import * as SecureStore from 'expo-secure-store';
 import { getAnalytics, setUserId, logLogin, logSignUp } from '@react-native-firebase/analytics';
 import { Agent } from '@atproto/api';
-import { getOAuthClient } from '../services/auth';
-import type { OAuthSession } from '@atproto/oauth-client';
+import {
+  GatewaySessionExpiredError,
+  onGatewaySessionExpired,
+  restore as restoreGatewaySession,
+  signIn as gatewaySignIn,
+  signOut as gatewaySignOut,
+  type GatewaySession,
+} from '../services/auth/gateway';
 import { RepoService } from '../services/api/repo/RepoService';
 import { isUserCancellation, getErrorMessage } from '../utils/errors/errorHandler';
-import { TokenRevokedError, TokenRefreshError, TokenInvalidError } from '@atproto/oauth-client';
 import { logger } from '../utils/logger';
 
 import { ModerationService } from '../services/moderation/ModerationService';
@@ -42,82 +47,31 @@ export class AuthFlowError extends Error {
 }
 
 function hasAuthoritativeSdkSession(
-  oauthSession: OAuthSession | null,
+  oauthSession: GatewaySession | null,
   currentUserDid: string | null
 ): boolean {
   if (!oauthSession || !currentUserDid) return false;
   return oauthSession.did === currentUserDid;
 }
 
-const REQUIRED_OAUTH_SCOPE = 'atproto';
-
-async function assertRequiredOAuthScope(session: OAuthSession): Promise<void> {
-  const tokenInfo = await session.getTokenInfo(false);
-  const scopes = tokenInfo.scope.split(' ').filter(Boolean);
-  if (!scopes.includes(REQUIRED_OAUTH_SCOPE)) {
-    throw new Error(`oauth_scope_upgrade_required:${REQUIRED_OAUTH_SCOPE}`);
-  }
+/** A refused gateway token, or an XRPC 401 relayed through it. */
+function isSessionRejected(error: unknown): boolean {
+  if (error instanceof GatewaySessionExpiredError) return true;
+  return (error as { status?: unknown } | null)?.status === 401;
 }
 
 function getSessionRestoreOutcome(error: unknown): SessionRestoreOutcome {
   if (error instanceof AuthFlowError) return error.kind;
-  if (
-    error instanceof TokenRevokedError ||
-    error instanceof TokenRefreshError ||
-    error instanceof TokenInvalidError
-  )
-    return 'reauth_required';
+  if (isSessionRejected(error)) return 'reauth_required';
   if (isUserCancellation(error)) return 'cancelled';
-  if (error instanceof Error && error.message.startsWith('oauth_scope_upgrade_required:')) {
-    return 'reauth_required';
-  }
-
-  const errorText = error instanceof Error ? error.message : String(error);
-  if (TRANSIENT_ERROR_PATTERNS.some(pattern => pattern.test(errorText))) {
-    return 'transient_failure';
-  }
-
+  // Anything else (offline, gateway 5xx, PDS hiccup) keeps the saved session for a retry.
   return 'transient_failure';
 }
 
-const TRANSIENT_ERROR_PATTERNS = [
-  /network/i,
-  /fetch/i,
-  /timeout/i,
-  /timed out/i,
-  /enotfound/i,
-  /econnreset/i,
-  /econnrefused/i,
-  /503/,
-  /502/,
-  /504/,
-];
+const restoreSessionLocal = (did: string): Promise<GatewaySession> => restoreGatewaySession(did);
 
-// Some OAuth client session stores treat refresh tokens as single-use and can error if
-// `restore(did)` is called concurrently for the same account. This lock ensures we only
-// execute the restore once per DID at a time and share the in-flight result.
-const restoreInFlightByDid = new Map<string, Promise<OAuthSession>>();
-
-async function restoreSessionLocal(did: string): Promise<OAuthSession> {
-  return getOAuthClient().restore(did, false);
-}
-
-function restoreSessionWithRefresh(did: string): Promise<OAuthSession> {
-  const existing = restoreInFlightByDid.get(did);
-  if (existing) return existing;
-
-  const client = getOAuthClient();
-  const promise = (async () => {
-    try {
-      return await client.restore(did);
-    } finally {
-      restoreInFlightByDid.delete(did);
-    }
-  })();
-
-  restoreInFlightByDid.set(did, promise);
-  return promise;
-}
+const restoreSessionWithRefresh = (did: string): Promise<GatewaySession> =>
+  restoreGatewaySession(did, { verify: true });
 
 // Liquid glass support has been removed; all layout logic uses the non-liquid-glass fallback.
 export const isIosLiquidGlassAvailable = false;
@@ -199,7 +153,7 @@ export interface UserState {
   savedAccounts: SavedAccount[];
   activeAccountDid: string | null;
 
-  oauthSession: OAuthSession | null;
+  oauthSession: GatewaySession | null;
   agent?: Agent;
 
   feedDebugOverlayEnabled: boolean;
@@ -226,7 +180,7 @@ export interface UserState {
 
   switchAccount: (did: string) => Promise<void>;
   addAccount: (
-    oauthSession: OAuthSession,
+    oauthSession: GatewaySession,
     profileData?: { displayName?: string; avatar?: string; handle?: string; did?: string },
     originalIdentifier?: string
   ) => Promise<void>;
@@ -431,8 +385,8 @@ const getFlagKey = (keyBase: string, did: string | null) => (did ? `${keyBase}_$
 export const useUserStore = create<UserState>()(
   persist(
     (set, get) => {
-      const hydrateOAuthSession = async (
-        oauthSession: OAuthSession,
+      const hydrateGatewaySession = async (
+        oauthSession: GatewaySession,
         { skipOrbytColors = false }: { skipOrbytColors?: boolean } = {}
       ) => {
         const agent = new Agent(oauthSession);
@@ -530,11 +484,9 @@ export const useUserStore = create<UserState>()(
               authStatus: 'restoring',
             });
 
-            const client = getOAuthClient();
-            const session = await client.signIn(identifier);
-            await assertRequiredOAuthScope(session);
+            const session = await gatewaySignIn(identifier);
 
-            const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
+            const { agent, userProfile, emailConfirmed } = await hydrateGatewaySession(session);
 
             const account: SavedAccount = {
               id: session.did,
@@ -631,24 +583,9 @@ export const useUserStore = create<UserState>()(
               authStatus: 'restoring',
             });
 
-            const client = getOAuthClient();
-            const trimmed = identifier.trim();
-            let session: OAuthSession;
-            try {
-              session = await client.signIn(trimmed, { prompt: 'create' });
-            } catch (promptError) {
-              const msg = promptError instanceof Error ? promptError.message : String(promptError);
-              const isUnsupportedCreatePrompt =
-                /invalid_request|Invalid enum|received 'create'|prompt.*create/i.test(msg);
-              if (isUnsupportedCreatePrompt) {
-                session = await client.signIn(trimmed);
-              } else {
-                throw promptError;
-              }
-            }
-            await assertRequiredOAuthScope(session);
+            const session = await gatewaySignIn(identifier, { signUp: true });
 
-            const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
+            const { agent, userProfile, emailConfirmed } = await hydrateGatewaySession(session);
 
             const account: SavedAccount = {
               id: session.did,
@@ -716,11 +653,7 @@ export const useUserStore = create<UserState>()(
             }
 
             const errorMessage = getErrorMessage(error);
-            if (
-              error instanceof TokenRevokedError ||
-              error instanceof TokenRefreshError ||
-              error instanceof TokenInvalidError
-            ) {
+            if (isSessionRejected(error)) {
               set({
                 authStatus: 'reauth_required',
                 isAuthenticating: false,
@@ -746,21 +679,16 @@ export const useUserStore = create<UserState>()(
 
             const currentDid = get().activeAccountDid;
 
-            if (currentDid) {
-              try {
-                const client = getOAuthClient();
-                await client.revoke(currentDid);
-              } catch (error) {
-                // Log but don't fail - session may already be invalid
-                logger.warn('Failed to revoke session during sign out', {
-                  component: 'userStore',
-                  did: currentDid,
-                  error: error instanceof Error ? error.message : 'Unknown error',
-                });
-              }
-            }
+            const didsToEnd = clearAllAccounts
+              ? get().savedAccounts.map(account => account.did)
+              : currentDid
+                ? [currentDid]
+                : [];
+            await Promise.allSettled(didsToEnd.map(did => gatewaySignOut(did)));
 
             await get().clearAllCaches();
+            // Chat and notification query keys aren't DID-scoped; never show them to the next account.
+            queryClient.clear();
 
             setUserId(getAnalytics(), null).catch(() => {});
 
@@ -810,17 +738,12 @@ export const useUserStore = create<UserState>()(
             authErrorCode: 'none',
             authStatus: 'restoring',
           });
-          let localSession: OAuthSession;
+          let localSession: GatewaySession;
           try {
             localSession = await restoreSessionLocal(did);
-            await assertRequiredOAuthScope(localSession); // reads cached scope, no network
           } catch (localError) {
             const restoreOutcome = getSessionRestoreOutcome(localError);
-            if (
-              restoreOutcome === 'reauth_required' ||
-              (localError instanceof Error &&
-                localError.message.startsWith('oauth_scope_upgrade_required:'))
-            ) {
+            if (restoreOutcome === 'reauth_required') {
               if (options?.preserveAuthStateOnFailure) {
                 set({ isAuthenticating: false });
               } else {
@@ -833,7 +756,7 @@ export const useUserStore = create<UserState>()(
               }
               throw new AuthFlowError('reauth_required', 'oauth_reauth_required');
             }
-            // No MMKV session — fall back to the full network restore (first install / cleared data)
+            // Unreadable keychain entry — fall back to the verified network restore.
             return get()._restoreSessionBlocking(did, skipSettings, options);
           }
 
@@ -1080,7 +1003,7 @@ export const useUserStore = create<UserState>()(
         },
 
         addAccount: async (
-          oauthSession: OAuthSession,
+          oauthSession: GatewaySession,
           profileData?: { displayName?: string; avatar?: string; handle?: string; did?: string },
           originalIdentifier?: string
         ) => {
@@ -1146,11 +1069,7 @@ export const useUserStore = create<UserState>()(
             if (isActiveAccount) {
               await get().signOut();
             } else {
-              try {
-                await getOAuthClient().revoke(did);
-              } catch {
-                // ignore
-              }
+              await gatewaySignOut(did);
               set({ savedAccounts: accounts });
             }
           } catch (error) {
@@ -1547,11 +1466,7 @@ export const useUserStore = create<UserState>()(
             await agent.api.app.bsky.actor.getProfile({ actor: currentUser.did });
             return true;
           } catch (error) {
-            if (
-              error instanceof TokenRevokedError ||
-              error instanceof TokenRefreshError ||
-              error instanceof TokenInvalidError
-            ) {
+            if (isSessionRejected(error)) {
               applyAuthFailureState({
                 clearActiveDid: true,
                 authError: 'oauth_reauth_required',
@@ -1568,16 +1483,7 @@ export const useUserStore = create<UserState>()(
             const currentDid = get().activeAccountDid;
 
             if (currentDid) {
-              try {
-                const client = getOAuthClient();
-                await client.revoke(currentDid);
-              } catch (error) {
-                logger.debug('Could not revoke corrupted session', {
-                  component: 'userStore',
-                  did: currentDid,
-                  error: error instanceof Error ? error.message : 'Unknown error',
-                });
-              }
+              await gatewaySignOut(currentDid);
             }
 
             // Clear secure storage items related to sessions
@@ -1666,6 +1572,7 @@ export const useUserStore = create<UserState>()(
                     component: 'userStore',
                     did: activeAccountDid,
                   });
+                  await SecureStore.deleteItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT).catch(() => {});
                   set({
                     authStatus: 'reauth_required',
                     currentUser: null,
@@ -1954,9 +1861,8 @@ export const useUserStore = create<UserState>()(
             });
 
             const session = await restoreSessionWithRefresh(did);
-            await assertRequiredOAuthScope(session);
 
-            const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session, {
+            const { agent, userProfile, emailConfirmed } = await hydrateGatewaySession(session, {
               skipOrbytColors: true,
             });
 
@@ -1994,7 +1900,7 @@ export const useUserStore = create<UserState>()(
               lastUsed: Date.now(),
             });
 
-            // Fetch orbyt profile colors in background (skipped in hydrateOAuthSession above)
+            // Fetch orbyt profile colors in background (skipped in hydrateGatewaySession above)
             queryClient.fetchQuery(orbytProfileQueryOptions(session.did)).catch(() => {});
 
             requestIdleCallback(
@@ -2092,6 +1998,22 @@ const syncAtprotoBridgeFromUserState = (state: UserState) => {
 
 syncAtprotoBridgeFromUserState(useUserStore.getState());
 useUserStore.subscribe(syncAtprotoBridgeFromUserState);
+
+// A token the gateway refuses mid-session (signed out elsewhere, revoked) returns to sign-in.
+onGatewaySessionExpired(did => {
+  if (useUserStore.getState().oauthSession?.did !== did) return;
+  queryClient.clear();
+  void SecureStore.deleteItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT).catch(() => {});
+  useUserStore.setState({
+    authStatus: 'reauth_required',
+    authErrorCode: 'reauth_required',
+    authError: 'oauth_reauth_required',
+    currentUser: null,
+    oauthSession: null,
+    agent: undefined,
+    activeAccountDid: null,
+  });
+});
 
 export const selectIsSessionValid = (state: UserState): boolean =>
   hasAuthoritativeSdkSession(state.oauthSession, state.currentUser?.did ?? null);

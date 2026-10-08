@@ -1,6 +1,4 @@
 // Import polyfills before anything else
-// Apply required polyfills for @atproto/oauth-client-expo
-// Note: Importing polyfill contents directly since the package doesn't export ./dist/polyfill
 import 'core-js/proposals/explicit-resource-management';
 import 'event-target-polyfill';
 import 'react-native-url-polyfill/auto';

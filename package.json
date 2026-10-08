@@ -1,6 +1,6 @@
 {
   "name": "orbyt-app",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "main": "index.ts",
   "license": "GPL-3.0",
   "scripts": {
@@ -42,8 +42,6 @@
     "@atproto/api": "^0.19.18",
     "@atproto/common-web": "^0.4.19",
     "@atproto/lexicon": "^0.6.2",
-    "@atproto/oauth-client": "^0.6.1",
-    "@atproto/oauth-client-expo": "^0.0.10",
     "@atproto/syntax": "^0.5.4",
     "@atproto/xrpc": "^0.7.7",
     "@babel/runtime": "^7.28.6",
@@ -75,6 +73,7 @@
     "expo-build-properties": "~56.0.14",
     "expo-clipboard": "~56.0.3",
     "expo-constants": "~56.0.15",
+    "expo-crypto": "~56.0.5",
     "expo-device": "~56.0.4",
     "expo-file-system": "~56.0.7",
     "expo-font": "~56.0.5",

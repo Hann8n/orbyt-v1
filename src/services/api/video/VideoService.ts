@@ -282,6 +282,7 @@ export class VideoService {
     maxAttempts: number = 600
   ): Promise<BlobRef> {
     let attempts = 0;
+    let failure: Error | null = null;
 
     while (attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -318,7 +319,8 @@ export class VideoService {
 
         if (jobStatus.blob) return jobStatus.blob;
         if (jobStatus.state === 'JOB_STATE_FAILED' || jobStatus.state === 'failed') {
-          throw new Error(jobStatus.error || 'Video processing failed');
+          // Outside the catch below, which retries: a failed job never recovers.
+          failure = new Error(jobStatus.error || 'Video processing failed');
         }
       } catch (error) {
         // getJobStatus already handles already_exists and returns blob, so if we get here it's a real error
@@ -333,6 +335,7 @@ export class VideoService {
         }
       }
 
+      if (failure) throw failure;
       attempts++;
     }
 

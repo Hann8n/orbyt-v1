@@ -169,409 +169,391 @@ const ActionButton = memo<{
   backgroundColor: string;
   shadowColor?: string;
   size?: 'small' | 'medium' | 'large';
-}>(
-  ({
-    action,
-    textColor,
-    backgroundColor,
-    shadowColor,
-    size = 'medium',
-  }) => {
-    const hasFilledBackground = useMemo(() => {
-      const isIconOnlyFollowingState = action.id === 'follow' && !action.label;
-      const isSaveButton = action.id === 'save';
-      const isActiveSubscription = action.id === 'subscription' && action.active;
-      const isExplicitlyActive = action.active === true;
-      return isIconOnlyFollowingState || isSaveButton || isActiveSubscription || isExplicitlyActive;
-    }, [action.label, action.id, action.active]);
+}>(({ action, textColor, backgroundColor, shadowColor, size = 'medium' }) => {
+  const hasFilledBackground = useMemo(() => {
+    const isIconOnlyFollowingState = action.id === 'follow' && !action.label;
+    const isSaveButton = action.id === 'save';
+    const isActiveSubscription = action.id === 'subscription' && action.active;
+    const isExplicitlyActive = action.active === true;
+    return isIconOnlyFollowingState || isSaveButton || isActiveSubscription || isExplicitlyActive;
+  }, [action.label, action.id, action.active]);
 
-    // 0 = unfollowed appearance, 1 = followed (filled pill / inverted ink)
-    const animationProgress = useSharedValue(hasFilledBackground ? 1 : 0);
+  // 0 = unfollowed appearance, 1 = followed (filled pill / inverted ink)
+  const animationProgress = useSharedValue(hasFilledBackground ? 1 : 0);
 
-    useLayoutEffect(() => {
-      animationProgress.value = withTiming(hasFilledBackground ? 1 : 0, {
-        duration: FOLLOW_PILL_TRANSITION_MS,
-        easing: Easing.inOut(Easing.cubic),
-      });
-    }, [hasFilledBackground, animationProgress]);
-
-    const unfilledBg = useMemo(
-      () => blendColors(backgroundColor, textColor, 0.2),
-      [backgroundColor, textColor]
-    );
-
-    // Animated style for smooth background color transition
-    const animatedButtonStyle = useAnimatedStyle(() => {
-      return {
-        backgroundColor: interpolateColor(animationProgress.value, [0, 1], [unfilledBg, textColor]),
-        opacity: action.disabled ? 0.4 : 1,
-      };
-    }, [textColor, unfilledBg, action.disabled]);
-
-    // Content crossfade (UI thread): linear blend so reversing direction mirrors the same curve in time.
-    const unfilledContentOpacityStyle = useAnimatedStyle(() => {
-      return { opacity: 1 - animationProgress.value };
+  useLayoutEffect(() => {
+    animationProgress.value = withTiming(hasFilledBackground ? 1 : 0, {
+      duration: FOLLOW_PILL_TRANSITION_MS,
+      easing: Easing.inOut(Easing.cubic),
     });
+  }, [hasFilledBackground, animationProgress]);
 
-    const filledContentOpacityStyle = useAnimatedStyle(() => {
-      return { opacity: animationProgress.value };
-    });
+  const unfilledBg = useMemo(
+    () => blendColors(backgroundColor, textColor, 0.2),
+    [backgroundColor, textColor]
+  );
 
-    const buttonStyle = useMemo(() => {
-      const showFilledState = hasFilledBackground;
+  // Animated style for smooth background color transition
+  const animatedButtonStyle = useAnimatedStyle(() => {
+    return {
+      backgroundColor: interpolateColor(animationProgress.value, [0, 1], [unfilledBg, textColor]),
+      opacity: action.disabled ? 0.4 : 1,
+    };
+  }, [textColor, unfilledBg, action.disabled]);
 
-      const baseStyle = {
-        backgroundColor: showFilledState
-          ? textColor
-          : blendColors(backgroundColor, textColor, 0.2),
-        opacity: action.disabled ? 0.4 : 1,
-      };
+  // Content crossfade (UI thread): linear blend so reversing direction mirrors the same curve in time.
+  const unfilledContentOpacityStyle = useAnimatedStyle(() => {
+    return { opacity: 1 - animationProgress.value };
+  });
 
-      switch (action.variant) {
-        case 'danger':
-          return {
-            ...baseStyle,
-            backgroundColor: blendColors(backgroundColor, Colors.coral[500], 0.2),
-          };
-        case 'secondary':
-          return {
-            backgroundColor: 'transparent',
-            opacity: action.disabled ? 0.4 : 1,
-          };
-        default:
-          return baseStyle;
-      }
-    }, [
-      action.variant,
-      action.disabled,
-      textColor,
-      backgroundColor,
-      hasFilledBackground,
-    ]);
+  const filledContentOpacityStyle = useAnimatedStyle(() => {
+    return { opacity: animationProgress.value };
+  });
 
-    const contentColor = useMemo(() => {
-      const showFilledState = hasFilledBackground;
-      return showFilledState ? backgroundColor : textColor;
-    }, [textColor, backgroundColor, hasFilledBackground]);
+  const buttonStyle = useMemo(() => {
+    const showFilledState = hasFilledBackground;
 
-    const buttonContainerSize = useMemo(() => {
-      const hasLabel = !!action.label;
-      const hasIcon = !!(action.customIcon || action.icon);
-      const isFollowLeadingIcon = action.id === 'follow' && !!action.customIcon && hasLabel;
+    const baseStyle = {
+      backgroundColor: showFilledState ? textColor : blendColors(backgroundColor, textColor, 0.2),
+      opacity: action.disabled ? 0.4 : 1,
+    };
 
-      if (!hasLabel) {
-        switch (size) {
-          case 'small':
-            return { width: 40, height: 32 };
-          case 'large':
-            return { width: 56, height: 48 };
-          default:
-            return { width: 50, height: 44 };
-        }
-      }
-
-      if (!hasIcon) {
-        switch (size) {
-          case 'small':
-            return { minWidth: 72, height: 32 };
-          case 'large':
-            return { minWidth: 112, height: 48 };
-          default:
-            return { minWidth: 92, height: 44 };
-        }
-      }
-
-      if (isFollowLeadingIcon) {
-        switch (size) {
-          case 'small':
-            return { minWidth: 84, height: 32 };
-          case 'large':
-            return { minWidth: 120, height: 48 };
-          default:
-            return { minWidth: 108, height: 44 };
-        }
-      }
-
-      switch (size) {
-        case 'small':
-          return { minWidth: 88, height: 32 };
-        case 'large':
-          return { minWidth: 124, height: 48 };
-        default:
-          return { minWidth: 104, height: 44 };
-      }
-    }, [size, action]);
-
-    const buttonPadding = useMemo(() => {
-      const hasLabel = !!action.label;
-      const hasIcon = !!(action.customIcon || action.icon);
-      const isFollowLeadingIcon = action.id === 'follow' && !!action.customIcon && hasLabel;
-
-      if (!hasLabel) return {};
-
-      if (!hasIcon) {
-        switch (size) {
-          case 'small':
-            return { paddingHorizontal: 12, paddingVertical: 6 };
-          case 'large':
-            return { paddingHorizontal: 24, paddingVertical: 12 };
-          default:
-            return { paddingHorizontal: 16, paddingVertical: 8 };
-        }
-      }
-
-      if (isFollowLeadingIcon) {
-        switch (size) {
-          case 'small':
-            return { paddingLeft: 7, paddingRight: 10 };
-          case 'large':
-            return { paddingLeft: 14, paddingRight: 16 };
-          default:
-            return { paddingLeft: 10, paddingRight: 12 };
-        }
-      }
-
-      switch (size) {
-        case 'small':
-          return { paddingHorizontal: 10 };
-        case 'large':
-          return { paddingHorizontal: 20 };
-        default:
-          return { paddingHorizontal: 14 };
-      }
-    }, [size, action]);
-
-    const renderLabeledActionRow = useCallback(
-      (contentColor: string, textStyle: StyleProp<TextStyle>) => {
-        const labelText = (align: 'left' | 'center'): React.ReactElement => {
-          const labelStyle = [
-            textStyle,
-            align === 'left' ? styles.actionPillLabel : styles.actionPillLabelCentered,
-            { color: contentColor },
-          ];
-          return (
-            <Text style={labelStyle} numberOfLines={1} ellipsizeMode="tail">
-              {action.label}
-            </Text>
-          );
+    switch (action.variant) {
+      case 'danger':
+        return {
+          ...baseStyle,
+          backgroundColor: blendColors(backgroundColor, Colors.coral[500], 0.2),
         };
+      case 'secondary':
+        return {
+          backgroundColor: 'transparent',
+          opacity: action.disabled ? 0.4 : 1,
+        };
+      default:
+        return baseStyle;
+    }
+  }, [action.variant, action.disabled, textColor, backgroundColor, hasFilledBackground]);
 
-        if (action.id === 'follow' && action.customIcon) {
-          return (
-            <View style={styles.labeledActionRow} pointerEvents="none">
-              <View style={styles.labeledActionLeadingIconCap}>
-                {cloneHeaderActionIconColor(action.customIcon, contentColor)}
-              </View>
-              {labelText('left')}
-            </View>
-          );
-        }
+  const contentColor = useMemo(() => {
+    const showFilledState = hasFilledBackground;
+    return showFilledState ? backgroundColor : textColor;
+  }, [textColor, backgroundColor, hasFilledBackground]);
 
-        if (action.customIcon || action.icon) {
-          return (
-            <View style={styles.labeledActionRow} pointerEvents="none">
-              {labelText('left')}
-              {action.customIcon ? (
-                cloneHeaderActionIconColor(action.customIcon, contentColor)
-              ) : action.icon ? (
-                <Icon
-                  name={action.icon}
-                  size={16}
-                  color={contentColor}
-                  strokeWidth={STROKE_WIDTH_THICK}
-                />
-              ) : null}
-            </View>
-          );
-        }
+  const buttonContainerSize = useMemo(() => {
+    const hasLabel = !!action.label;
+    const hasIcon = !!(action.customIcon || action.icon);
+    const isFollowLeadingIcon = action.id === 'follow' && !!action.customIcon && hasLabel;
 
+    if (!hasLabel) {
+      switch (size) {
+        case 'small':
+          return { width: 40, height: 32 };
+        case 'large':
+          return { width: 56, height: 48 };
+        default:
+          return { width: 50, height: 44 };
+      }
+    }
+
+    if (!hasIcon) {
+      switch (size) {
+        case 'small':
+          return { minWidth: 72, height: 32 };
+        case 'large':
+          return { minWidth: 112, height: 48 };
+        default:
+          return { minWidth: 92, height: 44 };
+      }
+    }
+
+    if (isFollowLeadingIcon) {
+      switch (size) {
+        case 'small':
+          return { minWidth: 84, height: 32 };
+        case 'large':
+          return { minWidth: 120, height: 48 };
+        default:
+          return { minWidth: 108, height: 44 };
+      }
+    }
+
+    switch (size) {
+      case 'small':
+        return { minWidth: 88, height: 32 };
+      case 'large':
+        return { minWidth: 124, height: 48 };
+      default:
+        return { minWidth: 104, height: 44 };
+    }
+  }, [size, action]);
+
+  const buttonPadding = useMemo(() => {
+    const hasLabel = !!action.label;
+    const hasIcon = !!(action.customIcon || action.icon);
+    const isFollowLeadingIcon = action.id === 'follow' && !!action.customIcon && hasLabel;
+
+    if (!hasLabel) return {};
+
+    if (!hasIcon) {
+      switch (size) {
+        case 'small':
+          return { paddingHorizontal: 12, paddingVertical: 6 };
+        case 'large':
+          return { paddingHorizontal: 24, paddingVertical: 12 };
+        default:
+          return { paddingHorizontal: 16, paddingVertical: 8 };
+      }
+    }
+
+    if (isFollowLeadingIcon) {
+      switch (size) {
+        case 'small':
+          return { paddingLeft: 7, paddingRight: 10 };
+        case 'large':
+          return { paddingLeft: 14, paddingRight: 16 };
+        default:
+          return { paddingLeft: 10, paddingRight: 12 };
+      }
+    }
+
+    switch (size) {
+      case 'small':
+        return { paddingHorizontal: 10 };
+      case 'large':
+        return { paddingHorizontal: 20 };
+      default:
+        return { paddingHorizontal: 14 };
+    }
+  }, [size, action]);
+
+  const renderLabeledActionRow = useCallback(
+    (contentColor: string, textStyle: StyleProp<TextStyle>) => {
+      const labelText = (align: 'left' | 'center'): React.ReactElement => {
+        const labelStyle = [
+          textStyle,
+          align === 'left' ? styles.actionPillLabel : styles.actionPillLabelCentered,
+          { color: contentColor },
+        ];
         return (
-          <View style={styles.labeledActionTextOnlyRow} pointerEvents="none">
-            {labelText('center')}
+          <Text style={labelStyle} numberOfLines={1} ellipsizeMode="tail">
+            {action.label}
+          </Text>
+        );
+      };
+
+      if (action.id === 'follow' && action.customIcon) {
+        return (
+          <View style={styles.labeledActionRow} pointerEvents="none">
+            <View style={styles.labeledActionLeadingIconCap}>
+              {cloneHeaderActionIconColor(action.customIcon, contentColor)}
+            </View>
+            {labelText('left')}
           </View>
         );
-      },
-      [action]
-    );
-
-    const renderContent = useCallback(() => {
-      if (action.loading) {
-        return <ActivityIndicator size="small" color={contentColor} />;
       }
 
-      if (action.label) {
+      if (action.customIcon || action.icon) {
+        return (
+          <View style={styles.labeledActionRow} pointerEvents="none">
+            {labelText('left')}
+            {action.customIcon ? (
+              cloneHeaderActionIconColor(action.customIcon, contentColor)
+            ) : action.icon ? (
+              <Icon
+                name={action.icon}
+                size={16}
+                color={contentColor}
+                strokeWidth={STROKE_WIDTH_THICK}
+              />
+            ) : null}
+          </View>
+        );
+      }
+
+      return (
+        <View style={styles.labeledActionTextOnlyRow} pointerEvents="none">
+          {labelText('center')}
+        </View>
+      );
+    },
+    [action]
+  );
+
+  const renderContent = useCallback(() => {
+    if (action.loading) {
+      return <ActivityIndicator size="small" color={contentColor} />;
+    }
+
+    if (action.label) {
+      const textStyle =
+        action.variant === 'secondary' || action.id === 'save'
+          ? styles.actionTextBold
+          : styles.actionText;
+      return renderLabeledActionRow(contentColor, textStyle);
+    }
+
+    return (
+      <View style={styles.iconOnlyContent} pointerEvents="none">
+        {action.customIcon ? (
+          cloneHeaderActionIconColor(action.customIcon, contentColor)
+        ) : action.icon ? (
+          <Icon
+            name={action.icon}
+            size={20}
+            color={contentColor}
+            strokeWidth={STROKE_WIDTH_THICK}
+          />
+        ) : null}
+      </View>
+    );
+  }, [action, contentColor, renderLabeledActionRow]);
+
+  const isFollowButton = action.id === 'follow';
+  const shouldAnimate =
+    isFollowButton && action.variant !== 'danger' && action.variant !== 'secondary';
+
+  const unfilledFollowLayerStyle = useMemo(
+    () => [styles.followContentLayer, unfilledContentOpacityStyle],
+    [unfilledContentOpacityStyle]
+  );
+
+  const filledFollowLayerStyle = useMemo(
+    () => [styles.followContentLayer, filledContentOpacityStyle],
+    [filledContentOpacityStyle]
+  );
+
+  const followCrossfadeContent = shouldAnimate
+    ? (() => {
         const textStyle =
           action.variant === 'secondary' || action.id === 'save'
             ? styles.actionTextBold
             : styles.actionText;
-        return renderLabeledActionRow(contentColor, textStyle);
-      }
-
-      return (
-        <View style={styles.iconOnlyContent} pointerEvents="none">
-          {action.customIcon ? (
-            cloneHeaderActionIconColor(action.customIcon, contentColor)
-          ) : action.icon ? (
-            <Icon
-              name={action.icon}
-              size={20}
-              color={contentColor}
-              strokeWidth={STROKE_WIDTH_THICK}
-            />
-          ) : null}
-        </View>
-      );
-    }, [action, contentColor, renderLabeledActionRow]);
-
-    const isFollowButton = action.id === 'follow';
-    const shouldAnimate =
-      isFollowButton &&
-      action.variant !== 'danger' &&
-      action.variant !== 'secondary';
-
-    const unfilledFollowLayerStyle = useMemo(
-      () => [styles.followContentLayer, unfilledContentOpacityStyle],
-      [unfilledContentOpacityStyle]
-    );
-
-    const filledFollowLayerStyle = useMemo(
-      () => [styles.followContentLayer, filledContentOpacityStyle],
-      [filledContentOpacityStyle]
-    );
-
-    const followCrossfadeContent = shouldAnimate
-      ? (() => {
-          const textStyle =
-            action.variant === 'secondary' || action.id === 'save'
-              ? styles.actionTextBold
-              : styles.actionText;
-          const unfilledColor = textColor;
-          const filledColor = backgroundColor;
-          const content = action.loading ? (
-            <ActivityIndicator size="small" color={unfilledColor} />
-          ) : action.label ? (
-            renderLabeledActionRow(unfilledColor, textStyle)
-          ) : (
-            <View style={styles.iconOnlyContent} pointerEvents="none">
-              {action.customIcon ? (
-                cloneHeaderActionIconColor(action.customIcon, unfilledColor)
-              ) : action.icon ? (
-                <Icon
-                  name={action.icon}
-                  size={20}
-                  color={unfilledColor}
-                  strokeWidth={STROKE_WIDTH_THICK}
-                />
-              ) : null}
+        const unfilledColor = textColor;
+        const filledColor = backgroundColor;
+        const content = action.loading ? (
+          <ActivityIndicator size="small" color={unfilledColor} />
+        ) : action.label ? (
+          renderLabeledActionRow(unfilledColor, textStyle)
+        ) : (
+          <View style={styles.iconOnlyContent} pointerEvents="none">
+            {action.customIcon ? (
+              cloneHeaderActionIconColor(action.customIcon, unfilledColor)
+            ) : action.icon ? (
+              <Icon
+                name={action.icon}
+                size={20}
+                color={unfilledColor}
+                strokeWidth={STROKE_WIDTH_THICK}
+              />
+            ) : null}
+          </View>
+        );
+        const contentFilled = action.loading ? (
+          <ActivityIndicator size="small" color={filledColor} />
+        ) : action.label ? (
+          renderLabeledActionRow(filledColor, textStyle)
+        ) : (
+          <View style={styles.iconOnlyContent} pointerEvents="none">
+            {action.customIcon ? (
+              cloneHeaderActionIconColor(action.customIcon, filledColor)
+            ) : action.icon ? (
+              <Icon
+                name={action.icon}
+                size={20}
+                color={filledColor}
+                strokeWidth={STROKE_WIDTH_THICK}
+              />
+            ) : null}
+          </View>
+        );
+        return (
+          <View style={styles.followContentCrossfade} pointerEvents="none">
+            <View style={styles.followContentSizer} pointerEvents="none">
+              {content}
             </View>
-          );
-          const contentFilled = action.loading ? (
-            <ActivityIndicator size="small" color={filledColor} />
-          ) : action.label ? (
-            renderLabeledActionRow(filledColor, textStyle)
-          ) : (
-            <View style={styles.iconOnlyContent} pointerEvents="none">
-              {action.customIcon ? (
-                cloneHeaderActionIconColor(action.customIcon, filledColor)
-              ) : action.icon ? (
-                <Icon
-                  name={action.icon}
-                  size={20}
-                  color={filledColor}
-                  strokeWidth={STROKE_WIDTH_THICK}
-                />
-              ) : null}
-            </View>
-          );
-          return (
-            <View style={styles.followContentCrossfade} pointerEvents="none">
-              <View style={styles.followContentSizer} pointerEvents="none">
-                {content}
-              </View>
-              <Animated.View style={unfilledFollowLayerStyle}>{content}</Animated.View>
-              <Animated.View style={filledFollowLayerStyle}>{contentFilled}</Animated.View>
-            </View>
-          );
-        })()
-      : null;
+            <Animated.View style={unfilledFollowLayerStyle}>{content}</Animated.View>
+            <Animated.View style={filledFollowLayerStyle}>{contentFilled}</Animated.View>
+          </View>
+        );
+      })()
+    : null;
 
-    const shadowStyle = useMemo(() => {
-      const color = shadowColor || backgroundColor;
-      const shadowColorValue = hexToRGBA(color, 0.2);
-      return {
-        ...styles.actionButtonOuter,
-        boxShadow: `0 2px 3px ${shadowColorValue}`,
-      };
-    }, [backgroundColor, shadowColor]);
+  const shadowStyle = useMemo(() => {
+    const color = shadowColor || backgroundColor;
+    const shadowColorValue = hexToRGBA(color, 0.2);
+    return {
+      ...styles.actionButtonOuter,
+      boxShadow: `0 2px 3px ${shadowColorValue}`,
+    };
+  }, [backgroundColor, shadowColor]);
 
-    const animatedButtonLayerStyle = useMemo(
-      () => [StyleSheet.absoluteFill, animatedButtonStyle],
-      [animatedButtonStyle]
-    );
+  const animatedButtonLayerStyle = useMemo(
+    () => [StyleSheet.absoluteFill, animatedButtonStyle],
+    [animatedButtonStyle]
+  );
 
-    const animatedShadowStyle = useMemo(
-      () => [shadowStyle, buttonContainerSize],
-      [shadowStyle, buttonContainerSize]
-    );
+  const animatedShadowStyle = useMemo(
+    () => [shadowStyle, buttonContainerSize],
+    [shadowStyle, buttonContainerSize]
+  );
 
-    const actionButtonOuterStyle = useMemo(
-      () => [shadowStyle, buttonContainerSize],
-      [shadowStyle, buttonContainerSize]
-    );
+  const actionButtonOuterStyle = useMemo(
+    () => [shadowStyle, buttonContainerSize],
+    [shadowStyle, buttonContainerSize]
+  );
 
-    const actionButtonInnerStyle = useMemo(
-      () => [styles.actionButtonInner, buttonPadding, buttonStyle],
-      [buttonPadding, buttonStyle]
-    );
+  const actionButtonInnerStyle = useMemo(
+    () => [styles.actionButtonInner, buttonPadding, buttonStyle],
+    [buttonPadding, buttonStyle]
+  );
 
-    const actionButtonSquircleClipStyle = useMemo(
-      () => [StyleSheet.absoluteFill, styles.actionButtonSquircleClip],
-      []
-    );
+  const actionButtonSquircleClipStyle = useMemo(
+    () => [StyleSheet.absoluteFill, styles.actionButtonSquircleClip],
+    []
+  );
 
-    const actionButtonInnerFillStyle = useMemo(
-      () => [StyleSheet.absoluteFill, styles.actionButtonInner],
-      []
-    );
+  const actionButtonInnerFillStyle = useMemo(
+    () => [StyleSheet.absoluteFill, styles.actionButtonInner],
+    []
+  );
 
-    if (shouldAnimate) {
-      return (
-        <Animated.View
-          layout={FOLLOW_PILL_LAYOUT_ANIMATION}
-          collapsable={false}
-          style={animatedShadowStyle}
-        >
-          <SquircleView style={actionButtonSquircleClipStyle}>
-            <NativePressable
-              style={actionButtonInnerFillStyle}
-              onPress={action.onPress}
-              onLongPress={action.onLongPress}
-              delayLongPress={action.delayLongPress}
-              disabled={action.disabled || action.loading}
-            >
-              <Animated.View pointerEvents="none" style={animatedButtonLayerStyle} />
-              {followCrossfadeContent}
-            </NativePressable>
-          </SquircleView>
-        </Animated.View>
-      );
-    }
-
+  if (shouldAnimate) {
     return (
-      <SquircleView style={actionButtonOuterStyle}>
-        <NativePressable
-          style={actionButtonInnerStyle}
-          onPress={action.onPress}
-          onLongPress={action.onLongPress}
-          delayLongPress={action.delayLongPress}
-          disabled={action.disabled || action.loading}
-        >
-          {renderContent()}
-        </NativePressable>
-      </SquircleView>
+      <Animated.View
+        layout={FOLLOW_PILL_LAYOUT_ANIMATION}
+        collapsable={false}
+        style={animatedShadowStyle}
+      >
+        <SquircleView style={actionButtonSquircleClipStyle}>
+          <NativePressable
+            style={actionButtonInnerFillStyle}
+            onPress={action.onPress}
+            onLongPress={action.onLongPress}
+            delayLongPress={action.delayLongPress}
+            disabled={action.disabled || action.loading}
+          >
+            <Animated.View pointerEvents="none" style={animatedButtonLayerStyle} />
+            {followCrossfadeContent}
+          </NativePressable>
+        </SquircleView>
+      </Animated.View>
     );
   }
-);
+
+  return (
+    <SquircleView style={actionButtonOuterStyle}>
+      <NativePressable
+        style={actionButtonInnerStyle}
+        onPress={action.onPress}
+        onLongPress={action.onLongPress}
+        delayLongPress={action.delayLongPress}
+        disabled={action.disabled || action.loading}
+      >
+        {renderContent()}
+      </NativePressable>
+    </SquircleView>
+  );
+});
 ActionButton.displayName = 'ActionButton';
 
 // Re-exported for use in overlay layouts (e.g., profile screen) to keep visuals 1:1
