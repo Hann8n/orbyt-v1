@@ -46,9 +46,11 @@ interface FeedFetchResult {
   readonly cursor: string | null;
   readonly sourceUri: string;
   readonly success: boolean;
+  readonly error?: unknown;
 }
 
 // Configuration constants
+const YOUR_MIX_MAX_REQUESTS_PER_PAGE = 5;
 const FEED_CONFIG = {
   maxFeedsPerFetch: 8,
   maxPostsPerFetch: QUERY_CONSTANTS.FEED_PAGE_DEFAULT,
@@ -219,6 +221,7 @@ class FeedService {
         cursor: null,
         sourceUri: source.uri,
         success: false,
+        error,
       };
     }
   }
@@ -342,47 +345,70 @@ class FeedService {
 
         const currentUserDid = useUserStore.getState().currentUser?.did ?? null;
 
-        // First page: fetch only the algo source (or first source) for fast initial load.
-        // Subsequent pages use the full mixing loop below.
+        // Where the mixing loop starts: parsed from the cursor, or after a failed boot source.
+        let sourceIndex = 0;
+        let sourceCursor: string | null = null;
+
         if (!cursor) {
+          // First page: fetch only the algo source (or first source) for fast initial load.
+          // Subsequent pages use the full mixing loop below.
           const bootSource = feedSources.find(s => s.type === 'algorithmic') ?? feedSources[0];
           const bootIndex = feedSources.indexOf(bootSource);
           const result = await this.fetchFromSource(bootSource, null, limit);
-          const filtered = seenVideoService.filterSeen(result.feed, currentUserDid).slice(0, limit);
 
-          let nextCursor: string | null = null;
-          if (result.cursor) {
-            nextCursor = JSON.stringify({ index: bootIndex, cursor: result.cursor });
-          } else if (bootIndex + 1 < feedSources.length) {
-            nextCursor = JSON.stringify({ index: bootIndex + 1, cursor: null });
+          if (result.success) {
+            const filtered = seenVideoService
+              .filterSeen(result.feed, currentUserDid)
+              .slice(0, limit);
+
+            let nextCursor: string | null = null;
+            if (result.cursor) {
+              nextCursor = JSON.stringify({ index: bootIndex, cursor: result.cursor });
+            } else if (bootIndex + 1 < feedSources.length) {
+              nextCursor = JSON.stringify({ index: bootIndex + 1, cursor: null });
+            }
+
+            return { feed: filtered, cursor: nextCursor };
           }
 
-          return { feed: filtered, cursor: nextCursor };
-        }
-
-        // Parse cursor to get source index and cursor
-        let sourceIndex = 0;
-        let sourceCursor: string | null = null;
-        try {
-          const parsed = JSON.parse(cursor);
-          if (typeof parsed === 'object' && parsed !== null) {
-            sourceIndex = parsed.index ?? 0;
-            sourceCursor = parsed.cursor ?? null;
+          // Boot source failed: fall back to mixing the remaining sources instead of an empty page.
+          if (bootIndex + 1 >= feedSources.length) {
+            throw result.error;
           }
-        } catch {
-          // Invalid cursor, start fresh
+          sourceIndex = bootIndex + 1;
+        } else {
+          try {
+            const parsed = JSON.parse(cursor);
+            if (typeof parsed === 'object' && parsed !== null) {
+              sourceIndex = parsed.index ?? 0;
+              sourceCursor = parsed.cursor ?? null;
+            }
+          } catch {
+            // Invalid cursor, start fresh
+          }
         }
 
         const allPosts: ExtendedFeedViewPost[] = [];
         const seenUris = new Set<string>();
         let currentIndex = sourceIndex;
         let currentCursor = sourceCursor;
+        let requestCount = 0;
+        let anySourceSucceeded = false;
+        let lastSourceError: unknown;
 
-        while (allPosts.length < limit && currentIndex < feedSources.length) {
+        // Video-filtered generators can return empty pages with a cursor; cap the requests so one
+        // page load cannot walk a generator indefinitely.
+        while (
+          allPosts.length < limit &&
+          currentIndex < feedSources.length &&
+          requestCount < YOUR_MIX_MAX_REQUESTS_PER_PAGE
+        ) {
           const source = feedSources[currentIndex];
+          requestCount++;
           const result = await this.fetchFromSource(source, currentCursor, limit);
 
           if (result.success) {
+            anySourceSucceeded = true;
             for (const post of result.feed) {
               const uri = post.post?.uri;
               if (uri && !seenUris.has(uri)) {
@@ -392,6 +418,7 @@ class FeedService {
             }
             currentCursor = result.cursor;
           } else {
+            lastSourceError = result.error;
             currentIndex++;
             currentCursor = null;
             continue;
@@ -405,6 +432,10 @@ class FeedService {
           }
         }
 
+        if (!anySourceSucceeded && allPosts.length === 0 && lastSourceError !== undefined) {
+          throw lastSourceError;
+        }
+
         // Filter seen videos
         const filteredPosts = seenVideoService.filterSeen(allPosts, currentUserDid);
 
@@ -415,16 +446,15 @@ class FeedService {
           return bTime - aTime;
         });
 
-        // Apply limit
-        const limitedPosts = filteredPosts.slice(0, limit);
-
+        // Return everything collected: the source cursors have already moved past these posts,
+        // so trimming to `limit` would drop them for good.
         // Create cursor for next fetch
         const newCursor =
           currentIndex < feedSources.length
             ? JSON.stringify({ index: currentIndex, cursor: currentCursor })
             : null;
 
-        return { feed: limitedPosts, cursor: newCursor };
+        return { feed: filteredPosts, cursor: newCursor };
       } else if (feedOptionForAPI.startsWith('search:')) {
         const searchQuery = feedOptionForAPI.substring(7);
         if (!searchQuery || searchQuery.trim() === '') {
@@ -582,7 +612,8 @@ class FeedService {
         feedOption,
         userDid,
       });
-      return { feed: [], cursor: null };
+      // Surface the failure so React Query retries and the feed shows its error state.
+      throw error;
     }
   }
 

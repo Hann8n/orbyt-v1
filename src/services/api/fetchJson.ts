@@ -23,6 +23,8 @@ export async function fetchJson<T>(url: string, options: FetchJsonOptions = {}):
       : null;
 
   const onAbort = () => controller.abort();
+  // An already-aborted signal never fires 'abort', so forward its state up front.
+  if (signal?.aborted) controller.abort();
   signal?.addEventListener('abort', onAbort);
 
   try {
