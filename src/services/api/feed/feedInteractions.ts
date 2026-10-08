@@ -5,36 +5,18 @@ import { XRPCError } from '@atproto/api';
 import { AtprotoCore } from '../core';
 import { getAtprotoBridge } from '../agentBridge';
 import { logger } from '../../../utils/logger';
+import { BLUESKY_APPVIEW_PROXY } from '../../orbyt/serviceInfo';
 import type { Interaction } from '../types';
 import {
   getFeedInteractionsSupported,
   setFeedInteractionsSupported,
 } from './feedInteractionSupport';
-import { isValidAtUri } from '../../../utils/atproto/uriValidation';
 
-const APPVIEW_SERVICE_PROXY = 'did:web:api.bsky.app#bsky_appview' as const;
-const feedProxyDidCache = new Map<string, string | null>();
-
-async function getFeedGeneratorProxy(feed: string | undefined): Promise<string | null> {
-  if (!feed || !isValidAtUri(feed)) return null;
-
-  if (feedProxyDidCache.has(feed)) {
-    const cachedDid = feedProxyDidCache.get(feed);
-    return cachedDid ? `${cachedDid}#bsky_fg` : null;
-  }
-
-  try {
-    const { api } = await AtprotoCore.getApiClient();
-    const response = await api.app.bsky.feed.getFeedGenerator({ feed });
-    const feedServiceDid = response.data.view?.did ?? null;
-    feedProxyDidCache.set(feed, feedServiceDid);
-    return feedServiceDid ? `${feedServiceDid}#bsky_fg` : null;
-  } catch {
-    // Cache miss as null to avoid repeatedly querying for invalid/unresolvable feeds.
-    feedProxyDidCache.set(feed, null);
-    return null;
-  }
-}
+/**
+ * Interactions go to Bluesky's AppView, which forwards them to the feed's generator.
+ * The session's `app.bsky.authFullApp` grant covers `sendInteractions` for this audience only,
+ * so proxying straight to a generator's `#bsky_fg` service is refused by the PDS.
+ */
 const interactionDiagnosticsLogged = new Set<
   'attempt' | 'success' | 'unsupported' | 'unsupported-skip' | 'error'
 >();
@@ -154,7 +136,7 @@ export async function sendFeedInteractions(
   const events = interactions
     .map(interaction => interaction.event)
     .filter((event): event is string => typeof event === 'string');
-  const proxyTarget = (await getFeedGeneratorProxy(feed)) ?? APPVIEW_SERVICE_PROXY;
+  const proxyTarget = BLUESKY_APPVIEW_PROXY;
 
   logInteractionDiagnosticOnce('attempt', 'Sending feed interactions (first attempt)', {
     feed: feed ?? null,

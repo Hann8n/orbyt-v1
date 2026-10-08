@@ -25,15 +25,25 @@ export interface OrbytProviders {
   discoveryFeed: string | null;
 }
 
+/**
+ * Bluesky's AppView. The session's `app.bsky.authFullApp` grant names this audience, so calls that
+ * must be authorized under it (reports, feed interactions) are proxied here explicitly.
+ */
+export const BLUESKY_APPVIEW_PROXY = 'did:web:api.bsky.app#bsky_appview';
+
 const DEFAULT_PROVIDERS: OrbytProviders = Object.freeze({
-  appView: 'did:web:api.bsky.app#bsky_appview',
+  appView: BLUESKY_APPVIEW_PROXY,
   discoveryFeed: 'at://did:plc:3guzzweuqraryl3rdkimjamk/app.bsky.feed.generator/videos-for-you',
 });
 
 const SERVICE_INFO_KEY = ['orbyt', 'service-info'] as const;
 const PROVIDERS_KEY = ['orbyt', 'providers'] as const;
+/** After a failed lookup, use the defaults for this long instead of waiting on the AppView again. */
+const FAILURE_BACKOFF_MS = 5 * 60 * 1000;
+let lastFailureAt = 0;
 
 export async function getOrbytProviders(): Promise<OrbytProviders> {
+  if (Date.now() - lastFailureAt < FAILURE_BACKOFF_MS) return DEFAULT_PROVIDERS;
   try {
     const providers = await queryClient.fetchQuery({
       queryKey: SERVICE_INFO_KEY,
@@ -46,6 +56,8 @@ export async function getOrbytProviders(): Promise<OrbytProviders> {
           )
         ).providers ?? null,
       staleTime: 60 * 60 * 1000,
+      // Optional call: fall back to the defaults at once rather than retrying.
+      retry: false,
     });
     if (!providers) return DEFAULT_PROVIDERS;
     return {
@@ -53,6 +65,7 @@ export async function getOrbytProviders(): Promise<OrbytProviders> {
       discoveryFeed: providers.discoveryFeed || null,
     };
   } catch {
+    lastFailureAt = Date.now();
     return DEFAULT_PROVIDERS;
   }
 }
