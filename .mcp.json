@@ -7,9 +7,6 @@
       "env": {
         "ARGENT_MCP_LOG": "/Users/jack/.argent/mcp-calls.log"
       }
-    },
-    "Sentry": {
-      "url": "https://mcp.sentry.dev/mcp/orbyt-tech/react-native"
     }
   }
 }

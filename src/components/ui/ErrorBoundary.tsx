@@ -14,7 +14,6 @@ import {
   type ErrorBoundaryProps as RouteErrorBoundaryProps,
 } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import * as Sentry from '@sentry/react-native';
 import { logger } from '../../utils/logger';
 import { Colors } from './UI';
 import CancelButton from './CancelButton';
@@ -74,14 +73,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       errorInfo: errorInfo.componentStack,
     });
 
-    // Send caught render errors to Sentry for visibility
-    Sentry.captureException(error, {
-      extra: {
-        componentStack: errorInfo.componentStack,
-        level: this.props.level || 'component',
-      },
-    });
-
     // Store error info for potential display
     this.setState({
       errorInfo,
@@ -89,9 +80,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     // Call custom error handler if provided
     this.props.onError?.(error, errorInfo);
-
-    // In production, you might want to send to error tracking service
-    // Example: Sentry.captureException(error, { extra: errorInfo });
   }
 
   componentDidUpdate(prevProps: ErrorBoundaryProps) {
@@ -166,7 +154,6 @@ export function RouteErrorBoundary({ error, retry }: RouteErrorBoundaryProps) {
       component: 'ErrorBoundary',
       level: 'feature',
     });
-    Sentry.captureException(error, { extra: { level: 'route' } });
   }, [error]);
 
   return (

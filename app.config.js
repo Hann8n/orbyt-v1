@@ -165,15 +165,6 @@ module.exports = {
       },
     ],
     'expo-image',
-    [
-      '@sentry/react-native/expo',
-      {
-        url: 'https://sentry.io/',
-        project: 'react-native',
-        organization: 'orbyt-tech',
-      },
-    ],
-    '@sentry/react-native',
   ],
   extra: {
     eas: {
