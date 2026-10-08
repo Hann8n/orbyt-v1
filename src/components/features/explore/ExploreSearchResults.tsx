@@ -14,6 +14,7 @@ import type { CachedChannel } from '@/services/data/ChannelService';
 import { type ExploreSearchTabId } from './types';
 import { prefetchProfileThenOpen } from './prefetchProfileThenOpen';
 import { exploreScreenStyles as styles } from './ExploreScreenStyles';
+import EmptyFeed from '@/components/features/feed/EmptyFeed';
 
 type ExploreSuggestionsProfileRowProps = {
   profile: ProfileViewWithOrbyt;
@@ -277,6 +278,8 @@ export const SearchFeedRenderer = ({
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
+  isError,
+  onRetry,
 }: {
   feedOption: ExploreSearchTabId;
   profiles: ProfileViewWithOrbyt[];
@@ -291,7 +294,13 @@ export const SearchFeedRenderer = ({
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
   fetchNextPage?: () => void;
+  /** The search failed with no results to show. */
+  isError?: boolean;
+  onRetry?: () => void;
 }) => {
+  if (isError && feedOption !== 'recently-visited') {
+    return <EmptyFeed type="error" onRetry={onRetry} />;
+  }
   switch (feedOption) {
     case 'recently-visited':
       return (

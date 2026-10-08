@@ -49,13 +49,13 @@ import {
   FeedSurfaceStack,
   FEED_VIEW_CONSTANTS,
   IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING,
-  getEmptyFeedType,
   getFeedItemKey,
   getEndOfFeedOverscrollTextColor,
   getProfileColors,
   getPullToRefreshTintColor,
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
+import { getFeedEmptyState, type FeedEmptyState } from '@/utils/feed/feedEmptyState';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { isIosLiquidGlassAvailable } from '@/stores/userStore';
 import { getEffectiveTopInset } from '../../../utils/device/screen';
@@ -94,8 +94,7 @@ const listKeyExtractor = (item: FeedListItem, index: number): string => getFeedI
 const isFeedListHeaderItem = (item: unknown): boolean => isFeedHeaderItem(item as FeedListItem);
 
 interface ListEmptyComponentProps {
-  isLoading: boolean;
-  effectiveIsError: boolean;
+  emptyState: FeedEmptyState;
   feedOption: string;
   secondaryColor?: string;
   profileColors?: { backgroundColor: string; textColor: string };
@@ -156,8 +155,7 @@ const MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED = { disabled: true } as const;
 const SAFE_AREA_BOTTOM_EDGES = { bottom: true } as const;
 
 const ListEmptyComponent = ({
-  isLoading,
-  effectiveIsError,
+  emptyState,
   feedOption,
   secondaryColor,
   profileColors,
@@ -177,7 +175,7 @@ const ListEmptyComponent = ({
     [emptyComponentHeight]
   );
 
-  if (isLoading) {
+  if (emptyState === 'loading') {
     return (
       <View style={loadingContainerStyle}>
         <ActivityIndicator size="large" color={loadingIndicatorColor} />
@@ -185,17 +183,16 @@ const ListEmptyComponent = ({
     );
   }
 
-  const commonProps = {
-    secondaryColor,
-    profileColors,
-    viewableAreaHeight: emptyComponentHeight,
-    feedOption,
-  };
-
-  if (effectiveIsError) {
-    return <EmptyFeed type="error" onRetry={onRetry} {...commonProps} />;
-  }
-  return <EmptyFeed type={getEmptyFeedType(feedOption)} {...commonProps} />;
+  return (
+    <EmptyFeed
+      type={emptyState}
+      onRetry={onRetry}
+      secondaryColor={secondaryColor}
+      profileColors={profileColors}
+      viewableAreaHeight={emptyComponentHeight}
+      feedOption={feedOption}
+    />
+  );
 };
 
 ListEmptyComponent.displayName = 'ListEmptyComponent';
@@ -249,6 +246,8 @@ function ListFeedViewComponent({
   hasNextPage,
   isLoading,
   isError,
+  isErrorRetryable,
+  isPaused,
   onRetry,
   isVisible = true,
   viewMode,
@@ -426,6 +425,13 @@ function ListFeedViewComponent({
   }, [headerComponent, feed]);
 
   const effectiveIsError = forceError || isError;
+  const emptyState = getFeedEmptyState({
+    feedOption,
+    isLoading,
+    isError: effectiveIsError,
+    isErrorRetryable: forceError || isErrorRetryable,
+    isPaused,
+  });
 
   const showEndOfFeed =
     feed.length > 0 &&
@@ -636,8 +642,7 @@ function ListFeedViewComponent({
   const listEmptyElement = useMemo(
     () => (
       <ListEmptyComponent
-        isLoading={isLoading}
-        effectiveIsError={effectiveIsError}
+        emptyState={emptyState}
         feedOption={feedOption}
         secondaryColor={secondaryColor}
         profileColors={profileColors}
@@ -645,15 +650,7 @@ function ListFeedViewComponent({
         onRetry={onRetry}
       />
     ),
-    [
-      isLoading,
-      effectiveIsError,
-      feedOption,
-      secondaryColor,
-      profileColors,
-      emptyComponentHeight,
-      onRetry,
-    ]
+    [emptyState, feedOption, secondaryColor, profileColors, emptyComponentHeight, onRetry]
   );
 
   const refreshControlElement = useMemo(() => {
@@ -801,9 +798,8 @@ function ListFeedViewComponent({
         hasNextPage={hasNextPage}
         onGridItemPress={onGridItemPressProp}
         gridFeedModalZoomConfig={gridFeedModalZoomConfig ?? undefined}
-        isError={effectiveIsError}
+        emptyState={emptyState}
         onRetry={onRetry}
-        isLoading={isLoading}
         ListComponent={ListComponent}
         contentScrollProgressOutput={contentScrollProgressOutput}
         snapTopInset={snapTopInset}
@@ -822,9 +818,8 @@ function ListFeedViewComponent({
       hasNextPage,
       onGridItemPressProp,
       gridFeedModalZoomConfig,
-      effectiveIsError,
+      emptyState,
       onRetry,
-      isLoading,
       ListComponent,
       contentScrollProgressOutput,
       snapTopInset,

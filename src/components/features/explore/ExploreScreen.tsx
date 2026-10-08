@@ -153,6 +153,8 @@ const ExploreScreen: React.FC = () => {
   const {
     feed: searchFeed,
     isLoading: isSearchLoading,
+    isError: isSearchError,
+    refetch: refetchSearch,
     hasNextPage: hasSearchNextPage,
     isFetchingNextPage: isSearchFetchingNextPage,
     fetchNextPage: fetchSearchNextPage,
@@ -335,6 +337,8 @@ const ExploreScreen: React.FC = () => {
         hasNextPage={hasSearchNextPage}
         isFetchingNextPage={isSearchFetchingNextPage}
         fetchNextPage={fetchSearchNextPage}
+        isError={isSearchError && searchFeed.length === 0}
+        onRetry={refetchSearch}
       />
     ),
     [
@@ -350,6 +354,9 @@ const ExploreScreen: React.FC = () => {
       hasSearchNextPage,
       isSearchFetchingNextPage,
       fetchSearchNextPage,
+      isSearchError,
+      searchFeed.length,
+      refetchSearch,
     ]
   );
 

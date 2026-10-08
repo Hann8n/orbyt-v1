@@ -80,20 +80,17 @@ export class ActorService {
     limit: number = 20
   ): Promise<ProfileSearchResponse> {
     await AtprotoCore.ensureSession();
-    try {
-      const params: { term: string; limit: number; cursor?: string } = { term: query, limit };
-      if (cursor) params.cursor = cursor;
+    const params: { term: string; limit: number; cursor?: string } = { term: query, limit };
+    if (cursor) params.cursor = cursor;
 
-      const { api } = await AtprotoCore.getApiClient();
-      const response = await api.app.bsky.actor.searchActors(params);
-      const profiles: ProfileViewBasic[] = (response.data.actors || []) as ProfileViewBasic[];
-      return {
-        profiles,
-        cursor: response.data.cursor ?? null,
-      };
-    } catch (_error) {
-      return { profiles: [], cursor: null };
-    }
+    // Failures throw so search results can show their error state instead of "no results".
+    const { api } = await AtprotoCore.getApiClient();
+    const response = await api.app.bsky.actor.searchActors(params);
+    const profiles: ProfileViewBasic[] = (response.data.actors || []) as ProfileViewBasic[];
+    return {
+      profiles,
+      cursor: response.data.cursor ?? null,
+    };
   }
 
   static async getProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {

@@ -455,22 +455,14 @@ export async function searchHashtagVideosPaginated(
   limit: number = 20,
   sort: 'top' | 'latest' = 'latest'
 ): Promise<VideoSearchResponse> {
-  try {
-    const { feed, cursor: next } = await searchVideoPostsV2({
-      hashtags: [hashtag],
-      sort: sort === 'top' ? 'top' : 'recent',
-      allTime: true,
-      cursor,
-      limit,
-    });
-    return { videos: feed, cursor: next };
-  } catch (error: unknown) {
-    logger.warn('searchHashtagVideosPaginated failed', {
-      component: 'feedQueries',
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return { videos: [], cursor: null };
-  }
+  const { feed, cursor: next } = await searchVideoPostsV2({
+    hashtags: [hashtag],
+    sort: sort === 'top' ? 'top' : 'recent',
+    allTime: true,
+    cursor,
+    limit,
+  });
+  return { videos: feed, cursor: next };
 }
 
 /**
@@ -557,6 +549,15 @@ export async function getRepostedVideos(
         const { api } = await AtprotoCore.getApiClient();
         response = await api.app.bsky.feed.getAuthorFeed(params);
       } catch (err: unknown) {
+        if (
+          err instanceof AppBskyFeedGetAuthorFeed.BlockedActorError ||
+          err instanceof AppBskyFeedGetAuthorFeed.BlockedByActorError
+        ) {
+          return { feed: [], cursor: null };
+        }
+        // Nothing gathered yet: the page failed. Otherwise return what was gathered with
+        // the failed page's cursor, so the next page retries it.
+        if (collected.length === 0) throw err;
         logger.warn('getRepostedVideos: author feed page failed', {
           component: 'feedQueries',
           error: err instanceof Error ? err.message : String(err),
@@ -601,11 +602,11 @@ export async function getRepostedVideos(
 
     return { feed: feedData, cursor: nextCursor };
   } catch (error: unknown) {
-    logger.warn('getRepostedVideos: unexpected error', {
+    logger.warn('getRepostedVideos: request failed', {
       component: 'feedQueries',
       error: error instanceof Error ? error.message : String(error),
     });
-    return { feed: [], cursor: null };
+    throw error;
   }
 }
 
