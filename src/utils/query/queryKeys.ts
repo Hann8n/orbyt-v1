@@ -14,6 +14,7 @@
 
 // Base keys - defined first to avoid circular references
 const feedBase = ['feed'] as const;
+const postsBase = ['posts'] as const;
 const profilesBase = ['profiles'] as const;
 const orbytProfileBase = ['orbyt-profile'] as const;
 const commentsBase = ['comments'] as const;
@@ -47,8 +48,15 @@ export const queryKeys = {
     batch: (feedOption: string, userDid?: string) =>
       [...queryKeys.feed.byUser(feedOption, userDid), 'batch'] as const,
     search: (query: string) => [...feedBase, 'search', query] as const,
-    /** A single post by URI (a full-height video opened from a link). */
-    post: (uri: string) => [...feedBase, 'post', uri] as const,
+  },
+
+  /**
+   * Single posts by URI (a full-height video opened from a link). A root of their own, so the
+   * `feed` root holds only paginated feeds; viewer state makes them account-scoped.
+   */
+  posts: {
+    all: postsBase,
+    detail: (uri: string) => [...postsBase, uri] as const,
   },
 
   // Profile queries (merged from ProfileService and FeedService)

@@ -35,14 +35,10 @@ import { useProfileByDid } from '../../../services/data/ProfileService';
 import { useUserStore } from '../../../stores/userStore';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { useShallow } from 'zustand/react/shallow';
-import { useModalStore } from '../../../stores/modalStore';
+import { useModalStore, type CommentSectionPost } from '../../../stores/modalStore';
 import { useShareSheet } from '../../../stores/modalStore';
-import {
-  isPostTogglePending,
-  readFeedPostToggle,
-  useFeedPostToggle,
-  useLikeMutation,
-} from '@/hooks/useLikeMutation';
+import { isPostTogglePending, useFeedPostToggle, useLikeMutation } from '@/hooks/useLikeMutation';
+import { readFeedPostToggle } from '@/utils/query/postToggleCache';
 import {
   confirmToggle,
   isConfirmedUri,
@@ -77,19 +73,8 @@ import {
 
 export type { Comment, Like } from '../../../services/api/types';
 
-interface Post {
-  uri: string;
-  cid?: string;
-  indexedAt?: string;
-  author?: {
-    did: string;
-    handle: string;
-    displayName?: string;
-  };
-}
-
 interface CommentSectionProps {
-  post?: Post;
+  post?: CommentSectionPost;
   onDismiss?: () => void;
   visible?: boolean;
   onOpenShareSheet?: () => void;
@@ -286,13 +271,17 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const likeMutation = useLikeMutation();
 
-  // The feed cache owns the post's like; a post no cached feed holds keeps a local copy.
+  // The query cache owns the post's like; a post no cache holds keeps a local copy, seeded from
+  // the post the sheet was opened with.
   const cachedHeaderLike = useFeedPostToggle(post?.uri, 'like');
   const [localHeaderLike, setLocalHeaderLike] = useState<
     (ToggleState & { postUri: string }) | null
   >(null);
   const headerLike: ToggleState = cachedHeaderLike ??
-    (localHeaderLike?.postUri === post?.uri ? localHeaderLike : null) ?? { count: 0 };
+    (localHeaderLike?.postUri === post?.uri ? localHeaderLike : null) ?? {
+      uri: post?.viewer?.like,
+      count: post?.likeCount ?? 0,
+    };
 
   const headerHeartScale = useSharedValue(1);
   const headerHeartStyle = useAnimatedStyle(() => ({

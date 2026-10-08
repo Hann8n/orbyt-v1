@@ -334,64 +334,78 @@ export async function applyModerationBatch<T extends { post: PostView }>(items: 
 }
 
 /**
- * Get a single post by URI (uses getPosts — lighter than getPostThread for depth-0 lookups).
- * @param uri - Post URI
- * @returns Post view or null (not-found / blocked / missing entries return null, same as thread-only path)
+ * A single post by URI (getPosts — lighter than getPostThread for depth-0 lookups), or null when
+ * it is not found or blocked. A failed request throws.
  */
-export async function getPost(uri: string): Promise<PostView | null> {
+async function fetchPost(uri: string): Promise<PostView | null> {
   const trimmed = typeof uri === 'string' ? uri.trim() : '';
   if (!trimmed) return null;
-  try {
-    const map = await getPosts([trimmed]);
-    const entry = map.get(trimmed);
-    if (!entry) return null;
-    if (AppBskyFeedDefs.isNotFoundPost(entry) || AppBskyFeedDefs.isBlockedPost(entry)) return null;
-    return entry as PostView;
-  } catch (_error: unknown) {
-    return null;
-  }
+  const entry = (await requestPosts([trimmed], false)).get(trimmed);
+  if (!entry) return null;
+  if (AppBskyFeedDefs.isNotFoundPost(entry) || AppBskyFeedDefs.isBlockedPost(entry)) return null;
+  return entry as PostView;
 }
 
 /**
- * Batch fetch multiple posts by URI
- * Uses app.bsky.feed.getPosts which accepts up to 25 URIs at once
+ * Get a single post by URI, best effort.
+ * @returns Post view or null (not-found / blocked / missing entries and failed requests)
+ */
+export async function getPost(uri: string): Promise<PostView | null> {
+  return fetchPost(uri).catch(() => null);
+}
+
+/**
+ * A post that plays as a video, or null when it is not found, blocked or has no video.
+ * A failed request throws, so a caller can tell an outage from a missing post.
+ */
+export async function getVideoPost(uri: string): Promise<PostView | null> {
+  const post = await fetchPost(uri);
+  return post && hasVideoEmbed(post.embed) ? post : null;
+}
+
+/**
+ * app.bsky.feed.getPosts in batches of 25. A best-effort batch that fails reads as no posts;
+ * otherwise any failure throws.
+ */
+async function requestPosts(
+  uris: string[],
+  bestEffort: boolean
+): Promise<Map<string, PostView | NotFoundPost | BlockedPost>> {
+  const result = new Map<string, PostView | NotFoundPost | BlockedPost>();
+  if (!uris.length) return result;
+
+  const { api } = await AtprotoCore.getApiClient();
+  const BATCH_SIZE = 25;
+  const batches: string[][] = [];
+  for (let i = 0; i < uris.length; i += BATCH_SIZE) {
+    batches.push(uris.slice(i, i + BATCH_SIZE));
+  }
+
+  const responses = await Promise.all(
+    batches.map(batch => {
+      const request = api.app.bsky.feed.getPosts({ uris: batch });
+      return bestEffort ? request.catch(() => ({ data: { posts: [] } })) : request;
+    })
+  );
+
+  // Collect all posts into the map (including NotFoundPost and BlockedPost)
+  for (const response of responses) {
+    for (const post of response.data.posts) {
+      result.set(post.uri, post);
+    }
+  }
+  return result;
+}
+
+/**
+ * Batch fetch multiple posts by URI, best effort: a failed request reads as missing posts.
  * @param uris - Array of post URIs to fetch
  * @returns Map of URI to post data (includes NotFoundPost and BlockedPost objects)
  */
 export async function getPosts(
   uris: string[]
 ): Promise<Map<string, PostView | NotFoundPost | BlockedPost>> {
-  const result = new Map<string, PostView | NotFoundPost | BlockedPost>();
-  if (!uris.length) return result;
-
-  try {
-    const { api } = await AtprotoCore.getApiClient();
-
-    // API accepts max 25 URIs per request
-    const BATCH_SIZE = 25;
-    const batches: string[][] = [];
-    for (let i = 0; i < uris.length; i += BATCH_SIZE) {
-      batches.push(uris.slice(i, i + BATCH_SIZE));
-    }
-
-    // Fetch all batches in parallel
-    const responses = await Promise.all(
-      batches.map(batch =>
-        api.app.bsky.feed.getPosts({ uris: batch }).catch(() => ({ data: { posts: [] } }))
-      )
-    );
-
-    // Collect all posts into the map (including NotFoundPost and BlockedPost)
-    for (const response of responses) {
-      for (const post of response.data.posts) {
-        result.set(post.uri, post);
-      }
-    }
-  } catch (_error: unknown) {
-    // ignore errors
-  }
-
-  return result;
+  return requestPosts(uris, true).catch(() => new Map());
 }
 
 export async function getFeedGenerator(uri: string): Promise<FeedGeneratorOutput | null> {
@@ -665,7 +679,11 @@ export async function getCommunityVideoFeed(
 ): Promise<FeedResponse> {
   const skeleton = await getCommunityFeed(communityUri, { sort, cursor, limit });
   const items = skeleton.feed.filter(item => item.status !== 'removed');
-  const posts = await getPosts(items.map(item => item.post));
+  // Hydration failing must read as an error, not as an empty page with a cursor.
+  const posts = await requestPosts(
+    items.map(item => item.post),
+    false
+  );
 
   const feed: ExtendedFeedViewPost[] = [];
   for (const item of items) {

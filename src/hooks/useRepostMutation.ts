@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAnalytics, logShare } from '@react-native-firebase/analytics';
 import { AtprotoFeedService } from '../services/api/feed/FeedService';
-import { setFeedPostToggle } from './useLikeMutation';
+import { setFeedPostToggle } from '../utils/query/postToggleCache';
 import {
   confirmToggle,
   isConfirmedUri,

@@ -37,3 +37,18 @@ export const getFeedEmptyState = ({
   if (isError) return isErrorRetryable ? 'error' : 'unavailable';
   return getEmptyFeedType(feedOption);
 };
+
+/**
+ * What a full-height video opened from a link shows while it has no post to play. A post that
+ * is missing, blocked, filtered or not a video is `unavailable`, like a failure retrying cannot
+ * fix; `loading` is the spinner.
+ */
+export const getLinkedVideoState = (params: {
+  isLoading: boolean;
+  isError: boolean;
+  isErrorRetryable?: boolean;
+  isPaused?: boolean;
+}): FeedEmptyState => {
+  const state = getFeedEmptyState({ ...params, feedOption: '' });
+  return state === 'no-videos' || state === 'no-following' ? 'unavailable' : state;
+};

@@ -293,6 +293,8 @@ function VideoCard({
       cid: postView.cid,
       indexedAt: postView.indexedAt,
       author: postView.author,
+      likeCount: postView.likeCount,
+      viewer: { like: postView.viewer?.like },
     };
     presentCommentSection({
       post: commentPost,

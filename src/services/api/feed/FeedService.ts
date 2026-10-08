@@ -13,6 +13,7 @@ export class AtprotoFeedService {
   static getFeed = feedQueries.getFeed;
   static applyModerationBatch = feedQueries.applyModerationBatch;
   static getPost = feedQueries.getPost;
+  static getVideoPost = feedQueries.getVideoPost;
   static getPosts = feedQueries.getPosts;
   static getFeedGenerator = feedQueries.getFeedGenerator;
   static getFeedGeneratorSubscriberCount = feedQueries.getFeedGeneratorSubscriberCount;

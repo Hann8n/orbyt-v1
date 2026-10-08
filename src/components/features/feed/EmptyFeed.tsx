@@ -21,7 +21,7 @@ const EMPTY_FEED_TV_SIZE = 70;
 interface EmptyFeedProps {
   secondaryColor?: string;
   message?: string;
-  /** `unavailable` reads as `error` without Retry: retrying a 4xx cannot help. */
+  /** `unavailable` is an error without Retry: retrying a 4xx cannot help. */
   type?: Exclude<FeedEmptyState, 'loading'>;
   profileColors?: {
     backgroundColor: string;
@@ -117,10 +117,14 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           defaultMessage: t('feed.cantConnectToFeed'),
         };
       case 'error':
-      case 'unavailable':
         return {
           icon: 'alert-circle',
           defaultMessage: t('feed.somethingWentWrong'),
+        };
+      case 'unavailable':
+        return {
+          icon: 'alert-circle',
+          defaultMessage: t('feed.notAvailable'),
         };
       case 'no-following':
         return {

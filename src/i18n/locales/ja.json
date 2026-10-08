@@ -276,6 +276,7 @@
     "nothingHereYet": "まだ何もありません...",
     "cantConnectToFeed": "フィードに接続できません",
     "somethingWentWrong": "問題が発生しました",
+    "notAvailable": "利用できません",
     "followAccountsToSeePosts": "フォローして投稿を見る",
     "thatsAllFromChannels": "チャンネルの投稿は以上です",
     "exploreMoreContent": "もっとコンテンツを探す",
@@ -381,7 +382,7 @@
   "video": {
     "noVideo": "動画がありません",
     "videoFileNotFound": "動画ファイルが見つかりません",
-    "linkedVideoUnavailable": "この動画は利用できません。",
+    "linkedVideoUnavailable": "この動画は利用できません",
     "unableToAccessVideoFile": "動画ファイルにアクセスできません",
     "contentWarningFallback": "この動画はすべての視聴者に適していない可能性があります。",
     "contentWarningMayContain": "この動画には{{labels}}が含まれる可能性があります。",

@@ -4,7 +4,7 @@
  */
 import { XRPCError } from '@atproto/api';
 
-import { getFeedEmptyState } from '@/utils/feed/feedEmptyState';
+import { getFeedEmptyState, getLinkedVideoState } from '@/utils/feed/feedEmptyState';
 import { isRetryableError } from '@/utils/query/retryPolicy';
 
 jest.mock('expo-crypto', () => ({}));
@@ -35,6 +35,26 @@ describe('getFeedEmptyState', () => {
   it("shows the feed's empty message when the server returned nothing", () => {
     expect(getFeedEmptyState(base)).toBe('no-videos');
     expect(getFeedEmptyState({ ...base, feedOption: 'following' })).toBe('no-following');
+  });
+});
+
+describe('getLinkedVideoState', () => {
+  const idle = { isLoading: false, isError: false };
+
+  it('waits for the post, or for a connection', () => {
+    expect(getLinkedVideoState({ ...idle, isLoading: true })).toBe('loading');
+    expect(getLinkedVideoState({ ...idle, isPaused: true })).toBe('no-connection');
+  });
+
+  it('offers Retry for a failure retrying can fix', () => {
+    expect(getLinkedVideoState({ ...idle, isError: true })).toBe('error');
+  });
+
+  it('is unavailable when the post is missing or the failure is final', () => {
+    expect(getLinkedVideoState(idle)).toBe('unavailable');
+    expect(getLinkedVideoState({ ...idle, isError: true, isErrorRetryable: false })).toBe(
+      'unavailable'
+    );
   });
 });
 

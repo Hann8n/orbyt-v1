@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { skipToken, useQuery } from '@tanstack/react-query';
@@ -25,7 +25,9 @@ import { useCurrentUser } from '@/stores/userStore';
 import { isValidDid } from '@/utils/atproto/uriValidation';
 import { fullHeightVideoFeedItem } from '@/utils/feed/seedFullHeightVideoFeed';
 import { queryKeys } from '@/utils/query/queryKeys';
-import { FontFamily, Typography } from '@/utils/components/typography';
+import { isRetryableError } from '@/utils/query/retryPolicy';
+import { getLinkedVideoState, type FeedEmptyState } from '@/utils/feed/feedEmptyState';
+import EmptyFeed from '@/components/features/feed/EmptyFeed';
 
 const ROUTE_KEY = 'full-height-video-modal';
 const FEED_OPTION = 'full-height-video';
@@ -47,12 +49,19 @@ function parsePostUri(postUri: string | null): AtUri | null {
   }
 }
 
+interface LinkedPost {
+  feedItem?: FeedItem;
+  /** What shows while there is no post to play (`getLinkedVideoState`). */
+  state: FeedEmptyState;
+  retry: () => void;
+}
+
 /**
  * A post opened from a getorbyt.com link (`+native-intent`), which nothing seeded into
  * `feedService`. The link names the author by handle or DID; resolve a handle first, since
  * `getPosts` answers with DID URIs.
  */
-function useLinkedPost(postUri: string | null): { feedItem?: FeedItem; isLoading: boolean } {
+function useLinkedPost(postUri: string | null): LinkedPost {
   const { currentUser } = useCurrentUser();
   const linked = parsePostUri(postUri);
   const author = linked?.host ?? null;
@@ -63,17 +72,32 @@ function useLinkedPost(postUri: string | null): { feedItem?: FeedItem; isLoading
     linked && authorDid ? `at://${authorDid}/${linked.collection}/${linked.rkey}` : null;
 
   const postQuery = useQuery({
-    queryKey: queryKeys.feed.post(resolvedUri ?? ''),
-    queryFn: resolvedUri ? () => AtprotoFeedService.getPost(resolvedUri) : skipToken,
+    queryKey: queryKeys.posts.detail(resolvedUri ?? ''),
+    queryFn: resolvedUri ? () => AtprotoFeedService.getVideoPost(resolvedUri) : skipToken,
   });
 
   const post = postQuery.data;
+  const error = authorQuery.error ?? postQuery.error;
+  const { refetch: refetchAuthor } = authorQuery;
+  const { refetch: refetchPost } = postQuery;
+  const authorFailed = authorQuery.isError;
+  const retry = useCallback(() => {
+    if (authorFailed) void refetchAuthor();
+    else void refetchPost();
+  }, [authorFailed, refetchAuthor, refetchPost]);
+
   return {
     feedItem:
       post && resolvedUri
         ? (fullHeightVideoFeedItem(post, resolvedUri, currentUser?.did ?? undefined) ?? undefined)
         : undefined,
-    isLoading: authorQuery.isLoading || postQuery.isLoading,
+    state: getLinkedVideoState({
+      isLoading: authorQuery.isLoading || postQuery.isLoading,
+      isError: !!error,
+      isErrorRetryable: isRetryableError(error),
+      isPaused: authorQuery.isPaused || postQuery.isPaused,
+    }),
+    retry,
   };
 }
 
@@ -209,10 +233,16 @@ const FullHeightVideoTabScreen = memo(() => {
           />
         ) : (
           <View style={styles.placeholder}>
-            {linkedPost.isLoading ? (
-              <ActivityIndicator size="large" color={Colors.neutral[50]} />
+            {linkedPost.state === 'loading' ? (
+              <ActivityIndicator style={styles.spinner} size="large" color={Colors.neutral[50]} />
             ) : (
-              <Text style={styles.placeholderText}>{t('video.linkedVideoUnavailable')}</Text>
+              <EmptyFeed
+                type={linkedPost.state}
+                message={
+                  linkedPost.state === 'unavailable' ? t('video.linkedVideoUnavailable') : undefined
+                }
+                onRetry={linkedPost.retry}
+              />
             )}
           </View>
         )}
@@ -237,16 +267,9 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
   },
-  placeholderText: {
-    color: Colors.neutral[200],
-    fontSize: Typography.sizes.body,
-    lineHeight: Typography.lineHeights.body,
-    fontFamily: FontFamily.medium,
-    textAlign: 'center',
+  spinner: {
+    flex: 1,
   },
   backButton: {
     position: 'absolute',
