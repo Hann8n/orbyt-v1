@@ -1,6 +1,7 @@
 module.exports = {
   name: 'orbyt',
-  slug: 'orbyt-video',
+  // Must match the EAS project (extra.eas.projectId), which is named byte-app; EAS refuses to build otherwise.
+  slug: 'byte-app',
   version: '1.1.6',
   orientation: 'portrait',
   icon: './src/assets/icon.png',
