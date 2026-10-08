@@ -20,7 +20,6 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import { useUserStore } from '@/stores/userStore';
 import { NanoIcon } from '../../ui/NanoIcon';
 import { Colors } from '../../../theme';
 import FeedRenderer from './FeedRenderer';
@@ -294,12 +293,6 @@ function FeedPager({
   );
 
   const handleCreatePress = useCallback(() => {
-    const { currentUser, setShowEmailVerificationModal } = useUserStore.getState();
-    // The root stack drops `create` while the email is unverified, so navigating would do nothing.
-    if (currentUser?.emailConfirmed === false) {
-      setShowEmailVerificationModal(true);
-      return;
-    }
     router.navigate('/create');
   }, [router]);
 

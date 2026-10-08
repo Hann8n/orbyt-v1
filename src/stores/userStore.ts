@@ -111,7 +111,6 @@ export interface SavedAccount {
   avatar?: string;
   lastUsed: number;
   originalIdentifier: string; // The identifier used during initial authentication
-  emailConfirmed?: boolean; // Cached to avoid network getSession() on every cold launch
 }
 
 export interface SubscribedChannel {
@@ -133,7 +132,6 @@ export interface UserState {
     displayName?: string; // Matches ProfileView.displayName (string | undefined)
     avatar?: string; // Matches ProfileView.avatar (string | undefined)
     originalIdentifier: string; // The identifier used during initial authentication
-    emailConfirmed?: boolean; // Email confirmation status from API (only set if email scope is available)
   } | null;
 
   authStatus: AuthStatus;
@@ -158,8 +156,6 @@ export interface UserState {
 
   feedBootstrapStatus: FeedBootstrapStatus;
   feedBootstrapDid: string | null;
-
-  showEmailVerificationModal: boolean;
 
   signIn: (identifier: string) => Promise<void>;
   signUp: (identifier: string) => Promise<void>;
@@ -212,8 +208,6 @@ export interface UserState {
   setAuthError: (error: string | null) => void;
   clearAuthError: () => void;
 
-  setShowEmailVerificationModal: (show: boolean) => void;
-
   clearAllCaches: () => Promise<void>;
 
   checkSessionHealth: () => Promise<boolean>;
@@ -231,9 +225,7 @@ export interface UserState {
 
   _persistAccountUpdate: (
     did: string,
-    updates: Partial<
-      Pick<SavedAccount, 'handle' | 'displayName' | 'avatar' | 'emailConfirmed' | 'lastUsed'>
-    >
+    updates: Partial<Pick<SavedAccount, 'handle' | 'displayName' | 'avatar' | 'lastUsed'>>
   ) => Promise<void>;
   _restoreSessionBlocking: (
     did: string,
@@ -315,12 +307,6 @@ function seedModerationQueryCache(did: string, snapshot: ModerationPrefsSnapshot
   }
 }
 
-const isEmailVerificationRequired = (currentUser: UserState['currentUser']): boolean => {
-  if (!currentUser) return false;
-  const hasEmail = currentUser.emailConfirmed !== undefined;
-  return hasEmail && currentUser.emailConfirmed === false;
-};
-
 const COLORS_PREFETCH_COOLDOWN_MS = 60 * 60 * 1000;
 
 /** Defer following-list Orbyt color batch until feed is ready; throttle to once per hour per DID. */
@@ -391,9 +377,8 @@ export const useUserStore = create<UserState>()(
         { skipOrbytColors = false }: { skipOrbytColors?: boolean } = {}
       ) => {
         const agent = new Agent(oauthSession);
-        const [profile, sessionInfo] = await Promise.all([
+        const [profile] = await Promise.all([
           agent.api.app.bsky.actor.getProfile({ actor: oauthSession.did }),
-          agent.api.com.atproto.server.getSession(),
           skipOrbytColors
             ? Promise.resolve(null)
             : queryClient
@@ -409,12 +394,7 @@ export const useUserStore = create<UserState>()(
           profileForCache as Partial<ProfileViewWithOrbyt>
         );
 
-        const emailConfirmed =
-          sessionInfo.data.email !== undefined && sessionInfo.data.email !== null
-            ? sessionInfo.data.emailConfirmed
-            : undefined;
-
-        return { agent, userProfile, emailConfirmed };
+        return { agent, userProfile };
       };
 
       const applyAuthFailureState = (
@@ -464,7 +444,6 @@ export const useUserStore = create<UserState>()(
         feedBootstrapStatus: 'idle',
         feedBootstrapDid: null,
 
-        showEmailVerificationModal: false,
         signIn: async (identifier: string) => {
           try {
             set({
@@ -476,7 +455,7 @@ export const useUserStore = create<UserState>()(
 
             const session = await gatewaySignIn(identifier);
 
-            const { agent, userProfile, emailConfirmed } = await hydrateGatewaySession(session);
+            const { agent, userProfile } = await hydrateGatewaySession(session);
 
             const account: SavedAccount = {
               id: session.did,
@@ -486,7 +465,6 @@ export const useUserStore = create<UserState>()(
               avatar: userProfile.avatar,
               lastUsed: Date.now(),
               originalIdentifier: identifier || session.did,
-              emailConfirmed, // persist for fast cold-launch restore
             };
 
             // Update saved accounts list
@@ -506,7 +484,6 @@ export const useUserStore = create<UserState>()(
                 displayName: userProfile.displayName,
                 avatar: userProfile.avatar,
                 originalIdentifier: identifier,
-                emailConfirmed,
               },
               authStatus: 'authenticated',
               isAuthenticating: false,
@@ -522,10 +499,6 @@ export const useUserStore = create<UserState>()(
 
             setUserId(getAnalytics(), session.did).catch(() => {});
             logLogin(getAnalytics(), { method: 'atproto' }).catch(() => {});
-
-            if (isEmailVerificationRequired(get().currentUser)) {
-              set({ showEmailVerificationModal: true });
-            }
 
             requestIdleCallback(
               () => {
@@ -575,7 +548,7 @@ export const useUserStore = create<UserState>()(
 
             const session = await gatewaySignIn(identifier, { signUp: true });
 
-            const { agent, userProfile, emailConfirmed } = await hydrateGatewaySession(session);
+            const { agent, userProfile } = await hydrateGatewaySession(session);
 
             const account: SavedAccount = {
               id: session.did,
@@ -585,7 +558,6 @@ export const useUserStore = create<UserState>()(
               avatar: userProfile.avatar,
               lastUsed: Date.now(),
               originalIdentifier: identifier || session.did,
-              emailConfirmed, // persist for fast cold-launch restore
             };
 
             // Update saved accounts list
@@ -602,7 +574,6 @@ export const useUserStore = create<UserState>()(
               currentUser: {
                 ...userProfile,
                 originalIdentifier: identifier || session.did,
-                emailConfirmed,
               },
               authStatus: 'authenticated',
               isAuthenticating: false,
@@ -753,7 +724,6 @@ export const useUserStore = create<UserState>()(
               displayName: account?.displayName,
               avatar: account?.avatar,
               originalIdentifier: account?.originalIdentifier ?? did,
-              emailConfirmed: account?.emailConfirmed,
             },
             authStatus: 'authenticated',
             isAuthenticating: false,
@@ -766,10 +736,6 @@ export const useUserStore = create<UserState>()(
           });
 
           setUserId(getAnalytics(), did).catch(() => {});
-
-          if (!get().activeAccountDid && isEmailVerificationRequired(get().currentUser)) {
-            set({ showEmailVerificationModal: true });
-          }
 
           // Seed the React Query profile cache so profile screens render without a loading flash.
           if (account) {
@@ -1328,8 +1294,6 @@ export const useUserStore = create<UserState>()(
         setAuthError: error => set({ authError: error }),
         clearAuthError: () => set({ authError: null }),
 
-        setShowEmailVerificationModal: show => set({ showEmailVerificationModal: show }),
-
         clearAllCaches: async () => {
           try {
             usePostInteractionStore.getState().clearInteractions();
@@ -1342,7 +1306,6 @@ export const useUserStore = create<UserState>()(
             logger.error('Error clearing caches', error, { component: 'userStore' });
           }
         },
-
 
         checkSessionHealth: async () => {
           const { agent, currentUser } = get();
@@ -1690,9 +1653,7 @@ export const useUserStore = create<UserState>()(
 
         _persistAccountUpdate: async (
           did: string,
-          updates: Partial<
-            Pick<SavedAccount, 'handle' | 'displayName' | 'avatar' | 'emailConfirmed' | 'lastUsed'>
-          >
+          updates: Partial<Pick<SavedAccount, 'handle' | 'displayName' | 'avatar' | 'lastUsed'>>
         ) => {
           const accounts = get().savedAccounts;
           const idx = accounts.findIndex(a => a.did === did);
@@ -1717,14 +1678,12 @@ export const useUserStore = create<UserState>()(
 
             const session = await restoreSessionWithRefresh(did);
 
-            const { agent, userProfile, emailConfirmed } = await hydrateGatewaySession(session, {
+            const { agent, userProfile } = await hydrateGatewaySession(session, {
               skipOrbytColors: true,
             });
 
             const originalIdentifier =
               get().savedAccounts.find(acc => acc.did === did)?.originalIdentifier ?? did;
-
-            const hadActiveAccount = get().activeAccountDid !== null;
 
             set({
               currentUser: {
@@ -1733,7 +1692,6 @@ export const useUserStore = create<UserState>()(
                 displayName: userProfile.displayName,
                 avatar: userProfile.avatar,
                 originalIdentifier,
-                emailConfirmed,
               },
               authStatus: 'authenticated',
               isAuthenticating: false,
@@ -1745,15 +1703,7 @@ export const useUserStore = create<UserState>()(
               feedBootstrapDid: null,
             });
 
-            if (!hadActiveAccount && isEmailVerificationRequired(get().currentUser)) {
-              set({ showEmailVerificationModal: true });
-            }
-
-            // Persist emailConfirmed so next launch can use the fast two-phase path
-            await get()._persistAccountUpdate(session.did, {
-              emailConfirmed,
-              lastUsed: Date.now(),
-            });
+            await get()._persistAccountUpdate(session.did, { lastUsed: Date.now() });
 
             // Fetch orbyt profile colors in background (skipped in hydrateGatewaySession above)
             queryClient.fetchQuery(orbytProfileQueryOptions(session.did)).catch(() => {});

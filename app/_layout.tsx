@@ -17,7 +17,6 @@ import { selectIsSessionValid, useUserStore } from '@/stores/userStore';
 import { useBookmarkStore } from '@/stores/bookmarkStore';
 import { useBookmarksQuery } from '@/hooks/useBookmarksQuery';
 import GlobalAccountSwitcher from '@/components/ui/GlobalAccountSwitcher';
-import { EmailVerificationModal } from '@/components/ui/EmailVerificationModal';
 import { queryClient } from '@/utils/query/queryClient';
 import { QueryErrorBoundary } from '@/components/ui/QueryErrorBoundary';
 import { useModalStore } from '@/stores/modalStore';
@@ -124,25 +123,7 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 // Global modals component
 const GlobalModals: React.FC = () => {
-  const isAuthenticated = useUserStore(selectIsSessionValid);
-  const currentUser = useUserStore(state => state.currentUser);
-  const showEmailVerificationModal = useUserStore(state => state.showEmailVerificationModal);
-  const setShowEmailVerificationModal = useUserStore(state => state.setShowEmailVerificationModal);
   const [isDeferredModalMountReady, setIsDeferredModalMountReady] = React.useState(false);
-
-  const prevDid = React.useRef(currentUser?.did);
-
-  useEffect(() => {
-    if (prevDid.current !== currentUser?.did) {
-      prevDid.current = currentUser?.did;
-      setShowEmailVerificationModal(false);
-    }
-
-    if (currentUser?.emailConfirmed === true) {
-      // Reset flag if email gets confirmed
-      setShowEmailVerificationModal(false);
-    }
-  }, [currentUser?.emailConfirmed, currentUser?.did, setShowEmailVerificationModal]);
 
   useEffect(() => {
     const deferredMount = requestAnimationFrame(() => {
@@ -154,10 +135,6 @@ const GlobalModals: React.FC = () => {
     };
   }, []);
 
-  const handleCloseEmailModal = () => {
-    setShowEmailVerificationModal(false);
-  };
-
   return (
     <>
       {isDeferredModalMountReady && (
@@ -167,18 +144,9 @@ const GlobalModals: React.FC = () => {
         </React.Suspense>
       )}
       <GlobalAccountSwitcher />
-      {isAuthenticated && (
-        <EmailVerificationModal
-          visible={showEmailVerificationModal}
-          onClose={handleCloseEmailModal}
-        />
-      )}
     </>
   );
 };
-
-const canAccessCreate = (emailConfirmed: boolean | undefined | null) =>
-  emailConfirmed === undefined || emailConfirmed !== false;
 
 const modalSlideUpOptions = {
   presentation: 'modal' as const,
@@ -196,7 +164,6 @@ const cardSlideFromRightOptions = {
 // Following Expo Router's recommended authentication pattern
 function RootNavigator() {
   const isAuthenticated = useUserStore(selectIsSessionValid);
-  const currentUser = useUserStore(state => state.currentUser);
   const resetAllModals = useModalStore(state => state.resetAllModals);
 
   useEffect(() => {
@@ -220,19 +187,16 @@ function RootNavigator() {
         {/* Protected routes - require authentication */}
         <Stack.Protected guard={isAuthenticated}>
           <Stack.Screen name="(tabs)" />
-          {/* Protected create route - require email confirmation if email exists */}
-          <Stack.Protected guard={canAccessCreate(currentUser?.emailConfirmed ?? null)}>
-            <Stack.Screen
-              name="create"
-              options={{
-                animation: 'fade',
-                animationDuration: 200,
-                // Vision Camera + useVideoOutput need a normal lifecycle; stack freezeOnBlur can leave
-                // the session in a bad state when returning from post.
-                freezeOnBlur: false,
-              }}
-            />
-          </Stack.Protected>
+          <Stack.Screen
+            name="create"
+            options={{
+              animation: 'fade',
+              animationDuration: 200,
+              // Vision Camera + useVideoOutput need a normal lifecycle; stack freezeOnBlur can leave
+              // the session in a bad state when returning from post.
+              freezeOnBlur: false,
+            }}
+          />
           <Stack.Screen name="video-trimmer" />
           <Stack.Screen
             name="post/[id]"

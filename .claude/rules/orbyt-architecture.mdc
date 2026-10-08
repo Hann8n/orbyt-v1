@@ -34,7 +34,6 @@ Orbyt is a video app for Bluesky built on the AT Protocol. React Native + Expo.
 - `api/video/VideoService.ts` — Video-specific API operations
 - `api/repo/RepoService.ts` — `com.atproto.repo.*` operations
 - `auth/OAuthService.ts` — OAuth flow
-- `auth/EmailVerificationService.ts` — Email verification
 - `data/ProfileService.ts` — Profile caching (React Query integration)
 - `data/ChannelService.ts` — Channel feed generator caching
 - `video/VideoProcessingService.ts` — FFmpeg video processing

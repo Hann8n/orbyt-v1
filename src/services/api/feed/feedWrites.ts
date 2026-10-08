@@ -51,31 +51,6 @@ export async function createVideoPost(
   const session = await AtprotoCore.ensureSession();
 
   try {
-    const { useUserStore } = await import('../../../stores/userStore');
-    const currentUser = useUserStore.getState().currentUser;
-
-    // Block if emailConfirmed is explicitly false (has email but not confirmed)
-    // Allow if true (confirmed) or undefined (no email scope)
-    // Use API field name directly: emailConfirmed
-    if (currentUser?.emailConfirmed === false) {
-      throw new Error(
-        'Email verification required. Please verify your email address before posting videos.'
-      );
-    }
-    // Allow access if emailConfirmed is true or undefined
-  } catch (error) {
-    // Re-throw verification errors
-    if (error instanceof Error && error.message.includes('Email verification required')) {
-      throw error;
-    }
-    // Log and continue on import errors (don't block on service errors)
-    logger.warn('Failed to check email confirmation status', {
-      component: 'AtprotoFeedService',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-
-  try {
     // Validate video file
     if (!videoPath || !videoPath.startsWith('file://')) {
       throw new Error('Invalid video path');

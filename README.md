@@ -121,7 +121,7 @@ orbyt-app/
     │   └── layout/               # Headers and navigation
     ├── services/                 # API layer and business logic
     │   ├── api/                  # AtprotoService, FeedService, GraphService, ChatService, etc.
-    │   ├── auth/                 # OAuth, email verification
+    │   ├── auth/                 # Gateway sign-in
     │   ├── video/                # FFmpeg processing and editing
     │   └── ...
     ├── stores/                   # Zustand stores (client state)
