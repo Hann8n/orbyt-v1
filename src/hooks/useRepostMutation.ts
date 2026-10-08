@@ -1,72 +1,66 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { InfiniteData, QueryKey } from '@tanstack/react-query';
 import { getAnalytics, logShare } from '@react-native-firebase/analytics';
 import { AtprotoFeedService } from '../services/api/feed/FeedService';
-import { queryKeys } from '../utils/query/queryKeys';
-import { patchFeedPost } from './useLikeMutation';
-import type { FeedResponse } from '../services/api/types';
+import { setFeedPostToggle } from '../utils/query/postToggleCache';
+import {
+  confirmToggle,
+  isConfirmedUri,
+  optimisticToggle,
+  rollbackToggle,
+  type ToggleState,
+} from '../utils/query/viewerToggle';
 
-export interface RepostVars {
+interface RepostVars {
   postUri: string;
   postCid: string;
+  /** The state at tap time. */
   isReposted: boolean;
   repostUri?: string;
   repostCount: number;
 }
 
-type FeedSnapshot = [QueryKey, InfiniteData<FeedResponse> | undefined];
-
 export function useRepostMutation() {
   const queryClient = useQueryClient();
 
-  return useMutation<string | undefined, Error, RepostVars, { snapshots: FeedSnapshot[] }>({
+  return useMutation<
+    string | undefined,
+    Error,
+    RepostVars,
+    { previous: ToggleState; optimistic: ToggleState }
+  >({
+    mutationKey: ['repost'],
     mutationFn: async ({ postUri, postCid, isReposted, repostUri }) => {
       if (!isReposted) return AtprotoFeedService.repostPost(postUri, postCid);
-      if (!repostUri) throw new Error('No repost URI');
+      if (!isConfirmedUri(repostUri)) throw new Error('No repost URI');
       await AtprotoFeedService.deleteRepost(repostUri);
       return undefined;
     },
 
-    onMutate: async ({ postUri, isReposted, repostCount }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.feed.all });
-      const newIsReposted = !isReposted;
-      const newCount = newIsReposted ? repostCount + 1 : Math.max(0, repostCount - 1);
-      const snapshots = queryClient.getQueriesData<InfiniteData<FeedResponse>>({
-        queryKey: queryKeys.feed.all,
-      }) as FeedSnapshot[];
-      queryClient.setQueriesData<InfiniteData<FeedResponse>>(
-        { queryKey: queryKeys.feed.all },
-        old =>
-          patchFeedPost(old, postUri, post => ({
-            ...post,
-            repostCount: newCount,
-            viewer: { ...post.viewer, repost: newIsReposted ? 'optimistic' : undefined },
-          }))
-      );
-      return { snapshots };
+    onMutate: ({ postUri, isReposted, repostUri, repostCount }) => {
+      const previous = { uri: isReposted ? repostUri : undefined, count: repostCount };
+      const optimistic = optimisticToggle(previous, !isReposted);
+      setFeedPostToggle(queryClient, postUri, 'repost', () => optimistic);
+      return { previous, optimistic };
     },
 
     onSuccess: (repostUri, { postUri, isReposted }) => {
-      const newIsReposted = !isReposted;
-      if (newIsReposted) {
+      if (!isReposted) {
         logShare(getAnalytics(), {
           content_type: 'video',
           item_id: postUri,
           method: 'repost',
         }).catch(() => {});
       }
-      queryClient.setQueriesData<InfiniteData<FeedResponse>>(
-        { queryKey: queryKeys.feed.all },
-        old =>
-          patchFeedPost(old, postUri, post => ({
-            ...post,
-            viewer: { ...post.viewer, repost: newIsReposted ? repostUri : undefined },
-          }))
+      setFeedPostToggle(queryClient, postUri, 'repost', current =>
+        confirmToggle(current, !isReposted, repostUri)
       );
     },
 
-    onError: (_, __, context) => {
-      for (const [key, data] of context?.snapshots ?? []) queryClient.setQueryData(key, data);
+    onError: (_, { postUri }, context) => {
+      if (!context) return;
+      setFeedPostToggle(queryClient, postUri, 'repost', current =>
+        rollbackToggle(current, context.optimistic, context.previous)
+      );
     },
   });
 }

@@ -61,10 +61,7 @@ export default function TabsLayout() {
           <NativeTabs.Trigger.Label hidden>{t('tabs.home')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
-        <NativeTabs.Trigger
-          name="explore"
-          disableAutomaticContentInsets
-        >
+        <NativeTabs.Trigger name="explore" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/search_2_cute.png')} />
           <NativeTabs.Trigger.Label hidden>{t('tabs.explore')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>

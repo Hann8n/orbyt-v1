@@ -5,6 +5,7 @@
  */
 
 import { logger } from '../../utils/logger';
+import { BLUESKY_APPVIEW_PROXY } from '../orbyt/serviceInfo';
 import { queryClient } from '../../utils/query/queryClient';
 import { queryKeys } from '../../utils/query/queryKeys';
 import {
@@ -141,14 +142,12 @@ export class ModerationService {
    * @param uri - URI of the content to report (post or user)
    * @param reasonType - The reason for reporting (can be simple type or full namespace type)
    * @param reason - Optional additional context for the report
-   * @param labelerDid - Optional DID of the labeler to receive the report (default: uses Bluesky's moderation)
    * @returns A boolean indicating whether the report was successfully submitted
    */
   static async reportContent(
     uri: string,
     reasonType: string | 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other',
-    reason?: string,
-    labelerDid?: string
+    reason?: string
   ): Promise<boolean> {
     try {
       await AtprotoCore.ensureSession();
@@ -197,24 +196,13 @@ export class ModerationService {
 
       const subjectPayload = subject as { $type: string; uri?: string; cid?: string; did?: string };
 
-      if (labelerDid) {
-        const { useUserStore } = await import('../../stores/userStore');
-        const agent = useUserStore.getState().agent;
-        if (!agent) return false;
-        const client = agent.withProxy('atproto_labeler', labelerDid);
-        await client.createModerationReport({
-          reasonType: fullReasonType,
-          subject: subjectPayload,
-          reason,
-        });
-      } else {
-        const { api } = await AtprotoCore.getApiClient();
-        await api.com.atproto.moderation.createReport({
-          reasonType: fullReasonType,
-          subject: subjectPayload,
-          reason,
-        });
-      }
+      // Reports go to Bluesky's AppView, as in Orbyt iOS: the session's grant covers
+      // `createReport` for that audience, and the PDS would otherwise pick its own report service.
+      const { api } = await AtprotoCore.getApiClient();
+      await api.com.atproto.moderation.createReport(
+        { reasonType: fullReasonType, subject: subjectPayload, reason },
+        { headers: { 'atproto-proxy': BLUESKY_APPVIEW_PROXY } }
+      );
 
       return true;
     } catch (_error: unknown) {

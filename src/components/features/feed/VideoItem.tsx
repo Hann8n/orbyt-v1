@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Link } from 'expo-router';
 
 import VideoCard from '../video/VideoCard';
+import { ErrorBoundary } from '../../ui/ErrorBoundary';
 import type { ExtendedPostView, ExtendedFeedViewPost, PostView } from '../../../services/api/types';
 import { getVideoView } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
@@ -16,9 +17,14 @@ export interface VideoItemProps {
   index?: number;
   isAppleZoomTarget?: boolean;
   onHashtagPress?: (hashtag: string) => void;
-  activeIndex?: number;
+  /** See VideoCard `activeDistance`. */
+  activeDistance?: number;
   canPlay?: boolean;
+  isListActive?: boolean;
 }
+
+// A function fallback: ErrorBoundary treats a null `fallback` as "use the full-screen default".
+const renderEmptyRow = () => null;
 
 function VideoItemComponent({
   post,
@@ -27,33 +33,40 @@ function VideoItemComponent({
   feedOption,
   isVisible,
   canPlay,
+  isListActive,
   index = 0,
   isAppleZoomTarget = false,
   onHashtagPress,
-  activeIndex,
+  activeDistance,
 }: VideoItemProps) {
   const embed = 'embed' in post ? (post.embed as PostView['embed']) : undefined;
   const videoView = getVideoView(embed);
   const hasVideo = Boolean(videoView?.playlist);
 
   const rowStyle = useMemo(() => [styles.videoContainer, { height }], [height]);
+  const postUri = 'uri' in post ? post.uri : post.post?.uri;
+  const rowResetKeys = useMemo(() => [postUri ?? index], [postUri, index]);
 
   if (!hasVideo) {
     return <View style={rowStyle} pointerEvents="none" collapsable={false} />;
   }
 
+  // One malformed post must not take down the whole feed: render an empty row instead.
   const videoCard = (
-    <VideoCard
-      post={post}
-      feedItem={feedItem}
-      feedOption={feedOption}
-      height={height}
-      isVisible={isVisible}
-      canPlay={canPlay}
-      index={index}
-      activeIndex={activeIndex}
-      onHashtagPress={onHashtagPress}
-    />
+    <ErrorBoundary level="component" fallback={renderEmptyRow} resetKeys={rowResetKeys}>
+      <VideoCard
+        post={post}
+        feedItem={feedItem}
+        feedOption={feedOption}
+        height={height}
+        isVisible={isVisible}
+        canPlay={canPlay}
+        isListActive={isListActive}
+        index={index}
+        activeDistance={activeDistance}
+        onHashtagPress={onHashtagPress}
+      />
+    </ErrorBoundary>
   );
 
   return (

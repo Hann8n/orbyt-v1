@@ -7,13 +7,15 @@ import { Colors } from '@/theme';
 import AuthorItem from '@/components/ui/AuthorItem';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { navigateToEncodedChannelUri } from '@/utils/navigation/navigateEncodedChannel';
-import { extractFeedSlug } from '@/utils/channels/orbyt';
+import { extractFeedSlug, getChannelSlashColor } from '@/utils/channels/orbyt';
 
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import type { CachedChannel } from '@/services/data/ChannelService';
 import { type ExploreSearchTabId } from './types';
 import { prefetchProfileThenOpen } from './prefetchProfileThenOpen';
 import { exploreScreenStyles as styles } from './ExploreScreenStyles';
+import EmptyFeed from '@/components/features/feed/EmptyFeed';
+import type { FeedEmptyState } from '@/utils/feed/feedEmptyState';
 
 type ExploreSuggestionsProfileRowProps = {
   profile: ProfileViewWithOrbyt;
@@ -122,19 +124,33 @@ const ProfilesFeedRenderer = ({
 };
 ProfilesFeedRenderer.displayName = 'ProfilesFeedRenderer';
 
+/** Community and feed results: the same rows, each opening its channel screen. */
 const ChannelsFeedRenderer = ({
   channels,
   isLoading,
   onChannelPress,
   bottomPadding = 0,
+  emptyText,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
 }: {
   channels: CachedChannel[];
   isLoading?: boolean;
   onChannelPress?: (channel: CachedChannel) => void;
   bottomPadding?: number;
+  emptyText: string;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  fetchNextPage?: () => void;
 }) => {
-  const { t } = useTranslation();
   const { navigateToChannel: goToChannel } = useProfileChannelNavigation();
+
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage && fetchNextPage) {
+      fetchNextPage();
+    }
+  };
 
   if (isLoading) {
     return (
@@ -153,14 +169,14 @@ const ChannelsFeedRenderer = ({
         return (
           <AuthorItem
             handle={slug || ''}
-            did={channel.did}
             displayName={slug || channel.displayName}
             avatar={channel.avatar}
             size="large"
             showArrow={false}
             showFollowButton={false}
             isFollowing={false}
-            rectangularAvatar={true}
+            channel={{ slashColor: getChannelSlashColor(channel.uri) }}
+            skipServerProfileData
             onPress={() =>
               onChannelPress
                 ? onChannelPress(channel)
@@ -178,9 +194,11 @@ const ChannelsFeedRenderer = ({
       }
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
+      onEndReached={handleLoadMore}
+      onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
       ListEmptyComponent={() => (
         <View style={styles.emptyTabContent}>
-          <Text style={styles.emptyTabText}>{t('feed.noFeedsFound')}</Text>
+          <Text style={styles.emptyTabText}>{emptyText}</Text>
         </View>
       )}
     />
@@ -230,14 +248,15 @@ const RecentlyVisitedFeedRenderer = ({
           return (
             <AuthorItem
               handle={handle || ''}
-              did={isProfile ? item.did : item.did}
+              did={isProfile ? item.did : undefined}
               displayName={displayName}
-              avatar={isProfile ? item.avatar : item.avatar}
+              avatar={item.avatar}
               size="large"
               showArrow={false}
               showFollowButton={false}
               isFollowing={false}
-              rectangularAvatar={!isProfile}
+              channel={isProfile ? undefined : { slashColor: getChannelSlashColor(item.uri) }}
+              skipServerProfileData={!isProfile}
               handleAsDisplayName={isProfile}
               onPress={onPress}
               backgroundColor={Colors.transparent}
@@ -266,8 +285,11 @@ RecentlyVisitedFeedRenderer.displayName = 'RecentlyVisitedFeedRenderer';
 export const SearchFeedRenderer = ({
   feedOption,
   profiles,
-  channels,
+  communities,
+  feeds,
   isLoading,
+  communitiesState,
+  onRetryCommunities,
   onProfilePress,
   onChannelPress,
   onFollow,
@@ -277,11 +299,22 @@ export const SearchFeedRenderer = ({
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
+  hasMoreCommunities,
+  isFetchingMoreCommunities,
+  fetchMoreCommunities,
+  isError,
+  onRetry,
 }: {
   feedOption: ExploreSearchTabId;
   profiles: ProfileViewWithOrbyt[];
-  channels: CachedChannel[];
+  /** Orbyt Communities matching the search. */
+  communities: CachedChannel[];
+  /** Bluesky feed generators matching the search. */
+  feeds: CachedChannel[];
   isLoading?: boolean;
+  /** What the Communities tab shows without results (`getFeedEmptyState`). */
+  communitiesState: FeedEmptyState;
+  onRetryCommunities?: () => void;
   onProfilePress?: (profile: ProfileViewWithOrbyt) => void;
   onChannelPress?: (channel: CachedChannel) => void;
   onFollow?: (profile: ProfileViewWithOrbyt) => void;
@@ -291,7 +324,26 @@ export const SearchFeedRenderer = ({
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
   fetchNextPage?: () => void;
+  hasMoreCommunities?: boolean;
+  isFetchingMoreCommunities?: boolean;
+  fetchMoreCommunities?: () => void;
+  /** The search failed with no results to show. */
+  isError?: boolean;
+  onRetry?: () => void;
 }) => {
+  const { t } = useTranslation();
+  // `isError` is the people and feeds search; Communities have their own query.
+  if (isError && (feedOption === 'profiles' || feedOption === 'feeds')) {
+    return <EmptyFeed type="error" onRetry={onRetry} />;
+  }
+  if (
+    feedOption === 'channels' &&
+    (communitiesState === 'error' ||
+      communitiesState === 'unavailable' ||
+      communitiesState === 'no-connection')
+  ) {
+    return <EmptyFeed type={communitiesState} onRetry={onRetryCommunities} />;
+  }
   switch (feedOption) {
     case 'recently-visited':
       return (
@@ -319,10 +371,24 @@ export const SearchFeedRenderer = ({
     case 'channels':
       return (
         <ChannelsFeedRenderer
-          channels={channels}
+          channels={communities}
+          isLoading={communitiesState === 'loading'}
+          onChannelPress={onChannelPress}
+          bottomPadding={bottomPadding}
+          emptyText={t('feed.noChannelsFound')}
+          hasNextPage={hasMoreCommunities}
+          isFetchingNextPage={isFetchingMoreCommunities}
+          fetchNextPage={fetchMoreCommunities}
+        />
+      );
+    case 'feeds':
+      return (
+        <ChannelsFeedRenderer
+          channels={feeds}
           isLoading={isLoading}
           onChannelPress={onChannelPress}
           bottomPadding={bottomPadding}
+          emptyText={t('feed.noFeedsFound')}
         />
       );
     default: {

@@ -161,7 +161,7 @@ These keys have **varying character lengths** across locales. Keep translations 
 ## Testing Translations
 
 1. Set device/simulator language to the target locale (e.g. Spanish)
-2. Verify: auth flow, feed, profile, settings, video upload, chat, error messages
+2. Verify: auth flow, feed, profile, settings, video upload, error messages
 3. Check: relative dates (e.g. "hace 2 horas") use `getDateFnsLocale()`
 4. Confirm: no missing keys — compare locale JSON keys to `en.json`
 

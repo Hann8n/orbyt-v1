@@ -7,8 +7,7 @@ export { RetryButton, Loading } from './UI';
 // Individual component exports
 export { default as Icon } from './Icon';
 export { default as BottomToolBar } from './BottomToolBar';
-export { ShareSheet, SendToPicker } from './share-sheet';
-export type { SendToPickerProps } from './share-sheet';
+export { ShareSheet } from './share-sheet';
 export { default as RelativeDate } from './RelativeDate';
 export { default as AuthorItem } from './AuthorItem';
 export { default as HeaderBanner } from './HeaderBanner';

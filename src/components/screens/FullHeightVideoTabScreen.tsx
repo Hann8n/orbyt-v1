@@ -1,8 +1,10 @@
 import { memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { skipToken, useQuery } from '@tanstack/react-query';
+import { AtUri } from '@atproto/syntax';
 
 import { NativePressable } from '@/components/ui/NativePressable';
 import { BackArrowIcon } from '@/components/ui/Icon';
@@ -17,15 +19,87 @@ import { getVideoCardHeight } from '@/utils/video/helpers';
 import type { EdgeInsets } from 'react-native-safe-area-context';
 import { useFeedVisibility } from '@/core/visibility/hooks';
 import { useVisibilityRouteIsActive } from '@/hooks';
+import { AtprotoFeedService } from '@/services/api/feed/FeedService';
+import { useProfile } from '@/services/data/ProfileService';
+import { useCurrentUser } from '@/stores/userStore';
+import { isValidDid } from '@/utils/atproto/uriValidation';
+import { fullHeightVideoFeedItem } from '@/utils/feed/seedFullHeightVideoFeed';
+import { queryKeys } from '@/utils/query/queryKeys';
+import { isRetryableError } from '@/utils/query/retryPolicy';
+import { getLinkedVideoState, type FeedEmptyState } from '@/utils/feed/feedEmptyState';
+import EmptyFeed from '@/components/features/feed/EmptyFeed';
 
 const ROUTE_KEY = 'full-height-video-modal';
 const FEED_OPTION = 'full-height-video';
 
+type FeedItem = NonNullable<ReturnType<typeof feedService.getCurrentFeed>[number]>;
+
 type PlaybackProps = {
   insets: EdgeInsets;
-  feedItem: NonNullable<ReturnType<typeof feedService.getCurrentFeed>[number]>;
+  feedItem: FeedItem;
   canPlay: boolean;
 };
+
+function parsePostUri(postUri: string | null): AtUri | null {
+  if (!postUri) return null;
+  try {
+    return new AtUri(postUri);
+  } catch {
+    return null;
+  }
+}
+
+interface LinkedPost {
+  feedItem?: FeedItem;
+  /** What shows while there is no post to play (`getLinkedVideoState`). */
+  state: FeedEmptyState;
+  retry: () => void;
+}
+
+/**
+ * A post opened from a getorbyt.com link (`+native-intent`), which nothing seeded into
+ * `feedService`. The link names the author by handle or DID; resolve a handle first, since
+ * `getPosts` answers with DID URIs.
+ */
+function useLinkedPost(postUri: string | null): LinkedPost {
+  const { currentUser } = useCurrentUser();
+  const linked = parsePostUri(postUri);
+  const author = linked?.host ?? null;
+  const authorIsDid = isValidDid(author);
+  const authorQuery = useProfile(author && !authorIsDid ? author : null);
+  const authorDid = authorIsDid ? author : (authorQuery.data?.did ?? null);
+  const resolvedUri =
+    linked && authorDid ? `at://${authorDid}/${linked.collection}/${linked.rkey}` : null;
+
+  const postQuery = useQuery({
+    queryKey: queryKeys.posts.detail(resolvedUri ?? ''),
+    queryFn: resolvedUri ? () => AtprotoFeedService.getVideoPost(resolvedUri) : skipToken,
+  });
+
+  const post = postQuery.data;
+  const error = authorQuery.error ?? postQuery.error;
+  const { refetch: refetchAuthor } = authorQuery;
+  const { refetch: refetchPost } = postQuery;
+  const authorFailed = authorQuery.isError;
+  const retry = useCallback(() => {
+    if (authorFailed) void refetchAuthor();
+    else void refetchPost();
+  }, [authorFailed, refetchAuthor, refetchPost]);
+
+  return {
+    feedItem:
+      post && resolvedUri
+        ? (fullHeightVideoFeedItem(post, resolvedUri, currentUser?.did ?? undefined) ?? undefined)
+        : undefined,
+    state: getLinkedVideoState({
+      isLoading: authorQuery.isLoading || postQuery.isLoading,
+      isError: !!error,
+      isErrorRetryable: isRetryableError(error),
+      isPaused: authorQuery.isPaused || postQuery.isPaused,
+    }),
+    retry,
+  };
+}
 
 /**
  * Stack screen inside a tab: parent flex area already sits above the native tab bar — same inset
@@ -123,7 +197,9 @@ const FullHeightVideoTabScreen = memo(() => {
   });
 
   const items = feedService.getCurrentFeed();
-  const feedItem = postUri && items[0]?.post?.uri === postUri ? items[0] : undefined;
+  const seededItem = postUri && items[0]?.post?.uri === postUri ? items[0] : undefined;
+  const linkedPost = useLinkedPost(seededItem ? null : postUri || null);
+  const feedItem = seededItem ?? linkedPost.feedItem;
 
   const handleClose = useCallback(() => {
     router.back();
@@ -155,7 +231,21 @@ const FullHeightVideoTabScreen = memo(() => {
             feedItem={feedItem}
             canPlay={canPlay}
           />
-        ) : null}
+        ) : (
+          <View style={styles.placeholder}>
+            {linkedPost.state === 'loading' ? (
+              <ActivityIndicator style={styles.spinner} size="large" color={Colors.neutral[50]} />
+            ) : (
+              <EmptyFeed
+                type={linkedPost.state}
+                message={
+                  linkedPost.state === 'unavailable' ? t('video.linkedVideoUnavailable') : undefined
+                }
+                onRetry={linkedPost.retry}
+              />
+            )}
+          </View>
+        )}
       </View>
     </FollowProvider>
   );
@@ -173,6 +263,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
   },
   videoAreaLiquidGlassInner: {
+    flex: 1,
+  },
+  placeholder: {
+    flex: 1,
+  },
+  spinner: {
     flex: 1,
   },
   backButton: {

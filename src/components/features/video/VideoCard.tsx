@@ -24,6 +24,7 @@ import { prefetchProfile, useFollowMutation } from '../../../services/data/Profi
 import { useShallow } from 'zustand/react/shallow';
 import { useModalStore } from '../../../stores/modalStore';
 import { useUserStore } from '../../../stores/userStore';
+import { useOrbytProviders } from '../../../services/orbyt/serviceInfo';
 import { Colors } from '../../../theme';
 import { getVideoView, normalizePostView } from '../../../utils/video/helpers';
 import { INTERACTIONSEEN } from '../../../services/api/types';
@@ -49,25 +50,26 @@ type Post = ExtendedPostView | ExtendedFeedViewPost;
 const MIN_SCRUBBER_DURATION_SECONDS = 7;
 const cardHeightStyleCache = new Map<number, { height: number }>();
 
-const getDistanceFromActive = (activeIndex: number | undefined, currentIndex: number): number =>
-  activeIndex !== undefined ? Math.abs(activeIndex - currentIndex) : Infinity;
-
-const getIsVisible = (
-  activeIndex: number | undefined,
-  currentIndex: number,
-  isVisibleProp: boolean
-): boolean =>
-  activeIndex !== undefined ? activeIndex === currentIndex && isVisibleProp : isVisibleProp;
+const getIsVisible = (activeDistance: number | undefined, isVisibleProp: boolean): boolean =>
+  activeDistance !== undefined ? activeDistance === 0 && isVisibleProp : isVisibleProp;
 
 const getRenderHeavyChrome = (
-  activeIndex: number | undefined,
-  distanceFromActive: number,
+  activeDistance: number | undefined,
   defaultValue: boolean
 ): boolean =>
-  activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 1 : defaultValue;
+  activeDistance !== undefined ? activeDistance >= 0 && activeDistance <= 1 : defaultValue;
 
-const getHoldSource = (activeIndex: number | undefined, distanceFromActive: number): boolean =>
-  activeIndex !== undefined ? activeIndex >= 0 && distanceFromActive <= 2 : true;
+/**
+ * Keep video sources loaded for the active row and its near neighbours so swipes start
+ * instantly, while the list is the active surface. Hidden lists (other pager pages, grid mode,
+ * covered screens) hold just the active row so they don't compete for decoders. This follows
+ * the surface, not `canPlay`: a visible profile/channel header or a brief AppState 'inactive'
+ * pauses playback but must not drop the preloaded neighbours.
+ */
+const getHoldSource = (activeDistance: number | undefined, isListActive: boolean): boolean =>
+  activeDistance !== undefined
+    ? activeDistance >= 0 && activeDistance <= (isListActive ? 2 : 0)
+    : true;
 
 const getCardHeightStyle = (cardHeight: number): { height: number } => {
   const normalized = Math.max(0, Math.round(cardHeight));
@@ -97,6 +99,8 @@ export interface VideoCardProps {
   onVideoStatus?: (uri: string, status: string) => void;
   height?: number;
   canPlay?: boolean;
+  /** Whether the card's list is the focused, visible surface (see `getHoldSource`). */
+  isListActive?: boolean;
   /** When false, skip scrubber + `VideoOverlayUI` (list rows far from active). */
   renderHeavyChrome?: boolean;
   showOverlay?: boolean;
@@ -104,8 +108,11 @@ export interface VideoCardProps {
   index?: number;
   onHashtagPress?: (hashtag: string) => void;
   ref?: Ref<VideoCardRef>;
-  /** Active index in the list for computing relative visibility */
-  activeIndex?: number;
+  /**
+   * Rows between this card and the list's active row, clamped by the list (-1: no active row).
+   * Omitted for standalone cards. A clamped distance keeps far rows' props stable across swipes.
+   */
+  activeDistance?: number;
 }
 
 function VideoCard({
@@ -115,11 +122,12 @@ function VideoCard({
   onVideoStatus,
   height,
   canPlay = true,
+  isListActive = true,
   renderHeavyChrome: renderHeavyChromeProp = true,
   showOverlay = true,
   feedOption,
   index,
-  activeIndex,
+  activeDistance,
   onHashtagPress,
   ref,
 }: VideoCardProps) {
@@ -127,30 +135,22 @@ function VideoCard({
 
   const feedContext = feedItem?.feedContext;
   const reqId = feedItem?.reqId;
-  const { algorithmicFeedProvider, currentUser } = useUserStore(
-    useShallow(state => ({
-      algorithmicFeedProvider: state.algorithmicFeedProvider,
-      currentUser: state.currentUser,
-    }))
-  );
+  const currentUser = useUserStore(state => state.currentUser);
+  // Interaction feedback goes to the generator that served the item: the feed
+  // itself, or Your Mix's discovery generator (only its items carry feedContext).
+  const { data: providers } = useOrbytProviders();
   const resolvedFeedUri = useMemo(() => {
     if (feedOption && isValidAtUri(feedOption)) return feedOption;
-    if (algorithmicFeedProvider && isValidAtUri(algorithmicFeedProvider))
-      return algorithmicFeedProvider;
+    if (feedOption === 'your-mix' && feedContext) return providers?.discoveryFeed ?? undefined;
     return undefined;
-  }, [feedOption, algorithmicFeedProvider]);
+  }, [feedOption, feedContext, providers?.discoveryFeed]);
 
   const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
 
   const idx = index ?? 0;
-  const distanceFromActive = getDistanceFromActive(activeIndex, idx);
-  const isVisible = getIsVisible(activeIndex, idx, isVisibleProp);
-  const renderHeavyChrome = getRenderHeavyChrome(
-    activeIndex,
-    distanceFromActive,
-    renderHeavyChromeProp
-  );
-  const holdSource = getHoldSource(activeIndex, distanceFromActive);
+  const isVisible = getIsVisible(activeDistance, isVisibleProp);
+  const renderHeavyChrome = getRenderHeavyChrome(activeDistance, renderHeavyChromeProp);
+  const holdSource = getHoldSource(activeDistance, isListActive);
 
   const { height: windowHeight } = useWindowDimensions();
   const cardHeight = height ?? windowHeight;
@@ -293,6 +293,8 @@ function VideoCard({
       cid: postView.cid,
       indexedAt: postView.indexedAt,
       author: postView.author,
+      likeCount: postView.likeCount,
+      viewer: { like: postView.viewer?.like },
     };
     presentCommentSection({
       post: commentPost,

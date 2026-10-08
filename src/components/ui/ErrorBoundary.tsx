@@ -3,12 +3,16 @@
  * Must be a class component (React limitation).
  */
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Linking, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativePressable } from './NativePressable';
-import { useRouter, useSegments } from 'expo-router';
+import {
+  useRouter,
+  useSegments,
+  type ErrorBoundaryProps as RouteErrorBoundaryProps,
+} from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import * as Sentry from '@sentry/react-native';
 import { logger } from '../../utils/logger';
@@ -150,6 +154,24 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     return this.props.children;
   }
+}
+
+/**
+ * Fallback for Expo Router's per-route `ErrorBoundary` export. Exported from each tab's layout so
+ * a render crash replaces only that tab's stack, keeping the tab bar and other tabs' history.
+ */
+export function RouteErrorBoundary({ error, retry }: RouteErrorBoundaryProps) {
+  useEffect(() => {
+    logger.error('Route ErrorBoundary caught error', error, {
+      component: 'ErrorBoundary',
+      level: 'feature',
+    });
+    Sentry.captureException(error, { extra: { level: 'route' } });
+  }, [error]);
+
+  return (
+    <ErrorFallback error={error} errorInfo={null} onReset={() => void retry()} level="feature" />
+  );
 }
 
 /**

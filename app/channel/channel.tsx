@@ -31,13 +31,23 @@ import { hexToRGBA } from '@/utils/formatting/colors';
 import { useVisibilityRouteIsActive } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getEffectiveTopInset } from '@/utils/device/screen';
-import { isOrbytChannel, getChannelByUri, channelToHashtag } from '@/utils/channels/orbyt';
+import { isOrbytChannel, getChannelByUri, channelToFeedOption } from '@/utils/channels/orbyt';
 import { logger } from '@/utils/logger';
 import type { ViewMode } from '@/types';
 import type { FeedPagerRef } from '@/utils/navigation/tabRefs';
 import { useQueryClient } from '@tanstack/react-query';
 
 type ChannelCategoryTab = 'top' | 'latest';
+
+/** Malformed deep links (e.g. a lone `%`) make decodeURIComponent throw during render. */
+const decodeChannelParam = (value: string): string => {
+  if (!value) return '';
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
 
 const Channel: React.FC = () => {
   const { t } = useTranslation();
@@ -46,7 +56,7 @@ const Channel: React.FC = () => {
   const queryClient = useQueryClient();
   const isRouteFocused = useVisibilityRouteIsActive('channel');
   const uriParam = (params.id as string) || '';
-  const uri = uriParam ? decodeURIComponent(uriParam) : '';
+  const uri = decodeChannelParam(uriParam);
 
   const [categoryTabState, setCategoryTabState] = useState<{
     uri: string;
@@ -99,17 +109,12 @@ const Channel: React.FC = () => {
 
   const activeCategoryTab = categoryTabState.uri === uri ? categoryTabState.tab : 'top';
 
-  const isCategoryChannel = (() => {
-    if (!uri || !isOrbytChannel(uri)) return false;
-    const channel = getChannelByUri(uri);
-    return channel?.isPostable !== false;
-  })();
-
-  const hashtagOption = isCategoryChannel ? channelToHashtag(uri) : null;
-  const categorySourceFeeds =
-    isCategoryChannel && hashtagOption
-      ? { top: `${hashtagOption}:top`, latest: `${hashtagOption}:latest` }
-      : { top: uri || '', latest: uri || '' };
+  // Orbyt Communities have Top and Latest tabs, both served by the Orbyt AppView.
+  const communityFeedOption = uri ? channelToFeedOption(uri) : null;
+  const isCategoryChannel = communityFeedOption !== null;
+  const categorySourceFeeds = communityFeedOption
+    ? { top: `${communityFeedOption}:top`, latest: `${communityFeedOption}:latest` }
+    : { top: uri || '', latest: uri || '' };
 
   const channelPagerFeeds = (() => {
     if (!uri) return [''];

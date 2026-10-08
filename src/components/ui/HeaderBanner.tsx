@@ -476,11 +476,13 @@ const styles = StyleSheet.create({
     paddingRight: 16,
     paddingBottom: 10,
   },
+  // Banner titles are Community names, lowercase as everywhere else.
   headerTitle: {
     color: Colors.neutral[50],
     fontSize: Typography.sizes.h2,
     fontFamily: FontFamily.black,
     marginBottom: 2,
+    textTransform: 'lowercase',
   },
   headerSubtitle: {
     color: Colors.neutral[200],

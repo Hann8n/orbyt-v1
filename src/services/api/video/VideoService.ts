@@ -6,6 +6,7 @@
 import { Platform } from 'react-native';
 import { File } from 'expo-file-system';
 import { logger } from '../../../utils/logger';
+import { uploadWatchdogMs } from '../../../utils/video/uploadWatchdog';
 import { AtprotoCore } from '../core';
 import { resolvePdsEndpointForDid } from '../pdsEndpointResolver';
 import type { UploadLimitsResponse } from '../types';
@@ -168,8 +169,29 @@ export class VideoService {
         // eslint-disable-next-line no-undef
         const xhr = new XMLHttpRequest();
 
+        // Abort a stalled upload instead of hanging forever. Large files on slow links can take
+        // minutes, so this is an inactivity limit that resets on every progress event, and
+        // relaxes once every byte is sent and the server is preparing its answer.
+        let stallTimer: ReturnType<typeof setTimeout> | null = null;
+        const clearStallTimer = () => {
+          if (stallTimer) clearTimeout(stallTimer);
+          stallTimer = null;
+        };
+        const armStallTimer = (loaded: number, total: number) => {
+          clearStallTimer();
+          stallTimer = setTimeout(
+            () => {
+              xhr.abort();
+              reject(new Error('Video upload stalled'));
+            },
+            uploadWatchdogMs(loaded, total)
+          );
+        };
+        xhr.addEventListener('loadend', clearStallTimer);
+
         // Track upload progress (10-40% for file upload)
         xhr.upload.addEventListener('progress', event => {
+          armStallTimer(event.loaded, event.lengthComputable ? event.total : videoSize);
           if (event.lengthComputable && onProgress) {
             // Map upload progress (0-100%) to overall progress (10-40%)
             // Formula: 10% (start) + (uploaded / total) * 30% (upload range)
@@ -213,6 +235,7 @@ export class VideoService {
           onProgress(10);
         }
 
+        armStallTimer(0, videoSize);
         xhr.send(uploadBody);
       });
 
@@ -282,6 +305,7 @@ export class VideoService {
     maxAttempts: number = 600
   ): Promise<BlobRef> {
     let attempts = 0;
+    let failure: Error | null = null;
 
     while (attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -318,7 +342,8 @@ export class VideoService {
 
         if (jobStatus.blob) return jobStatus.blob;
         if (jobStatus.state === 'JOB_STATE_FAILED' || jobStatus.state === 'failed') {
-          throw new Error(jobStatus.error || 'Video processing failed');
+          // Outside the catch below, which retries: a failed job never recovers.
+          failure = new Error(jobStatus.error || 'Video processing failed');
         }
       } catch (error) {
         // getJobStatus already handles already_exists and returns blob, so if we get here it's a real error
@@ -333,6 +358,7 @@ export class VideoService {
         }
       }
 
+      if (failure) throw failure;
       attempts++;
     }
 

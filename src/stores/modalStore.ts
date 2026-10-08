@@ -15,6 +15,9 @@ export interface CommentSectionPost {
     handle: string;
     displayName?: string;
   };
+  /** The like as the opener saw it, for a post no cached feed holds (notifications, links). */
+  likeCount?: number;
+  viewer?: { like?: string };
 }
 
 export interface CommentSectionData {

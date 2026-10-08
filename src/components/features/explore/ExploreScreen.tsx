@@ -35,11 +35,13 @@ import { SearchIcon } from '@/components/ui/Icon';
 import { Colors } from '@/theme';
 import EmptyFeed from '@/components/features/feed/EmptyFeed';
 
-import { HeaderService, useHeaders, type Header } from '@/services/OrbytBannerService';
+import { useHeaders, type Header } from '@/services/OrbytBannerService';
 import { useFeed } from '@/hooks/useFeed';
 import { useUserStore } from '@/stores/userStore';
 import type { ExtendedFeedViewPost } from '@/services/api/types';
-import { useOrbytChannels } from '@/services/OrbytChannelsService';
+import { useCommunitySearch, useOrbytChannels } from '@/services/OrbytChannelsService';
+import { getFeedEmptyState } from '@/utils/feed/feedEmptyState';
+import { isRetryableError } from '@/utils/query/retryPolicy';
 import { useVisitHistory } from '@/hooks/useVisitHistory';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
@@ -51,7 +53,7 @@ import {
   type Profile,
 } from './types';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
-import type { CachedChannel } from '@/services/data/ChannelService';
+import { communityToChannel, type CachedChannel } from '@/services/data/ChannelService';
 import { prefetchProfileThenOpen } from './prefetchProfileThenOpen';
 import { exploreScreenStyles as styles } from './ExploreScreenStyles';
 import { SearchFeedRenderer, ExploreSuggestionsProfileRow } from './ExploreSearchResults';
@@ -127,18 +129,21 @@ const ExploreScreen: React.FC = () => {
     [followMutation]
   );
 
-  const { data: fetchedHeaders = [], isPending: isHeadersPending } = useHeaders();
+  const { data: headers = [], isPending: isHeadersPending } = useHeaders();
 
   useEffect(() => {
     setHasHeaderBannerError(false);
-  }, [fetchedHeaders]);
+  }, [headers]);
 
-  const headers = useMemo(() => {
-    return fetchedHeaders.map((header: Header) => ({
-      ...header,
-      imageUrl: HeaderService.getImageUrl(header.imageUrl),
-    }));
-  }, [fetchedHeaders]);
+  const handleHeaderPress = useCallback(
+    (header: Header) => {
+      if (header.communityUri) {
+        addVisit('channel', { uri: header.communityUri });
+        navigateToEncodedChannelUri(header.communityUri, goToChannel);
+      }
+    },
+    [addVisit, goToChannel]
+  );
 
   const searchFeedOption = useMemo(() => {
     if (!debouncedQuery || debouncedQuery.trim() === '') {
@@ -150,6 +155,8 @@ const ExploreScreen: React.FC = () => {
   const {
     feed: searchFeed,
     isLoading: isSearchLoading,
+    isError: isSearchError,
+    refetch: refetchSearch,
     hasNextPage: hasSearchNextPage,
     isFetchingNextPage: isSearchFetchingNextPage,
     fetchNextPage: fetchSearchNextPage,
@@ -159,7 +166,31 @@ const ExploreScreen: React.FC = () => {
     refetchOnMount: false,
   });
 
-  const { profiles: searchProfiles, channels: searchChannels } = useMemo(() => {
+  const {
+    data: communitySearch,
+    isLoading: isCommunitySearchLoading,
+    isError: isCommunitySearchError,
+    isPaused: isCommunitySearchPaused,
+    error: communitySearchError,
+    refetch: refetchCommunitySearch,
+    hasNextPage: hasMoreCommunities,
+    isFetchingNextPage: isFetchingMoreCommunities,
+    fetchNextPage: fetchMoreCommunities,
+  } = useCommunitySearch(debouncedQuery);
+  const searchCommunities = useMemo(
+    () => communitySearch?.pages.flatMap(page => page.communities.map(communityToChannel)) ?? [],
+    [communitySearch]
+  );
+  const hasCommunityResults = searchCommunities.length > 0;
+  const communitiesState = getFeedEmptyState({
+    feedOption: '',
+    isLoading: isCommunitySearchLoading,
+    isError: isCommunitySearchError && !hasCommunityResults,
+    isErrorRetryable: isRetryableError(communitySearchError),
+    isPaused: isCommunitySearchPaused && !hasCommunityResults,
+  });
+
+  const { profiles: searchProfiles, channels: searchFeeds } = useMemo(() => {
     if (!searchFeedOption || !searchFeed.length) {
       return { profiles: [], channels: [] };
     }
@@ -189,7 +220,7 @@ const ExploreScreen: React.FC = () => {
     if (debouncedQuery.length === 0) {
       return ['recently-visited'];
     }
-    return ['profiles', 'channels'];
+    return ['profiles', 'channels', 'feeds'];
   }, [debouncedQuery.length]);
 
   useEffect(() => {
@@ -209,7 +240,9 @@ const ExploreScreen: React.FC = () => {
             ? t('feed.recentlyVisited')
             : tabId === 'profiles'
               ? t('feed.people')
-              : t('feed.feeds'),
+              : tabId === 'channels'
+                ? t('feed.channels')
+                : t('feed.feeds'),
       })),
     [pages, t]
   );
@@ -321,8 +354,11 @@ const ExploreScreen: React.FC = () => {
       <SearchFeedRenderer
         feedOption={tabId}
         profiles={searchProfiles}
-        channels={searchChannels}
+        communities={searchCommunities}
+        feeds={searchFeeds}
         isLoading={isSearchLoading}
+        communitiesState={communitiesState}
+        onRetryCommunities={refetchCommunitySearch}
         onProfilePress={handleProfileNavigation}
         onChannelPress={handleChannelNavigation}
         onFollow={handleFollow}
@@ -332,12 +368,23 @@ const ExploreScreen: React.FC = () => {
         hasNextPage={hasSearchNextPage}
         isFetchingNextPage={isSearchFetchingNextPage}
         fetchNextPage={fetchSearchNextPage}
+        hasMoreCommunities={hasMoreCommunities}
+        isFetchingMoreCommunities={isFetchingMoreCommunities}
+        fetchMoreCommunities={fetchMoreCommunities}
+        isError={isSearchError && searchFeed.length === 0}
+        onRetry={refetchSearch}
       />
     ),
     [
       searchProfiles,
-      searchChannels,
+      searchCommunities,
+      searchFeeds,
       isSearchLoading,
+      communitiesState,
+      refetchCommunitySearch,
+      hasMoreCommunities,
+      isFetchingMoreCommunities,
+      fetchMoreCommunities,
       handleProfileNavigation,
       handleChannelNavigation,
       handleFollow,
@@ -347,6 +394,9 @@ const ExploreScreen: React.FC = () => {
       hasSearchNextPage,
       isSearchFetchingNextPage,
       fetchSearchNextPage,
+      isSearchError,
+      searchFeed.length,
+      refetchSearch,
     ]
   );
 
@@ -503,6 +553,7 @@ const ExploreScreen: React.FC = () => {
         <HeaderBanner
           headers={headers}
           height={computedHeaderHeight}
+          onHeaderPress={handleHeaderPress}
           onImageError={() => setHasHeaderBannerError(true)}
         />
       );

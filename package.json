@@ -1,6 +1,6 @@
 {
   "name": "orbyt-app",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "main": "index.ts",
   "license": "GPL-3.0",
   "scripts": {
@@ -42,10 +42,7 @@
     "@atproto/api": "^0.19.18",
     "@atproto/common-web": "^0.4.19",
     "@atproto/lexicon": "^0.6.2",
-    "@atproto/oauth-client": "^0.6.1",
-    "@atproto/oauth-client-expo": "^0.0.10",
     "@atproto/syntax": "^0.5.4",
-    "@atproto/xrpc": "^0.7.7",
     "@babel/runtime": "^7.28.6",
     "@expo/dom-webview": "~56.0.5",
     "@expo/log-box": "^56.0.12",
@@ -75,6 +72,7 @@
     "expo-build-properties": "~56.0.14",
     "expo-clipboard": "~56.0.3",
     "expo-constants": "~56.0.15",
+    "expo-crypto": "~56.0.5",
     "expo-device": "~56.0.4",
     "expo-file-system": "~56.0.7",
     "expo-font": "~56.0.5",
@@ -99,13 +97,11 @@
     "expo-web-browser": "~56.0.5",
     "ffmpeg-kit-react-native": "6.0.2",
     "i18next": "^25.8.18",
-    "multiformats": "^9.9.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-i18next": "^16.5.8",
     "react-native": "0.85.3",
     "react-native-clip-trim": "^6.1.0-beta.1",
-    "react-native-emoji-chooser": "^0.1.11",
     "react-native-fast-video-merge": "file:packages/react-native-fast-video-merge",
     "react-native-gesture-handler": "~2.31.1",
     "react-native-keyboard-controller": "1.21.7",
@@ -185,8 +181,6 @@
       "reactNativeDirectoryCheck": {
         "listUnknownPackages": false,
         "exclude": [
-          "@atproto/oauth-client-expo",
-          "react-native-emoji-chooser",
           "react-native-nitro-image"
         ]
       }

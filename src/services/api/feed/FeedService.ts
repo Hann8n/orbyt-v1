@@ -13,16 +13,18 @@ export class AtprotoFeedService {
   static getFeed = feedQueries.getFeed;
   static applyModerationBatch = feedQueries.applyModerationBatch;
   static getPost = feedQueries.getPost;
+  static getVideoPost = feedQueries.getVideoPost;
   static getPosts = feedQueries.getPosts;
   static getFeedGenerator = feedQueries.getFeedGenerator;
   static getFeedGeneratorSubscriberCount = feedQueries.getFeedGeneratorSubscriberCount;
   static searchHashtagVideosPaginated = feedQueries.searchHashtagVideosPaginated;
   static searchHashtagSuggestions = feedQueries.searchHashtagSuggestions;
-  static searchVideosPaginated = feedQueries.searchVideosPaginated;
   static getRepostedVideos = feedQueries.getRepostedVideos;
   static searchPopularFeeds = feedQueries.searchPopularFeeds;
   static getSuggestedFeeds = feedQueries.getSuggestedFeeds;
-  static getStaticChannels = feedQueries.getStaticChannels;
+  static getCommunityVideoFeed = feedQueries.getCommunityVideoFeed;
+  static searchNetworkTopVideos = feedQueries.searchNetworkTopVideos;
+  static getFollowingVideos = feedQueries.getFollowingVideos;
 
   static likePost = feedInteractions.likePost;
   static deleteLike = feedInteractions.deleteLike;

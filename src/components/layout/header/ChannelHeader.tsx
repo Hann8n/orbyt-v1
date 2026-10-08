@@ -24,7 +24,7 @@ import { useChannelSubscriptions } from '../../../stores/userStore';
 import {
   isOrbytChannel,
   getChannelByUri,
-  shouldShowChannelSlash,
+  getChannelSlashColor,
   getLocalizedChannelDisplayName,
   getLocalizedChannelDescription,
   getChannelAvatarUri,
@@ -228,9 +228,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         }
       : undefined;
 
-    // Get orbyt channel info for custom title
-    const orbytChannel = isOrbyt && channel.uri ? getChannelByUri(channel.uri) : undefined;
-    const channelColor = orbytChannel?.channelColor || Colors.amber[400];
+    const slashColor = getChannelSlashColor(channel.uri || '');
     const displayName =
       getLocalizedChannelDisplayName(channel.uri || '', channel.name) || channel.name;
     const descriptionText =
@@ -240,8 +238,8 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 
     const customTitle = isOrbyt ? (
       <View style={styles.orbytChannelTitle}>
-        {shouldShowChannelSlash(channel.uri || '') && (
-          <Text style={[styles.title, styles.orbytSlash, { color: channelColor }]}>/</Text>
+        {slashColor && (
+          <Text style={[styles.title, styles.orbytSlash, { color: slashColor }]}>/</Text>
         )}
         <Text style={[styles.title, { color: safeTextColor }]}>{displayName}</Text>
       </View>

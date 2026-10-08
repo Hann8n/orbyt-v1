@@ -18,10 +18,9 @@ import { LinearGradient } from '@/components/ui/LinearGradient';
 import { Colors } from '@/theme';
 import {
   isOrbytChannel,
-  getChannelByUri,
   getChannelAvatarUri,
   getLocalizedChannelDisplayName,
-  shouldShowChannelSlash,
+  getChannelSlashColor,
 } from '@/utils/channels/orbyt';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { navigateToEncodedChannelUri } from '@/utils/navigation/navigateEncodedChannel';
@@ -44,21 +43,18 @@ const ChannelNameDisplay: React.FC<{
 }> = ({ channel, style, nameVariant = 'list' }) => {
   const { t } = useTranslation();
   const isOrbyt = isOrbytChannel(channel.uri);
-  const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
-  const channelColor = orbytChannel?.channelColor || Colors.amber[400];
+  const slashColor = getChannelSlashColor(channel.uri);
   const displayName =
     getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
     channel.displayName ||
     t('feed.unknownChannel');
 
   const nameStyle = nameStyles[nameVariant];
-  const slashColor = { color: channelColor } as TextStyle;
 
   if (isOrbyt) {
-    const showSlash = shouldShowChannelSlash(channel.uri);
     return (
       <View style={[styles.rowCenter, style]}>
-        {showSlash && <Text style={[nameStyle, styles.orbytSlash, slashColor]}>/</Text>}
+        {slashColor && <Text style={[nameStyle, styles.orbytSlash, { color: slashColor }]}>/</Text>}
         <Text style={nameStyle} numberOfLines={1}>
           {displayName}
         </Text>

@@ -9,7 +9,7 @@ React Native + Expo, targeting iOS and Android.
 - **Routing**: Expo Router ~55.0.15 (file-based, `app/` directory)
 - **State (client)**: Zustand ^5.0.10 (`src/stores/`)
 - **State (server)**: TanStack React Query @tanstack/react-query ^5.90.21 (`src/utils/query/`)
-- **API**: AT Protocol via `@atproto/api` ^0.19.18 and `@atproto/oauth-client-expo` ^0.0.10
+- **API**: AT Protocol via `@atproto/api` ^0.19.18; sign-in through the Orbyt AppView gateway (`src/services/auth/gateway.ts`)
 - **Lists**: `@shopify/flash-list` 2.3.1
 - **Sheets**: `@lodev09/react-native-true-sheet` ^3.8.1
 - **Animation**: `react-native-reanimated` 4.3.1, `react-native-gesture-handler` ~2.30.0
@@ -59,10 +59,16 @@ Agents should **verify** supported props and methods in:
 
 - **Canonical** “signed in with a usable ATProto session” check: `selectIsSessionValid` from [`src/stores/userStore.ts`](src/stores/userStore.ts) (backed by `hasAuthoritativeSdkSession`). Use this for Expo Router guards, `SessionProvider`, and React Query `enabled`.
 
-### Orbyt public CMS (env URLs)
+### Orbyt AppView (`api.getorbyt.com`)
 
-- **Explore/header banners**: `EXPO_PUBLIC_BANNERS_URL`, `EXPO_PUBLIC_HEADERS_URL` (see [`src/services/OrbytBannerService.ts`](src/services/OrbytBannerService.ts)).
-- **Channel metadata**: `EXPO_PUBLIC_ORBYT_CHANNELS_URL` or `EXPO_PUBLIC_CHANNELS_URL` (see [`src/services/OrbytChannelsService.ts`](src/services/OrbytChannelsService.ts)); falls back to production if unset.
+- Orbyt-native reads are `com.getorbyt.*` XRPC methods (lexicons: orbyt-platform `lexicons/com/getorbyt`). Call them through [`src/services/orbyt/orbytApi.ts`](src/services/orbyt/orbytApi.ts): `orbytPublicQuery` for unauthenticated reads, `orbytAuthedCall` for methods that need the viewer (proxied through the PDS with `atproto-proxy: did:web:api.getorbyt.com#orbyt_appview`). `EXPO_PUBLIC_ORBYT_API_URL` overrides the origin.
+- **Channels are Communities** ([`src/services/orbyt/communities.ts`](src/services/orbyt/communities.ts)): the directory is `community.listCommunities`, a channel feed is `community.getFeed` hydrated via `app.bsky.feed.getPosts`, and a post's Community is `community.getPostCommunities`. Posting to a Community writes a `com.getorbyt.community.post` link (same record key as the post) in the same `applyWrites`; following one writes a `com.getorbyt.community.membership` record, and those records are the source of truth for followed Communities (the legacy `com.getorbyt.profile#subscribedChannels` list is migrated once per account). Any `isCommunityUri` is a Community: metadata outside the cached directory comes from `community.getCommunity` (`useCommunity`). Explore search finds Communities with `listCommunities` `query`. Never write `orbyt-channel-*` tags.
+- **Profiles** ([`src/services/orbyt/profileRecords.ts`](src/services/orbyt/profileRecords.ts)), as Orbyt iOS: name, bio and avatar are written to `app.bsky.actor.profile/self` (read-modify-write; empty clears), and mirrored into `com.getorbyt.actor.profile/self` only when the account already has one; the app never creates that record. Colors go to `com.getorbyt.profile/self` (`#RRGGBB`), written after the profile and only when changed, keeping every other field of the record as read. Profile reads take name, bio and avatar from the network profile; `actor.getProfile` / `actor.getProfiles` supply styling (`useOrbytProfile`).
+- **Profile color swatches**: `actor.getColorPalette` ([`src/services/colors/profileColorPalette.ts`](src/services/colors/profileColorPalette.ts)), the pairs Orbyt iOS and Byte offer. No hardcoded palettes.
+- **Your Mix** follows the platform contract ([`src/services/orbyt/yourMixCursor.ts`](src/services/orbyt/yourMixCursor.ts), fixture in `src/__tests__/fixtures/your-mix.json`): the `getServiceInfo` discovery generator, then Bluesky top videos, in turn.
+- **Video search**: Following, hashtags, Your Mix's network run and hashtag suggestions use `app.bsky.feed.searchPostsV2` with `hasVideo` (server-side selection, no client media filtering), proxied to `getServiceInfo` `providers.appView`.
+- **Explore banners** feature popular Communities ([`src/services/OrbytBannerService.ts`](src/services/OrbytBannerService.ts)); the AppView has no banner endpoint.
+- Record writes stay PDS-direct.
 
 ## Full Documentation
 

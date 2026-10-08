@@ -32,7 +32,7 @@ import { VerificationBadge, BotBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { formatRelativeDate } from '../../ui/RelativeDate';
-import { useCommentSection } from '../../../stores/modalStore';
+import { useCommentSection, type CommentSectionPost } from '../../../stores/modalStore';
 import { useUserStore } from '../../../stores/userStore';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { itemSizeConfig } from '@/components/ui/ItemStyles';
@@ -46,7 +46,7 @@ import {
 } from '@atproto/api';
 import { buildFullHeightVideoHref } from '@/utils/navigation/feedModalRoute';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
-import { seedFullHeightVideoFeedFromPostView } from '@/utils/chat/seedChatEmbedVideoFeed';
+import { seedFullHeightVideoFeedFromPostView } from '@/utils/feed/seedFullHeightVideoFeed';
 import { useModerationSettings } from '../../../hooks/useModerationSettings';
 import { ModerationService } from '../../../services/moderation/ModerationService';
 import type {
@@ -559,16 +559,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
 
         // Reply notifications: open comment section
         if (reason === 'reply' && uri) {
-          const commentPost: {
-            uri: string;
-            cid?: string;
-            indexedAt?: string;
-            author?: {
-              did: string;
-              handle: string;
-              displayName?: string;
-            };
-          } = {
+          const commentPost: CommentSectionPost = {
             uri: finalPostData.uri,
             cid: finalPostData.cid,
             indexedAt: finalPostData.indexedAt,
@@ -579,6 +570,8 @@ const NotificationItem = React.memo<NotificationItemProps>(
                   displayName: finalPostData.author.displayName,
                 }
               : undefined,
+            likeCount: finalPostData.likeCount,
+            viewer: { like: finalPostData.viewer?.like },
           };
           if (finalKind === 'video') {
             navigateToVideoPost(finalPostData);

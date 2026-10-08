@@ -24,6 +24,7 @@ import {
   prefetchProfile,
 } from '../../services/data/ProfileService';
 import { formatHandle } from '../../utils/formatting/handles';
+import { FontFamily } from '../../utils/components/typography';
 import { useQueryClient } from '@tanstack/react-query';
 import { itemSizeConfig, sharedItemStyles, sharedListRowStyles } from './ItemStyles';
 import { useUserStore } from '../../stores/userStore';
@@ -81,8 +82,12 @@ interface AuthorItemProps {
   handleAsDisplayName?: boolean;
   /** `listRow`: hairline row; `card`: default squircle surface. */
   variant?: 'card' | 'listRow';
-  /** Use rectangular avatar (like channels) instead of circular. */
-  rectangularAvatar?: boolean;
+  /**
+   * A channel row (Community or feed) instead of an account: rectangular avatar, the name
+   * lowercase as channel names are everywhere, led by a "/" in `slashColor` for a Community
+   * (`getChannelSlashColor`), and no account badges. Pass no `did` with it.
+   */
+  channel?: { slashColor?: string };
 }
 
 /** Dim grey for inactive/skeleton state to indicate tappable action. */
@@ -158,7 +163,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   skipServerProfileData = false,
   handleAsDisplayName = false,
   variant = 'card',
-  rectangularAvatar = false,
+  channel,
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -232,7 +237,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
       <View style={[styles.avatarContainer, nonInteractive && styles.avatarContainerEmbed]}>
         <Avatar
           uri={actualAvatar}
-          type={rectangularAvatar ? 'channel' : 'profile'}
+          type={channel ? 'channel' : 'profile'}
           size={config.avatarSize}
           blurRadius={isBlocked ? 30 : 0}
           status={cachedProfile?.status}
@@ -242,10 +247,25 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         style={[styles.accountInfoContainer, nonInteractive && styles.accountInfoContainerEmbed]}
       >
         <View style={styles.nameRow}>
+          {!hideDisplayName && channel?.slashColor && (
+            <Text
+              style={[
+                styles.accountDisplayName,
+                styles.channelSlash,
+                {
+                  color: channel.slashColor,
+                  fontSize: customFontSize || config.nameFontSize,
+                },
+              ]}
+            >
+              /
+            </Text>
+          )}
           {!hideDisplayName && (
             <Text
               style={[
                 styles.accountDisplayName,
+                channel && styles.channelName,
                 {
                   color: textColor || Colors.neutral[50],
                   fontSize: customFontSize || config.nameFontSize,
@@ -257,7 +277,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
               {actualDisplayName}
             </Text>
           )}
-          {handle && !hideDisplayName && (
+          {handle && !hideDisplayName && !channel && (
             <VerificationBadge
               handle={handle}
               textSize={config.badgeTextSize}
@@ -269,7 +289,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
               }
             />
           )}
-          {handle && !hideDisplayName && (
+          {handle && !hideDisplayName && !channel && (
             <BotBadge
               handle={handle}
               did={did}
@@ -429,6 +449,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   nameRow: sharedItemStyles.nameRow,
+  channelName: {
+    textTransform: 'lowercase',
+  },
+  channelSlash: {
+    fontFamily: FontFamily.semibold,
+  },
   followButton: sharedItemStyles.followButton,
   followButtonInactive: {
     backgroundColor: Colors.transparent,

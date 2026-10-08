@@ -17,7 +17,6 @@ import { selectIsSessionValid, useUserStore } from '@/stores/userStore';
 import { useBookmarkStore } from '@/stores/bookmarkStore';
 import { useBookmarksQuery } from '@/hooks/useBookmarksQuery';
 import GlobalAccountSwitcher from '@/components/ui/GlobalAccountSwitcher';
-import { EmailVerificationModal } from '@/components/ui/EmailVerificationModal';
 import { queryClient } from '@/utils/query/queryClient';
 import { QueryErrorBoundary } from '@/components/ui/QueryErrorBoundary';
 import { useModalStore } from '@/stores/modalStore';
@@ -124,25 +123,7 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 // Global modals component
 const GlobalModals: React.FC = () => {
-  const isAuthenticated = useUserStore(selectIsSessionValid);
-  const currentUser = useUserStore(state => state.currentUser);
-  const showEmailVerificationModal = useUserStore(state => state.showEmailVerificationModal);
-  const setShowEmailVerificationModal = useUserStore(state => state.setShowEmailVerificationModal);
   const [isDeferredModalMountReady, setIsDeferredModalMountReady] = React.useState(false);
-
-  const prevDid = React.useRef(currentUser?.did);
-
-  useEffect(() => {
-    if (prevDid.current !== currentUser?.did) {
-      prevDid.current = currentUser?.did;
-      setShowEmailVerificationModal(false);
-    }
-
-    if (currentUser?.emailConfirmed === true) {
-      // Reset flag if email gets confirmed
-      setShowEmailVerificationModal(false);
-    }
-  }, [currentUser?.emailConfirmed, currentUser?.did, setShowEmailVerificationModal]);
 
   useEffect(() => {
     const deferredMount = requestAnimationFrame(() => {
@@ -154,10 +135,6 @@ const GlobalModals: React.FC = () => {
     };
   }, []);
 
-  const handleCloseEmailModal = () => {
-    setShowEmailVerificationModal(false);
-  };
-
   return (
     <>
       {isDeferredModalMountReady && (
@@ -167,18 +144,9 @@ const GlobalModals: React.FC = () => {
         </React.Suspense>
       )}
       <GlobalAccountSwitcher />
-      {isAuthenticated && (
-        <EmailVerificationModal
-          visible={showEmailVerificationModal}
-          onClose={handleCloseEmailModal}
-        />
-      )}
     </>
   );
 };
-
-const canAccessCreate = (emailConfirmed: boolean | undefined | null) =>
-  emailConfirmed === undefined || emailConfirmed !== false;
 
 const modalSlideUpOptions = {
   presentation: 'modal' as const,
@@ -196,7 +164,6 @@ const cardSlideFromRightOptions = {
 // Following Expo Router's recommended authentication pattern
 function RootNavigator() {
   const isAuthenticated = useUserStore(selectIsSessionValid);
-  const currentUser = useUserStore(state => state.currentUser);
   const resetAllModals = useModalStore(state => state.resetAllModals);
 
   useEffect(() => {
@@ -220,19 +187,16 @@ function RootNavigator() {
         {/* Protected routes - require authentication */}
         <Stack.Protected guard={isAuthenticated}>
           <Stack.Screen name="(tabs)" />
-          {/* Protected create route - require email confirmation if email exists */}
-          <Stack.Protected guard={canAccessCreate(currentUser?.emailConfirmed ?? null)}>
-            <Stack.Screen
-              name="create"
-              options={{
-                animation: 'fade',
-                animationDuration: 200,
-                // Vision Camera + useVideoOutput need a normal lifecycle; stack freezeOnBlur can leave
-                // the session in a bad state when returning from post.
-                freezeOnBlur: false,
-              }}
-            />
-          </Stack.Protected>
+          <Stack.Screen
+            name="create"
+            options={{
+              animation: 'fade',
+              animationDuration: 200,
+              // Vision Camera + useVideoOutput need a normal lifecycle; stack freezeOnBlur can leave
+              // the session in a bad state when returning from post.
+              freezeOnBlur: false,
+            }}
+          />
           <Stack.Screen name="video-trimmer" />
           <Stack.Screen
             name="post/[id]"
@@ -242,8 +206,7 @@ function RootNavigator() {
             }}
           />
           <Stack.Screen name="channel/[id]" options={cardSlideFromRightOptions} />
-          <Stack.Screen name="chat/[id]" options={cardSlideFromRightOptions} />
-          <Stack.Screen name="chat/requests" options={cardSlideFromRightOptions} />
+          <Stack.Screen name="c/[name]" />
           <Stack.Screen name="settings" options={modalSlideUpOptions} />
           <Stack.Screen name="edit-profile" options={modalSlideUpOptions} />
           <Stack.Screen name="add-account" options={modalSlideUpOptions} />
@@ -270,6 +233,9 @@ function RootNavigator() {
     </View>
   );
 }
+
+// Catches render errors above QueryErrorBoundary (providers, locale, layout) instead of crashing.
+export { ErrorBoundary } from 'expo-router';
 
 export default Sentry.wrap(function RootLayout() {
   const navRef = useNavigationContainerRef();
@@ -312,9 +278,16 @@ export default Sentry.wrap(function RootLayout() {
       focusManager.setFocused(status === 'active');
     };
 
+    const applyNetworkState = (state: Network.NetworkState) => {
+      onlineManager.setOnline(state.isConnected !== false && state.isInternetReachable !== false);
+    };
+
     const syncOnlineState = async () => {
-      const state = await Network.getNetworkStateAsync();
-      onlineManager.setOnline(state.isInternetReachable ?? true);
+      try {
+        applyNetworkState(await Network.getNetworkStateAsync());
+      } catch {
+        onlineManager.setOnline(true);
+      }
     };
 
     setFocusedFromAppState(AppState.currentState);
@@ -325,11 +298,15 @@ export default Sentry.wrap(function RootLayout() {
       }
     });
 
+    // Track connectivity while foregrounded too, so paused queries resume as soon as the network returns.
+    const networkSub = Network.addNetworkStateListener(applyNetworkState);
+
     // Set initial online state and let onlineManager handle pausing offline queries
     void syncOnlineState();
 
     teardown = () => {
       appStateSub.remove();
+      networkSub.remove();
       teardown = null;
     };
 

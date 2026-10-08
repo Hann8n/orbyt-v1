@@ -3,19 +3,19 @@
  * Provides consistent, type-safe query keys for all React Query operations
  * Follows React Query best practices for hierarchical key structure
  *
- * Auth/session cache invalidation (see `userStore`):
- * - **signOut**: `clearAllCaches()` clears Zustand-adjacent stores and `removeQueries` for
- *   `queryKeys.moderation.all` only; most React Query data is keyed by DID — session reset avoids
- *   further authenticated fetches. Add targeted removes here if a surface leaks after logout.
- * - **Account switch**: After successful restore, invalidates `queryKeys.notifications.all`,
- *   `queryKeys.chat.all`, and `queryKeys.unread.summary()` so badges/DMs refresh without a global
- *   feed invalidate (feed keys embed DID / fingerprint).
- * - **Login / restore**: User-scoped queries pick up the new DID via key changes; no global wipe.
+ * Auth/session cache invalidation (see `userStore`): viewer state (likes, follows, bookmarks,
+ * notifications) is cached under keys that are not DID-scoped, so every query outside the public
+ * roots (`auth`, `channels`, `klipy`, `discourse`, `orbyt`) belongs to the signed-in account.
+ * - **signOut / corrupted-session reset**: `clearAllCaches()` cancels and removes those queries.
+ * - **Account switch, sign-in, sign-up** (`resetQueriesForAccount`): once a session for a
+ *   different account than the one signed in before is active, those queries are reset, so every
+ *   mounted screen refetches as the new account.
+ * - **Restore of the same account**: no wipe.
  */
 
 // Base keys - defined first to avoid circular references
 const feedBase = ['feed'] as const;
-const chatBase = ['chat'] as const;
+const postsBase = ['posts'] as const;
 const profilesBase = ['profiles'] as const;
 const orbytProfileBase = ['orbyt-profile'] as const;
 const commentsBase = ['comments'] as const;
@@ -40,47 +40,24 @@ export const queryKeys = {
   feed: {
     all: feedBase,
     byOption: (feedOption: string) => [...feedBase, feedOption] as const,
-    byUser: (feedOption: string, userDid?: string, sourceFingerprint?: string) =>
+    byUser: (feedOption: string, userDid?: string) =>
       userDid
-        ? sourceFingerprint
-          ? ([...feedBase, feedOption, userDid, sourceFingerprint] as const)
-          : ([...feedBase, feedOption, userDid] as const)
+        ? ([...feedBase, feedOption, userDid] as const)
         : ([...feedBase, feedOption] as const),
-    infinite: (feedOption: string, userDid?: string, sourceFingerprint?: string) =>
-      [...queryKeys.feed.byUser(feedOption, userDid, sourceFingerprint), 'infinite'] as const,
-    batch: (feedOption: string, userDid?: string, sourceFingerprint?: string) =>
-      [...queryKeys.feed.byUser(feedOption, userDid, sourceFingerprint), 'batch'] as const,
+    infinite: (feedOption: string, userDid?: string) =>
+      [...queryKeys.feed.byUser(feedOption, userDid), 'infinite'] as const,
+    batch: (feedOption: string, userDid?: string) =>
+      [...queryKeys.feed.byUser(feedOption, userDid), 'batch'] as const,
     search: (query: string) => [...feedBase, 'search', query] as const,
   },
 
-  // Chat queries
-  chat: {
-    all: chatBase,
-    conversations: {
-      all: [...chatBase, 'conversations'] as const,
-      list: (
-        cursor?: string,
-        filter?: { readState?: 'unread'; status?: 'request' | 'accepted' }
-      ) => {
-        const readState = filter?.readState ?? null;
-        const status = filter?.status ?? null;
-        return cursor
-          ? ([...chatBase, 'conversations', 'list', cursor, readState, status] as const)
-          : ([...chatBase, 'conversations', 'list', readState, status] as const);
-      },
-      detail: (conversationId: string) => [...chatBase, 'conversations', conversationId] as const,
-      count: () => [...chatBase, 'conversations', 'count'] as const,
-    },
-    messages: {
-      all: [...chatBase, 'messages'] as const,
-      byConversation: (conversationId: string, cursor?: string) =>
-        cursor
-          ? ([...chatBase, 'messages', conversationId, cursor] as const)
-          : ([...chatBase, 'messages', conversationId] as const),
-      infinite: (conversationId: string) =>
-        [...chatBase, 'messages', conversationId, 'infinite'] as const,
-    },
-    availability: (userDid: string) => [...chatBase, 'availability', userDid] as const,
+  /**
+   * Single posts by URI (a full-height video opened from a link). A root of their own, so the
+   * `feed` root holds only paginated feeds; viewer state makes them account-scoped.
+   */
+  posts: {
+    all: postsBase,
+    detail: (uri: string) => [...postsBase, uri] as const,
   },
 
   // Profile queries (merged from ProfileService and FeedService)
@@ -103,6 +80,8 @@ export const queryKeys = {
     all: orbytProfileBase,
     byDid: (did: string) => [...orbytProfileBase, did] as const,
     current: () => [...orbytProfileBase, 'current'] as const,
+    /** `com.getorbyt.actor.getColorPalette` — server-owned pairs shared with Byte. */
+    colorPalette: () => [...orbytProfileBase, 'color-palette'] as const,
   },
 
   // Comment queries (merged from FeedService)
@@ -155,7 +134,7 @@ export const queryKeys = {
     hashtags: (query: string) => [...searchBase, 'hashtags', query] as const,
   },
 
-  // Tab bar unread (single source: notifications + chats)
+  // Tab bar unread (notifications)
   unread: {
     summary: () => ['unread', 'summary'] as const,
   },
@@ -176,20 +155,19 @@ export const queryKeys = {
   // Channel queries (merged from ChannelService)
   channels: {
     all: ['channels'] as const,
-    metadata: (locale?: string) =>
-      locale
-        ? ([...queryKeys.channels.all, 'metadata', locale] as const)
-        : ([...queryKeys.channels.all, 'metadata'] as const),
+    /** The Orbyt Community directory (`com.getorbyt.community.listCommunities`). */
+    metadata: () => [...queryKeys.channels.all, 'metadata'] as const,
+    /** The Community a post was published to (`com.getorbyt.community.getPostCommunities`). */
+    postCommunity: (postUri: string) =>
+      [...queryKeys.channels.all, 'post-community', postUri] as const,
     detail: (uri: string) => [...queryKeys.channels.all, 'detail', uri] as const,
+    /** A Community by the name a getorbyt.com/c/<name> link carries. */
+    byName: (name: string) => [...queryKeys.channels.all, 'by-name', name] as const,
+    /** One Community (`com.getorbyt.community.getCommunity`), directory or not. */
+    community: (uri: string) => [...queryKeys.channels.all, 'community', uri] as const,
+    /** Communities matching a search (`listCommunities` `query`). */
+    search: (query: string) => [...queryKeys.channels.all, 'search', query] as const,
     colors: (uri: string) => [...queryKeys.channels.all, 'colors', uri] as const,
-  },
-
-  orbyt: {
-    all: ['orbyt'] as const,
-    headers: (locale?: string) =>
-      locale
-        ? ([...queryKeys.orbyt.all, 'headers', locale] as const)
-        : ([...queryKeys.orbyt.all, 'headers'] as const),
   },
 
   // Moderation settings queries

@@ -14,13 +14,15 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 import { getEndOfFeedOverscrollTextColor } from './feedViewShared';
+import type { FeedEmptyState } from '../../../utils/feed/feedEmptyState';
 
 const EMPTY_FEED_TV_SIZE = 70;
 
 interface EmptyFeedProps {
   secondaryColor?: string;
   message?: string;
-  type?: 'no-connection' | 'no-videos' | 'error' | 'no-following';
+  /** `unavailable` is an error without Retry: retrying a 4xx cannot help. */
+  type?: Exclude<FeedEmptyState, 'loading'>;
   profileColors?: {
     backgroundColor: string;
     textColor: string;
@@ -118,6 +120,11 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
         return {
           icon: 'alert-circle',
           defaultMessage: t('feed.somethingWentWrong'),
+        };
+      case 'unavailable':
+        return {
+          icon: 'alert-circle',
+          defaultMessage: t('feed.notAvailable'),
         };
       case 'no-following':
         return {

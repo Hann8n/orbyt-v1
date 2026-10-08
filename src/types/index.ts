@@ -45,7 +45,10 @@ export interface ListFeedViewProps {
   isFetchingNextPage: boolean;
   hasNextPage?: boolean;
   isLoading: boolean;
+  /** The feed failed with no rows to show. */
   isError: boolean;
+  /** False when retrying cannot help (a 4xx): the error shows without Retry. */
+  isErrorRetryable?: boolean;
   onRetry?: () => void;
   isVisible?: boolean;
   viewMode?: ViewMode;

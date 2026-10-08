@@ -49,13 +49,13 @@ import {
   FeedSurfaceStack,
   FEED_VIEW_CONSTANTS,
   IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING,
-  getEmptyFeedType,
   getFeedItemKey,
   getEndOfFeedOverscrollTextColor,
   getProfileColors,
   getPullToRefreshTintColor,
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
+import { getFeedEmptyState, type FeedEmptyState } from '@/utils/feed/feedEmptyState';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { isIosLiquidGlassAvailable } from '@/stores/userStore';
 import { getEffectiveTopInset } from '../../../utils/device/screen';
@@ -94,8 +94,7 @@ const listKeyExtractor = (item: FeedListItem, index: number): string => getFeedI
 const isFeedListHeaderItem = (item: unknown): boolean => isFeedHeaderItem(item as FeedListItem);
 
 interface ListEmptyComponentProps {
-  isLoading: boolean;
-  effectiveIsError: boolean;
+  emptyState: FeedEmptyState;
   feedOption: string;
   secondaryColor?: string;
   profileColors?: { backgroundColor: string; textColor: string };
@@ -145,12 +144,18 @@ const getOverscrollHintLayoutStyle = (
   overscrollHintLayoutStyleCache.set(normalized, style);
   return style;
 };
+/**
+ * Distance from the active row, clamped so every row beyond VideoCard's preload window gets the
+ * same value: their memoized props stay equal and they skip re-rendering on each swipe.
+ */
+const ACTIVE_DISTANCE_FAR = 3;
+const getActiveDistance = (activeIndex: number, index: number): number =>
+  activeIndex < 0 ? -1 : Math.min(Math.abs(activeIndex - index), ACTIVE_DISTANCE_FAR);
 const MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED = { disabled: true } as const;
 const SAFE_AREA_BOTTOM_EDGES = { bottom: true } as const;
 
 const ListEmptyComponent = ({
-  isLoading,
-  effectiveIsError,
+  emptyState,
   feedOption,
   secondaryColor,
   profileColors,
@@ -170,7 +175,7 @@ const ListEmptyComponent = ({
     [emptyComponentHeight]
   );
 
-  if (isLoading) {
+  if (emptyState === 'loading') {
     return (
       <View style={loadingContainerStyle}>
         <ActivityIndicator size="large" color={loadingIndicatorColor} />
@@ -178,17 +183,16 @@ const ListEmptyComponent = ({
     );
   }
 
-  const commonProps = {
-    secondaryColor,
-    profileColors,
-    viewableAreaHeight: emptyComponentHeight,
-    feedOption,
-  };
-
-  if (effectiveIsError) {
-    return <EmptyFeed type="error" onRetry={onRetry} {...commonProps} />;
-  }
-  return <EmptyFeed type={getEmptyFeedType(feedOption)} {...commonProps} />;
+  return (
+    <EmptyFeed
+      type={emptyState}
+      onRetry={onRetry}
+      secondaryColor={secondaryColor}
+      profileColors={profileColors}
+      viewableAreaHeight={emptyComponentHeight}
+      feedOption={feedOption}
+    />
+  );
 };
 
 ListEmptyComponent.displayName = 'ListEmptyComponent';
@@ -242,6 +246,8 @@ function ListFeedViewComponent({
   hasNextPage,
   isLoading,
   isError,
+  isErrorRetryable,
+  isPaused,
   onRetry,
   isVisible = true,
   viewMode,
@@ -259,6 +265,13 @@ function ListFeedViewComponent({
 }: ListFeedViewProps & { ref?: Ref<ListFeedViewRef> }) {
   'use no memo';
   const resolvedViewMode = viewMode ?? 'list';
+
+  // The grid surface is a second FlashList that loads thumbnails; most feeds never switch to it,
+  // so mount it on first use (set during render so the switch shows no blank frame).
+  const [gridSurfaceMounted, setGridSurfaceMounted] = useState(resolvedViewMode === 'grid');
+  if (resolvedViewMode === 'grid' && !gridSurfaceMounted) {
+    setGridSurfaceMounted(true);
+  }
 
   const insets = useSafeAreaInsets();
 
@@ -412,6 +425,13 @@ function ListFeedViewComponent({
   }, [headerComponent, feed]);
 
   const effectiveIsError = forceError || isError;
+  const emptyState = getFeedEmptyState({
+    feedOption,
+    isLoading,
+    isError: effectiveIsError,
+    isErrorRetryable: forceError || isErrorRetryable,
+    isPaused,
+  });
 
   const showEndOfFeed =
     feed.length > 0 &&
@@ -435,8 +455,17 @@ function ListFeedViewComponent({
       onHashtagPress,
       activeIndex,
       canPlay,
+      isListActive: listSurfaceActive,
     }),
-    [cardHeight, feedOption, zoomTargetPostUri, onHashtagPress, activeIndex, canPlay]
+    [
+      cardHeight,
+      feedOption,
+      zoomTargetPostUri,
+      onHashtagPress,
+      activeIndex,
+      canPlay,
+      listSurfaceActive,
+    ]
   );
 
   const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
@@ -474,8 +503,9 @@ function ListFeedViewComponent({
           index={index}
           isAppleZoomTarget={isAppleZoomTarget}
           onHashtagPress={xd.onHashtagPress}
-          activeIndex={xd.activeIndex}
+          activeDistance={getActiveDistance(xd.activeIndex, index)}
           canPlay={xd.canPlay}
+          isListActive={xd.isListActive}
         />
       );
     },
@@ -622,8 +652,7 @@ function ListFeedViewComponent({
   const listEmptyElement = useMemo(
     () => (
       <ListEmptyComponent
-        isLoading={isLoading}
-        effectiveIsError={effectiveIsError}
+        emptyState={emptyState}
         feedOption={feedOption}
         secondaryColor={secondaryColor}
         profileColors={profileColors}
@@ -631,15 +660,7 @@ function ListFeedViewComponent({
         onRetry={onRetry}
       />
     ),
-    [
-      isLoading,
-      effectiveIsError,
-      feedOption,
-      secondaryColor,
-      profileColors,
-      emptyComponentHeight,
-      onRetry,
-    ]
+    [emptyState, feedOption, secondaryColor, profileColors, emptyComponentHeight, onRetry]
   );
 
   const refreshControlElement = useMemo(() => {
@@ -787,9 +808,8 @@ function ListFeedViewComponent({
         hasNextPage={hasNextPage}
         onGridItemPress={onGridItemPressProp}
         gridFeedModalZoomConfig={gridFeedModalZoomConfig ?? undefined}
-        isError={effectiveIsError}
+        emptyState={emptyState}
         onRetry={onRetry}
-        isLoading={isLoading}
         ListComponent={ListComponent}
         contentScrollProgressOutput={contentScrollProgressOutput}
         snapTopInset={snapTopInset}
@@ -808,9 +828,8 @@ function ListFeedViewComponent({
       hasNextPage,
       onGridItemPressProp,
       gridFeedModalZoomConfig,
-      effectiveIsError,
+      emptyState,
       onRetry,
-      isLoading,
       ListComponent,
       contentScrollProgressOutput,
       snapTopInset,
@@ -823,7 +842,7 @@ function ListFeedViewComponent({
     <FeedSurfaceStack
       listActive={resolvedViewMode === 'list'}
       listSurface={listSurfaceNode}
-      gridSurface={gridSurfaceNode}
+      gridSurface={gridSurfaceMounted ? gridSurfaceNode : null}
     />
   );
 

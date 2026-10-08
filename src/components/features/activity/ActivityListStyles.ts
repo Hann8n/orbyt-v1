@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { BORDER_RADIUS, ICON_SIZES } from '@/utils/constants';
+import { BORDER_RADIUS } from '@/utils/constants';
 import { FontFamily, Typography, TextStyles } from '@/utils/components/typography';
 import { Colors } from '@/theme';
 
@@ -10,20 +10,11 @@ const ACTIVITY_LIST_AVATAR_GAP = 12;
 /** Inset from list leading edge to start of title column (avatar + gap). */
 export const ACTIVITY_LIST_TEXT_LEADING = ACTIVITY_LIST_AVATAR_SIZE + ACTIVITY_LIST_AVATAR_GAP;
 
-/** Preview / secondary line body — shared by Chats and Notifications rows. */
+/** Preview / secondary line body for Notifications rows. */
 const ACTIVITY_LIST_PREVIEW_FONT_SIZE = Typography.sizes.body;
 
-/** Muted-conversation bell — between `ICON_SIZES.SMALL` and `MEDIUM`. */
-export const ACTIVITY_LIST_MUTED_ICON_SIZE = 18;
-
-/** Streak badge flame/fire icons. */
-export const ACTIVITY_LIST_STREAK_ICON_SIZE = 14;
-
-/** “You sent last” forward icon — matches `ICON_SIZES.SMALL`. */
-export const ACTIVITY_LIST_SENT_BY_ME_ICON_SIZE = ICON_SIZES.SMALL;
-
 /**
- * Shared list row chrome for Activity Chats + Notifications tabs.
+ * Shared list row chrome for the Activity Notifications tab.
  * Compose with local styles for tab-specific layout (e.g. thumbnail margin).
  */
 export const activityListSharedStyles = StyleSheet.create({

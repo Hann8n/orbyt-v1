@@ -1,0 +1,117 @@
+{
+  "decode": [
+    {
+      "name": "no cursor starts the generator",
+      "cursor": null,
+      "source": "discovery",
+      "upstream": null
+    },
+    {
+      "name": "empty cursor starts the generator",
+      "cursor": "",
+      "source": "discovery",
+      "upstream": null
+    },
+    {
+      "name": "a cursor from before the format is the generator's",
+      "cursor": "rPKyBc6elQ/4uUvMwgXk7AmO",
+      "source": "discovery",
+      "upstream": "rPKyBc6elQ/4uUvMwgXk7AmO"
+    },
+    {
+      "name": "generator position",
+      "cursor": "mix1.d.rPKyBc6elQ/4uU+",
+      "source": "discovery",
+      "upstream": "rPKyBc6elQ/4uU+"
+    },
+    {
+      "name": "start of the generator",
+      "cursor": "mix1.d.",
+      "source": "discovery",
+      "upstream": null
+    },
+    {
+      "name": "network position",
+      "cursor": "mix1.n.eyJzIjpbNS4xMDMz",
+      "source": "network",
+      "upstream": "eyJzIjpbNS4xMDMz"
+    },
+    {
+      "name": "start of the network run",
+      "cursor": "mix1.n.",
+      "source": "network",
+      "upstream": null
+    },
+    {
+      "name": "an upstream cursor may contain the prefix characters",
+      "cursor": "mix1.n.mix1.d.x",
+      "source": "network",
+      "upstream": "mix1.d.x"
+    }
+  ],
+  "next": [
+    {
+      "name": "the generator continues",
+      "from": {
+        "source": "discovery",
+        "cursor": null
+      },
+      "upstream": "abc",
+      "cursor": "mix1.d.abc"
+    },
+    {
+      "name": "the generator ends into the network run",
+      "from": {
+        "source": "discovery",
+        "cursor": "abc"
+      },
+      "upstream": null,
+      "cursor": "mix1.n."
+    },
+    {
+      "name": "an empty generator cursor is its end",
+      "from": {
+        "source": "discovery",
+        "cursor": "abc"
+      },
+      "upstream": "",
+      "cursor": "mix1.n."
+    },
+    {
+      "name": "a generator echoing its cursor has ended",
+      "from": {
+        "source": "discovery",
+        "cursor": "abc"
+      },
+      "upstream": "abc",
+      "cursor": "mix1.n."
+    },
+    {
+      "name": "the network run continues",
+      "from": {
+        "source": "network",
+        "cursor": null
+      },
+      "upstream": "eyJz",
+      "cursor": "mix1.n.eyJz"
+    },
+    {
+      "name": "the network run ends into a fresh generator request",
+      "from": {
+        "source": "network",
+        "cursor": "eyJz"
+      },
+      "upstream": null,
+      "cursor": "mix1.d."
+    },
+    {
+      "name": "a network run echoing its cursor has ended",
+      "from": {
+        "source": "network",
+        "cursor": "eyJz"
+      },
+      "upstream": "eyJz",
+      "cursor": "mix1.d."
+    }
+  ]
+}

@@ -36,12 +36,12 @@ import EmptyFeed from './EmptyFeed';
 import {
   FEED_VIEW_CONSTANTS,
   IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING,
-  getEmptyFeedType,
   getFeedItemKey,
   getProfileColors,
   getPullToRefreshTintColor,
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
+import type { FeedEmptyState } from '../../../utils/feed/feedEmptyState';
 import { isIosLiquidGlassAvailable } from '@/stores/userStore';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
 import type {
@@ -84,7 +84,7 @@ const VideoGridItem: React.FC<{
           style={styles.thumbnail}
           contentFit="contain"
           recyclingKey={recyclingKey}
-          cachePolicy="disk"
+          cachePolicy="memory-disk"
           transition={200}
         />
       )}
@@ -128,10 +128,9 @@ interface GridFeedViewProps {
   hasNextPage?: boolean;
   onGridItemPress?: (index: number) => void;
   gridFeedModalZoomConfig?: GridFeedModalZoomConfig | null;
-  isError?: boolean;
-  isPaused?: boolean;
+  /** What to show when the feed has no rows (`getFeedEmptyState`). */
+  emptyState: FeedEmptyState;
   onRetry?: () => void;
-  isLoading?: boolean;
   ListComponent?: React.ComponentType<unknown> | null;
   contentScrollProgressOutput?: SharedValue<number>;
   snapTopInset: number;
@@ -150,10 +149,8 @@ function GridFeedView({
   hasNextPage = false,
   onGridItemPress,
   gridFeedModalZoomConfig,
-  isError = false,
-  isPaused = false,
+  emptyState,
   onRetry,
-  isLoading = false,
   ListComponent,
   contentScrollProgressOutput,
   snapTopInset,
@@ -389,7 +386,7 @@ function GridFeedView({
       ListHeaderComponent={listHeader}
       ListFooterComponent={listFooter}
       ListEmptyComponent={
-        isLoading ? (
+        emptyState === 'loading' ? (
           <View
             style={[
               styles.gridEmptyLoading,
@@ -404,28 +401,12 @@ function GridFeedView({
               color={profileColors?.textColor || secondaryColor || Colors.neutral[50]}
             />
           </View>
-        ) : isError ? (
+        ) : (
           <EmptyFeed
-            type="error"
+            type={emptyState}
             secondaryColor={secondaryColor}
             profileColors={profileColors}
             onRetry={onRetry}
-            viewableAreaHeight={emptyComponentHeight}
-            feedOption={feedOption}
-          />
-        ) : isPaused ? (
-          <EmptyFeed
-            type="no-connection"
-            secondaryColor={secondaryColor}
-            profileColors={profileColors}
-            viewableAreaHeight={emptyComponentHeight}
-            feedOption={feedOption}
-          />
-        ) : (
-          <EmptyFeed
-            type={getEmptyFeedType(feedOption)}
-            secondaryColor={secondaryColor}
-            profileColors={profileColors}
             viewableAreaHeight={emptyComponentHeight}
             feedOption={feedOption}
           />

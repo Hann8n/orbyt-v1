@@ -15,16 +15,34 @@ import { QUERY_CONSTANTS } from '../utils/constants';
 import { queryKeys } from '../utils/query/queryKeys';
 import type { FeedResponse } from '../services/api/types';
 import ProfileService from '../services/data/ProfileService';
+import { warmOrbytProfileCache } from '../services/colors';
 import { useQueryClient } from '@tanstack/react-query';
 import type { InfiniteData } from '@tanstack/react-query';
 import { isValidAtUri } from '../utils/atproto/uriValidation';
+import { createRetryPolicy } from '../utils/query/retryPolicy';
 
-const selectFeedPages = (data: InfiniteData<FeedResponse> | undefined): FeedItem[] =>
-  (data?.pages ?? []).flatMap(p => p?.feed ?? []);
+/**
+ * Flatten pages, dropping posts already seen on an earlier page. Generators and reposts can
+ * repeat a post across pages, and the list keys rows by post URI, so duplicates break recycling.
+ */
+const selectFeedPages = (data: InfiniteData<FeedResponse> | undefined): FeedItem[] => {
+  const seen = new Set<string>();
+  const items: FeedItem[] = [];
+  for (const page of data?.pages ?? []) {
+    for (const item of page?.feed ?? []) {
+      const uri = item?.post?.uri;
+      if (uri) {
+        if (seen.has(uri)) continue;
+        seen.add(uri);
+      }
+      items.push(item);
+    }
+  }
+  return items;
+};
 
 export const FEED_CONFIG = {
   GC_TIME: 60 * 60 * 1000,
-  RETRY_DELAY: 1000,
   MAX_RETRIES: 2,
   /** Align prefetch / infinite-query defaults with app-wide feed staleness. */
   STALE_TIME: QUERY_CONSTANTS.STALE_TIME_LONG,
@@ -68,23 +86,16 @@ export function useFeed(
 ): UseFeedReturn {
   const { enabled = true, ...queryOptions } = options;
 
-  const {
-    currentUser,
-    isSwitchingAccount,
-    feedSourceFingerprint,
-    feedBootstrapStatus,
-    feedBootstrapDid,
-    agent,
-  } = useUserStore(
-    useShallow(state => ({
-      currentUser: state.currentUser,
-      isSwitchingAccount: state.isSwitchingAccount,
-      feedSourceFingerprint: state.feedSourceFingerprint,
-      feedBootstrapStatus: state.feedBootstrapStatus,
-      feedBootstrapDid: state.feedBootstrapDid,
-      agent: state.agent,
-    }))
-  );
+  const { currentUser, isSwitchingAccount, feedBootstrapStatus, feedBootstrapDid, agent } =
+    useUserStore(
+      useShallow(state => ({
+        currentUser: state.currentUser,
+        isSwitchingAccount: state.isSwitchingAccount,
+        feedBootstrapStatus: state.feedBootstrapStatus,
+        feedBootstrapDid: state.feedBootstrapDid,
+        agent: state.agent,
+      }))
+    );
   const effectiveUserDid =
     feedOption === 'following' || feedOption === 'your-mix' ? currentUser?.did : userDid;
 
@@ -105,12 +116,7 @@ export function useFeed(
     modReady &&
     isFeedBootstrapReady;
 
-  const sourceFingerprintForQuery = isUserSpecificFeed ? feedSourceFingerprint : undefined;
-  const queryKey = queryKeys.feed.infinite(
-    feedOption,
-    effectiveUserDid ?? undefined,
-    sourceFingerprintForQuery
-  );
+  const queryKey = queryKeys.feed.infinite(feedOption, effectiveUserDid ?? undefined);
 
   const queryClient = useQueryClient();
 
@@ -125,6 +131,12 @@ export function useFeed(
       // Warm profile cache immediately for the new page's authors
       if (response.feed.length > 0) {
         void ProfileService.warmProfileCacheFromFeed(response.feed, queryClient);
+        // One batched colour lookup per page instead of one request per card as rows mount.
+        const authorDids = new Set<string>();
+        for (const item of response.feed) {
+          if (item.post?.author?.did) authorDids.add(item.post.author.did);
+        }
+        warmOrbytProfileCache([...authorDids], queryClient).catch(() => {});
       }
       return response;
     },
@@ -133,8 +145,7 @@ export function useFeed(
     getNextPageParam: (lastPage: FeedResponse) => lastPage?.cursor ?? null,
     staleTime: queryOptions.staleTime ?? QUERY_CONSTANTS.STALE_TIME_LONG,
     gcTime: queryOptions.gcTime ?? FEED_CONFIG.GC_TIME,
-    retry: FEED_CONFIG.MAX_RETRIES,
-    retryDelay: FEED_CONFIG.RETRY_DELAY,
+    retry: createRetryPolicy(FEED_CONFIG.MAX_RETRIES),
     refetchOnReconnect: queryOptions.refetchOnReconnect ?? false,
     refetchInterval: queryOptions.refetchInterval,
     refetchIntervalInBackground: queryOptions.refetchIntervalInBackground ?? false,

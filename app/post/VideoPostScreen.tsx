@@ -47,11 +47,10 @@ import { useVideoPostDraftStore } from '@/stores/videoPostDraftStore';
 import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
 import {
   getPostableChannels,
-  shouldShowChannelSlash,
+  getChannelSlashColor,
   OrbytChannel,
   extractFeedSlug,
   getChannelAvatarUri,
-  getChannelByUri,
   getLocalizedChannelDisplayName,
 } from '@/utils/channels/orbyt';
 import type { SubscribedChannel } from '@/stores/userStore';
@@ -226,17 +225,15 @@ const ChannelSelector: React.FC<{
           ) : (
             <View style={styles.channelSelectorNameContainer}>
               {(() => {
-                const orbytChannel = getChannelByUri(selectedChannel.uri);
+                const slashColor = getChannelSlashColor(selectedChannel.uri);
                 return (
-                  shouldShowChannelSlash(selectedChannel.uri) && (
+                  slashColor && (
                     <Text
                       style={[
                         styles.channelSelectorName,
                         styles.orbytSlash,
                         styles.channelSelectorNameSemiBold,
-                        {
-                          color: orbytChannel?.channelColor || Colors.amber[400],
-                        },
+                        { color: slashColor },
                       ]}
                     >
                       /
@@ -735,13 +732,13 @@ const VideoPostScreen: React.FC = () => {
       allContentWarnings.push('other:' + otherWarning.trim());
     }
 
-    let channelSlug: string | undefined;
+    let communityUri: string | undefined;
 
     try {
       setIsPosting(true);
       setUploadProgress(0);
 
-      channelSlug = selectedChannel ? extractFeedSlug(selectedChannel.uri) || undefined : undefined;
+      communityUri = selectedChannel?.uri || undefined;
 
       const videoPathToUpload = videoPathToUse;
 
@@ -793,7 +790,7 @@ const VideoPostScreen: React.FC = () => {
         videoPath: videoPathToUpload,
         contentWarnings: allContentWarnings.length > 0 ? allContentWarnings : undefined,
         commentFilter: (commentFilter || 'all') as 'all' | 'followers' | 'mentioned' | 'none',
-        channelSlug,
+        communityUri,
       };
 
       router.replace('/(tabs)/home');
@@ -809,7 +806,7 @@ const VideoPostScreen: React.FC = () => {
             postMetadata.videoPath,
             postMetadata.contentWarnings,
             postMetadata.commentFilter,
-            postMetadata.channelSlug,
+            postMetadata.communityUri,
             progress => {
               useUIStore.getState().setProgress(UPLOAD_KEY, progress);
             },
@@ -1244,6 +1241,7 @@ const VideoPostScreen: React.FC = () => {
             }}
           />
           {getPostableChannels().map(channel => {
+            const slashColor = getChannelSlashColor(channel.uri);
             const channelDisplayName =
               getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
               channel.displayName ||
@@ -1265,15 +1263,13 @@ const VideoPostScreen: React.FC = () => {
                   />
                   <View style={styles.channelListTextContent}>
                     <View style={styles.channelSelectorRow}>
-                      {shouldShowChannelSlash(channel.uri) && (
+                      {slashColor && (
                         <Text
                           style={[
                             styles.channelListButtonText,
                             styles.orbytSlash,
                             styles.channelSelectorNameSemiBold,
-                            {
-                              color: channel.channelColor || Colors.amber[400],
-                            },
+                            { color: slashColor },
                           ]}
                         >
                           /

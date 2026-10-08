@@ -22,7 +22,6 @@ import {
   AppBskyBookmarkDefs,
   AppBskyNotificationListNotifications,
   AppBskyNotificationPutActivitySubscription,
-  ChatBskyConvoDefs,
   ComAtprotoRepoGetRecord,
   ComAtprotoRepoListRecords,
 } from '@atproto/api';
@@ -51,14 +50,6 @@ export type RecordWithMediaView = AppBskyEmbedRecordWithMedia.View;
 export type BookmarkView = AppBskyBookmarkDefs.BookmarkView;
 
 export type Notification = AppBskyNotificationListNotifications.Notification;
-
-export type ConvoView = ChatBskyConvoDefs.ConvoView;
-export type MessageView = ChatBskyConvoDefs.MessageView;
-export type DeletedMessageView = ChatBskyConvoDefs.DeletedMessageView;
-export type MessageViewSender = ChatBskyConvoDefs.MessageViewSender;
-export type ReactionView = ChatBskyConvoDefs.ReactionView;
-export type ReactionViewSender = ChatBskyConvoDefs.ReactionViewSender;
-export type MessageAndReactionView = ChatBskyConvoDefs.MessageAndReactionView;
 
 export type GetRecordOutput = ComAtprotoRepoGetRecord.OutputSchema;
 export type ListRecordsOutput = ComAtprotoRepoListRecords.OutputSchema;
@@ -123,16 +114,6 @@ export type RawFeedApiOutput = GetFeedOutput | GetAuthorFeedOutput | GetActorLik
 export interface FeedResponse {
   feed: ExtendedFeedViewPost[];
   cursor: string | null;
-}
-
-export interface MessagesResponse {
-  messages: MessageView[];
-  cursor: string | null;
-}
-
-export interface ConversationsResponse {
-  conversations: ConvoView[];
-  cursor?: string | null;
 }
 
 export type AuthorFilter =
@@ -246,8 +227,9 @@ export interface OrbytProfileRecord extends RecordValue {
   joinDate?: string;
   updatedAt?: string;
   colors?: { backgroundColor: string; textColor: string } | null;
+  /** Retired: read once to migrate pre-Communities subscriptions. */
   subscribedChannels?: string[];
-  algorithmicFeedProvider?: string | null;
+  fontPreference?: string;
 }
 
 export interface RepostView {

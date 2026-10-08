@@ -25,30 +25,29 @@ A video-first social app for the [Bluesky](https://bsky.social) network, built o
 
 - **Video Feed** — Infinite scroll feeds with channels, bookmarks, and personalized content
 - **Video Creation** — Record, trim, and post videos with FFmpeg-powered processing
-- **Chat** — Direct messaging with streak tracking and conversation threads
 - **Activity** — Notifications, likes, reposts, and replies
 - **Profiles** — User profiles with Orbyt color themes, follows, and content
 - **Moderation** — Built-in moderation tools and hidden post management
-- **OAuth Auth** — Secure sign-in via AT Protocol OAuth
+- **Sign-in** — AT Protocol OAuth through the Orbyt AppView gateway
 - **Offline-Ready** — MMKV storage and React Query caching for responsive UX
 
 ---
 
 ## Tech Stack
 
-| Layer              | Technology                                                                                                                                         |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Runtime**        | Expo 55, React Native 0.83                                                                                                                         |
-| **Routing**        | [Expo Router](https://docs.expo.dev/router/introduction/) (file-based)                                                                             |
-| **State (client)** | [Zustand](https://github.com/pmndrs/zustand)                                                                                                       |
-| **State (server)** | [TanStack React Query](https://github.com/TanStack/query)                                                                                          |
-| **API**            | [AT Protocol](https://github.com/bluesky-social/atproto) + [OAuth](https://github.com/bluesky-social/atproto/tree/main/packages/oauth-client-expo) |
-| **Video**          | expo-video, ffmpeg-kit-react-native                                                                                                                |
-| **Lists**          | [@shopify/flash-list](https://github.com/Shopify/flash-list)                                                                                       |
-| **Sheets**         | [react-native-true-sheet](https://github.com/lodev09/react-native-true-sheet)                                                                      |
-| **Animation**      | react-native-reanimated, react-native-gesture-handler                                                                                              |
-| **Storage**        | react-native-mmkv, expo-secure-store                                                                                                               |
-| **Graphics**       | @shopify/react-native-skia, react-native-svg                                                                                                       |
+| Layer              | Technology                                                                    |
+| ------------------ | ----------------------------------------------------------------------------- |
+| **Runtime**        | Expo 55, React Native 0.83                                                    |
+| **Routing**        | [Expo Router](https://docs.expo.dev/router/introduction/) (file-based)        |
+| **State (client)** | [Zustand](https://github.com/pmndrs/zustand)                                  |
+| **State (server)** | [TanStack React Query](https://github.com/TanStack/query)                     |
+| **API**            | [AT Protocol](https://github.com/bluesky-social/atproto), Orbyt AppView       |
+| **Video**          | expo-video, ffmpeg-kit-react-native                                           |
+| **Lists**          | [@shopify/flash-list](https://github.com/Shopify/flash-list)                  |
+| **Sheets**         | [react-native-true-sheet](https://github.com/lodev09/react-native-true-sheet) |
+| **Animation**      | react-native-reanimated, react-native-gesture-handler                         |
+| **Storage**        | react-native-mmkv, expo-secure-store                                          |
+| **Graphics**       | @shopify/react-native-skia, react-native-svg                                  |
 
 ---
 
@@ -110,7 +109,7 @@ orbyt-app/
 │   ├── profile/[did].tsx         # Dynamic profile by DID
 │   ├── channel/[id].tsx          # Dynamic channel feed
 │   ├── post/[id].tsx             # Post detail
-│   ├── chat/[id].tsx             # Chat screen
+│   ├── c/[name].tsx              # getorbyt.com Community links
 │   ├── create.tsx                # Video creation
 │   └── login.tsx                 # Auth entry
 │
@@ -120,8 +119,8 @@ orbyt-app/
     │   ├── features/             # Domain modules (feed, video, comments, activity, profile, moderation)
     │   └── layout/               # Headers and navigation
     ├── services/                 # API layer and business logic
-    │   ├── api/                  # AtprotoService, FeedService, GraphService, ChatService, etc.
-    │   ├── auth/                 # OAuth, email verification
+    │   ├── api/                  # AtprotoService, FeedService, GraphService, etc.
+    │   ├── auth/                 # Gateway sign-in
     │   ├── video/                # FFmpeg processing and editing
     │   └── ...
     ├── stores/                   # Zustand stores (client state)

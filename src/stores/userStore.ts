@@ -4,22 +4,39 @@ import { storageAdapter, storage } from '../utils/storage/storage';
 import * as SecureStore from 'expo-secure-store';
 import { getAnalytics, setUserId, logLogin, logSignUp } from '@react-native-firebase/analytics';
 import { Agent } from '@atproto/api';
-import { getOAuthClient } from '../services/auth';
-import type { OAuthSession } from '@atproto/oauth-client';
+import {
+  GatewaySessionExpiredError,
+  onGatewaySessionExpired,
+  restore as restoreGatewaySession,
+  signIn as gatewaySignIn,
+  signOut as gatewaySignOut,
+  type GatewaySession,
+} from '../services/auth/gateway';
 import { RepoService } from '../services/api/repo/RepoService';
 import { isUserCancellation, getErrorMessage } from '../utils/errors/errorHandler';
-import { TokenRevokedError, TokenRefreshError, TokenInvalidError } from '@atproto/oauth-client';
 import { logger } from '../utils/logger';
 
 import { ModerationService } from '../services/moderation/ModerationService';
 import type { OrbytProfileRecord, ProfileViewWithOrbyt } from '../services/api/types';
 import { isOrbytChannel } from '../utils/channels/orbyt';
+import {
+  BUILT_IN_CHANNELS,
+  createMembershipWriteTracker,
+  legacyChannelsToMigrate,
+  planSubscribedChannels,
+} from '../utils/channels/subscriptions';
+import type { Query } from '@tanstack/react-query';
 import { queryClient } from '../utils/query/queryClient';
-import { usePostInteractionStore } from './postInteractionStore';
 import { queryKeys } from '../utils/query/queryKeys';
 import { orbytProfileQueryOptions, warmOrbytProfileCache } from '../services/colors';
-import { hydrateOrbytChannels } from '../services/OrbytChannelsService';
-import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
+import { hydrateOrbytChannels, migrateLegacyChannelUri } from '../services/OrbytChannelsService';
+import {
+  isCommunityUri,
+  joinCommunity,
+  leaveCommunity,
+  listJoinedCommunities,
+} from '../services/orbyt/communities';
+import { APP_CONSTANTS } from '../utils/constants';
 import { setAtprotoSession } from '../services/api/agentBridge';
 
 export type SessionRestoreOutcome = 'ok' | 'reauth_required' | 'transient_failure' | 'cancelled';
@@ -42,82 +59,31 @@ export class AuthFlowError extends Error {
 }
 
 function hasAuthoritativeSdkSession(
-  oauthSession: OAuthSession | null,
+  oauthSession: GatewaySession | null,
   currentUserDid: string | null
 ): boolean {
   if (!oauthSession || !currentUserDid) return false;
   return oauthSession.did === currentUserDid;
 }
 
-const REQUIRED_OAUTH_SCOPE = 'atproto';
-
-async function assertRequiredOAuthScope(session: OAuthSession): Promise<void> {
-  const tokenInfo = await session.getTokenInfo(false);
-  const scopes = tokenInfo.scope.split(' ').filter(Boolean);
-  if (!scopes.includes(REQUIRED_OAUTH_SCOPE)) {
-    throw new Error(`oauth_scope_upgrade_required:${REQUIRED_OAUTH_SCOPE}`);
-  }
+/** A refused gateway token, or an XRPC 401 relayed through it. */
+function isSessionRejected(error: unknown): boolean {
+  if (error instanceof GatewaySessionExpiredError) return true;
+  return (error as { status?: unknown } | null)?.status === 401;
 }
 
 function getSessionRestoreOutcome(error: unknown): SessionRestoreOutcome {
   if (error instanceof AuthFlowError) return error.kind;
-  if (
-    error instanceof TokenRevokedError ||
-    error instanceof TokenRefreshError ||
-    error instanceof TokenInvalidError
-  )
-    return 'reauth_required';
+  if (isSessionRejected(error)) return 'reauth_required';
   if (isUserCancellation(error)) return 'cancelled';
-  if (error instanceof Error && error.message.startsWith('oauth_scope_upgrade_required:')) {
-    return 'reauth_required';
-  }
-
-  const errorText = error instanceof Error ? error.message : String(error);
-  if (TRANSIENT_ERROR_PATTERNS.some(pattern => pattern.test(errorText))) {
-    return 'transient_failure';
-  }
-
+  // Anything else (offline, gateway 5xx, PDS hiccup) keeps the saved session for a retry.
   return 'transient_failure';
 }
 
-const TRANSIENT_ERROR_PATTERNS = [
-  /network/i,
-  /fetch/i,
-  /timeout/i,
-  /timed out/i,
-  /enotfound/i,
-  /econnreset/i,
-  /econnrefused/i,
-  /503/,
-  /502/,
-  /504/,
-];
+const restoreSessionLocal = (did: string): Promise<GatewaySession> => restoreGatewaySession(did);
 
-// Some OAuth client session stores treat refresh tokens as single-use and can error if
-// `restore(did)` is called concurrently for the same account. This lock ensures we only
-// execute the restore once per DID at a time and share the in-flight result.
-const restoreInFlightByDid = new Map<string, Promise<OAuthSession>>();
-
-async function restoreSessionLocal(did: string): Promise<OAuthSession> {
-  return getOAuthClient().restore(did, false);
-}
-
-function restoreSessionWithRefresh(did: string): Promise<OAuthSession> {
-  const existing = restoreInFlightByDid.get(did);
-  if (existing) return existing;
-
-  const client = getOAuthClient();
-  const promise = (async () => {
-    try {
-      return await client.restore(did);
-    } finally {
-      restoreInFlightByDid.delete(did);
-    }
-  })();
-
-  restoreInFlightByDid.set(did, promise);
-  return promise;
-}
+const restoreSessionWithRefresh = (did: string): Promise<GatewaySession> =>
+  restoreGatewaySession(did, { verify: true });
 
 // Liquid glass support has been removed; all layout logic uses the non-liquid-glass fallback.
 export const isIosLiquidGlassAvailable = false;
@@ -149,7 +115,6 @@ export interface SavedAccount {
   avatar?: string;
   lastUsed: number;
   originalIdentifier: string; // The identifier used during initial authentication
-  emailConfirmed?: boolean; // Cached to avoid network getSession() on every cold launch
 }
 
 export interface SubscribedChannel {
@@ -164,19 +129,6 @@ export interface SubscribedChannel {
 
 export type FeedBootstrapStatus = 'idle' | 'loading' | 'ready' | 'error';
 
-const buildFeedSourceFingerprint = (
-  algorithmicFeedProvider: string | null,
-  subscribedChannels: SubscribedChannel[]
-): string => {
-  const provider = algorithmicFeedProvider ?? 'none';
-  const channelUris = subscribedChannels
-    .map(channel => channel.uri)
-    .filter(uri => !BUILT_IN_CHANNELS.includes(uri))
-    .sort()
-    .join(',');
-  return `${provider}|${channelUris}`;
-};
-
 export interface UserState {
   currentUser: {
     did: string | null; // Primary identifier - immutable
@@ -184,7 +136,6 @@ export interface UserState {
     displayName?: string; // Matches ProfileView.displayName (string | undefined)
     avatar?: string; // Matches ProfileView.avatar (string | undefined)
     originalIdentifier: string; // The identifier used during initial authentication
-    emailConfirmed?: boolean; // Email confirmation status from API (only set if email scope is available)
   } | null;
 
   authStatus: AuthStatus;
@@ -199,21 +150,16 @@ export interface UserState {
   savedAccounts: SavedAccount[];
   activeAccountDid: string | null;
 
-  oauthSession: OAuthSession | null;
+  oauthSession: GatewaySession | null;
   agent?: Agent;
 
   feedDebugOverlayEnabled: boolean;
   profileFeedViewMode: 'list' | 'grid';
 
-  algorithmicFeedProvider: string | null;
-
   subscribedChannels: SubscribedChannel[];
-  feedSourceFingerprint: string;
 
   feedBootstrapStatus: FeedBootstrapStatus;
   feedBootstrapDid: string | null;
-
-  showEmailVerificationModal: boolean;
 
   signIn: (identifier: string) => Promise<void>;
   signUp: (identifier: string) => Promise<void>;
@@ -226,7 +172,7 @@ export interface UserState {
 
   switchAccount: (did: string) => Promise<void>;
   addAccount: (
-    oauthSession: OAuthSession,
+    oauthSession: GatewaySession,
     profileData?: { displayName?: string; avatar?: string; handle?: string; did?: string },
     originalIdentifier?: string
   ) => Promise<void>;
@@ -261,28 +207,21 @@ export interface UserState {
   getFeedDebugOverlayEnabled: () => Promise<boolean>;
   setProfileFeedViewMode: (mode: 'list' | 'grid') => Promise<void>;
 
-  setAlgorithmicFeedProvider: (uri: string | null) => Promise<void>;
-  getAlgorithmicFeedProvider: () => Promise<string | null>;
-
   setCurrentUser: (user: UserState['currentUser']) => void;
   setAuthenticating: (authenticating: boolean) => void;
   setAuthError: (error: string | null) => void;
   clearAuthError: () => void;
 
-  setShowEmailVerificationModal: (show: boolean) => void;
-
   clearAllCaches: () => Promise<void>;
 
   checkSessionHealth: () => Promise<boolean>;
+  /** Called by the OAuth client when it deletes a session (refresh failed or token revoked). */
   clearCorruptedSessions: () => Promise<void>;
 
   initializeUserState: () => Promise<void>;
   loadSavedAccounts: () => Promise<void>;
   bootstrapUserFeedSettings: (did: string) => Promise<boolean>;
-  loadUserSpecificSettings: (
-    did: string,
-    orbytProfileRecord: OrbytProfileRecord | null
-  ) => Promise<boolean>;
+  loadUserSpecificSettings: (did: string) => Promise<boolean>;
   loadSubscribedChannels: (
     did: string,
     orbytProfileRecord: OrbytProfileRecord | null
@@ -290,9 +229,7 @@ export interface UserState {
 
   _persistAccountUpdate: (
     did: string,
-    updates: Partial<
-      Pick<SavedAccount, 'handle' | 'displayName' | 'avatar' | 'emailConfirmed' | 'lastUsed'>
-    >
+    updates: Partial<Pick<SavedAccount, 'handle' | 'displayName' | 'avatar' | 'lastUsed'>>
   ) => Promise<void>;
   _restoreSessionBlocking: (
     did: string,
@@ -305,20 +242,151 @@ const STORAGE_KEYS = {
   ACCOUNTS: 'saved_accounts',
   ACTIVE_ACCOUNT: 'active_account_did',
   SUBSCRIBED_CHANNELS: 'subscribed_channels',
-  ALGORITHMIC_FEED_PROVIDER: 'algorithmic_feed_provider',
   ORBYT_PROFILE_RECORD: 'orbyt_profile_record',
+  LEGACY_CHANNELS_MIGRATED: 'legacy_channels_migrated',
 } as const;
 
-const BUILT_IN_CHANNELS = ['following', 'your-mix'];
+/** How long a bootstrap waits for the account's membership records before keeping the device list. */
+const JOINED_COMMUNITIES_TIMEOUT_MS = 8_000;
 
-const filterBuiltInChannels = (uris: string[]): string[] => {
-  return uris.filter(uri => !BUILT_IN_CHANNELS.includes(uri));
+/** Follows and unfollows a running reconcile must not undo. */
+const membershipWrites = createMembershipWriteTracker();
+
+/**
+ * Following an Orbyt Community is joining it: a `com.getorbyt.community.membership`
+ * record in the viewer's repo, which the AppView projects into member counts and
+ * viewer state. Best-effort; resolves whether every write succeeded.
+ */
+const syncCommunityMemberships = async (
+  agent: Agent | null | undefined,
+  did: string,
+  uris: string[],
+  join: boolean
+): Promise<boolean> => {
+  const communityUris = uris.filter(isCommunityUri);
+  if (communityUris.length === 0) return true;
+  if (!agent) return false;
+  return membershipWrites.track(communityUris, () =>
+    writeCommunityMemberships(agent, did, communityUris, join)
+  );
+};
+
+const writeCommunityMemberships = async (
+  agent: Agent,
+  did: string,
+  communityUris: string[],
+  join: boolean
+): Promise<boolean> => {
+  const results = await Promise.allSettled(
+    communityUris.map(uri =>
+      join ? joinCommunity(agent, did, uri) : leaveCommunity(agent, did, uri)
+    )
+  );
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      logger.warn(join ? 'Failed to join community' : 'Failed to leave community', {
+        component: 'userStore',
+        community: communityUris[index],
+        error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+      });
+    }
+  });
+  return results.every(result => result.status === 'fulfilled');
 };
 
 const getUserScopedKey = (baseKey: string, did: string): string => {
   const sanitizedDid = String(did).replace(/[^a-zA-Z0-9._-]/g, '_');
   return `${baseKey}_${sanitizedDid}`;
 };
+
+function readSavedChannels(did: string): string | null {
+  return storage.getString(getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, did)) ?? null;
+}
+
+function applySubscribedChannels(did: string, channels: SubscribedChannel[]): void {
+  storage.set(getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, did), JSON.stringify(channels));
+  useUserStore.setState({ subscribedChannels: channels });
+}
+
+async function listJoinedCommunitiesWithTimeout(agent: Agent, did: string): Promise<string[]> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), JOINED_COMMUNITIES_TIMEOUT_MS);
+  try {
+    return await listJoinedCommunities(agent, did, controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Reconcile the device's channel list with the account's memberships, and
+ * migrate the legacy `com.getorbyt.profile#subscribedChannels` list once.
+ * Runs off the bootstrap path; the device list is already showing.
+ */
+async function reconcileSubscribedChannels(
+  did: string,
+  orbytProfileRecord: OrbytProfileRecord | null
+): Promise<void> {
+  const agent = useUserStore.getState().agent;
+  if (!agent) return;
+  // A follow or unfollow written while the server is asked must survive its stale answer.
+  await membershipWrites.watch(written =>
+    reconcileSubscribedChannelsWatched(agent, did, orbytProfileRecord, written)
+  );
+}
+
+async function reconcileSubscribedChannelsWatched(
+  agent: Agent,
+  did: string,
+  orbytProfileRecord: OrbytProfileRecord | null,
+  written: ReadonlySet<string>
+): Promise<void> {
+  const migratedKey = getUserScopedKey(STORAGE_KEYS.LEGACY_CHANNELS_MIGRATED, did);
+  const alreadyMigrated = storage.getBoolean(migratedKey) === true;
+
+  const joined = await listJoinedCommunitiesWithTimeout(agent, did).catch(error => {
+    logger.warn('Joined communities unavailable; keeping device channels', {
+      component: 'userStore',
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  });
+  if (joined === null || useUserStore.getState().currentUser?.did !== did) return;
+
+  const legacy = legacyChannelsToMigrate({
+    alreadyMigrated,
+    joined,
+    legacy: orbytProfileRecord?.subscribedChannels,
+  });
+  // Legacy references name a Community; resolving the name needs the directory.
+  const directoryReady =
+    legacy.length === 0 ||
+    (await hydrateOrbytChannels().then(
+      () => true,
+      () => false
+    ));
+  if (useUserStore.getState().currentUser?.did !== did) return;
+
+  const savedNow = readSavedChannels(did);
+  const { channels, toJoin } = planSubscribedChannels({
+    saved: savedNow ? (JSON.parse(savedNow) as SubscribedChannel[]) : [],
+    joined,
+    legacy: directoryReady ? legacy : [],
+    pinned: written,
+    migrateUri: migrateLegacyChannelUri,
+    now: Date.now(),
+  });
+  applySubscribedChannels(did, channels);
+
+  const joinedAll = await syncCommunityMemberships(agent, did, toJoin, true);
+  // Done once the record was read and its list is joined (or the account already had memberships).
+  if (!alreadyMigrated && orbytProfileRecord && directoryReady && joinedAll) {
+    storage.set(migratedKey, true);
+  }
+}
+
+/** Reconciles run one at a time, so a second bootstrap pass sees the first one's result. */
+let subscribedChannelsReconcile: Promise<void> = Promise.resolve();
 
 function readCachedOrbytProfileRecord(did: string): OrbytProfileRecord | null {
   try {
@@ -348,33 +416,6 @@ function seedModerationQueryCache(did: string, snapshot: ModerationPrefsSnapshot
     queryClient.setQueryData(queryKeys.moderation.byUser(did), snapshot);
   }
 }
-
-/** Profile record wins when present; otherwise MMKV + default generator URI. */
-function resolveAlgorithmicFeedProviderForDid(
-  did: string,
-  record: OrbytProfileRecord | null
-): string | null {
-  try {
-    const remoteProvider = record?.algorithmicFeedProvider;
-    if (remoteProvider !== undefined) {
-      const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
-      if (remoteProvider === null) storage.delete(key);
-      else storage.set(key, remoteProvider);
-      return remoteProvider;
-    }
-  } catch {
-    // fall through to local
-  }
-  const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
-  const local = storage.getString(key) ?? null;
-  return local ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
-}
-
-const isEmailVerificationRequired = (currentUser: UserState['currentUser']): boolean => {
-  if (!currentUser) return false;
-  const hasEmail = currentUser.emailConfirmed !== undefined;
-  return hasEmail && currentUser.emailConfirmed === false;
-};
 
 const COLORS_PREFETCH_COOLDOWN_MS = 60 * 60 * 1000;
 
@@ -428,17 +469,45 @@ const scheduleFollowingOrbytColorsAfterFeedReady = (userDid: string) => {
 
 const getFlagKey = (keyBase: string, did: string | null) => (did ? `${keyBase}_${did}` : keyBase);
 
+/** Query roots holding account-independent public data, kept across sign-out and account switch. */
+const PUBLIC_QUERY_ROOTS: ReadonlySet<unknown> = new Set([
+  queryKeys.auth.all[0],
+  queryKeys.channels.all[0],
+  queryKeys.klipy.all[0],
+  queryKeys.discourse.all[0],
+  // Orbyt service info and providers (services/orbyt/serviceInfo.ts).
+  'orbyt',
+]);
+
+const isAccountScopedQuery = (query: Query): boolean => !PUBLIC_QUERY_ROOTS.has(query.queryKey[0]);
+
+/**
+ * Call once a session for `did` is active. When it is a different account, every account-scoped
+ * query goes back to its initial state (fetches still running as the old account are cancelled)
+ * and each one a mounted screen observes refetches as the new account. The new account's own
+ * profile is seeded again afterwards.
+ */
+function resetQueriesForAccount(
+  previousDid: string | null | undefined,
+  did: string,
+  ownProfile: { handle: string; profile: Partial<ProfileViewWithOrbyt> }
+): void {
+  if (previousDid !== did) {
+    void queryClient.resetQueries({ predicate: isAccountScopedQuery });
+  }
+  seedCurrentUserProfileCache(did, ownProfile.handle, ownProfile.profile);
+}
+
 export const useUserStore = create<UserState>()(
   persist(
     (set, get) => {
-      const hydrateOAuthSession = async (
-        oauthSession: OAuthSession,
+      const hydrateGatewaySession = async (
+        oauthSession: GatewaySession,
         { skipOrbytColors = false }: { skipOrbytColors?: boolean } = {}
       ) => {
         const agent = new Agent(oauthSession);
-        const [profile, sessionInfo] = await Promise.all([
+        const [profile] = await Promise.all([
           agent.api.app.bsky.actor.getProfile({ actor: oauthSession.did }),
-          agent.api.com.atproto.server.getSession(),
           skipOrbytColors
             ? Promise.resolve(null)
             : queryClient
@@ -448,18 +517,15 @@ export const useUserStore = create<UserState>()(
 
         const userProfile = profile.data;
         const { $type: _profileType, ...profileForCache } = userProfile;
-        seedCurrentUserProfileCache(
-          oauthSession.did,
-          userProfile.handle,
-          profileForCache as Partial<ProfileViewWithOrbyt>
-        );
 
-        const emailConfirmed =
-          sessionInfo.data.email !== undefined && sessionInfo.data.email !== null
-            ? sessionInfo.data.emailConfirmed
-            : undefined;
-
-        return { agent, userProfile, emailConfirmed };
+        return {
+          agent,
+          userProfile,
+          ownProfile: {
+            handle: userProfile.handle,
+            profile: profileForCache as Partial<ProfileViewWithOrbyt>,
+          },
+        };
       };
 
       const applyAuthFailureState = (
@@ -477,12 +543,7 @@ export const useUserStore = create<UserState>()(
           oauthSession: null,
           agent: undefined,
           activeAccountDid: params.clearActiveDid ? null : get().activeAccountDid,
-          algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
           subscribedChannels: [],
-          feedSourceFingerprint: buildFeedSourceFingerprint(
-            DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-            []
-          ),
           feedBootstrapStatus: 'error',
           feedBootstrapDid: null,
           authError: params.authError,
@@ -509,18 +570,11 @@ export const useUserStore = create<UserState>()(
         feedDebugOverlayEnabled: false,
         profileFeedViewMode: 'list',
 
-        algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-
         subscribedChannels: [],
-        feedSourceFingerprint: buildFeedSourceFingerprint(
-          DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-          []
-        ),
 
         feedBootstrapStatus: 'idle',
         feedBootstrapDid: null,
 
-        showEmailVerificationModal: false,
         signIn: async (identifier: string) => {
           try {
             set({
@@ -530,11 +584,10 @@ export const useUserStore = create<UserState>()(
               authStatus: 'restoring',
             });
 
-            const client = getOAuthClient();
-            const session = await client.signIn(identifier);
-            await assertRequiredOAuthScope(session);
+            const previousDid = get().currentUser?.did;
+            const session = await gatewaySignIn(identifier);
 
-            const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
+            const { agent, userProfile, ownProfile } = await hydrateGatewaySession(session);
 
             const account: SavedAccount = {
               id: session.did,
@@ -544,7 +597,6 @@ export const useUserStore = create<UserState>()(
               avatar: userProfile.avatar,
               lastUsed: Date.now(),
               originalIdentifier: identifier || session.did,
-              emailConfirmed, // persist for fast cold-launch restore
             };
 
             // Update saved accounts list
@@ -564,7 +616,6 @@ export const useUserStore = create<UserState>()(
                 displayName: userProfile.displayName,
                 avatar: userProfile.avatar,
                 originalIdentifier: identifier,
-                emailConfirmed,
               },
               authStatus: 'authenticated',
               isAuthenticating: false,
@@ -578,19 +629,10 @@ export const useUserStore = create<UserState>()(
               feedBootstrapDid: null,
             });
 
+            resetQueriesForAccount(previousDid, session.did, ownProfile);
+
             setUserId(getAnalytics(), session.did).catch(() => {});
             logLogin(getAnalytics(), { method: 'atproto' }).catch(() => {});
-
-            if (isEmailVerificationRequired(get().currentUser)) {
-              set({ showEmailVerificationModal: true });
-            }
-
-            requestIdleCallback(
-              () => {
-                void RepoService.initOrbytProfileIfNeeded().catch(() => {});
-              },
-              { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-            );
 
             await get().bootstrapUserFeedSettings(session.did);
 
@@ -631,24 +673,10 @@ export const useUserStore = create<UserState>()(
               authStatus: 'restoring',
             });
 
-            const client = getOAuthClient();
-            const trimmed = identifier.trim();
-            let session: OAuthSession;
-            try {
-              session = await client.signIn(trimmed, { prompt: 'create' });
-            } catch (promptError) {
-              const msg = promptError instanceof Error ? promptError.message : String(promptError);
-              const isUnsupportedCreatePrompt =
-                /invalid_request|Invalid enum|received 'create'|prompt.*create/i.test(msg);
-              if (isUnsupportedCreatePrompt) {
-                session = await client.signIn(trimmed);
-              } else {
-                throw promptError;
-              }
-            }
-            await assertRequiredOAuthScope(session);
+            const previousDid = get().currentUser?.did;
+            const session = await gatewaySignIn(identifier, { signUp: true });
 
-            const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
+            const { agent, userProfile, ownProfile } = await hydrateGatewaySession(session);
 
             const account: SavedAccount = {
               id: session.did,
@@ -658,7 +686,6 @@ export const useUserStore = create<UserState>()(
               avatar: userProfile.avatar,
               lastUsed: Date.now(),
               originalIdentifier: identifier || session.did,
-              emailConfirmed, // persist for fast cold-launch restore
             };
 
             // Update saved accounts list
@@ -675,7 +702,6 @@ export const useUserStore = create<UserState>()(
               currentUser: {
                 ...userProfile,
                 originalIdentifier: identifier || session.did,
-                emailConfirmed,
               },
               authStatus: 'authenticated',
               isAuthenticating: false,
@@ -689,15 +715,11 @@ export const useUserStore = create<UserState>()(
               feedBootstrapDid: null,
             });
 
+            resetQueriesForAccount(previousDid, session.did, ownProfile);
+
             setUserId(getAnalytics(), session.did).catch(() => {});
             logSignUp(getAnalytics(), { method: 'atproto' }).catch(() => {});
 
-            requestIdleCallback(
-              () => {
-                void RepoService.initOrbytProfileIfNeeded().catch(() => {});
-              },
-              { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-            );
             await get().bootstrapUserFeedSettings(session.did);
             scheduleFollowingOrbytColorsAfterFeedReady(session.did);
           } catch (error) {
@@ -716,11 +738,7 @@ export const useUserStore = create<UserState>()(
             }
 
             const errorMessage = getErrorMessage(error);
-            if (
-              error instanceof TokenRevokedError ||
-              error instanceof TokenRefreshError ||
-              error instanceof TokenInvalidError
-            ) {
+            if (isSessionRejected(error)) {
               set({
                 authStatus: 'reauth_required',
                 isAuthenticating: false,
@@ -746,19 +764,12 @@ export const useUserStore = create<UserState>()(
 
             const currentDid = get().activeAccountDid;
 
-            if (currentDid) {
-              try {
-                const client = getOAuthClient();
-                await client.revoke(currentDid);
-              } catch (error) {
-                // Log but don't fail - session may already be invalid
-                logger.warn('Failed to revoke session during sign out', {
-                  component: 'userStore',
-                  did: currentDid,
-                  error: error instanceof Error ? error.message : 'Unknown error',
-                });
-              }
-            }
+            const didsToEnd = clearAllAccounts
+              ? get().savedAccounts.map(account => account.did)
+              : currentDid
+                ? [currentDid]
+                : [];
+            await Promise.allSettled(didsToEnd.map(did => gatewaySignOut(did)));
 
             await get().clearAllCaches();
 
@@ -783,12 +794,7 @@ export const useUserStore = create<UserState>()(
               agent: undefined, // Use undefined to match API expectations
               activeAccountDid: null,
               savedAccounts: clearAllAccounts ? [] : get().savedAccounts,
-              algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
               subscribedChannels: [],
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                []
-              ),
               feedBootstrapStatus: 'idle',
               feedBootstrapDid: null,
             });
@@ -810,17 +816,12 @@ export const useUserStore = create<UserState>()(
             authErrorCode: 'none',
             authStatus: 'restoring',
           });
-          let localSession: OAuthSession;
+          let localSession: GatewaySession;
           try {
             localSession = await restoreSessionLocal(did);
-            await assertRequiredOAuthScope(localSession); // reads cached scope, no network
           } catch (localError) {
             const restoreOutcome = getSessionRestoreOutcome(localError);
-            if (
-              restoreOutcome === 'reauth_required' ||
-              (localError instanceof Error &&
-                localError.message.startsWith('oauth_scope_upgrade_required:'))
-            ) {
+            if (restoreOutcome === 'reauth_required') {
               if (options?.preserveAuthStateOnFailure) {
                 set({ isAuthenticating: false });
               } else {
@@ -833,7 +834,7 @@ export const useUserStore = create<UserState>()(
               }
               throw new AuthFlowError('reauth_required', 'oauth_reauth_required');
             }
-            // No MMKV session — fall back to the full network restore (first install / cleared data)
+            // Unreadable keychain entry — fall back to the verified network restore.
             return get()._restoreSessionBlocking(did, skipSettings, options);
           }
 
@@ -845,7 +846,6 @@ export const useUserStore = create<UserState>()(
               displayName: account?.displayName,
               avatar: account?.avatar,
               originalIdentifier: account?.originalIdentifier ?? did,
-              emailConfirmed: account?.emailConfirmed,
             },
             authStatus: 'authenticated',
             isAuthenticating: false,
@@ -859,10 +859,6 @@ export const useUserStore = create<UserState>()(
 
           setUserId(getAnalytics(), did).catch(() => {});
 
-          if (!get().activeAccountDid && isEmailVerificationRequired(get().currentUser)) {
-            set({ showEmailVerificationModal: true });
-          }
-
           // Seed the React Query profile cache so profile screens render without a loading flash.
           if (account) {
             seedCurrentUserProfileCache(did, account.handle, {
@@ -871,12 +867,6 @@ export const useUserStore = create<UserState>()(
             });
           }
 
-          requestIdleCallback(
-            () => {
-              void RepoService.initOrbytProfileIfNeeded().catch(() => {});
-            },
-            { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-          );
           scheduleFollowingOrbytColorsAfterFeedReady(did);
 
           if (!skipSettings) {
@@ -898,18 +888,6 @@ export const useUserStore = create<UserState>()(
               throw new Error('Account not found');
             }
 
-            const outgoingDid = get().activeAccountDid;
-            if (outgoingDid && outgoingDid !== did) {
-              void queryClient.cancelQueries({
-                predicate: q => {
-                  const key = q.queryKey;
-                  return Array.isArray(key) && key.includes(outgoingDid);
-                },
-              });
-            }
-
-            await get().clearAllCaches();
-
             // Update account statuses
             const savedAccounts = get().savedAccounts;
             const accounts = savedAccounts.map(acc => ({
@@ -926,8 +904,6 @@ export const useUserStore = create<UserState>()(
               agent: get().agent,
               activeAccountDid: get().activeAccountDid,
               subscribedChannels: get().subscribedChannels,
-              algorithmicFeedProvider: get().algorithmicFeedProvider,
-              feedSourceFingerprint: get().feedSourceFingerprint,
             };
 
             const rollbackToPreviousSessionAfterSwitchFailure = async (): Promise<boolean> => {
@@ -940,8 +916,6 @@ export const useUserStore = create<UserState>()(
                 agent: previousState.agent,
                 activeAccountDid: previousState.activeAccountDid,
                 subscribedChannels: previousState.subscribedChannels,
-                algorithmicFeedProvider: previousState.algorithmicFeedProvider,
-                feedSourceFingerprint: previousState.feedSourceFingerprint,
                 authStatus: 'authenticated',
                 authError: null,
                 authErrorCode: 'none',
@@ -990,20 +964,14 @@ export const useUserStore = create<UserState>()(
               });
               await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, did);
 
+              resetQueriesForAccount(previousState.currentUser?.did, did, {
+                handle: account.handle,
+                profile: { displayName: account.displayName, avatar: account.avatar },
+              });
+
               await get().bootstrapUserFeedSettings(did);
 
               set({ isSwitchingAccount: false, switchingToHandle: null, switchingToAvatar: null });
-
-              requestIdleCallback(
-                () => {
-                  void RepoService.initOrbytProfileIfNeeded().catch(() => {});
-                },
-                { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-              );
-
-              void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
-              void queryClient.invalidateQueries({ queryKey: queryKeys.chat.all });
-              void queryClient.invalidateQueries({ queryKey: queryKeys.unread.summary() });
             } catch (restoreErr) {
               const restoreOutcome = getSessionRestoreOutcome(restoreErr);
               if (restoreOutcome === 'reauth_required') {
@@ -1080,7 +1048,7 @@ export const useUserStore = create<UserState>()(
         },
 
         addAccount: async (
-          oauthSession: OAuthSession,
+          oauthSession: GatewaySession,
           profileData?: { displayName?: string; avatar?: string; handle?: string; did?: string },
           originalIdentifier?: string
         ) => {
@@ -1146,11 +1114,7 @@ export const useUserStore = create<UserState>()(
             if (isActiveAccount) {
               await get().signOut();
             } else {
-              try {
-                await getOAuthClient().revoke(did);
-              } catch {
-                // ignore
-              }
+              await gatewaySignOut(did);
               set({ savedAccounts: accounts });
             }
           } catch (error) {
@@ -1168,7 +1132,8 @@ export const useUserStore = create<UserState>()(
               acc.did === did
                 ? {
                     ...acc,
-                    displayName: profileData.displayName || acc.displayName,
+                    // An empty name is a cleared name (shown as the handle).
+                    displayName: profileData.displayName ?? acc.displayName,
                     avatar: profileData.avatar || acc.avatar,
                     handle: profileData.handle || acc.handle,
                   }
@@ -1232,12 +1197,8 @@ export const useUserStore = create<UserState>()(
                 isOrbytChannel: isOrbytChannel(channelData.uri),
                 subscribedAt: Date.now(),
               };
-              set(state => ({
+              set(() => ({
                 subscribedChannels: updatedChannels,
-                feedSourceFingerprint: buildFeedSourceFingerprint(
-                  state.algorithmicFeedProvider,
-                  updatedChannels
-                ),
               }));
             } else {
               // Add new channel/feed
@@ -1247,12 +1208,8 @@ export const useUserStore = create<UserState>()(
                 subscribedAt: Date.now(),
               };
               const nextChannels = [...channels, newChannel];
-              set(state => ({
+              set(() => ({
                 subscribedChannels: nextChannels,
-                feedSourceFingerprint: buildFeedSourceFingerprint(
-                  state.algorithmicFeedProvider,
-                  nextChannels
-                ),
               }));
             }
 
@@ -1265,13 +1222,7 @@ export const useUserStore = create<UserState>()(
             const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
             storage.set(key, JSON.stringify(channelsToSave));
 
-            // Sync subscribed channels to orbyt profile record (best-effort)
-            try {
-              const urisToSync = filterBuiltInChannels(get().subscribedChannels.map(ch => ch.uri));
-              await RepoService.updateOrbytProfileChannels(urisToSync);
-            } catch {
-              // ignore
-            }
+            await syncCommunityMemberships(get().agent, currentUser.did, [channelData.uri], true);
           } catch (error) {
             logger.error('Error subscribing to channel', error, { component: 'userStore' });
             throw error;
@@ -1293,12 +1244,8 @@ export const useUserStore = create<UserState>()(
             const channels = get().subscribedChannels;
             const updatedChannels = channels.filter(ch => ch.uri !== uri);
 
-            set(state => ({
+            set(() => ({
               subscribedChannels: updatedChannels,
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                state.algorithmicFeedProvider,
-                updatedChannels
-              ),
             }));
 
             // Save to storage (filter built-ins)
@@ -1308,13 +1255,7 @@ export const useUserStore = create<UserState>()(
             );
             storage.set(key, JSON.stringify(channelsToSave));
 
-            // Sync subscribed channels to orbyt profile record (best-effort)
-            try {
-              const urisToSync = filterBuiltInChannels(updatedChannels.map(ch => ch.uri));
-              await RepoService.updateOrbytProfileChannels(urisToSync);
-            } catch {
-              // ignore
-            }
+            await syncCommunityMemberships(get().agent, currentUser.did, [uri], false);
           } catch (error) {
             logger.error('Error unsubscribing from channel', error, { component: 'userStore' });
             throw error;
@@ -1375,12 +1316,8 @@ export const useUserStore = create<UserState>()(
 
             // Update state with remaining channels + new/updated channels
             const nextChannels = [...remainingChannels, ...newChannels];
-            set(state => ({
+            set(() => ({
               subscribedChannels: nextChannels,
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                state.algorithmicFeedProvider,
-                nextChannels
-              ),
             }));
 
             // Single storage operation for all changes (filter built-ins)
@@ -1390,13 +1327,12 @@ export const useUserStore = create<UserState>()(
             );
             storage.set(key, JSON.stringify(channelsToSave));
 
-            // Sync subscribed channels to orbyt profile record (best-effort)
-            try {
-              const urisToSync = filterBuiltInChannels(get().subscribedChannels.map(ch => ch.uri));
-              await RepoService.updateOrbytProfileChannels(urisToSync);
-            } catch {
-              // ignore
-            }
+            await syncCommunityMemberships(
+              get().agent,
+              currentUser.did,
+              channels.map(channel => channel.uri),
+              true
+            );
           } catch (error) {
             logger.error('Error batch subscribing to channels', error, { component: 'userStore' });
             throw error;
@@ -1416,12 +1352,8 @@ export const useUserStore = create<UserState>()(
             const currentChannels = get().subscribedChannels;
             // Filter out unsubscribed channels
             const updatedChannels = currentChannels.filter(ch => !validUris.includes(ch.uri));
-            set(state => ({
+            set(() => ({
               subscribedChannels: updatedChannels,
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                state.algorithmicFeedProvider,
-                updatedChannels
-              ),
             }));
 
             // Single storage operation for all changes (filter built-ins)
@@ -1431,13 +1363,7 @@ export const useUserStore = create<UserState>()(
             );
             storage.set(key, JSON.stringify(channelsToSave));
 
-            // Sync subscribed channels to orbyt profile record (best-effort)
-            try {
-              const urisToSync = filterBuiltInChannels(updatedChannels.map(ch => ch.uri));
-              await RepoService.updateOrbytProfileChannels(urisToSync);
-            } catch {
-              // ignore
-            }
+            await syncCommunityMemberships(get().agent, currentUser.did, validUris, false);
           } catch (error) {
             logger.error('Error batch unsubscribing from channels', error, {
               component: 'userStore',
@@ -1462,79 +1388,18 @@ export const useUserStore = create<UserState>()(
           set({ profileFeedViewMode: mode });
         },
 
-        setAlgorithmicFeedProvider: async (uri: string | null) => {
-          try {
-            const currentUser = get().currentUser;
-            const key = currentUser?.did
-              ? getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, currentUser.did)
-              : STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER;
-
-            if (uri === null) {
-              storage.delete(key);
-            } else {
-              storage.set(key, uri);
-            }
-
-            set(state => ({
-              algorithmicFeedProvider: uri,
-              feedSourceFingerprint: buildFeedSourceFingerprint(uri, state.subscribedChannels),
-            }));
-
-            // Sync algorithmic feed provider to orbyt profile record (best-effort)
-            try {
-              await RepoService.updateOrbytProfileAlgorithmicFeedProvider(uri);
-            } catch {
-              // ignore
-            }
-
-            // Remove all cached your-mix queries and refetch with new provider
-            const currentUserDid = get().currentUser?.did;
-            if (currentUserDid) {
-              queryClient.removeQueries({
-                queryKey: queryKeys.feed.byUser('your-mix', currentUserDid),
-              });
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.feed.byUser('your-mix', currentUserDid),
-                refetchType: 'active',
-              });
-            }
-          } catch (error) {
-            logger.error('Error setting algorithmic feed provider', error, {
-              component: 'userStore',
-            });
-            throw error;
-          }
-        },
-
-        getAlgorithmicFeedProvider: async () => {
-          try {
-            const currentUser = get().currentUser;
-            const key = currentUser?.did
-              ? getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, currentUser.did)
-              : STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER;
-            const value = storage.getString(key) ?? null;
-            return value ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
-          } catch (error) {
-            logger.error('Error getting algorithmic feed provider', error, {
-              component: 'userStore',
-            });
-            return DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
-          }
-        },
-
         setCurrentUser: user => set({ currentUser: user }),
 
         setAuthenticating: authenticating => set({ isAuthenticating: authenticating }),
         setAuthError: error => set({ authError: error }),
         clearAuthError: () => set({ authError: null }),
 
-        setShowEmailVerificationModal: show => set({ showEmailVerificationModal: show }),
-
         clearAllCaches: async () => {
           try {
-            usePostInteractionStore.getState().clearInteractions();
-
-            queryClient.removeQueries({ queryKey: queryKeys.moderation.all });
+            // Viewer state (likes, follows, blocks, DMs, bookmarks) lives under keys that are not
+            // DID-scoped, so drop everything except account-independent public data.
+            await queryClient.cancelQueries({ predicate: isAccountScopedQuery });
+            queryClient.removeQueries({ predicate: isAccountScopedQuery });
           } catch (error) {
             logger.error('Error clearing caches', error, { component: 'userStore' });
           }
@@ -1547,11 +1412,7 @@ export const useUserStore = create<UserState>()(
             await agent.api.app.bsky.actor.getProfile({ actor: currentUser.did });
             return true;
           } catch (error) {
-            if (
-              error instanceof TokenRevokedError ||
-              error instanceof TokenRefreshError ||
-              error instanceof TokenInvalidError
-            ) {
+            if (isSessionRejected(error)) {
               applyAuthFailureState({
                 clearActiveDid: true,
                 authError: 'oauth_reauth_required',
@@ -1568,16 +1429,7 @@ export const useUserStore = create<UserState>()(
             const currentDid = get().activeAccountDid;
 
             if (currentDid) {
-              try {
-                const client = getOAuthClient();
-                await client.revoke(currentDid);
-              } catch (error) {
-                logger.debug('Could not revoke corrupted session', {
-                  component: 'userStore',
-                  did: currentDid,
-                  error: error instanceof Error ? error.message : 'Unknown error',
-                });
-              }
+              await gatewaySignOut(currentDid);
             }
 
             // Clear secure storage items related to sessions
@@ -1666,18 +1518,14 @@ export const useUserStore = create<UserState>()(
                     component: 'userStore',
                     did: activeAccountDid,
                   });
+                  await SecureStore.deleteItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT).catch(() => {});
                   set({
                     authStatus: 'reauth_required',
                     currentUser: null,
                     oauthSession: null,
                     agent: undefined,
                     activeAccountDid: null,
-                    algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
                     subscribedChannels: [],
-                    feedSourceFingerprint: buildFeedSourceFingerprint(
-                      DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                      []
-                    ),
                     feedBootstrapStatus: 'error',
                     feedBootstrapDid: null,
                     authErrorCode: 'reauth_required',
@@ -1752,7 +1600,7 @@ export const useUserStore = create<UserState>()(
 
           if (cachedRecord !== null) {
             const [settingsLoaded, channelsLoaded] = await Promise.all([
-              get().loadUserSpecificSettings(did, cachedRecord),
+              get().loadUserSpecificSettings(did),
               get().loadSubscribedChannels(did, cachedRecord),
             ]);
 
@@ -1778,7 +1626,7 @@ export const useUserStore = create<UserState>()(
                 await hydrateOrbytChannels().catch(() => {});
                 if (get().currentUser?.did !== bgDid) return;
                 await Promise.all([
-                  get().loadUserSpecificSettings(bgDid, freshRecord),
+                  get().loadUserSpecificSettings(bgDid),
                   get().loadSubscribedChannels(bgDid, freshRecord),
                 ]);
               } catch {
@@ -1803,9 +1651,10 @@ export const useUserStore = create<UserState>()(
             writeCachedOrbytProfileRecord(did, orbytProfileRecord);
             seedModerationQueryCache(did, modResult);
 
-            await hydrateOrbytChannels().catch(() => {});
+            // The Community directory loads in the background (Explore, channel names).
+            void hydrateOrbytChannels().catch(() => {});
             const [settingsLoaded, channelsLoaded] = await Promise.all([
-              get().loadUserSpecificSettings(did, orbytProfileRecord),
+              get().loadUserSpecificSettings(did),
               get().loadSubscribedChannels(did, orbytProfileRecord),
             ]);
 
@@ -1834,28 +1683,13 @@ export const useUserStore = create<UserState>()(
           }
         },
 
-        loadUserSpecificSettings: async (
-          did: string,
-          orbytProfileRecord: OrbytProfileRecord | null
-        ) => {
+        loadUserSpecificSettings: async (did: string) => {
           try {
             const feedDebugOverlayEnabled =
               storage.getBoolean(getFlagKey('feed_debug_overlay_enabled', did)) ?? false;
 
-            const algorithmicFeedProvider = resolveAlgorithmicFeedProviderForDid(
-              did,
-              orbytProfileRecord
-            );
-
             // Update state with user-specific settings
-            set(state => ({
-              feedDebugOverlayEnabled,
-              algorithmicFeedProvider,
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                algorithmicFeedProvider,
-                state.subscribedChannels
-              ),
-            }));
+            set({ feedDebugOverlayEnabled });
             return true;
           } catch (error) {
             logger.error('Error loading user-specific settings', error, { component: 'userStore' });
@@ -1868,69 +1702,36 @@ export const useUserStore = create<UserState>()(
           orbytProfileRecord: OrbytProfileRecord | null
         ) => {
           try {
-            const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, did);
-            const savedChannelsStr = storage.getString(key) ?? null;
-
-            let savedChannels: SubscribedChannel[] = savedChannelsStr
-              ? JSON.parse(savedChannelsStr)
-              : [];
-
-            savedChannels = savedChannels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri));
-
-            const remoteUris: string[] = Array.isArray(orbytProfileRecord?.subscribedChannels)
-              ? orbytProfileRecord.subscribedChannels!
-              : [];
-
-            if (savedChannels.length === 0 && remoteUris.length > 0) {
-              const filteredUris = filterBuiltInChannels(remoteUris);
-              if (filteredUris.length > 0) {
-                savedChannels = filteredUris.map((uri: string) => ({
-                  uri,
-                  displayName: '',
-                  isOrbytChannel: isOrbytChannel(uri),
-                  subscribedAt: Date.now(),
-                }));
-                storage.set(key, JSON.stringify(savedChannels));
-              }
-            }
-
-            // Double-check: filter built-ins from state (in case persisted state had them)
-            const filteredChannels = savedChannels.filter(
-              ch => !BUILT_IN_CHANNELS.includes(ch.uri)
-            );
-
-            // Set subscribed channels - no merging, no defaults, just the user's subscriptions
-            set(state => ({
-              subscribedChannels: filteredChannels,
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                state.algorithmicFeedProvider,
-                filteredChannels
-              ),
-            }));
-
-            const urisToSync = filterBuiltInChannels(filteredChannels.map(ch => ch.uri));
-            void RepoService.updateOrbytProfileChannels(urisToSync).catch(error => {
-              logger.warn('Failed to clean profile record of built-in channels', {
-                component: 'userStore',
-                error: error instanceof Error ? error.message : String(error),
-              });
+            // The device list shows at once; memberships reconcile in the background
+            // so the feed bootstrap never waits on the PDS.
+            const saved = readSavedChannels(did);
+            const { channels } = planSubscribedChannels({
+              saved: saved ? (JSON.parse(saved) as SubscribedChannel[]) : [],
+              joined: null,
+              migrateUri: migrateLegacyChannelUri,
+              now: Date.now(),
             });
+            applySubscribedChannels(did, channels);
+
+            subscribedChannelsReconcile = subscribedChannelsReconcile
+              .then(() => reconcileSubscribedChannels(did, orbytProfileRecord))
+              .catch(error => {
+                logger.warn('Failed to reconcile subscribed channels', {
+                  component: 'userStore',
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              });
             return true;
           } catch (error) {
             logger.error('Error loading subscribed channels', error, { component: 'userStore' });
-            set(state => ({
-              subscribedChannels: [],
-              feedSourceFingerprint: buildFeedSourceFingerprint(state.algorithmicFeedProvider, []),
-            }));
+            set({ subscribedChannels: [] });
             return false;
           }
         },
 
         _persistAccountUpdate: async (
           did: string,
-          updates: Partial<
-            Pick<SavedAccount, 'handle' | 'displayName' | 'avatar' | 'emailConfirmed' | 'lastUsed'>
-          >
+          updates: Partial<Pick<SavedAccount, 'handle' | 'displayName' | 'avatar' | 'lastUsed'>>
         ) => {
           const accounts = get().savedAccounts;
           const idx = accounts.findIndex(a => a.did === did);
@@ -1954,16 +1755,14 @@ export const useUserStore = create<UserState>()(
             });
 
             const session = await restoreSessionWithRefresh(did);
-            await assertRequiredOAuthScope(session);
 
-            const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session, {
+            const { agent, userProfile, ownProfile } = await hydrateGatewaySession(session, {
               skipOrbytColors: true,
             });
+            seedCurrentUserProfileCache(session.did, ownProfile.handle, ownProfile.profile);
 
             const originalIdentifier =
               get().savedAccounts.find(acc => acc.did === did)?.originalIdentifier ?? did;
-
-            const hadActiveAccount = get().activeAccountDid !== null;
 
             set({
               currentUser: {
@@ -1972,7 +1771,6 @@ export const useUserStore = create<UserState>()(
                 displayName: userProfile.displayName,
                 avatar: userProfile.avatar,
                 originalIdentifier,
-                emailConfirmed,
               },
               authStatus: 'authenticated',
               isAuthenticating: false,
@@ -1984,25 +1782,11 @@ export const useUserStore = create<UserState>()(
               feedBootstrapDid: null,
             });
 
-            if (!hadActiveAccount && isEmailVerificationRequired(get().currentUser)) {
-              set({ showEmailVerificationModal: true });
-            }
+            await get()._persistAccountUpdate(session.did, { lastUsed: Date.now() });
 
-            // Persist emailConfirmed so next launch can use the fast two-phase path
-            await get()._persistAccountUpdate(session.did, {
-              emailConfirmed,
-              lastUsed: Date.now(),
-            });
-
-            // Fetch orbyt profile colors in background (skipped in hydrateOAuthSession above)
+            // Fetch orbyt profile colors in background (skipped in hydrateGatewaySession above)
             queryClient.fetchQuery(orbytProfileQueryOptions(session.did)).catch(() => {});
 
-            requestIdleCallback(
-              () => {
-                void RepoService.initOrbytProfileIfNeeded().catch(() => {});
-              },
-              { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-            );
             scheduleFollowingOrbytColorsAfterFeedReady(session.did);
 
             if (!skipSettings) {
@@ -2063,7 +1847,6 @@ export const useUserStore = create<UserState>()(
         currentUser: state.currentUser,
         feedDebugOverlayEnabled: state.feedDebugOverlayEnabled,
         profileFeedViewMode: state.profileFeedViewMode,
-        algorithmicFeedProvider: state.algorithmicFeedProvider,
         subscribedChannels: state.subscribedChannels.filter(
           ch => !BUILT_IN_CHANNELS.includes(ch.uri)
         ),
@@ -2076,10 +1859,6 @@ export const useUserStore = create<UserState>()(
         if (filteredChannels.length !== state.subscribedChannels.length) {
           state.subscribedChannels = filteredChannels;
         }
-        state.feedSourceFingerprint = buildFeedSourceFingerprint(
-          state.algorithmicFeedProvider ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-          state.subscribedChannels
-        );
         // no-op: orbyt profile colors are fetched via react-query, no local cache to load
       },
     }
@@ -2092,6 +1871,22 @@ const syncAtprotoBridgeFromUserState = (state: UserState) => {
 
 syncAtprotoBridgeFromUserState(useUserStore.getState());
 useUserStore.subscribe(syncAtprotoBridgeFromUserState);
+
+// A token the gateway refuses mid-session (signed out elsewhere, revoked) returns to sign-in.
+onGatewaySessionExpired(did => {
+  if (useUserStore.getState().oauthSession?.did !== did) return;
+  queryClient.clear();
+  void SecureStore.deleteItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT).catch(() => {});
+  useUserStore.setState({
+    authStatus: 'reauth_required',
+    authErrorCode: 'reauth_required',
+    authError: 'oauth_reauth_required',
+    currentUser: null,
+    oauthSession: null,
+    agent: undefined,
+    activeAccountDid: null,
+  });
+});
 
 export const selectIsSessionValid = (state: UserState): boolean =>
   hasAuthoritativeSdkSession(state.oauthSession, state.currentUser?.did ?? null);
@@ -2193,17 +1988,5 @@ export const useFeedSettings = () => {
     feedDebugOverlayEnabled,
     setFeedDebugOverlayEnabled,
     getFeedDebugOverlayEnabled,
-  };
-};
-
-export const useAlgorithmicFeedProvider = () => {
-  const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
-  const setAlgorithmicFeedProvider = useUserStore(state => state.setAlgorithmicFeedProvider);
-  const getAlgorithmicFeedProvider = useUserStore(state => state.getAlgorithmicFeedProvider);
-
-  return {
-    algorithmicFeedProvider,
-    setAlgorithmicFeedProvider,
-    getAlgorithmicFeedProvider,
   };
 };

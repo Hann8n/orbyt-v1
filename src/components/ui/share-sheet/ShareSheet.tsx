@@ -28,7 +28,6 @@ import { useBookmarkStore } from '../../../stores/bookmarkStore';
 import { useUserStore } from '../../../stores/userStore';
 import { useBookmarkMutation } from '../../../hooks/useBookmarkMutation';
 import { useDeletePostMutation } from '../../../hooks/useDeletePostMutation';
-import SendToPicker from './SendToPicker';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 
 const ShareSheet: React.FC = () => {
@@ -38,7 +37,6 @@ const ShareSheet: React.FC = () => {
 
   // Always render the TrueSheet component, but only show content when there's data
   const { postUri, postCid, authorDid, authorName, authorHandle } = data || {};
-  const [showConversationPicker, setShowConversationPicker] = useState<boolean>(false);
   const [isSheetPresented, setIsSheetPresented] = useState(false);
   const { isBookmarked } = useBookmarkStore(
     useShallow(state => ({
@@ -69,8 +67,7 @@ const ShareSheet: React.FC = () => {
   const handleDismiss = useCallback(() => {
     setIsSheetPresented(false);
     dismissShareSheet(true);
-    setShowConversationPicker(false);
-  }, [dismissShareSheet, setIsSheetPresented, setShowConversationPicker]);
+  }, [dismissShareSheet, setIsSheetPresented]);
 
   const dismissSheet = useCallback(() => {
     // Let TrueSheet handle dismissal; onDidDismiss (handleDismiss) clears store state
@@ -193,19 +190,6 @@ const ShareSheet: React.FC = () => {
     }
   };
 
-  const handleSend = useCallback(() => {
-    setShowConversationPicker(true);
-  }, []);
-
-  const handleSendToDismiss = useCallback(() => {
-    setShowConversationPicker(false);
-  }, []);
-
-  const handleSendToSent = useCallback(() => {
-    setShowConversationPicker(false);
-    dismissSheet();
-  }, [dismissSheet]);
-
   const NEON = {
     purple: '#c084fc',
     green: '#22c55e',
@@ -222,14 +206,6 @@ const ShareSheet: React.FC = () => {
         onPress: handleShare,
         color: NEON.purple,
         buttonColor: Colors.purple[950],
-      },
-      {
-        id: 'send',
-        label: t('share.send'),
-        icon: 'share-sheet-send-cute-fill',
-        onPress: handleSend,
-        color: NEON.green,
-        buttonColor: Colors.teal[950],
       },
       {
         id: 'bookmark',
@@ -343,17 +319,6 @@ const ShareSheet: React.FC = () => {
           </ScrollView>
         </View>
       </AppTrueSheet>
-
-      {data && (
-        <SendToPicker
-          visible={showConversationPicker}
-          onDismiss={handleSendToDismiss}
-          onSent={handleSendToSent}
-          postUri={postUri!}
-          postCid={postCid}
-          currentUserDid={currentUserDid}
-        />
-      )}
     </>
   );
 };

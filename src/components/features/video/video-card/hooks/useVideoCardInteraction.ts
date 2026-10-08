@@ -1,7 +1,8 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import * as Haptics from 'expo-haptics';
+import { useQueryClient } from '@tanstack/react-query';
 
-import { useLikeMutation } from '@/hooks/useLikeMutation';
+import { isPostTogglePending, useLikeMutation } from '@/hooks/useLikeMutation';
 import { useRepostMutation } from '@/hooks/useRepostMutation';
 import type { ExtendedPostView } from '../../../../../services/api/types';
 
@@ -25,9 +26,9 @@ export interface UseVideoCardInteractionResult {
   display: VideoCardInteractionDisplay;
   isLikePending: boolean;
   isRepostPending: boolean;
-  handleLike: () => Promise<void>;
-  handleLikeOnly: () => Promise<void>;
-  handleRepost: () => Promise<void>;
+  handleLike: () => void;
+  handleLikeOnly: () => void;
+  handleRepost: () => void;
 }
 
 export function useVideoCardInteraction({
@@ -57,53 +58,46 @@ export function useVideoCardInteraction({
     ]
   );
 
+  const queryClient = useQueryClient();
   const displayRef = useRef(display);
-  const pendingRef = useRef({ isLikePending: false, isRepostPending: false });
 
   useLayoutEffect(() => {
     displayRef.current = display;
-    pendingRef.current.isLikePending = likeMutation.isPending;
-    pendingRef.current.isRepostPending = repostMutation.isPending;
-  }, [display, likeMutation.isPending, repostMutation.isPending]);
+  }, [display]);
 
-  const handleLike = useCallback(async () => {
-    if (likeMutation.isPending) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const { isLiked, likeUri, likeCount } = displayRef.current;
-    await likeMutation.mutateAsync({
-      postUri: postView.uri,
-      postCid: postView.cid,
-      isLiked,
-      likeUri,
-      likeCount,
-    });
-  }, [likeMutation, postView.uri, postView.cid]);
+  // Taps read the cache-derived state of the moment and are ignored while a like or repost of
+  // this post is in flight on any surface (the comment sheet included).
+  const like = useCallback(
+    (only: boolean) => {
+      const { isLiked, likeUri, likeCount } = displayRef.current;
+      if ((only && isLiked) || isPostTogglePending(queryClient, 'like', postView.uri)) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      likeMutation.mutate({
+        postUri: postView.uri,
+        postCid: postView.cid,
+        isLiked,
+        likeUri,
+        likeCount,
+      });
+    },
+    [likeMutation, queryClient, postView.uri, postView.cid]
+  );
+  const handleLike = useCallback(() => like(false), [like]);
+  // Double-tap only ever likes.
+  const handleLikeOnly = useCallback(() => like(true), [like]);
 
-  const handleLikeOnly = useCallback(async () => {
-    if (displayRef.current.isLiked || likeMutation.isPending) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const { likeUri, likeCount } = displayRef.current;
-    await likeMutation.mutateAsync({
-      postUri: postView.uri,
-      postCid: postView.cid,
-      isLiked: false,
-      likeUri,
-      likeCount,
-    });
-  }, [likeMutation, postView.uri, postView.cid]);
-
-  const handleRepost = useCallback(async () => {
-    if (repostMutation.isPending) return;
+  const handleRepost = useCallback(() => {
+    if (isPostTogglePending(queryClient, 'repost', postView.uri)) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { isReposted, repostUri, repostCount } = displayRef.current;
-    await repostMutation.mutateAsync({
+    repostMutation.mutate({
       postUri: postView.uri,
       postCid: postView.cid,
       isReposted,
       repostUri,
       repostCount,
     });
-  }, [repostMutation, postView.uri, postView.cid]);
+  }, [repostMutation, queryClient, postView.uri, postView.cid]);
 
   return {
     display,
