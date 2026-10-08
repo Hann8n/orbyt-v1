@@ -7,9 +7,10 @@
  * notifications) is cached under keys that are not DID-scoped, so every query outside the public
  * roots (`auth`, `channels`, `klipy`, `discourse`, `orbyt`) belongs to the signed-in account.
  * - **signOut / corrupted-session reset**: `clearAllCaches()` cancels and removes those queries.
- * - **Account switch**: once the new session is active, those queries are reset, so every
+ * - **Account switch, sign-in, sign-up** (`resetQueriesForAccount`): once a session for a
+ *   different account than the one signed in before is active, those queries are reset, so every
  *   mounted screen refetches as the new account.
- * - **Login / restore**: User-scoped queries pick up the new DID via key changes; no global wipe.
+ * - **Restore of the same account**: no wipe.
  */
 
 // Base keys - defined first to avoid circular references

@@ -455,6 +455,23 @@ const PUBLIC_QUERY_ROOTS: ReadonlySet<unknown> = new Set([
 
 const isAccountScopedQuery = (query: Query): boolean => !PUBLIC_QUERY_ROOTS.has(query.queryKey[0]);
 
+/**
+ * Call once a session for `did` is active. When it is a different account, every account-scoped
+ * query goes back to its initial state (fetches still running as the old account are cancelled)
+ * and each one a mounted screen observes refetches as the new account. The new account's own
+ * profile is seeded again afterwards.
+ */
+function resetQueriesForAccount(
+  previousDid: string | null | undefined,
+  did: string,
+  ownProfile: { handle: string; profile: Partial<ProfileViewWithOrbyt> }
+): void {
+  if (previousDid !== did) {
+    void queryClient.resetQueries({ predicate: isAccountScopedQuery });
+  }
+  seedCurrentUserProfileCache(did, ownProfile.handle, ownProfile.profile);
+}
+
 export const useUserStore = create<UserState>()(
   persist(
     (set, get) => {
@@ -474,13 +491,15 @@ export const useUserStore = create<UserState>()(
 
         const userProfile = profile.data;
         const { $type: _profileType, ...profileForCache } = userProfile;
-        seedCurrentUserProfileCache(
-          oauthSession.did,
-          userProfile.handle,
-          profileForCache as Partial<ProfileViewWithOrbyt>
-        );
 
-        return { agent, userProfile };
+        return {
+          agent,
+          userProfile,
+          ownProfile: {
+            handle: userProfile.handle,
+            profile: profileForCache as Partial<ProfileViewWithOrbyt>,
+          },
+        };
       };
 
       const applyAuthFailureState = (
@@ -539,9 +558,10 @@ export const useUserStore = create<UserState>()(
               authStatus: 'restoring',
             });
 
+            const previousDid = get().currentUser?.did;
             const session = await gatewaySignIn(identifier);
 
-            const { agent, userProfile } = await hydrateGatewaySession(session);
+            const { agent, userProfile, ownProfile } = await hydrateGatewaySession(session);
 
             const account: SavedAccount = {
               id: session.did,
@@ -582,6 +602,8 @@ export const useUserStore = create<UserState>()(
               feedBootstrapStatus: 'loading',
               feedBootstrapDid: null,
             });
+
+            resetQueriesForAccount(previousDid, session.did, ownProfile);
 
             setUserId(getAnalytics(), session.did).catch(() => {});
             logLogin(getAnalytics(), { method: 'atproto' }).catch(() => {});
@@ -625,9 +647,10 @@ export const useUserStore = create<UserState>()(
               authStatus: 'restoring',
             });
 
+            const previousDid = get().currentUser?.did;
             const session = await gatewaySignIn(identifier, { signUp: true });
 
-            const { agent, userProfile } = await hydrateGatewaySession(session);
+            const { agent, userProfile, ownProfile } = await hydrateGatewaySession(session);
 
             const account: SavedAccount = {
               id: session.did,
@@ -665,6 +688,8 @@ export const useUserStore = create<UserState>()(
               feedBootstrapStatus: 'loading',
               feedBootstrapDid: null,
             });
+
+            resetQueriesForAccount(previousDid, session.did, ownProfile);
 
             setUserId(getAnalytics(), session.did).catch(() => {});
             logSignUp(getAnalytics(), { method: 'atproto' }).catch(() => {});
@@ -913,13 +938,9 @@ export const useUserStore = create<UserState>()(
               });
               await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, did);
 
-              // The new agent is active: every account-scoped query goes back to its initial
-              // state (fetches still running as the old account are cancelled) and each one a
-              // mounted screen observes refetches as the new account.
-              void queryClient.resetQueries({ predicate: isAccountScopedQuery });
-              seedCurrentUserProfileCache(did, account.handle, {
-                displayName: account.displayName,
-                avatar: account.avatar,
+              resetQueriesForAccount(previousState.currentUser?.did, did, {
+                handle: account.handle,
+                profile: { displayName: account.displayName, avatar: account.avatar },
               });
 
               await get().bootstrapUserFeedSettings(did);
@@ -1709,9 +1730,10 @@ export const useUserStore = create<UserState>()(
 
             const session = await restoreSessionWithRefresh(did);
 
-            const { agent, userProfile } = await hydrateGatewaySession(session, {
+            const { agent, userProfile, ownProfile } = await hydrateGatewaySession(session, {
               skipOrbytColors: true,
             });
+            seedCurrentUserProfileCache(session.did, ownProfile.handle, ownProfile.profile);
 
             const originalIdentifier =
               get().savedAccounts.find(acc => acc.did === did)?.originalIdentifier ?? did;
