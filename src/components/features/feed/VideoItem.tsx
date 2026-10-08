@@ -20,6 +20,7 @@ export interface VideoItemProps {
   /** See VideoCard `activeDistance`. */
   activeDistance?: number;
   canPlay?: boolean;
+  isListActive?: boolean;
 }
 
 // A function fallback: ErrorBoundary treats a null `fallback` as "use the full-screen default".
@@ -32,6 +33,7 @@ function VideoItemComponent({
   feedOption,
   isVisible,
   canPlay,
+  isListActive,
   index = 0,
   isAppleZoomTarget = false,
   onHashtagPress,
@@ -59,6 +61,7 @@ function VideoItemComponent({
         height={height}
         isVisible={isVisible}
         canPlay={canPlay}
+        isListActive={isListActive}
         index={index}
         activeDistance={activeDistance}
         onHashtagPress={onHashtagPress}

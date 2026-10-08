@@ -455,8 +455,17 @@ function ListFeedViewComponent({
       onHashtagPress,
       activeIndex,
       canPlay,
+      isListActive: listSurfaceActive,
     }),
-    [cardHeight, feedOption, zoomTargetPostUri, onHashtagPress, activeIndex, canPlay]
+    [
+      cardHeight,
+      feedOption,
+      zoomTargetPostUri,
+      onHashtagPress,
+      activeIndex,
+      canPlay,
+      listSurfaceActive,
+    ]
   );
 
   const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
@@ -496,6 +505,7 @@ function ListFeedViewComponent({
           onHashtagPress={xd.onHashtagPress}
           activeDistance={getActiveDistance(xd.activeIndex, index)}
           canPlay={xd.canPlay}
+          isListActive={xd.isListActive}
         />
       );
     },
