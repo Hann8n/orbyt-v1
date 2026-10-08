@@ -46,6 +46,8 @@ export const queryKeys = {
     batch: (feedOption: string, userDid?: string) =>
       [...queryKeys.feed.byUser(feedOption, userDid), 'batch'] as const,
     search: (query: string) => [...feedBase, 'search', query] as const,
+    /** A single post by URI (a full-height video opened from a link). */
+    post: (uri: string) => [...feedBase, 'post', uri] as const,
   },
 
   // Profile queries (merged from ProfileService and FeedService)
@@ -151,6 +153,8 @@ export const queryKeys = {
     postCommunity: (postUri: string) =>
       [...queryKeys.channels.all, 'post-community', postUri] as const,
     detail: (uri: string) => [...queryKeys.channels.all, 'detail', uri] as const,
+    /** A Community by the name a getorbyt.com/c/<name> link carries. */
+    byName: (name: string) => [...queryKeys.channels.all, 'by-name', name] as const,
     colors: (uri: string) => [...queryKeys.channels.all, 'colors', uri] as const,
   },
 

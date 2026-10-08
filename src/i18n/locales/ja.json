@@ -383,6 +383,7 @@
   "video": {
     "noVideo": "動画がありません",
     "videoFileNotFound": "動画ファイルが見つかりません",
+    "linkedVideoUnavailable": "この動画は利用できません。",
     "unableToAccessVideoFile": "動画ファイルにアクセスできません",
     "contentWarningFallback": "この動画はすべての視聴者に適していない可能性があります。",
     "contentWarningMayContain": "この動画には{{labels}}が含まれる可能性があります。",

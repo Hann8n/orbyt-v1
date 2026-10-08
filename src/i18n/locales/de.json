@@ -481,6 +481,7 @@
     "failedToSelectMusic": "Musik konnte nicht ausgewählt werden",
     "noVideo": "Kein Video",
     "videoFileNotFound": "Videodatei nicht gefunden",
+    "linkedVideoUnavailable": "Dieses Video ist nicht verfügbar.",
     "unableToAccessVideoFile": "Videodatei nicht zugreifbar",
     "contentWarningFallback": "Dieses Video ist möglicherweise nicht für alle geeignet.",
     "contentWarningMayContain": "Dieses Video kann {{labels}} enthalten.",

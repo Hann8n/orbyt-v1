@@ -9,8 +9,11 @@ module.exports = {
     supportsTablet: false,
     bundleIdentifier: 'com.getorbyt.app',
     appleTeamId: 'D8VXFBV8SJ',
-    // Sign-in returns through the gateway to https://getorbyt.com/oauth/callback (a universal link).
-    associatedDomains: ['applinks:getorbyt.com'],
+    // getorbyt.com's apple-app-site-association claims /@*, /c/* and /oauth/callback for this app
+    // (mapped to routes in app/+native-intent.tsx). Sign-in returns through the gateway to
+    // https://getorbyt.com/oauth/callback; ASWebAuthenticationSession https callbacks also need
+    // webcredentials.
+    associatedDomains: ['applinks:getorbyt.com', 'webcredentials:getorbyt.com'],
     buildNumber: '7',
     icon: './src/assets/AppIcons/iOS/Orbyt.icon',
     infoPlist: {

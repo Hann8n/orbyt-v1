@@ -206,6 +206,7 @@ function RootNavigator() {
             }}
           />
           <Stack.Screen name="channel/[id]" options={cardSlideFromRightOptions} />
+          <Stack.Screen name="c/[name]" />
           <Stack.Screen name="settings" options={modalSlideUpOptions} />
           <Stack.Screen name="edit-profile" options={modalSlideUpOptions} />
           <Stack.Screen name="add-account" options={modalSlideUpOptions} />

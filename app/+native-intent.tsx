@@ -1,11 +1,12 @@
-const OAUTH_CALLBACK_PATH = /^[^?#]*\/oauth\/callback/;
+import { appPathForSystemLink } from '@/utils/navigation/systemLinks';
 
 /**
- * Rewrites incoming system links before Expo Router matches them.
+ * Rewrites incoming system links before Expo Router matches them: getorbyt.com universal links
+ * become app routes (see `appPathForSystemLink`), custom-scheme links pass through unchanged.
  *
- * The OAuth redirect (`com.getorbyt:/oauth/callback`) is consumed by the auth session, but on
- * Android it also reaches the app as a link; there is no route for it, so without this the user
- * lands on the "Unmatched Route" screen after signing in.
+ * The sign-in return link (`https://getorbyt.com/oauth/callback`) is consumed by the auth session;
+ * when it also reaches the app as a link it must not navigate, or the user lands on a stray screen
+ * after signing in.
  */
 export function redirectSystemPath({
   path,
@@ -15,11 +16,10 @@ export function redirectSystemPath({
   initial: boolean;
 }): string | null {
   try {
-    if (OAUTH_CALLBACK_PATH.test(path)) {
-      // A cold start can only open the app's root; a warm link should not navigate at all.
-      return initial ? '/' : null;
-    }
-    return path;
+    const target = appPathForSystemLink(path);
+    // A cold start can only open the app's root; a warm link should not navigate at all.
+    if (target === null) return initial ? '/' : null;
+    return target;
   } catch {
     return initial ? '/' : null;
   }
