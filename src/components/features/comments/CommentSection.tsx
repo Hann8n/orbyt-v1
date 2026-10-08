@@ -37,9 +37,20 @@ import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useModalStore } from '../../../stores/modalStore';
 import { useShareSheet } from '../../../stores/modalStore';
-import { useLikeMutation } from '@/hooks/useLikeMutation';
+import {
+  isPostTogglePending,
+  readFeedPostToggle,
+  useFeedPostToggle,
+  useLikeMutation,
+} from '@/hooks/useLikeMutation';
+import {
+  confirmToggle,
+  isConfirmedUri,
+  optimisticToggle,
+  rollbackToggle,
+  type ToggleState,
+} from '@/utils/query/viewerToggle';
 import { useQueryClient } from '@tanstack/react-query';
-import type { FeedResponse } from '../../../services/api/types';
 
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { Colors } from '../../../theme';
@@ -58,37 +69,6 @@ import { CommentLikeItem } from './CommentLikeItem';
 import KlipyGifPickerSheet from './KlipyGifPickerSheet';
 import type { Comment, Like, ExtendedPostView } from '../../../services/api/types';
 import type { KlipyItem } from '../../../services/klipy/KlipyService';
-import type { InfiniteData } from '@tanstack/react-query';
-
-type HeaderLikeState = { isLiked: boolean; likeCount: number; likeUri?: string };
-
-/**
- * Read the like state for a post from the feed cache.
- * This ensures the header like button shows the correct state when opening comments.
- */
-function readPostFromFeedCache(
-  queryClient: ReturnType<typeof useQueryClient>,
-  postUri: string
-): HeaderLikeState {
-  const feedData = queryClient.getQueryData<InfiniteData<FeedResponse>>(queryKeys.feed.all);
-
-  if (!feedData) {
-    return { isLiked: false, likeCount: 0, likeUri: undefined };
-  }
-
-  for (const page of feedData.pages) {
-    for (const item of page.feed) {
-      if (item.post.uri === postUri) {
-        const { likeCount, viewer } = item.post;
-        const likeUri = viewer && typeof viewer.like === 'string' ? viewer.like : undefined;
-        const isLiked = !!likeUri;
-        return { isLiked, likeCount: likeCount ?? 0, likeUri };
-      }
-    }
-  }
-
-  return { isLiked: false, likeCount: 0, likeUri: undefined };
-}
 
 import {
   ensureCommentUploadImage,
@@ -306,17 +286,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const likeMutation = useLikeMutation();
 
-  const [headerLikeState, setHeaderLikeState] = useState<HeaderLikeState>({
-    isLiked: false,
-    likeCount: 0,
-    likeUri: undefined,
-  });
-
-  // Read like state from feed cache when post URI changes
-  useEffect(() => {
-    if (!post?.uri) return;
-    setHeaderLikeState(readPostFromFeedCache(queryClient, post.uri));
-  }, [post?.uri, queryClient]);
+  // The feed cache owns the post's like; a post no cached feed holds keeps a local copy.
+  const cachedHeaderLike = useFeedPostToggle(post?.uri, 'like');
+  const [localHeaderLike, setLocalHeaderLike] = useState<
+    (ToggleState & { postUri: string }) | null
+  >(null);
+  const headerLike: ToggleState = cachedHeaderLike ??
+    (localHeaderLike?.postUri === post?.uri ? localHeaderLike : null) ?? { count: 0 };
 
   const headerHeartScale = useSharedValue(1);
   const headerHeartStyle = useAnimatedStyle(() => ({
@@ -329,18 +305,18 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, [post?.uri]);
 
   const handleHeaderToggleLike = useCallback(() => {
-    if (!post?.uri || !post?.cid || likeMutation.isPending) return;
+    const postUri = post?.uri;
+    const postCid = post?.cid;
+    if (!postUri || !postCid || isPostTogglePending(queryClient, 'like', postUri)) return;
+
+    // Read the like at tap time, not when the sheet opened: the card may have changed it since.
+    const inFeedCache = readFeedPostToggle(queryClient, postUri, 'like');
+    const current = inFeedCache ?? headerLike;
+    const isLiked = !!current.uri;
+    if (isLiked && !isConfirmedUri(current.uri)) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    const {
-      isLiked: currentIsLiked,
-      likeUri: currentLikeUri,
-      likeCount: currentLikeCount,
-    } = headerLikeState;
-    const newIsLiked = !currentIsLiked;
-    const newCount = newIsLiked ? currentLikeCount + 1 : Math.max(0, currentLikeCount - 1);
-
-    if (newIsLiked) {
+    if (!isLiked) {
       headerHeartScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
         headerHeartScale.value = withSpring(1);
       });
@@ -348,37 +324,20 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       headerHeartScale.value = withSpring(1);
     }
 
-    setHeaderLikeState({
-      isLiked: newIsLiked,
-      likeCount: newCount,
-      likeUri: newIsLiked ? 'optimistic' : undefined,
+    const vars = { postUri, postCid, isLiked, likeUri: current.uri, likeCount: current.count };
+    if (inFeedCache) {
+      likeMutation.mutate(vars);
+      return;
+    }
+    const optimistic = optimisticToggle(current, !isLiked);
+    const patchLocal = (update: (state: ToggleState) => ToggleState) =>
+      setLocalHeaderLike(prev => (prev?.postUri === postUri ? { ...update(prev), postUri } : prev));
+    setLocalHeaderLike({ ...optimistic, postUri });
+    likeMutation.mutate(vars, {
+      onSuccess: likeUri => patchLocal(state => confirmToggle(state, !isLiked, likeUri)),
+      onError: () => patchLocal(state => rollbackToggle(state, optimistic, current)),
     });
-
-    likeMutation.mutate(
-      {
-        postUri: post.uri,
-        postCid: post.cid,
-        isLiked: currentIsLiked,
-        likeUri: currentLikeUri,
-        likeCount: currentLikeCount,
-      },
-      {
-        onSuccess: resolvedLikeUri => {
-          setHeaderLikeState(prev => ({
-            ...prev,
-            likeUri: newIsLiked ? resolvedLikeUri : undefined,
-          }));
-        },
-        onError: () => {
-          setHeaderLikeState({
-            isLiked: currentIsLiked,
-            likeCount: currentLikeCount,
-            likeUri: currentLikeUri,
-          });
-        },
-      }
-    );
-  }, [likeMutation, post?.uri, post?.cid, headerLikeState]);
+  }, [likeMutation, queryClient, post?.uri, post?.cid, headerLike]);
 
   const handleHeaderSharePress = useCallback(() => {
     onDismiss?.();
@@ -869,7 +828,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             <NanoIcon
               name="heart-fill"
               size={26}
-              color={headerLikeState.isLiked ? Colors.coral[500] : Colors.neutral[500]}
+              color={headerLike.uri ? Colors.coral[500] : Colors.neutral[500]}
             />
           </Animated.View>
         </NativePressable>

@@ -33,10 +33,12 @@ import { MenuView } from '@react-native-menu/menu';
 import type { MenuAction } from '@react-native-menu/menu';
 
 import {
+  isCommentLikePending,
   useLikeCommentMutation,
   useDeleteCommentMutation,
   useRepostCommentMutation,
 } from '../../../hooks/useCommentMutations';
+import { isConfirmedUri } from '../../../utils/query/viewerToggle';
 import { ModerationService } from '../../../services/moderation/ModerationService';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
@@ -398,7 +400,10 @@ const CommentItem: React.FC<CommentItemProps> = ({
   }, [heartScale, heartOpacity]);
 
   const handleLikeComment = useCallback(() => {
-    if (isLiking || !uri || !cid) return;
+    if (!uri || !cid || isCommentLikePending(queryClient, uri)) return;
+    const likeUri = comment.viewer?.like;
+    // Still the placeholder of a like that has not been confirmed: nothing to delete yet.
+    if (isLiked && !isConfirmedUri(likeUri)) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -406,20 +411,25 @@ const CommentItem: React.FC<CommentItemProps> = ({
       animateHeart();
     }
 
-    const rawLikeUri = isLiked ? (comment.viewer?.like as string | undefined) : undefined;
-    const unlikeUri =
-      rawLikeUri && !rawLikeUri.startsWith('like:optimistic') ? rawLikeUri : undefined;
-    if (isLiked && !unlikeUri) return;
-
     likeComment(
-      { uri, cid, unlikeUri },
+      { uri, cid, isLiked, likeUri, likeCount },
       {
         onError: () => {
           Alert.alert(t('common.error'), t('comments.failedToLike'));
         },
       }
     );
-  }, [isLiking, uri, cid, isLiked, comment.viewer?.like, animateHeart, likeComment, t]);
+  }, [
+    queryClient,
+    uri,
+    cid,
+    isLiked,
+    likeCount,
+    comment.viewer?.like,
+    animateHeart,
+    likeComment,
+    t,
+  ]);
 
   const navigation = useRouter();
   const { navigateToProfile: goToProfile, currentTab: feedModalTab } =

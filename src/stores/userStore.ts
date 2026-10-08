@@ -21,7 +21,6 @@ import type { OrbytProfileRecord, ProfileViewWithOrbyt } from '../services/api/t
 import { isOrbytChannel } from '../utils/channels/orbyt';
 import type { Query } from '@tanstack/react-query';
 import { queryClient } from '../utils/query/queryClient';
-import { usePostInteractionStore } from './postInteractionStore';
 import { queryKeys } from '../utils/query/queryKeys';
 import { orbytProfileQueryOptions, warmOrbytProfileCache } from '../services/colors';
 import { hydrateOrbytChannels, migrateLegacyChannelUri } from '../services/OrbytChannelsService';
@@ -1332,8 +1331,6 @@ export const useUserStore = create<UserState>()(
 
         clearAllCaches: async () => {
           try {
-            usePostInteractionStore.getState().clearInteractions();
-
             // Viewer state (likes, follows, blocks, DMs, bookmarks) lives under keys that are not
             // DID-scoped, so drop everything except account-independent public data.
             await queryClient.cancelQueries({ predicate: isAccountScopedQuery });
@@ -1342,7 +1339,6 @@ export const useUserStore = create<UserState>()(
             logger.error('Error clearing caches', error, { component: 'userStore' });
           }
         },
-
 
         checkSessionHealth: async () => {
           const { agent, currentUser } = get();
