@@ -82,6 +82,10 @@ class FeedService {
         : position;
 
     let position = resolve(decodeYourMixCursor(cursor));
+    // A failed source falls through to the other; only when every attempt
+    // failed is the page an error rather than the end of the mix.
+    let lastError: unknown = null;
+    let anySucceeded = false;
     // Each source is tried at most once per page, so two empty sources end
     // the feed instead of paging empty results forever.
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -97,8 +101,10 @@ class FeedService {
                 'custom'
               )
             : await AtprotoFeedService.searchNetworkTopVideos(position.cursor, limit);
+        anySucceeded = true;
       } catch (error) {
         logger.warn('Your Mix source failed', { source: position.source, error });
+        lastError = error;
       }
       const nextCursor = nextYourMixCursor(position, page.cursor);
       if (page.feed.length > 0) {
@@ -108,6 +114,9 @@ class FeedService {
         };
       }
       position = resolve(decodeYourMixCursor(nextCursor));
+    }
+    if (!anySucceeded && lastError) {
+      throw lastError;
     }
     return { feed: [], cursor: null };
   }
@@ -203,77 +212,66 @@ class FeedService {
           return { feed: [], cursor: null };
         }
 
-        try {
-          const [profilesResponse, channelsResponse] = await Promise.all([
-            ActorService.searchProfilesPaginated(
-              searchQuery,
-              cursor as string | null,
-              FEED_CONFIG.maxPostsPerFetch
-            ),
-            AtprotoFeedService.searchPopularFeeds(searchQuery, 15),
-          ]);
+        // Profiles are the primary result and throw on failure; channel matches
+        // (an unspecced endpoint) degrade to none.
+        const [profilesResponse, channelsResponse] = await Promise.all([
+          ActorService.searchProfilesPaginated(
+            searchQuery,
+            cursor as string | null,
+            FEED_CONFIG.maxPostsPerFetch
+          ),
+          AtprotoFeedService.searchPopularFeeds(searchQuery, 15),
+        ]);
 
-          const feedItems: ExtendedFeedViewPost[] = [];
+        const feedItems: ExtendedFeedViewPost[] = [];
 
-          profilesResponse.profiles.forEach((profile: ProfileViewBasic) => {
-            feedItems.push({
-              post: {
-                uri: `at://${profile.did}/profile`,
-                cid: '',
-                author: {
-                  did: profile.did,
-                  handle: profile.handle,
-                  displayName: profile.displayName,
-                  avatar: profile.avatar,
-                },
-                viewer: profile.viewer,
-              } as ExtendedFeedViewPost['post'],
-              uniqueKey: profile.did,
-            });
+        profilesResponse.profiles.forEach((profile: ProfileViewBasic) => {
+          feedItems.push({
+            post: {
+              uri: `at://${profile.did}/profile`,
+              cid: '',
+              author: {
+                did: profile.did,
+                handle: profile.handle,
+                displayName: profile.displayName,
+                avatar: profile.avatar,
+              },
+              viewer: profile.viewer,
+            } as ExtendedFeedViewPost['post'],
+            uniqueKey: profile.did,
           });
+        });
 
-          channelsResponse.forEach((channel: GeneratorView) => {
-            feedItems.push({
-              post: {
-                uri: channel.uri,
-                cid: channel.cid,
-                author: channel.creator,
-                text: channel.displayName,
-                avatar: channel.avatar,
-                contentMode: channel.contentMode,
-              } as unknown as ExtendedFeedViewPost['post'],
-              uniqueKey: channel.uri,
-            });
+        channelsResponse.forEach((channel: GeneratorView) => {
+          feedItems.push({
+            post: {
+              uri: channel.uri,
+              cid: channel.cid,
+              author: channel.creator,
+              text: channel.displayName,
+              avatar: channel.avatar,
+              contentMode: channel.contentMode,
+            } as unknown as ExtendedFeedViewPost['post'],
+            uniqueKey: channel.uri,
           });
+        });
 
-          return {
-            feed: feedItems,
-            cursor: profilesResponse.cursor,
-          };
-        } catch (_error) {
-          return { feed: [], cursor: null };
-        }
+        return {
+          feed: feedItems,
+          cursor: profilesResponse.cursor,
+        };
       } else if (feedOptionForAPI.startsWith('community:')) {
         // Orbyt Community feeds: community:{at-uri} with optional :top / :latest
         const parsed = parseCommunityFeedOption(feedOptionForAPI);
         if (!parsed) {
           return { feed: [], cursor: null };
         }
-        try {
-          return await AtprotoFeedService.getCommunityVideoFeed(
-            parsed.communityUri,
-            cursor ?? null,
-            FEED_CONFIG.maxPostsPerFetch,
-            parsed.sort
-          );
-        } catch (error) {
-          logger.error('Failed to fetch community feed', error, {
-            component: 'FeedService',
-            community: parsed.communityUri,
-            sort: parsed.sort,
-          });
-          return { feed: [], cursor: null };
-        }
+        return await AtprotoFeedService.getCommunityVideoFeed(
+          parsed.communityUri,
+          cursor ?? null,
+          FEED_CONFIG.maxPostsPerFetch,
+          parsed.sort
+        );
       } else if (feedOptionForAPI.startsWith('hashtag:')) {
         // Hashtag feeds; may include sort parameter: hashtag:{tag}:top or hashtag:{tag}:latest
         const hashtagWithSort = feedOptionForAPI.substring(8); // Remove 'hashtag:' prefix
@@ -295,26 +293,16 @@ class FeedService {
           return { feed: [], cursor: null };
         }
 
-        try {
-          const response = await AtprotoFeedService.searchHashtagVideosPaginated(
-            hashtag,
-            (cursor as string | null) ?? null,
-            FEED_CONFIG.maxPostsPerFetch,
-            sort
-          );
-
-          return {
-            feed: response.videos,
-            cursor: response.cursor,
-          };
-        } catch (error) {
-          logger.error('Failed to fetch hashtag feed', error, {
-            component: 'FeedService',
-            hashtag,
-            sort,
-          });
-          return { feed: [], cursor: null };
-        }
+        const response = await AtprotoFeedService.searchHashtagVideosPaginated(
+          hashtag,
+          (cursor as string | null) ?? null,
+          FEED_CONFIG.maxPostsPerFetch,
+          sort
+        );
+        return {
+          feed: response.videos,
+          cursor: response.cursor,
+        };
       } else if (feedOptionForAPI === 'search') {
         return {
           feed: getSearchResults(),

@@ -112,3 +112,23 @@ test('sign-out calls /auth/logout and forgets the token', async () => {
   expect(SecureStore.deleteItemAsync).toHaveBeenCalled();
   await expect(restore(DID)).rejects.toBeInstanceOf(GatewaySessionExpiredError);
 });
+
+test('sign-out gives up on an unreachable gateway after a few seconds', async () => {
+  await signInOnce();
+  jest.useFakeTimers();
+  try {
+    // A request that never answers until it is aborted, as when offline.
+    fetchMock.mockImplementationOnce(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) =>
+          init.signal?.addEventListener('abort', () => reject(new Error('Aborted')))
+        )
+    );
+    const done = signOut(DID);
+    await jest.advanceTimersByTimeAsync(5000);
+    await expect(done).resolves.toBeUndefined();
+  } finally {
+    jest.useRealTimers();
+  }
+  await expect(restore(DID)).rejects.toBeInstanceOf(GatewaySessionExpiredError);
+});

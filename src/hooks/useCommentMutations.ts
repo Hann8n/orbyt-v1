@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { RichText } from '@atproto/api';
 import { logger } from '../utils/logger';
 import { queryKeys } from '../utils/query/queryKeys';
@@ -7,8 +7,13 @@ import { AtprotoCore } from '../services/api/core';
 import { normalizeExternalEmbedThumbSource } from '../services/api/feed/feedShared';
 import type { Comment, CommentsResponse } from '../services/api/types';
 import type { InfiniteData } from '@tanstack/react-query';
-
-const OPTIMISTIC_LIKE_SENTINEL = 'like:optimistic';
+import {
+  confirmToggle,
+  isConfirmedUri,
+  optimisticToggle,
+  rollbackToggle,
+  type ToggleState,
+} from '../utils/query/viewerToggle';
 
 const MAX_IMAGE_BYTES = 1_000_000;
 
@@ -337,75 +342,83 @@ export function useRepostCommentMutation() {
   });
 }
 
+interface LikeCommentVars {
+  uri: string;
+  cid: string;
+  /** The state at tap time. */
+  isLiked: boolean;
+  likeUri?: string;
+  likeCount: number;
+}
+
+/** Whether a like of this comment is in flight; taps are ignored until it settles. */
+export function isCommentLikePending(queryClient: QueryClient, uri: string): boolean {
+  return (
+    queryClient.isMutating({
+      mutationKey: ['commentLike'],
+      predicate: mutation => (mutation.state.variables as LikeCommentVars | undefined)?.uri === uri,
+    }) > 0
+  );
+}
+
 export function useLikeCommentMutation() {
   const queryClient = useQueryClient();
 
+  const setCommentLike = (uri: string, update: (current: ToggleState) => ToggleState) =>
+    queryClient.setQueriesData({ queryKey: queryKeys.comments.all }, (old: unknown) => {
+      if (!old || typeof old !== 'object') return old;
+      const data = old as InfiniteData<CommentsResponse>;
+      if (!Array.isArray(data.pages)) return old;
+      return {
+        ...data,
+        pages: data.pages.map(page => ({
+          ...page,
+          comments: mapTree(page.comments, c => {
+            if (c.uri !== uri) return c;
+            const next = update({ uri: c.viewer?.like, count: c.likeCount ?? 0 });
+            return { ...c, likeCount: next.count, viewer: { ...c.viewer, like: next.uri } };
+          }),
+        })),
+      };
+    });
+
   return useMutation<
-    { isLiked: boolean; likeUri?: string },
+    string | undefined,
     Error,
-    { uri: string; cid: string; unlikeUri?: string }
+    LikeCommentVars,
+    { previous: ToggleState; optimistic: ToggleState }
   >({
-    mutationFn: async ({ uri, cid, unlikeUri }) => {
-      if (AtprotoCore.isOutgoingApiBlocked()) {
-        return { isLiked: !unlikeUri };
-      }
+    mutationKey: ['commentLike'],
+    mutationFn: async ({ uri, cid, isLiked, likeUri }) => {
+      if (AtprotoCore.isOutgoingApiBlocked()) return undefined;
       const { agent } = getAtprotoBridge();
       if (!agent) throw new Error('No authenticated agent');
 
-      if (unlikeUri) {
-        await agent.deleteLike(unlikeUri);
-        return { isLiked: false };
+      if (isLiked) {
+        if (!isConfirmedUri(likeUri)) throw new Error('No like URI');
+        await agent.deleteLike(likeUri);
+        return undefined;
       }
-
       const response = await agent.like(uri, cid);
-      return { isLiked: true, likeUri: response.uri };
+      return response.uri;
     },
 
-    onMutate: async vars => {
-      const queryKey = queryKeys.comments.all;
-      await queryClient.cancelQueries({ queryKey });
-
-      const previousData = queryClient.getQueriesData<InfiniteData<CommentsResponse>>({
-        queryKey,
-      });
-
-      queryClient.setQueriesData({ queryKey }, (old: unknown) => {
-        if (!old || typeof old !== 'object') return old;
-        const data = old as InfiniteData<CommentsResponse>;
-        if (!Array.isArray(data.pages)) return old;
-        const wasLiked = !!vars.unlikeUri;
-        return {
-          ...data,
-          pages: data.pages.map(page => ({
-            ...page,
-            comments: mapTree(page.comments, c => {
-              if (c.uri !== vars.uri) return c;
-              return {
-                ...c,
-                likeCount: Math.max(0, (c.likeCount ?? 0) + (wasLiked ? -1 : 1)),
-                viewer: { ...c.viewer, like: wasLiked ? undefined : OPTIMISTIC_LIKE_SENTINEL },
-              };
-            }),
-          })),
-        };
-      });
-
-      return { previousData };
+    // The comment threads are not refetched afterwards: the AppView can lag the write, and a
+    // refetch would flip the heart back. The created record's URI is written instead.
+    onMutate: ({ uri, isLiked, likeUri, likeCount }) => {
+      const previous = { uri: isLiked ? likeUri : undefined, count: likeCount };
+      const optimistic = optimisticToggle(previous, !isLiked);
+      setCommentLike(uri, () => optimistic);
+      return { previous, optimistic };
     },
 
-    onError: (_err, _vars, context) => {
-      const ctx = context as
-        | { previousData?: [unknown, InfiniteData<CommentsResponse> | undefined][] }
-        | undefined;
-      if (ctx?.previousData) {
-        for (const [key, data] of ctx.previousData) {
-          if (data) queryClient.setQueryData(key as string[], data);
-        }
-      }
+    onSuccess: (likeUri, { uri, isLiked }) => {
+      setCommentLike(uri, current => confirmToggle(current, !isLiked, likeUri));
     },
 
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.comments.all });
+    onError: (_err, { uri }, context) => {
+      if (!context) return;
+      setCommentLike(uri, current => rollbackToggle(current, context.optimistic, context.previous));
     },
   });
 }

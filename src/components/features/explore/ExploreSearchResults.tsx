@@ -14,6 +14,7 @@ import type { CachedChannel } from '@/services/data/ChannelService';
 import { type ExploreSearchTabId } from './types';
 import { prefetchProfileThenOpen } from './prefetchProfileThenOpen';
 import { exploreScreenStyles as styles } from './ExploreScreenStyles';
+import EmptyFeed from '@/components/features/feed/EmptyFeed';
 
 type ExploreSuggestionsProfileRowProps = {
   profile: ProfileViewWithOrbyt;
@@ -298,6 +299,8 @@ export const SearchFeedRenderer = ({
   hasMoreCommunities,
   isFetchingMoreCommunities,
   fetchMoreCommunities,
+  isError,
+  onRetry,
 }: {
   feedOption: ExploreSearchTabId;
   profiles: ProfileViewWithOrbyt[];
@@ -319,8 +322,15 @@ export const SearchFeedRenderer = ({
   hasMoreCommunities?: boolean;
   isFetchingMoreCommunities?: boolean;
   fetchMoreCommunities?: () => void;
+  /** The search failed with no results to show. */
+  isError?: boolean;
+  onRetry?: () => void;
 }) => {
   const { t } = useTranslation();
+  // `isError` is the people and feeds search; Communities have their own query.
+  if (isError && (feedOption === 'profiles' || feedOption === 'feeds')) {
+    return <EmptyFeed type="error" onRetry={onRetry} />;
+  }
   switch (feedOption) {
     case 'recently-visited':
       return (

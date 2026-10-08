@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
 import { View, StyleSheet, Share, Platform, Alert, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -41,7 +40,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   onSwitchAccount,
 }) => {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const { signOut } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const insets = useSafeAreaInsets();
@@ -264,9 +262,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         onPress: async () => {
           setIsSubmitting(true);
           try {
-            // Clear all queries
-            queryClient.clear();
-
             if (onLogout) {
               await onLogout(true); // Clear all accounts
             } else {
@@ -284,7 +279,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         },
       },
     ]);
-  }, [onDismiss, queryClient, onLogout, signOut, t]);
+  }, [onDismiss, onLogout, signOut, t]);
 
   // Determine menu options based on profile type
   const menuOptions = useMemo(() => {

@@ -2,7 +2,6 @@ import { type ReactNode } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { Colors } from '../../../theme';
-import { FEED_TYPES } from '../../../utils/constants';
 import type { FeedListItem } from '../../../types';
 import { isFeedHeaderItem } from '../../../types';
 import { blendColors, hexToRGBA } from '../../../utils/formatting/colors';
@@ -44,9 +43,6 @@ export const getFeedItemKey = (item: FeedListItem | ExtendedFeedViewPost, index 
   }
   return item.post?.uri ?? item.post?.cid ?? `feed-${index}`;
 };
-
-export const getEmptyFeedType = (feedOption: string): 'no-following' | 'no-videos' =>
-  feedOption === FEED_TYPES.FOLLOWING ? 'no-following' : 'no-videos';
 
 const normalizeHexRgb = (value: string): string | null => {
   const t = value.trim();

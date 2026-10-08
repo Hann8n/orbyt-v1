@@ -61,11 +61,15 @@ const getRenderHeavyChrome = (
 
 /**
  * Keep video sources loaded for the active row and its near neighbours so swipes start
- * instantly, but only while the list can play: hidden lists (other pager pages, grid mode,
- * covered screens, background) hold just the active row so they don't compete for decoders.
+ * instantly, while the list is the active surface. Hidden lists (other pager pages, grid mode,
+ * covered screens) hold just the active row so they don't compete for decoders. This follows
+ * the surface, not `canPlay`: a visible profile/channel header or a brief AppState 'inactive'
+ * pauses playback but must not drop the preloaded neighbours.
  */
-const getHoldSource = (activeDistance: number | undefined, canPlay: boolean): boolean =>
-  activeDistance !== undefined ? activeDistance >= 0 && activeDistance <= (canPlay ? 2 : 0) : true;
+const getHoldSource = (activeDistance: number | undefined, isListActive: boolean): boolean =>
+  activeDistance !== undefined
+    ? activeDistance >= 0 && activeDistance <= (isListActive ? 2 : 0)
+    : true;
 
 const getCardHeightStyle = (cardHeight: number): { height: number } => {
   const normalized = Math.max(0, Math.round(cardHeight));
@@ -95,6 +99,8 @@ export interface VideoCardProps {
   onVideoStatus?: (uri: string, status: string) => void;
   height?: number;
   canPlay?: boolean;
+  /** Whether the card's list is the focused, visible surface (see `getHoldSource`). */
+  isListActive?: boolean;
   /** When false, skip scrubber + `VideoOverlayUI` (list rows far from active). */
   renderHeavyChrome?: boolean;
   showOverlay?: boolean;
@@ -116,6 +122,7 @@ function VideoCard({
   onVideoStatus,
   height,
   canPlay = true,
+  isListActive = true,
   renderHeavyChrome: renderHeavyChromeProp = true,
   showOverlay = true,
   feedOption,
@@ -143,7 +150,7 @@ function VideoCard({
   const idx = index ?? 0;
   const isVisible = getIsVisible(activeDistance, isVisibleProp);
   const renderHeavyChrome = getRenderHeavyChrome(activeDistance, renderHeavyChromeProp);
-  const holdSource = getHoldSource(activeDistance, canPlay);
+  const holdSource = getHoldSource(activeDistance, isListActive);
 
   const { height: windowHeight } = useWindowDimensions();
   const cardHeight = height ?? windowHeight;

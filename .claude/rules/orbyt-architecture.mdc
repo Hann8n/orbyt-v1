@@ -71,7 +71,7 @@ Orbyt is a video app for Bluesky built on the AT Protocol. React Native + Expo.
 
 ## State Management
 
-- **Client state**: Zustand stores in `src/stores/` (userStore, appStore, modalStore, uiStore, followStore, postInteractionStore, etc.)
+- **Client state**: Zustand stores in `src/stores/` (userStore, appStore, modalStore, uiStore, followStore, etc.)
 - **Server state**: TanStack React Query. Query keys in `src/utils/query/queryKeys.ts`, client config in `src/utils/query/queryClient.ts`
 - **Persistence**: MMKV via `src/utils/storage/storage.ts`, expo-secure-store for auth credentials
 

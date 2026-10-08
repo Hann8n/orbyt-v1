@@ -32,6 +32,7 @@ import type { ListFeedViewRef, ViewMode } from '../../../types';
 import type { GridFeedModalZoomConfig } from '@/utils/navigation/feedModalRoute';
 import { FollowProvider } from '../../../context/FollowContext';
 import type { ExtendedFeedViewPost as FeedItem } from '../../../services/api/types';
+import { isRetryableError } from '../../../utils/query/retryPolicy';
 
 const noopFeedRefetch = () => {};
 
@@ -141,8 +142,12 @@ const FeedRendererComponent = ({
   );
 
   const sourceFeed = isSearchFeed ? searchFeedQuery.feed : feedQuery.feed;
-  const isPending = isSearchFeed ? false : feedQuery.isPending;
-  const isError = isSearchFeed ? false : feedQuery.isError;
+  const hasRows = sourceFeed.length > 0;
+  // A failed refetch or next page keeps the rows on screen (and the next end-reached retries the
+  // page); the error state is only for a feed with nothing to show. Retrying it shows the spinner.
+  const isError = !isSearchFeed && feedQuery.isError && !hasRows;
+  const isPending = !isSearchFeed && (feedQuery.isPending || (isError && feedQuery.isFetching));
+  const isErrorRetryable = isRetryableError(feedQuery.error);
   const isFetchingNextPage = isSearchFeed
     ? searchFeedQuery.isFetchingNextPage
     : feedQuery.isFetchingNextPage;
@@ -318,8 +323,9 @@ const FeedRendererComponent = ({
       zoomTargetPostUri={zoomTargetPostUri}
       onHashtagPress={handleHashtagPress}
       isFetchingNextPage={isFetchingNextPage}
-      isLoading={isSearchFeed ? false : isPending}
+      isLoading={isPending}
       isError={isSearchFeed ? false : finalIsError}
+      isErrorRetryable={isErrorRetryable}
       isPaused={isPaused}
       pullToRefresh={pullToRefresh}
     />
