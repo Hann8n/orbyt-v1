@@ -246,8 +246,9 @@ export interface OrbytProfileRecord extends RecordValue {
   joinDate?: string;
   updatedAt?: string;
   colors?: { backgroundColor: string; textColor: string } | null;
+  /** Retired: read once to migrate pre-Communities subscriptions. */
   subscribedChannels?: string[];
-  algorithmicFeedProvider?: string | null;
+  fontPreference?: string;
 }
 
 export interface RepostView {

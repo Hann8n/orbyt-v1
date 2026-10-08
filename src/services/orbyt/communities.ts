@@ -200,6 +200,50 @@ export async function leaveCommunity(api: RepoWriter, did: string, communityUri:
   });
 }
 
+interface MembershipLister {
+  com: {
+    atproto: {
+      repo: {
+        listRecords: (input: {
+          repo: string;
+          collection: string;
+          limit?: number;
+          cursor?: string;
+        }) => Promise<{
+          data: { records: Array<{ value: { [k: string]: unknown } }>; cursor?: string };
+        }>;
+      };
+    };
+  };
+}
+
+const MEMBERSHIP_PAGE_SIZE = 100;
+const MEMBERSHIP_MAX_PAGES = 5;
+
+/**
+ * Communities the account has joined, from its own membership records — the
+ * same records Orbyt iOS and Byte write, so joins made in any client show up.
+ */
+export async function listJoinedCommunities(api: MembershipLister, did: string): Promise<string[]> {
+  const communities = new Set<string>();
+  let cursor: string | undefined;
+  for (let page = 0; page < MEMBERSHIP_MAX_PAGES; page++) {
+    const { data } = await api.com.atproto.repo.listRecords({
+      repo: did,
+      collection: COMMUNITY_MEMBERSHIP_COLLECTION,
+      limit: MEMBERSHIP_PAGE_SIZE,
+      cursor,
+    });
+    for (const record of data.records) {
+      const community = record.value.community;
+      if (typeof community === 'string' && isCommunityUri(community)) communities.add(community);
+    }
+    cursor = data.cursor;
+    if (!cursor || data.records.length === 0) break;
+  }
+  return Array.from(communities);
+}
+
 /** A fresh TID record key, shared by a post and its Community link. */
 export function nextRecordKey(): string {
   return TID.nextStr();

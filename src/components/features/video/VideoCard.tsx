@@ -24,6 +24,7 @@ import { prefetchProfile, useFollowMutation } from '../../../services/data/Profi
 import { useShallow } from 'zustand/react/shallow';
 import { useModalStore } from '../../../stores/modalStore';
 import { useUserStore } from '../../../stores/userStore';
+import { useOrbytProviders } from '../../../services/orbyt/serviceInfo';
 import { Colors } from '../../../theme';
 import { getVideoView, normalizePostView } from '../../../utils/video/helpers';
 import { INTERACTIONSEEN } from '../../../services/api/types';
@@ -127,18 +128,15 @@ function VideoCard({
 
   const feedContext = feedItem?.feedContext;
   const reqId = feedItem?.reqId;
-  const { algorithmicFeedProvider, currentUser } = useUserStore(
-    useShallow(state => ({
-      algorithmicFeedProvider: state.algorithmicFeedProvider,
-      currentUser: state.currentUser,
-    }))
-  );
+  const currentUser = useUserStore(state => state.currentUser);
+  // Interaction feedback goes to the generator that served the item: the feed
+  // itself, or Your Mix's discovery generator (only its items carry feedContext).
+  const { data: providers } = useOrbytProviders();
   const resolvedFeedUri = useMemo(() => {
     if (feedOption && isValidAtUri(feedOption)) return feedOption;
-    if (algorithmicFeedProvider && isValidAtUri(algorithmicFeedProvider))
-      return algorithmicFeedProvider;
+    if (feedOption === 'your-mix' && feedContext) return providers?.discoveryFeed ?? undefined;
     return undefined;
-  }, [feedOption, algorithmicFeedProvider]);
+  }, [feedOption, feedContext, providers?.discoveryFeed]);
 
   const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
 

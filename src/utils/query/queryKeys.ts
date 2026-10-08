@@ -40,16 +40,14 @@ export const queryKeys = {
   feed: {
     all: feedBase,
     byOption: (feedOption: string) => [...feedBase, feedOption] as const,
-    byUser: (feedOption: string, userDid?: string, sourceFingerprint?: string) =>
+    byUser: (feedOption: string, userDid?: string) =>
       userDid
-        ? sourceFingerprint
-          ? ([...feedBase, feedOption, userDid, sourceFingerprint] as const)
-          : ([...feedBase, feedOption, userDid] as const)
+        ? ([...feedBase, feedOption, userDid] as const)
         : ([...feedBase, feedOption] as const),
-    infinite: (feedOption: string, userDid?: string, sourceFingerprint?: string) =>
-      [...queryKeys.feed.byUser(feedOption, userDid, sourceFingerprint), 'infinite'] as const,
-    batch: (feedOption: string, userDid?: string, sourceFingerprint?: string) =>
-      [...queryKeys.feed.byUser(feedOption, userDid, sourceFingerprint), 'batch'] as const,
+    infinite: (feedOption: string, userDid?: string) =>
+      [...queryKeys.feed.byUser(feedOption, userDid), 'infinite'] as const,
+    batch: (feedOption: string, userDid?: string) =>
+      [...queryKeys.feed.byUser(feedOption, userDid), 'batch'] as const,
     search: (query: string) => [...feedBase, 'search', query] as const,
   },
 
@@ -103,6 +101,10 @@ export const queryKeys = {
     all: orbytProfileBase,
     byDid: (did: string) => [...orbytProfileBase, did] as const,
     current: () => [...orbytProfileBase, 'current'] as const,
+    /** `com.getorbyt.actor.getColorPalette` — server-owned pairs shared with Byte. */
+    colorPalette: () => [...orbytProfileBase, 'color-palette'] as const,
+    /** `com.getorbyt.actor.getProfile` — the merged Orbyt actor view. */
+    actor: (did: string) => [...orbytProfileBase, 'actor', did] as const,
   },
 
   // Comment queries (merged from FeedService)
