@@ -204,12 +204,15 @@ interface MembershipLister {
   com: {
     atproto: {
       repo: {
-        listRecords: (input: {
-          repo: string;
-          collection: string;
-          limit?: number;
-          cursor?: string;
-        }) => Promise<{
+        listRecords: (
+          input: {
+            repo: string;
+            collection: string;
+            limit?: number;
+            cursor?: string;
+          },
+          options?: { signal?: globalThis.AbortSignal }
+        ) => Promise<{
           data: { records: Array<{ value: { [k: string]: unknown } }>; cursor?: string };
         }>;
       };
@@ -224,16 +227,23 @@ const MEMBERSHIP_MAX_PAGES = 5;
  * Communities the account has joined, from its own membership records — the
  * same records Orbyt iOS and Byte write, so joins made in any client show up.
  */
-export async function listJoinedCommunities(api: MembershipLister, did: string): Promise<string[]> {
+export async function listJoinedCommunities(
+  api: MembershipLister,
+  did: string,
+  signal?: globalThis.AbortSignal
+): Promise<string[]> {
   const communities = new Set<string>();
   let cursor: string | undefined;
   for (let page = 0; page < MEMBERSHIP_MAX_PAGES; page++) {
-    const { data } = await api.com.atproto.repo.listRecords({
-      repo: did,
-      collection: COMMUNITY_MEMBERSHIP_COLLECTION,
-      limit: MEMBERSHIP_PAGE_SIZE,
-      cursor,
-    });
+    const { data } = await api.com.atproto.repo.listRecords(
+      {
+        repo: did,
+        collection: COMMUNITY_MEMBERSHIP_COLLECTION,
+        limit: MEMBERSHIP_PAGE_SIZE,
+        cursor,
+      },
+      { signal }
+    );
     for (const record of data.records) {
       const community = record.value.community;
       if (typeof community === 'string' && isCommunityUri(community)) communities.add(community);
