@@ -8,14 +8,13 @@
  *   `queryKeys.moderation.all` only; most React Query data is keyed by DID — session reset avoids
  *   further authenticated fetches. Add targeted removes here if a surface leaks after logout.
  * - **Account switch**: After successful restore, invalidates `queryKeys.notifications.all`,
- *   `queryKeys.chat.all`, and `queryKeys.unread.summary()` so badges/DMs refresh without a global
+ *   and `queryKeys.unread.summary()` so badges refresh without a global
  *   feed invalidate (feed keys embed DID / fingerprint).
  * - **Login / restore**: User-scoped queries pick up the new DID via key changes; no global wipe.
  */
 
 // Base keys - defined first to avoid circular references
 const feedBase = ['feed'] as const;
-const chatBase = ['chat'] as const;
 const profilesBase = ['profiles'] as const;
 const orbytProfileBase = ['orbyt-profile'] as const;
 const commentsBase = ['comments'] as const;
@@ -51,36 +50,6 @@ export const queryKeys = {
     batch: (feedOption: string, userDid?: string, sourceFingerprint?: string) =>
       [...queryKeys.feed.byUser(feedOption, userDid, sourceFingerprint), 'batch'] as const,
     search: (query: string) => [...feedBase, 'search', query] as const,
-  },
-
-  // Chat queries
-  chat: {
-    all: chatBase,
-    conversations: {
-      all: [...chatBase, 'conversations'] as const,
-      list: (
-        cursor?: string,
-        filter?: { readState?: 'unread'; status?: 'request' | 'accepted' }
-      ) => {
-        const readState = filter?.readState ?? null;
-        const status = filter?.status ?? null;
-        return cursor
-          ? ([...chatBase, 'conversations', 'list', cursor, readState, status] as const)
-          : ([...chatBase, 'conversations', 'list', readState, status] as const);
-      },
-      detail: (conversationId: string) => [...chatBase, 'conversations', conversationId] as const,
-      count: () => [...chatBase, 'conversations', 'count'] as const,
-    },
-    messages: {
-      all: [...chatBase, 'messages'] as const,
-      byConversation: (conversationId: string, cursor?: string) =>
-        cursor
-          ? ([...chatBase, 'messages', conversationId, cursor] as const)
-          : ([...chatBase, 'messages', conversationId] as const),
-      infinite: (conversationId: string) =>
-        [...chatBase, 'messages', conversationId, 'infinite'] as const,
-    },
-    availability: (userDid: string) => [...chatBase, 'availability', userDid] as const,
   },
 
   // Profile queries (merged from ProfileService and FeedService)
@@ -155,7 +124,7 @@ export const queryKeys = {
     hashtags: (query: string) => [...searchBase, 'hashtags', query] as const,
   },
 
-  // Tab bar unread (single source: notifications + chats)
+  // Tab bar unread (notifications)
   unread: {
     summary: () => ['unread', 'summary'] as const,
   },

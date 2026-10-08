@@ -46,7 +46,7 @@ import {
 } from '@atproto/api';
 import { buildFullHeightVideoHref } from '@/utils/navigation/feedModalRoute';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
-import { seedFullHeightVideoFeedFromPostView } from '@/utils/chat/seedChatEmbedVideoFeed';
+import { seedFullHeightVideoFeedFromPostView } from '@/utils/feed/seedFullHeightVideoFeed';
 import { useModerationSettings } from '../../../hooks/useModerationSettings';
 import { ModerationService } from '../../../services/moderation/ModerationService';
 import type {

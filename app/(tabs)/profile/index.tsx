@@ -580,19 +580,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
         isOwnProfile={!!isOwnProfileView}
         onLogout={handleLogoutFromMenu}
         onSwitchAccount={presentAccountSwitcher}
-        chatSettings={profileData?.associated?.chat ?? undefined}
-        viewerFollowing={isFollowing}
-        onMessagePress={
-          profileData?.did
-            ? () => {
-                setShowProfileMenu(false);
-                router.navigate({
-                  pathname: '/chat/[id]',
-                  params: { id: profileData.did, did: profileData.did },
-                });
-              }
-            : undefined
-        }
       />
 
       {profileData?.did && (

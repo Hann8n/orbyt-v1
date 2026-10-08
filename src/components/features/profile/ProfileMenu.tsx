@@ -17,7 +17,6 @@ import {
   useMuteMutation,
 } from '../../../services/data/ProfileService';
 import { ModerationService } from '../../../services/moderation/ModerationService';
-import type { ProfileAssociatedChat } from '@atproto/api/dist/client/types/app/bsky/actor/defs';
 import { useSheetPresentation } from '../../../hooks';
 
 interface ProfileMenuProps {
@@ -28,10 +27,7 @@ interface ProfileMenuProps {
   isOwnProfile?: boolean;
   onLogout?: (clearAllAccounts?: boolean) => Promise<void>;
   onSwitchAccount?: () => void;
-  chatSettings?: ProfileAssociatedChat;
   /** Whether the viewer follows this profile (for allowIncoming 'following' check) */
-  viewerFollowing?: boolean;
-  onMessagePress?: () => void;
 }
 
 const ProfileMenu: React.FC<ProfileMenuProps> = ({
@@ -43,9 +39,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
   onLogout,
   onSwitchAccount,
-  chatSettings,
-  viewerFollowing = false,
-  onMessagePress,
 }) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -71,13 +64,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   const isBlocked = !!(profile?.viewer?.blocking || profile?.viewer?.blockingByList);
   const isBlockedByList = !!profile?.viewer?.blockingByList;
   const isMuted = profile?.viewer?.muted ?? false;
-
-  // Can message: profile allows incoming DMs and viewer is allowed (allowIncoming: all | following)
-  const canMessage =
-    !!chatSettings &&
-    chatSettings.allowIncoming !== 'none' &&
-    (chatSettings.allowIncoming !== 'following' || viewerFollowing) &&
-    !isBlocked;
 
   // Block/unblock handler
   const handleBlockToggle = useCallback(() => {
@@ -311,17 +297,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     } else {
       const options = [];
 
-      if (canMessage && did && onMessagePress) {
-        options.push({
-          id: 'message',
-          label: t('profile.message'),
-          onPress: () => {
-            onDismiss();
-            onMessagePress();
-          },
-        });
-      }
-
       options.push(
         { id: 'share', label: t('profile.share'), onPress: handleShare },
         {
@@ -347,10 +322,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     handleShare,
     handleSwitchAccount,
     handleLogout,
-    canMessage,
-    did,
-    onMessagePress,
-    onDismiss,
     isMuted,
     handleMuteToggle,
     handleOpenOnBluesky,

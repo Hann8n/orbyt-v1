@@ -75,7 +75,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@atproto/common-web@npm:^0.4.18, @atproto/common-web@npm:^0.4.19, @atproto/common-web@npm:^0.4.21":
+"@atproto/common-web@npm:^0.4.18, @atproto/common-web@npm:^0.4.21":
   version: 0.4.21
   resolution: "@atproto/common-web@npm:0.4.21"
   dependencies:
@@ -7728,13 +7728,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"emoji-datasource@npm:^15.1.2":
-  version: 15.1.2
-  resolution: "emoji-datasource@npm:15.1.2"
-  checksum: 10c0/32d914ec1c3d1044200eb98bb867ec78d53d5b316bbe6a1780db5490016c82f77277fa2cace0ce0d76f155197265f1d9952c8c7c201ddc59ca4d6d0d8c6ca5b5
-  languageName: node
-  linkType: hard
-
 "emoji-regex@npm:^10.3.0":
   version: 10.6.0
   resolution: "emoji-regex@npm:10.6.0"
@@ -9569,13 +9562,6 @@ __metadata:
   version: 4.2.11
   resolution: "graceful-fs@npm:4.2.11"
   checksum: 10c0/386d011a553e02bc594ac2ca0bd6d9e4c22d7fa8cfbfc448a6d148c59ea881b092db9dbe3547ae4b88e55f1b01f7c4a2ecc53b310c042793e63aa44cf6c257f2
-  languageName: node
-  linkType: hard
-
-"grapheme-splitter@npm:^1.0.4":
-  version: 1.0.4
-  resolution: "grapheme-splitter@npm:1.0.4"
-  checksum: 10c0/108415fb07ac913f17040dc336607772fcea68c7f495ef91887edddb0b0f5ff7bc1d1ab181b125ecb2f0505669ef12c9a178a3bbd2dd8e042d8c5f1d7c90331a
   languageName: node
   linkType: hard
 
@@ -12850,10 +12836,8 @@ __metadata:
   resolution: "orbyt-app@workspace:."
   dependencies:
     "@atproto/api": "npm:^0.19.18"
-    "@atproto/common-web": "npm:^0.4.19"
     "@atproto/lexicon": "npm:^0.6.2"
     "@atproto/syntax": "npm:^0.5.4"
-    "@atproto/xrpc": "npm:^0.7.7"
     "@babel/core": "npm:^7.28.6"
     "@babel/runtime": "npm:^7.28.6"
     "@commitlint/cli": "npm:^21.0.1"
@@ -12943,7 +12927,6 @@ __metadata:
     react-i18next: "npm:^16.5.8"
     react-native: "npm:0.85.3"
     react-native-clip-trim: "npm:^6.1.0-beta.1"
-    react-native-emoji-chooser: "npm:^0.1.11"
     react-native-fast-video-merge: "file:packages/react-native-fast-video-merge"
     react-native-gesture-handler: "npm:~2.31.1"
     react-native-keyboard-controller: "npm:1.21.7"
@@ -13757,23 +13740,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-emoji-chooser@npm:^0.1.11":
-  version: 0.1.11
-  resolution: "react-native-emoji-chooser@npm:0.1.11"
-  dependencies:
-    emoji-datasource: "npm:^15.1.2"
-    grapheme-splitter: "npm:^1.0.4"
-    react-native-section-list-get-item-layout: "npm:^2.2.3"
-  peerDependencies:
-    "@react-native-async-storage/async-storage": ">=2.0.0"
-    react: ">=16.8.0"
-    react-native: ">=0.60.0"
-    react-native-safe-area-context: ">=4.0.0"
-    react-native-svg: ">=12.0.0"
-  checksum: 10c0/cb67292d46ebf204d19ba21323a580ad796e1bebf371c6b1c674113380b660794411187b0ea094e486c1e4252bb9646c5d0b7390ad70df40ade8ce7dd79dcb8e
-  languageName: node
-  linkType: hard
-
 "react-native-fast-video-merge@file:packages/react-native-fast-video-merge::locator=orbyt-app%40workspace%3A.":
   version: 1.0.1-orbyt.0
   resolution: "react-native-fast-video-merge@file:packages/react-native-fast-video-merge#packages/react-native-fast-video-merge::hash=0a7b48&locator=orbyt-app%40workspace%3A."
@@ -13941,13 +13907,6 @@ __metadata:
     react: "*"
     react-native: ">=0.82.0"
   checksum: 10c0/b1f155830e57c36e8ca60831f4b22079cd311f0e36f7c4465ff4094f9dec18e66cef2321a4ff8944aac51ead437720585080f1f4b2956106099a9ea7d9745d00
-  languageName: node
-  linkType: hard
-
-"react-native-section-list-get-item-layout@npm:^2.2.3":
-  version: 2.2.3
-  resolution: "react-native-section-list-get-item-layout@npm:2.2.3"
-  checksum: 10c0/e5163d2af6316ffd3c608f46c1eb6692a89a98ef29f3989bfb8a1cdcc983318b8a0c5428ac0c67009ea6733dc80906dbb9022eba7b7ec5084c0c164c735db34d
   languageName: node
   linkType: hard
 

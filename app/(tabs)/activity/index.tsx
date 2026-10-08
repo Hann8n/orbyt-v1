@@ -13,7 +13,6 @@ import {
 } from 'react-native-tab-view';
 
 import { Colors } from '@/theme';
-import ChatsTab from '@/components/features/activity/ChatsTab';
 import NotificationsTab from '@/components/features/activity/NotificationsTab';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
 import { FontFamily, TextStyles, fontSizeFor } from '@/utils/components/typography';
@@ -26,16 +25,12 @@ const ActivityScreen: React.FC = () => {
   const [index, setIndex] = useState(0);
   const { top } = useSafeAreaInsets();
   const topInset = getEffectiveTopInset(top);
-  const { notificationsCount, messagesCount, requestsCount, hasUnseenRequests } = useUnreadCount();
+  const { notificationsCount } = useUnreadCount();
 
   const notificationsTabRef = useRef<typeof tabRefs.activity>(null);
-  const chatsTabRef = useRef<typeof tabRefs.activity>(null);
 
   const routes = useMemo<Route[]>(
-    () => [
-      { key: 'notifications', title: t('tabs.notifications') },
-      { key: 'chats', title: t('tabs.chats') },
-    ],
+    () => [{ key: 'notifications', title: t('tabs.notifications') }],
     [t]
   );
 
@@ -47,11 +42,8 @@ const ActivityScreen: React.FC = () => {
       notifications: {
         badge: notificationsCount > 0 ? () => <View style={styles.badgeDot} /> : undefined,
       },
-      chats: {
-        badge: messagesCount > 0 ? () => <View style={styles.badgeDot} /> : undefined,
-      },
     }),
-    [notificationsCount, messagesCount]
+    [notificationsCount]
   );
 
   const activityCommonOptions = useMemo<TabDescriptor<Route>>(
@@ -77,38 +69,21 @@ const ActivityScreen: React.FC = () => {
     setIndex(nextIndex);
     if (nextIndex === 0 && notificationsTabRef.current) {
       tabRefs.activity = notificationsTabRef.current;
-    } else if (nextIndex === 1 && chatsTabRef.current) {
-      tabRefs.activity = chatsTabRef.current;
     }
   }, []);
 
-  const renderScene = useCallback(
-    ({ route }: SceneRendererProps & { route: Route }) => {
-      if (route.key === 'notifications') {
-        return (
-          <NotificationsTab
-            ref={r => {
-              notificationsTabRef.current = r;
-            }}
-          />
-        );
-      }
-      if (route.key === 'chats') {
-        return (
-          <ChatsTab
-            ref={r => {
-              chatsTabRef.current = r;
-            }}
-            chatFilter={{ status: 'accepted' }}
-            requestsCount={requestsCount}
-            hasUnseenRequests={hasUnseenRequests}
-          />
-        );
-      }
-      return null;
-    },
-    [requestsCount, hasUnseenRequests]
-  );
+  const renderScene = useCallback(({ route }: SceneRendererProps & { route: Route }) => {
+    if (route.key === 'notifications') {
+      return (
+        <NotificationsTab
+          ref={r => {
+            notificationsTabRef.current = r;
+          }}
+        />
+      );
+    }
+    return null;
+  }, []);
 
   const renderTabBar = useCallback(
     (

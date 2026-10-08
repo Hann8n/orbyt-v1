@@ -1,5 +1,4 @@
 import React, { useState, useRef, useMemo, useCallback, type ComponentRef } from 'react';
-import ChatSettingsSheet from '@/components/features/activity/ChatSettingsSheet';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Alert, Platform, ScrollView, Linking } from 'react-native';
 import { MenuView } from '@react-native-menu/menu';
@@ -27,7 +26,6 @@ const SettingsScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
-  const [showChatSettingsSheet, setShowChatSettingsSheet] = useState(false);
   const { presentAccountSwitcher } = useAccountSwitcher();
   const { currentUser } = useCurrentUser();
   const { savedAccounts } = useAccountManagement();
@@ -277,13 +275,6 @@ ${deviceInfo}`
             label: t('settings.mutedAccounts'),
             onPress: () => router.navigate('/settings/muted'),
             linkType: 'internal',
-          },
-          {
-            id: 'chat-availability',
-            label: t('activity.whoCanMessage'),
-            icon: 'message-circle',
-            onPress: () => setShowChatSettingsSheet(true),
-            linkType: 'none',
           },
         ],
       },
@@ -612,10 +603,6 @@ ${deviceInfo}`
           }
         })}
       </ScrollView>
-      <ChatSettingsSheet
-        visible={showChatSettingsSheet}
-        onDismiss={() => setShowChatSettingsSheet(false)}
-      />
     </View>
   );
 };

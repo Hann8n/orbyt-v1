@@ -687,7 +687,7 @@ export const useUserStore = create<UserState>()(
             await Promise.allSettled(didsToEnd.map(did => gatewaySignOut(did)));
 
             await get().clearAllCaches();
-            // Chat and notification query keys aren't DID-scoped; never show them to the next account.
+            // Notification query keys aren't DID-scoped; never show them to the next account.
             queryClient.clear();
 
             setUserId(getAnalytics(), null).catch(() => {});
@@ -925,7 +925,6 @@ export const useUserStore = create<UserState>()(
               );
 
               void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
-              void queryClient.invalidateQueries({ queryKey: queryKeys.chat.all });
               void queryClient.invalidateQueries({ queryKey: queryKeys.unread.summary() });
             } catch (restoreErr) {
               const restoreOutcome = getSessionRestoreOutcome(restoreErr);
