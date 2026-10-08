@@ -151,6 +151,8 @@ export const queryKeys = {
     postCommunity: (postUri: string) =>
       [...queryKeys.channels.all, 'post-community', postUri] as const,
     detail: (uri: string) => [...queryKeys.channels.all, 'detail', uri] as const,
+    /** One Community (`com.getorbyt.community.getCommunity`), directory or not. */
+    community: (uri: string) => [...queryKeys.channels.all, 'community', uri] as const,
     colors: (uri: string) => [...queryKeys.channels.all, 'colors', uri] as const,
   },
 

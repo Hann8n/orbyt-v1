@@ -3,12 +3,13 @@ import { useQuery, skipToken, UseQueryResult } from '@tanstack/react-query';
 import { Colors } from '../../theme';
 import { isOrbytChannel } from '../../utils/channels/orbyt';
 import {
-  getRemoteChannelByUri,
+  communityQueryOptions,
   hydrateOrbytChannels,
   migrateLegacyChannelUri,
 } from '../OrbytChannelsService';
-import { getCommunity, isCommunityUri, type CommunityView } from '../orbyt/communities';
+import { isCommunityUri, type CommunityView } from '../orbyt/communities';
 import { queryKeys } from '@/utils/query/queryKeys';
+import { queryClient } from '@/utils/query/queryClient';
 import { isValidAtUri } from '../../utils/atproto/uriValidation';
 
 export interface CachedChannel {
@@ -61,25 +62,28 @@ class ChannelService {
 
   static async getChannel(uriOrFeed: string): Promise<CachedChannel | null> {
     if (!uriOrFeed) return null;
-    await this.ensureChannelsHydrated();
 
-    const uri = migrateLegacyChannelUri(uriOrFeed);
-    const community = getRemoteChannelByUri(uri);
-    if (community) {
-      return this.createOrbytChannelCache(community);
+    let uri = uriOrFeed;
+    if (!isCommunityUri(uri)) {
+      // Only a pre-Communities reference needs the directory, to resolve its name.
+      await this.ensureChannelsHydrated();
+      uri = migrateLegacyChannelUri(uri);
+    }
+
+    if (isCommunityUri(uri)) {
+      // The directory entry when cached; otherwise `getCommunity`, so Communities
+      // beyond the cached pages open too.
+      try {
+        return this.createOrbytChannelCache(
+          await queryClient.fetchQuery(communityQueryOptions(uri))
+        );
+      } catch {
+        return null;
+      }
     }
 
     if (uri.startsWith('hashtag:') || !isValidAtUri(uri)) {
       return null;
-    }
-
-    if (isCommunityUri(uri)) {
-      // Not in the directory pages we cached (or not published): ask for it directly.
-      try {
-        return this.createOrbytChannelCache(await getCommunity({ community: uri }));
-      } catch {
-        return null;
-      }
     }
 
     return this.fetchAndCacheChannel(uri);

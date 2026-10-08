@@ -4,7 +4,7 @@ import { useProfileByDid } from '../../../../../services/data/ProfileService';
 import { useOrbytProfile } from '../../../../../services/colors';
 import { isCurrentUser } from '../../../../../utils/atproto/isCurrentUser';
 import { getProfileColors, type ProfileColorScheme } from '../../../../../utils/formatting/colors';
-import { getChannelByUri } from '../../../../../utils/channels/orbyt';
+import { useCommunity } from '../../../../../services/OrbytChannelsService';
 import { usePostCommunity } from '../../../../../services/orbyt/postCommunities';
 import type { ExtendedPostView } from '../../../../../services/api/types';
 import type { UserState } from '../../../../../stores/userStore';
@@ -63,10 +63,11 @@ export function useVideoCardAuthor({
     verification: author?.verification,
   };
 
-  // The AppView resolves a post's Community (link record first, legacy tag second).
-  const community = postCommunityUri ? getChannelByUri(postCommunityUri) : undefined;
+  // The AppView resolves a post's Community (link record first, legacy tag second);
+  // its name comes from the directory, or `getCommunity` when it is not cached.
+  const { data: community } = useCommunity(postCommunityUri);
   const channelUri = community?.uri ?? null;
-  const channelSlug = community?.slug ?? null;
+  const channelSlug = community?.name ?? null;
 
   const isCurrentUserProfile = isCurrentUser(author?.did, author?.handle, currentUser);
 
