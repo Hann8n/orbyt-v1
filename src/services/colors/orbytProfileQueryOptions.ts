@@ -14,7 +14,7 @@ const GET_PROFILES_MAX = 25;
  * `com.getorbyt.actor.defs#profileView`: Orbyt profile fields win, anything
  * absent is filled from the network profile.
  */
-export interface OrbytActorView {
+interface OrbytActorView {
   did: string;
   isOrbytUser: boolean;
   handle?: string;
@@ -32,9 +32,7 @@ export interface OrbytActorView {
 }
 
 /** Accounts known only from the network have no Orbyt styling: cache null. */
-export function toOrbytProfileRecord(
-  view: OrbytActorView | null | undefined
-): OrbytProfileRecord | null {
+function toOrbytProfileRecord(view: OrbytActorView | null | undefined): OrbytProfileRecord | null {
   if (!view?.isOrbytUser) return null;
   return {
     $type: 'com.getorbyt.profile',
@@ -57,22 +55,6 @@ async function fetchOrbytActor(did: string): Promise<OrbytActorView | null> {
   }
 }
 
-/** The merged Orbyt actor view for `did`, or null when the AppView has none. */
-export function orbytActorQueryOptions(did: string | null | undefined) {
-  return queryOptions({
-    queryKey: queryKeys.orbytProfile.actor(did ?? ''),
-    queryFn: did ? () => fetchOrbytActor(did) : skipToken,
-    staleTime: QUERY_CONSTANTS.STALE_TIME_LONG,
-    gcTime: ORBYT_PROFILE_GC_TIME,
-    enabled: !!did,
-  });
-}
-
-function cacheActor(qc: QueryClient, did: string, view: OrbytActorView | null) {
-  qc.setQueryData(queryKeys.orbytProfile.actor(did), view);
-  qc.setQueryData(queryKeys.orbytProfile.byDid(did), toOrbytProfileRecord(view));
-}
-
 export async function warmOrbytProfileCache(dids: string[], qc: QueryClient): Promise<void> {
   if (!dids.length) return;
   const uncached = Array.from(new Set(dids)).filter(
@@ -88,7 +70,7 @@ export async function warmOrbytProfileCache(dids: string[], qc: QueryClient): Pr
     );
     const byDid = new Map((profiles ?? []).map(profile => [profile.did, profile]));
     for (const did of batch) {
-      cacheActor(qc, did, byDid.get(did) ?? null);
+      qc.setQueryData(queryKeys.orbytProfile.byDid(did), toOrbytProfileRecord(byDid.get(did)));
     }
   }
 }

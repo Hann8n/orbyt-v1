@@ -36,7 +36,6 @@ import {
   leaveCommunity,
   listJoinedCommunities,
 } from '../services/orbyt/communities';
-import { ensureOrbytActorProfile } from '../services/orbyt/profileRecords';
 import { APP_CONSTANTS } from '../utils/constants';
 import { setAtprotoSession } from '../services/api/agentBridge';
 
@@ -613,13 +612,6 @@ export const useUserStore = create<UserState>()(
               set({ showEmailVerificationModal: true });
             }
 
-            requestIdleCallback(
-              () => {
-                void ensureOrbytActorProfile().catch(() => {});
-              },
-              { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-            );
-
             await get().bootstrapUserFeedSettings(session.did);
 
             scheduleFollowingOrbytColorsAfterFeedReady(session.did);
@@ -705,12 +697,6 @@ export const useUserStore = create<UserState>()(
             setUserId(getAnalytics(), session.did).catch(() => {});
             logSignUp(getAnalytics(), { method: 'atproto' }).catch(() => {});
 
-            requestIdleCallback(
-              () => {
-                void ensureOrbytActorProfile().catch(() => {});
-              },
-              { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-            );
             await get().bootstrapUserFeedSettings(session.did);
             scheduleFollowingOrbytColorsAfterFeedReady(session.did);
           } catch (error) {
@@ -865,12 +851,6 @@ export const useUserStore = create<UserState>()(
             });
           }
 
-          requestIdleCallback(
-            () => {
-              void ensureOrbytActorProfile().catch(() => {});
-            },
-            { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-          );
           scheduleFollowingOrbytColorsAfterFeedReady(did);
 
           if (!skipSettings) {
@@ -983,13 +963,6 @@ export const useUserStore = create<UserState>()(
               await get().bootstrapUserFeedSettings(did);
 
               set({ isSwitchingAccount: false, switchingToHandle: null, switchingToAvatar: null });
-
-              requestIdleCallback(
-                () => {
-                  void ensureOrbytActorProfile().catch(() => {});
-                },
-                { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-              );
 
               void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
               void queryClient.invalidateQueries({ queryKey: queryKeys.unread.summary() });
@@ -1153,7 +1126,8 @@ export const useUserStore = create<UserState>()(
               acc.did === did
                 ? {
                     ...acc,
-                    displayName: profileData.displayName || acc.displayName,
+                    // An empty name is a cleared name (shown as the handle).
+                    displayName: profileData.displayName ?? acc.displayName,
                     avatar: profileData.avatar || acc.avatar,
                     handle: profileData.handle || acc.handle,
                   }
@@ -1823,12 +1797,6 @@ export const useUserStore = create<UserState>()(
             // Fetch orbyt profile colors in background (skipped in hydrateGatewaySession above)
             queryClient.fetchQuery(orbytProfileQueryOptions(session.did)).catch(() => {});
 
-            requestIdleCallback(
-              () => {
-                void ensureOrbytActorProfile().catch(() => {});
-              },
-              { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-            );
             scheduleFollowingOrbytColorsAfterFeedReady(session.did);
 
             if (!skipSettings) {

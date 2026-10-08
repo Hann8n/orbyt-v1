@@ -1,9 +1,9 @@
 import { ActorService } from '../api/actor/ActorService';
 import { GraphService } from '../api/graph/GraphService';
-import { updateOrbytActorProfile, updateOrbytProfileColors } from '../orbyt/profileRecords';
+import { updateOrbytProfileColors, updateProfile } from '../orbyt/profileRecords';
 import { NotificationService } from '../api/notification/NotificationService';
-import { orbytActorQueryOptions, toOrbytProfileRecord, type OrbytActorView } from '../colors';
 import { logger } from '../../utils/logger';
+import { useUserStore } from '../../stores/userStore';
 import {
   useQuery,
   useMutation,
@@ -54,51 +54,24 @@ const profileKeys = queryKeys.profiles;
 const PROFILE_CACHE_EXPIRY = 24 * 60 * 60 * 1000;
 
 /**
- * Orbyt's own profile (`com.getorbyt.actor.getProfile`) wins over the network
- * profile wherever the account set a field, as both Orbyt apps present it.
+ * Name, bio and avatar are the network profile's, as Orbyt iOS shows them and
+ * as profile edits write them (`app.bsky.actor.profile`). Orbyt adds styling,
+ * from the `useOrbytProfile` cache, which never holds up the profile.
  */
-function withOrbytActor(
-  profile: ProfileViewWithOrbyt,
-  actor: OrbytActorView | null
-): ProfileViewWithOrbyt {
+function withOrbytRecord(profile: ProfileViewWithOrbyt): ProfileViewWithOrbyt {
   const orbytRecord =
     globalQueryClient.getQueryData<OrbytProfileRecord | null>(
       queryKeys.orbytProfile.byDid(profile.did)
     ) ?? null;
-  if (!actor?.isOrbytUser) return { ...profile, orbytRecord };
-  return {
-    ...profile,
-    displayName: actor.displayName ?? profile.displayName,
-    description: actor.description ?? profile.description,
-    avatar: actor.avatar ?? profile.avatar,
-    orbytRecord,
-  };
-}
-
-async function fetchOrbytActor(did: string): Promise<OrbytActorView | null> {
-  try {
-    const actor = await globalQueryClient.fetchQuery(orbytActorQueryOptions(did));
-    // Keep the styling cache in step with the view it came from.
-    globalQueryClient.setQueryData(queryKeys.orbytProfile.byDid(did), toOrbytProfileRecord(actor));
-    return actor ?? null;
-  } catch (error) {
-    logger.warn('Orbyt actor profile unavailable; showing network profile', {
-      component: 'ProfileService',
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return null;
-  }
+  return { ...profile, orbytRecord };
 }
 
 class ProfileService {
   static async getProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {
     if (!did || !isValidDid(did)) return null;
-    const [profile, actor] = await Promise.all([
-      ActorService.getProfileByDid(did),
-      fetchOrbytActor(did),
-    ]);
+    const profile = await ActorService.getProfileByDid(did);
     if (!profile) throw new Error('Failed to fetch profile by DID');
-    return withOrbytActor(profile, actor);
+    return withOrbytRecord(profile);
   }
 
   static async warmProfileCache(
@@ -150,7 +123,7 @@ class ProfileService {
     }
     const profile = await ActorService.getProfile(cleanHandle);
     if (!profile) throw new Error('Failed to fetch profile by handle');
-    return withOrbytActor(profile, await fetchOrbytActor(profile.did));
+    return withOrbytRecord(profile);
   }
 
   static async warmProfileCacheFromFeed(
@@ -475,108 +448,116 @@ export function useMuteMutation() {
   });
 }
 
+interface ProfileUpdates {
+  displayName?: string;
+  description?: string;
+  /** Local image URI for a new avatar. */
+  avatar?: string;
+  customColors?: {
+    backgroundColor: string;
+    textColor: string;
+  };
+}
+
+/** The saved fields as the profile view shows them; names and bios are saved trimmed. */
+function profilePatch(updates: ProfileUpdates, avatar?: string): Partial<ProfileViewWithOrbyt> {
+  return {
+    ...(updates.displayName !== undefined ? { displayName: updates.displayName.trim() } : {}),
+    ...(updates.description !== undefined ? { description: updates.description.trim() } : {}),
+    ...(avatar !== undefined ? { avatar } : {}),
+  };
+}
+
+/**
+ * Save the signed-in account's profile as Orbyt iOS does: the network profile
+ * first, then the colors, only when they changed. The edit shows everywhere at
+ * once (profile caches, the account switcher) and is rolled back if it fails.
+ */
 export function useProfileUpdateMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      handle,
-      updates,
-    }: {
-      handle: string;
-      updates: {
-        displayName?: string;
-        description?: string;
-        /** Local image URI for a new avatar. */
-        avatar?: string;
-        customColors?: {
-          backgroundColor: string;
-          textColor: string;
-        };
-      };
-    }) => {
-      // Styling and profile are separate records; write both before reporting success.
-      await Promise.all([
-        updates.customColors ? updateOrbytProfileColors(updates.customColors) : undefined,
+    mutationFn: async ({ updates }: { did: string; handle: string; updates: ProfileUpdates }) => {
+      const editsProfile =
         updates.displayName !== undefined ||
         updates.description !== undefined ||
-        updates.avatar !== undefined
-          ? updateOrbytActorProfile({
-              displayName: updates.displayName,
-              description: updates.description,
-              avatarUri: updates.avatar,
-            })
-          : undefined,
-      ]);
-      return { handle };
-    },
-    onMutate: async ({ handle, updates }) => {
-      const profile = await ProfileService.getProfile(handle).catch(() => null);
-      const did = profile?.did;
-      if (!did) throw new Error('Profile not found or missing DID');
-
-      await queryClient.cancelQueries({ queryKey: profileKeys.detail(did) });
-
-      const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
-        profileKeys.detail(did)
-      );
-
-      if (previousProfile) {
-        const optimistic: ProfileViewWithOrbyt = {
-          ...previousProfile,
-          ...(updates.displayName !== undefined ? { displayName: updates.displayName } : {}),
-          ...(updates.description !== undefined ? { description: updates.description } : {}),
-          ...(updates.avatar !== undefined ? { avatar: updates.avatar } : {}),
-        };
-
-        queryClient.setQueryData(profileKeys.detail(did), optimistic);
-      }
-
-      return { previousProfile, did };
-    },
-    onSuccess: (_data, { updates }, context) => {
-      const did = context?.did;
-      if (!did) return;
-
-      // The AppView projects these writes through its ingester, about a minute
-      // behind the PDS. Hold what was saved in cache instead of refetching a
-      // view that would briefly show the old profile.
-      queryClient.setQueryData<OrbytActorView | null>(queryKeys.orbytProfile.actor(did), prev =>
-        prev
-          ? {
-              ...prev,
-              ...(updates.displayName !== undefined
-                ? { displayName: updates.displayName || undefined }
-                : {}),
-              ...(updates.description !== undefined
-                ? { description: updates.description || undefined }
-                : {}),
-              ...(updates.avatar !== undefined ? { avatar: updates.avatar } : {}),
-              ...(updates.customColors ? { colors: updates.customColors } : {}),
-            }
-          : prev
-      );
-
+        updates.avatar !== undefined;
+      const { avatar } = editsProfile
+        ? await updateProfile({
+            displayName: updates.displayName,
+            description: updates.description,
+            avatarUri: updates.avatar,
+          })
+        : {};
       if (updates.customColors) {
-        const colors = updates.customColors;
-        queryClient.setQueryData<OrbytProfileRecord | null>(
-          queryKeys.orbytProfile.byDid(did),
-          prev => ({ ...(prev ?? { $type: 'com.getorbyt.profile' as const }), colors })
-        );
-        queryClient.setQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did), prev =>
-          prev
-            ? {
-                ...prev,
-                orbytRecord: { ...prev.orbytRecord, $type: 'com.getorbyt.profile', colors },
-              }
-            : prev
-        );
+        await updateOrbytProfileColors(updates.customColors);
       }
+      return { avatar };
     },
-    onError: (_error, _variables, context) => {
-      if (context?.previousProfile && context?.did) {
-        queryClient.setQueryData(profileKeys.detail(context.did), context.previousProfile);
+    onMutate: async ({ did, handle, updates }) => {
+      const profileKeysToPatch = [profileKeys.detail(did), profileKeys.byHandle(handle)];
+      const recordKey = queryKeys.orbytProfile.byDid(did);
+      await Promise.all(
+        [...profileKeysToPatch, recordKey].map(queryKey => queryClient.cancelQueries({ queryKey }))
+      );
+
+      const previousProfiles = profileKeysToPatch.map(
+        key => [key, queryClient.getQueryData<ProfileViewWithOrbyt | null>(key)] as const
+      );
+      const previousRecord = queryClient.getQueryData<OrbytProfileRecord | null>(recordKey);
+
+      const colors = updates.customColors;
+      const orbytRecord = colors
+        ? { ...(previousRecord ?? { $type: 'com.getorbyt.profile' as const }), colors }
+        : undefined;
+      const patch = {
+        ...profilePatch(updates, updates.avatar),
+        ...(orbytRecord ? { orbytRecord } : {}),
+      };
+      for (const key of profileKeysToPatch) {
+        queryClient.setQueryData<ProfileViewWithOrbyt | null>(key, prev =>
+          prev ? { ...prev, ...patch } : prev
+        );
       }
+      if (orbytRecord) {
+        queryClient.setQueryData<OrbytProfileRecord | null>(recordKey, orbytRecord);
+      }
+
+      return { previousProfiles, previousRecord, recordKey };
+    },
+    onSuccess: ({ avatar }, { did, handle, updates }) => {
+      if (avatar) {
+        // The uploaded avatar's CDN URL replaces the local file shown meanwhile.
+        for (const key of [profileKeys.detail(did), profileKeys.byHandle(handle)]) {
+          queryClient.setQueryData<ProfileViewWithOrbyt | null>(key, prev =>
+            prev ? { ...prev, avatar } : prev
+          );
+        }
+      }
+      void useUserStore
+        .getState()
+        .updateAccountProfile(did, profilePatch(updates, avatar))
+        .catch(() => {});
+      // Later reads refetch the network profile, which serves the edit at once.
+      // Colors stay as saved: the Orbyt AppView projects them about a minute
+      // behind the PDS, and refetching now would show the old ones.
+      void queryClient.invalidateQueries({
+        queryKey: profileKeys.detail(did),
+        refetchType: 'none',
+      });
+      void queryClient.invalidateQueries({
+        queryKey: profileKeys.byHandle(handle),
+        refetchType: 'none',
+      });
+    },
+    onError: (_error, { did }, context) => {
+      if (!context) return;
+      for (const [key, previous] of context.previousProfiles) {
+        queryClient.setQueryData(key, previous);
+      }
+      queryClient.setQueryData(context.recordKey, context.previousRecord);
+      // The profile may have saved before the colors failed: show what was saved.
+      void queryClient.invalidateQueries({ queryKey: profileKeys.detail(did) });
     },
   });
 }

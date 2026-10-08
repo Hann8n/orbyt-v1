@@ -1,21 +1,21 @@
 /**
- * The signed-in account's Orbyt profile records, written PDS-direct.
+ * The signed-in account's profile edits, written PDS-direct, as Orbyt iOS
+ * (`ProfileService.updateProfile` / `setProfileStyle`) writes them:
  *
- * Per orbyt-platform `docs/SOCIAL_GRAPH.md`:
- * - `com.getorbyt.actor.profile/self` is the account's Orbyt profile (name, bio,
- *   avatar, banner). Absent fields fall back to the network profile, so it is
- *   seeded from `app.bsky.actor.profile` the first time (onboarding import).
- * - `com.getorbyt.profile/self` is styling only: `joinDate`, `updatedAt`,
- *   `colors` (`#RRGGBB`, as Byte writes them) and `fontPreference`. Retired
- *   fields (`subscribedChannels`, `algorithmicFeedProvider`) are not carried.
- *
- * The AppView projects both through the Jetstream ingester and serves them
- * merged from `com.getorbyt.actor.getProfile`.
+ * - Name, bio and avatar go to `app.bsky.actor.profile/self`, read first so
+ *   every other field (banner, pronouns, pinned post, labels…) survives. An
+ *   empty name or bio is saved empty, so the profile shows the handle rather
+ *   than an older name. When the account also has a `com.getorbyt.actor.profile`
+ *   (seeded by earlier builds of this app), the same values are mirrored into
+ *   it, because the Orbyt AppView prefers that record over the network profile.
+ * - Colors go to `com.getorbyt.profile/self` (`#RRGGBB`, as Byte writes them),
+ *   read first so `joinDate` and every other field survive unchanged.
  */
 import { ComAtprotoRepoGetRecord } from '@atproto/api';
+import { FilterMode, ImageFormat, MipmapMode, Skia } from '@shopify/react-native-skia';
 
 import { AtprotoCore } from '@/services/api/core';
-import { storage } from '@/utils/storage/storage';
+import { logger } from '@/utils/logger';
 
 const ACTOR_PROFILE_COLLECTION = 'com.getorbyt.actor.profile';
 const STYLE_PROFILE_COLLECTION = 'com.getorbyt.profile';
@@ -24,6 +24,10 @@ const SELF = 'self';
 
 const DISPLAY_NAME_MAX = 64;
 const DESCRIPTION_MAX = 256;
+
+/** Bluesky refuses avatar blobs over 1 MB; Orbyt iOS sends at most 1000pt and 950 KB. */
+const AVATAR_MAX_DIMENSION = 1000;
+const AVATAR_MAX_BYTES = 950_000;
 
 type Api = Awaited<ReturnType<typeof AtprotoCore.getApiClient>>['api'];
 type RecordValue = Record<string, unknown>;
@@ -69,63 +73,103 @@ async function session(): Promise<{ api: Api; did: string }> {
   return { api, did };
 }
 
-/** The network profile's fields that seed an Orbyt profile on first use. */
-async function importNetworkProfile(api: Api, did: string): Promise<RecordValue> {
-  const network = await readSelfRecord(api, did, NETWORK_PROFILE_COLLECTION).catch(() => null);
-  const seeded: RecordValue = {};
-  for (const field of ['displayName', 'description', 'avatar', 'banner'] as const) {
-    if (network?.[field] !== undefined) seeded[field] = network[field];
+/** Name and bio edits: trimmed and capped; empty clears the field. */
+function applyText(record: RecordValue, edit: ProfileEdit) {
+  if (edit.displayName !== undefined) {
+    record.displayName = edit.displayName.trim().slice(0, DISPLAY_NAME_MAX);
   }
-  return seeded;
+  if (edit.description !== undefined) {
+    record.description = edit.description.trim().slice(0, DESCRIPTION_MAX);
+  }
 }
 
-function applyText(record: RecordValue, field: string, value: string | undefined, max: number) {
-  if (value === undefined) return;
-  const trimmed = value.trim().slice(0, max);
-  // Absent means "use the network profile's value"; an empty edit clears to that.
-  if (trimmed) record[field] = trimmed;
-  else delete record[field];
+/** A JPEG of the picked image, downscaled and recompressed to fit Bluesky's avatar limit. */
+async function avatarJpeg(uri: string): Promise<Uint8Array> {
+  const image = Skia.Image.MakeImageFromEncoded(await Skia.Data.fromURI(uri));
+  if (!image) throw new Error('Unreadable avatar image');
+  const scale = Math.min(1, AVATAR_MAX_DIMENSION / Math.max(image.width(), image.height()));
+  const width = Math.max(1, Math.round(image.width() * scale));
+  const height = Math.max(1, Math.round(image.height() * scale));
+  const surface = Skia.Surface.Make(width, height);
+  if (!surface) throw new Error('Could not resize avatar image');
+  surface
+    .getCanvas()
+    .drawImageRectOptions(
+      image,
+      Skia.XYWHRect(0, 0, image.width(), image.height()),
+      Skia.XYWHRect(0, 0, width, height),
+      FilterMode.Linear,
+      MipmapMode.Linear
+    );
+  surface.flush();
+  const resized = surface.makeImageSnapshot();
+  let quality = 85;
+  let bytes = resized.encodeToBytes(ImageFormat.JPEG, quality);
+  while (bytes.length > AVATAR_MAX_BYTES && quality > 30) {
+    quality -= 10;
+    bytes = resized.encodeToBytes(ImageFormat.JPEG, quality);
+  }
+  return bytes;
 }
 
-async function uploadImage(api: Api, uri: string) {
-  const blob = await (await fetch(uri)).blob();
-  const { data } = await api.uploadBlob(blob, { encoding: blob.type || 'image/jpeg' });
-  return data.blob;
-}
-
-export interface OrbytProfileEdit {
+export interface ProfileEdit {
   displayName?: string;
   description?: string;
   /** A local `file://` or `data:` image to upload as the new avatar. */
   avatarUri?: string;
 }
 
-/** Save the user's Orbyt profile (`com.getorbyt.actor.profile/self`). */
-export async function updateOrbytActorProfile(edit: OrbytProfileEdit): Promise<void> {
+/**
+ * Save name, bio and avatar to `app.bsky.actor.profile/self`, mirrored into an
+ * existing `com.getorbyt.actor.profile/self`.
+ * @returns the new avatar's CDN URL when the avatar changed
+ */
+export async function updateProfile(edit: ProfileEdit): Promise<{ avatar?: string }> {
   if (AtprotoCore.isOutgoingApiBlocked()) {
     if (AtprotoCore.shouldFailOfflineWriteMock()) {
-      throw new Error('Offline write mock failure: updateOrbytActorProfile');
+      throw new Error('Offline write mock failure: updateProfile');
     }
-    return;
+    return {};
   }
 
   const { api, did } = await session();
-  const existing = await readSelfRecord(api, did, ACTOR_PROFILE_COLLECTION);
-  const now = new Date().toISOString();
-  const record: RecordValue = existing
-    ? { ...existing }
-    : { ...(await importNetworkProfile(api, did)), createdAt: now };
+  // A transient read failure throws rather than writing over the record blind.
+  const existing = await readSelfRecord(api, did, NETWORK_PROFILE_COLLECTION);
+  const record: RecordValue = { ...existing };
+  applyText(record, edit);
 
-  applyText(record, 'displayName', edit.displayName, DISPLAY_NAME_MAX);
-  applyText(record, 'description', edit.description, DESCRIPTION_MAX);
+  let avatarUrl: string | undefined;
   if (edit.avatarUri) {
-    record.avatar = await uploadImage(api, edit.avatarUri);
-    // A still upload supersedes any looping rendition of the previous avatar.
-    delete record.avatarVideo;
+    const { data } = await api.uploadBlob(await avatarJpeg(edit.avatarUri), {
+      encoding: 'image/jpeg',
+    });
+    record.avatar = data.blob;
+    avatarUrl = `https://cdn.bsky.app/img/avatar/plain/${did}/${data.blob.ref.toString()}@jpeg`;
   }
-  record.updatedAt = now;
 
-  await writeSelfRecord(api, did, ACTOR_PROFILE_COLLECTION, record, existing !== null);
+  await writeSelfRecord(api, did, NETWORK_PROFILE_COLLECTION, record, existing !== null);
+
+  try {
+    const orbyt = await readSelfRecord(api, did, ACTOR_PROFILE_COLLECTION);
+    if (orbyt) {
+      const mirrored: RecordValue = { ...orbyt, updatedAt: new Date().toISOString() };
+      applyText(mirrored, edit);
+      if (edit.avatarUri) {
+        mirrored.avatar = record.avatar;
+        // A still upload supersedes any looping rendition of the previous avatar.
+        delete mirrored.avatarVideo;
+      }
+      await writeSelfRecord(api, did, ACTOR_PROFILE_COLLECTION, mirrored, true);
+    }
+  } catch (error) {
+    // The profile itself is saved; the Orbyt AppView catches up on the next edit.
+    logger.warn('Failed to mirror profile into com.getorbyt.actor.profile', {
+      component: 'profileRecords',
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return { avatar: avatarUrl };
 }
 
 /** Save the user's profile colors (`com.getorbyt.profile/self`). */
@@ -146,36 +190,11 @@ export async function updateOrbytProfileColors(colors: {
   const existing = await readSelfRecord(api, did, STYLE_PROFILE_COLLECTION);
   const now = new Date().toISOString();
   const record: RecordValue = {
+    ...existing,
     joinDate: typeof existing?.joinDate === 'string' ? existing.joinDate : now,
     updatedAt: now,
     colors: { backgroundColor: colors.backgroundColor, textColor: colors.textColor },
   };
-  if (typeof existing?.fontPreference === 'string') {
-    record.fontPreference = existing.fontPreference;
-  }
 
   await writeSelfRecord(api, did, STYLE_PROFILE_COLLECTION, record, existing !== null);
-}
-
-const ONBOARDED_KEY_PREFIX = 'orbyt_actor_profile_v1_';
-
-/**
- * First sign-in onboarding: copy the network profile into
- * `com.getorbyt.actor.profile` when the account has none. Writing it is also
- * what makes the account an Orbyt actor in the AppView. Best-effort, once per
- * account per install.
- */
-export async function ensureOrbytActorProfile(): Promise<void> {
-  if (AtprotoCore.isOutgoingApiBlocked()) return;
-  const did = AtprotoCore.getCurrentUserDid();
-  if (!did || storage.getString(`${ONBOARDED_KEY_PREFIX}${did}`) === 'true') return;
-
-  const { api } = await AtprotoCore.getApiClient();
-  const existing = await readSelfRecord(api, did, ACTOR_PROFILE_COLLECTION);
-  if (!existing) {
-    const now = new Date().toISOString();
-    const record = { ...(await importNetworkProfile(api, did)), createdAt: now, updatedAt: now };
-    await writeSelfRecord(api, did, ACTOR_PROFILE_COLLECTION, record, false);
-  }
-  storage.set(`${ONBOARDED_KEY_PREFIX}${did}`, 'true');
 }

@@ -70,8 +70,6 @@ export const queryKeys = {
     current: () => [...orbytProfileBase, 'current'] as const,
     /** `com.getorbyt.actor.getColorPalette` — server-owned pairs shared with Byte. */
     colorPalette: () => [...orbytProfileBase, 'color-palette'] as const,
-    /** `com.getorbyt.actor.getProfile` — the merged Orbyt actor view. */
-    actor: (did: string) => [...orbytProfileBase, 'actor', did] as const,
   },
 
   // Comment queries (merged from FeedService)
