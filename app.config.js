@@ -37,16 +37,6 @@ module.exports = {
     },
     package: 'com.getorbyt.app',
     versionCode: 7,
-    // Gateway sign-in callback. Verification needs getorbyt.com/.well-known/assetlinks.json
-    // listing this package's signing certificate.
-    intentFilters: [
-      {
-        action: 'VIEW',
-        autoVerify: true,
-        data: [{ scheme: 'https', host: 'getorbyt.com', pathPrefix: '/oauth/callback' }],
-        category: ['BROWSABLE', 'DEFAULT'],
-      },
-    ],
     permissions: ['INTERNET', 'CAMERA', 'RECORD_AUDIO'],
   },
   web: {
