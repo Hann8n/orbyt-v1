@@ -396,7 +396,9 @@ const AlgorithmicFeedScreen: React.FC = () => {
                       style={[
                         styles.subscribeButton,
                         styles.subscribeButtonBase,
-                        isSubscribed ? { backgroundColor: channelColor } : styles.subscribeButtonUnsub,
+                        isSubscribed
+                          ? { backgroundColor: channelColor }
+                          : styles.subscribeButtonUnsub,
                       ]}
                       onPress={e => {
                         e.stopPropagation();
