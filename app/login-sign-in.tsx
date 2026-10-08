@@ -140,7 +140,7 @@ export default function LoginSignInModal() {
       }
     } catch (err) {
       if (!isUserCancellation(err)) {
-        const errorMessage = err instanceof Error ? err.message : t('auth.signInFailed');
+        const errorMessage = (err instanceof Error ? err.message : '').toLowerCase();
         let userFriendlyMessage = t('auth.couldNotConnect', { handle: trimmedHandle });
 
         if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
