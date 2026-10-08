@@ -9,7 +9,7 @@ React Native + Expo, targeting iOS and Android.
 - **Routing**: Expo Router ~55.0.15 (file-based, `app/` directory)
 - **State (client)**: Zustand ^5.0.10 (`src/stores/`)
 - **State (server)**: TanStack React Query @tanstack/react-query ^5.90.21 (`src/utils/query/`)
-- **API**: AT Protocol via `@atproto/api` ^0.19.18 and `@atproto/oauth-client-expo` ^0.0.10
+- **API**: AT Protocol via `@atproto/api` ^0.19.18; sign-in through the Orbyt AppView gateway (`src/services/auth/gateway.ts`)
 - **Lists**: `@shopify/flash-list` 2.3.1
 - **Sheets**: `@lodev09/react-native-true-sheet` ^3.8.1
 - **Animation**: `react-native-reanimated` 4.3.1, `react-native-gesture-handler` ~2.30.0

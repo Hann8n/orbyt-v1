@@ -181,8 +181,6 @@
       "reactNativeDirectoryCheck": {
         "listUnknownPackages": false,
         "exclude": [
-          "@atproto/oauth-client-expo",
-          "react-native-emoji-chooser",
           "react-native-nitro-image"
         ]
       }

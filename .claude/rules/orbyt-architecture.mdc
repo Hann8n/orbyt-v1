@@ -27,13 +27,12 @@ Orbyt is a video app for Bluesky built on the AT Protocol. React Native + Expo.
 - `api/core.ts` — Shared session management and API client setup
 - `api/feed/FeedService.ts` — `AtprotoFeedService` class; `app.bsky.feed.*` operations
 - `api/graph/GraphService.ts` — `app.bsky.graph.*` operations
-- `api/chat/ChatService.ts` — Chat operations
 - `api/actor/ActorService.ts` — `app.bsky.actor.*` operations
 - `api/notification/NotificationService.ts` — Notification operations
 - `api/bookmark/BookmarkService.ts` — Bookmark operations
 - `api/video/VideoService.ts` — Video-specific API operations
 - `api/repo/RepoService.ts` — `com.atproto.repo.*` operations
-- `auth/OAuthService.ts` — OAuth flow
+- `auth/gateway.ts` — Sign-in through the Orbyt AppView gateway (`getorbyt.com/oauth/callback` return)
 - `data/ProfileService.ts` — Profile caching (React Query integration)
 - `data/ChannelService.ts` — Channel feed generator caching
 - `video/VideoProcessingService.ts` — FFmpeg video processing
@@ -62,12 +61,10 @@ Orbyt is a video app for Bluesky built on the AT Protocol. React Native + Expo.
 - `formatting/handles.ts` — `formatHandle`, `splitHandleSuffix` (AT Protocol handle formatting)
 - `video/` — Video path helpers, segment management
 - `device/screen.ts` — Screen dimension utilities
-- `navigation/` — Tab refs, bottom sheet registry
+- `navigation/` — Tab refs, bottom sheet registry, getorbyt.com link → route mapping (`systemLinks.ts`, used by `app/+native-intent.tsx`)
 - `links/bluesky.ts` — Bluesky URL parsing and deep link handling
 - `errors/errorHandler.ts` — `ErrorHandler` class, `CommonErrorHandlers`, error type checks
-- `errors/oauth.ts` — OAuth-specific error handling
 - `channels/orbyt.ts` — Built-in channel definitions and color generation
-- `chat/streak.ts` — Chat streak calculations
 - `types/richText.ts` — Rich text type definitions
 - `components/typography.tsx` — `Typography` tokens, `TypographyText` component
 - `components/truesheet/` — `AppTrueSheet`, `trueSheetPresets`, keyboard-aware footer
