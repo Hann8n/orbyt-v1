@@ -19,6 +19,11 @@ import { logger } from '../utils/logger';
 import { ModerationService } from '../services/moderation/ModerationService';
 import type { OrbytProfileRecord, ProfileViewWithOrbyt } from '../services/api/types';
 import { isOrbytChannel } from '../utils/channels/orbyt';
+import {
+  BUILT_IN_CHANNELS,
+  legacyChannelsToMigrate,
+  planSubscribedChannels,
+} from '../utils/channels/subscriptions';
 import type { Query } from '@tanstack/react-query';
 import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
@@ -31,7 +36,6 @@ import {
   leaveCommunity,
   listJoinedCommunities,
 } from '../services/orbyt/communities';
-import { ensureOrbytActorProfile } from '../services/orbyt/profileRecords';
 import { APP_CONSTANTS } from '../utils/constants';
 import { setAtprotoSession } from '../services/api/agentBridge';
 
@@ -239,24 +243,26 @@ const STORAGE_KEYS = {
   ACTIVE_ACCOUNT: 'active_account_did',
   SUBSCRIBED_CHANNELS: 'subscribed_channels',
   ORBYT_PROFILE_RECORD: 'orbyt_profile_record',
+  LEGACY_CHANNELS_MIGRATED: 'legacy_channels_migrated',
 } as const;
 
-const BUILT_IN_CHANNELS = ['following', 'your-mix'];
+/** How long a bootstrap waits for the account's membership records before keeping the device list. */
+const JOINED_COMMUNITIES_TIMEOUT_MS = 8_000;
 
 /**
  * Following an Orbyt Community is joining it: a `com.getorbyt.community.membership`
  * record in the viewer's repo, which the AppView projects into member counts and
- * viewer state. Best-effort — the local subscription list stays authoritative
- * for the viewer's own feeds.
+ * viewer state. Best-effort; resolves whether every write succeeded.
  */
 const syncCommunityMemberships = async (
   agent: Agent | null | undefined,
   did: string,
   uris: string[],
   join: boolean
-): Promise<void> => {
+): Promise<boolean> => {
   const communityUris = uris.filter(isCommunityUri);
-  if (!agent || communityUris.length === 0) return;
+  if (communityUris.length === 0) return true;
+  if (!agent) return false;
   const results = await Promise.allSettled(
     communityUris.map(uri =>
       join ? joinCommunity(agent, did, uri) : leaveCommunity(agent, did, uri)
@@ -271,12 +277,91 @@ const syncCommunityMemberships = async (
       });
     }
   });
+  return results.every(result => result.status === 'fulfilled');
 };
 
 const getUserScopedKey = (baseKey: string, did: string): string => {
   const sanitizedDid = String(did).replace(/[^a-zA-Z0-9._-]/g, '_');
   return `${baseKey}_${sanitizedDid}`;
 };
+
+function readSavedChannels(did: string): string | null {
+  return storage.getString(getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, did)) ?? null;
+}
+
+function applySubscribedChannels(did: string, channels: SubscribedChannel[]): void {
+  storage.set(getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, did), JSON.stringify(channels));
+  useUserStore.setState({ subscribedChannels: channels });
+}
+
+async function listJoinedCommunitiesWithTimeout(agent: Agent, did: string): Promise<string[]> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), JOINED_COMMUNITIES_TIMEOUT_MS);
+  try {
+    return await listJoinedCommunities(agent, did, controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Reconcile the device's channel list with the account's memberships, and
+ * migrate the legacy `com.getorbyt.profile#subscribedChannels` list once.
+ * Runs off the bootstrap path; the device list is already showing.
+ */
+async function reconcileSubscribedChannels(
+  did: string,
+  orbytProfileRecord: OrbytProfileRecord | null
+): Promise<void> {
+  const agent = useUserStore.getState().agent;
+  if (!agent) return;
+  const migratedKey = getUserScopedKey(STORAGE_KEYS.LEGACY_CHANNELS_MIGRATED, did);
+  const alreadyMigrated = storage.getBoolean(migratedKey) === true;
+  const savedAtStart = readSavedChannels(did);
+
+  const joined = await listJoinedCommunitiesWithTimeout(agent, did).catch(error => {
+    logger.warn('Joined communities unavailable; keeping device channels', {
+      component: 'userStore',
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  });
+  if (joined === null || useUserStore.getState().currentUser?.did !== did) return;
+
+  const legacy = legacyChannelsToMigrate({
+    alreadyMigrated,
+    joined,
+    legacy: orbytProfileRecord?.subscribedChannels,
+  });
+  // Legacy references name a Community; resolving the name needs the directory.
+  const directoryReady =
+    legacy.length === 0 ||
+    (await hydrateOrbytChannels().then(
+      () => true,
+      () => false
+    ));
+  if (useUserStore.getState().currentUser?.did !== did) return;
+
+  const savedNow = readSavedChannels(did);
+  const { channels, toJoin } = planSubscribedChannels({
+    saved: savedNow ? (JSON.parse(savedNow) as SubscribedChannel[]) : [],
+    joined,
+    legacy: directoryReady ? legacy : [],
+    prune: savedNow === savedAtStart,
+    migrateUri: migrateLegacyChannelUri,
+    now: Date.now(),
+  });
+  applySubscribedChannels(did, channels);
+
+  const joinedAll = await syncCommunityMemberships(agent, did, toJoin, true);
+  // Done once the record was read and its list is joined (or the account already had memberships).
+  if (!alreadyMigrated && orbytProfileRecord && directoryReady && joinedAll) {
+    storage.set(migratedKey, true);
+  }
+}
+
+/** Reconciles run one at a time, so a second bootstrap pass sees the first one's result. */
+let subscribedChannelsReconcile: Promise<void> = Promise.resolve();
 
 function readCachedOrbytProfileRecord(did: string): OrbytProfileRecord | null {
   try {
@@ -500,12 +585,6 @@ export const useUserStore = create<UserState>()(
             setUserId(getAnalytics(), session.did).catch(() => {});
             logLogin(getAnalytics(), { method: 'atproto' }).catch(() => {});
 
-            requestIdleCallback(
-              () => {
-                void ensureOrbytActorProfile().catch(() => {});
-              },
-              { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-            );
 
             await get().bootstrapUserFeedSettings(session.did);
 
@@ -590,12 +669,6 @@ export const useUserStore = create<UserState>()(
             setUserId(getAnalytics(), session.did).catch(() => {});
             logSignUp(getAnalytics(), { method: 'atproto' }).catch(() => {});
 
-            requestIdleCallback(
-              () => {
-                void ensureOrbytActorProfile().catch(() => {});
-              },
-              { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-            );
             await get().bootstrapUserFeedSettings(session.did);
             scheduleFollowingOrbytColorsAfterFeedReady(session.did);
           } catch (error) {
@@ -745,12 +818,6 @@ export const useUserStore = create<UserState>()(
             });
           }
 
-          requestIdleCallback(
-            () => {
-              void ensureOrbytActorProfile().catch(() => {});
-            },
-            { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-          );
           scheduleFollowingOrbytColorsAfterFeedReady(did);
 
           if (!skipSettings) {
@@ -863,13 +930,6 @@ export const useUserStore = create<UserState>()(
               await get().bootstrapUserFeedSettings(did);
 
               set({ isSwitchingAccount: false, switchingToHandle: null, switchingToAvatar: null });
-
-              requestIdleCallback(
-                () => {
-                  void ensureOrbytActorProfile().catch(() => {});
-                },
-                { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-              );
 
               void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
               void queryClient.invalidateQueries({ queryKey: queryKeys.unread.summary() });
@@ -1033,7 +1093,8 @@ export const useUserStore = create<UserState>()(
               acc.did === did
                 ? {
                     ...acc,
-                    displayName: profileData.displayName || acc.displayName,
+                    // An empty name is a cleared name (shown as the handle).
+                    displayName: profileData.displayName ?? acc.displayName,
                     avatar: profileData.avatar || acc.avatar,
                     handle: profileData.handle || acc.handle,
                   }
@@ -1553,7 +1614,8 @@ export const useUserStore = create<UserState>()(
             writeCachedOrbytProfileRecord(did, orbytProfileRecord);
             seedModerationQueryCache(did, modResult);
 
-            await hydrateOrbytChannels().catch(() => {});
+            // The Community directory loads in the background (Explore, channel names).
+            void hydrateOrbytChannels().catch(() => {});
             const [settingsLoaded, channelsLoaded] = await Promise.all([
               get().loadUserSpecificSettings(did),
               get().loadSubscribedChannels(did, orbytProfileRecord),
@@ -1603,46 +1665,25 @@ export const useUserStore = create<UserState>()(
           orbytProfileRecord: OrbytProfileRecord | null
         ) => {
           try {
-            const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, did);
-            const savedChannelsStr = storage.getString(key) ?? null;
-            const savedChannels: SubscribedChannel[] = savedChannelsStr
-              ? JSON.parse(savedChannelsStr)
-              : [];
+            // The device list shows at once; memberships reconcile in the background
+            // so the feed bootstrap never waits on the PDS.
+            const saved = readSavedChannels(did);
+            const { channels } = planSubscribedChannels({
+              saved: saved ? (JSON.parse(saved) as SubscribedChannel[]) : [],
+              joined: null,
+              migrateUri: migrateLegacyChannelUri,
+              now: Date.now(),
+            });
+            applySubscribedChannels(did, channels);
 
-            // Joined Communities live in the account's membership records, written
-            // by every Orbyt client; the device list adds non-Community feeds.
-            const agent = get().agent;
-            const joined = agent ? await listJoinedCommunities(agent, did).catch(() => null) : null;
-
-            // One-time migration of pre-Communities subscriptions (device list and the
-            // retired `com.getorbyt.profile#subscribedChannels`): channels become the
-            // Community of the same name and are joined.
-            const legacyUris = Array.isArray(orbytProfileRecord?.subscribedChannels)
-              ? orbytProfileRecord.subscribedChannels!
-              : [];
-            const migratedUris: string[] = [];
-            const byUri = new Map<string, SubscribedChannel>();
-            const add = (channel: SubscribedChannel) => {
-              const uri = migrateLegacyChannelUri(channel.uri);
-              if (BUILT_IN_CHANNELS.includes(uri) || byUri.has(uri)) return;
-              if (uri !== channel.uri) migratedUris.push(uri);
-              byUri.set(uri, { ...channel, uri, isOrbytChannel: isOrbytChannel(uri) });
-            };
-            const subscribedAt = Date.now();
-            savedChannels.forEach(add);
-            legacyUris.forEach(uri => add({ uri, displayName: '', subscribedAt }));
-            joined?.forEach(uri => add({ uri, displayName: '', subscribedAt }));
-
-            const channels = Array.from(byUri.values());
-            storage.set(key, JSON.stringify(channels));
-            const toJoin = joined
-              ? migratedUris.filter(uri => !joined.includes(uri))
-              : migratedUris;
-            if (toJoin.length > 0) {
-              void syncCommunityMemberships(agent, did, toJoin, true);
-            }
-
-            set({ subscribedChannels: channels });
+            subscribedChannelsReconcile = subscribedChannelsReconcile
+              .then(() => reconcileSubscribedChannels(did, orbytProfileRecord))
+              .catch(error => {
+                logger.warn('Failed to reconcile subscribed channels', {
+                  component: 'userStore',
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              });
             return true;
           } catch (error) {
             logger.error('Error loading subscribed channels', error, { component: 'userStore' });
@@ -1708,12 +1749,6 @@ export const useUserStore = create<UserState>()(
             // Fetch orbyt profile colors in background (skipped in hydrateGatewaySession above)
             queryClient.fetchQuery(orbytProfileQueryOptions(session.did)).catch(() => {});
 
-            requestIdleCallback(
-              () => {
-                void ensureOrbytActorProfile().catch(() => {});
-              },
-              { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-            );
             scheduleFollowingOrbytColorsAfterFeedReady(session.did);
 
             if (!skipSettings) {

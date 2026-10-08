@@ -287,6 +287,7 @@
     "checkConnection": "接続を確認して、もう一度お試しください",
     "noPeopleFound": "ユーザーが見つかりません",
     "noFeedsFound": "フィードが見つかりません",
+    "noChannelsFound": "チャンネルが見つかりません",
     "noRecentVisits": "最近のアクセスはありません",
     "spotlight": "スポットライト",
     "searchPlaceholder": "検索",

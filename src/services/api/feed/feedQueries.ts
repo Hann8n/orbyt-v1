@@ -662,12 +662,7 @@ export async function getCommunityVideoFeed(
   limit: number = QUERY_CONSTANTS.FEED_PAGE_DEFAULT,
   sort: CommunityFeedSort = 'latest'
 ): Promise<FeedResponse> {
-  const skeleton = await getCommunityFeed(communityUri, {
-    sort,
-    cursor,
-    limit,
-    viewer: AtprotoCore.getCurrentUserDid(),
-  });
+  const skeleton = await getCommunityFeed(communityUri, { sort, cursor, limit });
   const items = skeleton.feed.filter(item => item.status !== 'removed');
   const posts = await getPosts(items.map(item => item.post));
 

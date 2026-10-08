@@ -4,9 +4,12 @@ import {
   getActiveRemoteChannels,
   getRemoteChannelBySlug,
   getRemoteChannelByUri,
-  isKnownOrbytChannelUri,
 } from '@/services/OrbytChannelsService';
-import { COMMUNITY_FEED_PREFIX, type CommunityView } from '@/services/orbyt/communities';
+import {
+  COMMUNITY_FEED_PREFIX,
+  isCommunityUri,
+  type CommunityView,
+} from '@/services/orbyt/communities';
 
 /** An Orbyt Community, in the shape the channel UI renders. */
 export interface OrbytChannel {
@@ -128,7 +131,8 @@ export function shouldShowChannelSlash(uri: string): boolean {
 }
 
 /**
- * Get channel by URI
+ * A Community's cached metadata (directory or `getCommunity`); undefined until
+ * fetched. Use `useCommunity` to fetch it.
  */
 export function getChannelByUri(uri: string): OrbytChannel | undefined {
   if (!uri) {
@@ -139,11 +143,10 @@ export function getChannelByUri(uri: string): OrbytChannel | undefined {
 }
 
 /**
- * Whether a URI is a known Orbyt Community.
+ * Whether a URI is an Orbyt Community, cached or not.
  */
 export function isOrbytChannel(uri: string): boolean {
-  if (!uri) return false;
-  return isKnownOrbytChannelUri(uri);
+  return isCommunityUri(uri);
 }
 
 /**
@@ -162,10 +165,10 @@ export function getChannelAvatarUri(uri: string, fallbackAvatar?: string): strin
 
 /**
  * The feed option that loads a Community's feed from the Orbyt AppView.
- * @returns `community:<at-uri>` or null when the URI is not a known Community
+ * @returns `community:<at-uri>`, or null when the URI is not a Community
  */
 export function channelToFeedOption(uri: string): string | null {
-  if (!uri || !isOrbytChannel(uri)) {
+  if (!isCommunityUri(uri)) {
     return null;
   }
   return `${COMMUNITY_FEED_PREFIX}${uri}`;

@@ -3,7 +3,8 @@ import type { ExtendedFeedViewPost } from '@/services/api/types';
 import type { CachedChannel } from '@/services/data/ChannelService';
 
 /** Explore search / pager tab identifiers */
-export type ExploreSearchTabId = 'recently-visited' | 'profiles' | 'channels';
+/** `channels` lists Orbyt Communities; `feeds` lists Bluesky feed generators. */
+export type ExploreSearchTabId = 'recently-visited' | 'profiles' | 'channels' | 'feeds';
 
 /** Type aliases for SDK types used in explore */
 export type Profile = ProfileViewWithOrbyt;

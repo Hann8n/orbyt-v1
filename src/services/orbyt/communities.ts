@@ -52,6 +52,7 @@ export const COMMUNITY_FEED_PREFIX = 'community:';
 
 const LIST_PAGE_SIZE = 50;
 const LIST_MAX_PAGES = 4;
+const SEARCH_PAGE_SIZE = 25;
 const POST_COMMUNITIES_BATCH = 100;
 
 /** Published, publicly accessible Communities; unknown states fail closed. */
@@ -65,21 +66,54 @@ export function isCommunityUri(uri: string): boolean {
   return typeof uri === 'string' && uri.includes(`/${COMMUNITY_DECLARATION_COLLECTION}/`);
 }
 
+/** One page of the public directory, most popular first; `query` matches name or description. */
+function listCommunitiesPage(
+  params: { query?: string; cursor?: string; limit: number },
+  signal?: globalThis.AbortSignal
+) {
+  return orbytPublicQuery<{ communities?: CommunityView[]; cursor?: string }>(
+    'com.getorbyt.community.listCommunities',
+    { sort: 'popular', ...params },
+    { signal }
+  );
+}
+
 /** The public Community directory, most popular first. */
 export async function listCommunities(signal?: globalThis.AbortSignal): Promise<CommunityView[]> {
   const communities: CommunityView[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < LIST_MAX_PAGES; page++) {
-    const response = await orbytPublicQuery<{ communities?: CommunityView[]; cursor?: string }>(
-      'com.getorbyt.community.listCommunities',
-      { sort: 'popular', limit: LIST_PAGE_SIZE, cursor },
-      { signal }
-    );
+    const response = await listCommunitiesPage({ limit: LIST_PAGE_SIZE, cursor }, signal);
     communities.push(...(response.communities ?? []));
     cursor = response.cursor;
     if (!cursor || (response.communities?.length ?? 0) === 0) break;
   }
   return communities;
+}
+
+/** The term to search Communities for; a leading `/` (how names are shown) is dropped. */
+export function communitySearchTerm(query: string): string {
+  return query.trim().replace(/^\/+/, '').trim();
+}
+
+/**
+ * Communities matching `query` by name or description (`listCommunities` `query`,
+ * as Orbyt iOS searches), most popular first. Only available Communities are kept.
+ */
+export async function searchCommunities(
+  query: string,
+  options: { cursor?: string; limit?: number; signal?: globalThis.AbortSignal } = {}
+): Promise<{ communities: CommunityView[]; cursor?: string }> {
+  const term = communitySearchTerm(query);
+  if (!term) return { communities: [] };
+  const response = await listCommunitiesPage(
+    { query: term, cursor: options.cursor, limit: options.limit ?? SEARCH_PAGE_SIZE },
+    options.signal
+  );
+  return {
+    communities: (response.communities ?? []).filter(isCommunityAvailable),
+    cursor: response.cursor,
+  };
 }
 
 export async function getCommunity(
@@ -94,14 +128,18 @@ export async function getCommunity(
   return response.community;
 }
 
-/** A Community's feed skeleton: post AT-URIs to hydrate through the Bluesky AppView. */
+/**
+ * A Community's feed skeleton: post AT-URIs to hydrate through the Bluesky AppView.
+ * Sent without `viewer`: a declared viewer only mints playback tokens, which this
+ * app does not use, and makes the AppView answer `private, no-store`, bypassing
+ * its edge cache.
+ */
 export async function getCommunityFeed(
   community: string,
   options: {
     sort?: CommunityFeedSort;
     cursor?: string | null;
     limit?: number;
-    viewer?: string | null;
   }
 ): Promise<{ feed: CommunityFeedItem[]; cursor?: string }> {
   const response = await orbytPublicQuery<{ feed?: CommunityFeedItem[]; cursor?: string }>(
@@ -111,7 +149,6 @@ export async function getCommunityFeed(
       sort: options.sort ?? 'latest',
       limit: options.limit,
       cursor: options.cursor ?? undefined,
-      viewer: options.viewer ?? undefined,
     }
   );
   return { feed: response.feed ?? [], cursor: response.cursor };
@@ -204,12 +241,15 @@ interface MembershipLister {
   com: {
     atproto: {
       repo: {
-        listRecords: (input: {
-          repo: string;
-          collection: string;
-          limit?: number;
-          cursor?: string;
-        }) => Promise<{
+        listRecords: (
+          input: {
+            repo: string;
+            collection: string;
+            limit?: number;
+            cursor?: string;
+          },
+          options?: { signal?: globalThis.AbortSignal }
+        ) => Promise<{
           data: { records: Array<{ value: { [k: string]: unknown } }>; cursor?: string };
         }>;
       };
@@ -224,16 +264,23 @@ const MEMBERSHIP_MAX_PAGES = 5;
  * Communities the account has joined, from its own membership records — the
  * same records Orbyt iOS and Byte write, so joins made in any client show up.
  */
-export async function listJoinedCommunities(api: MembershipLister, did: string): Promise<string[]> {
+export async function listJoinedCommunities(
+  api: MembershipLister,
+  did: string,
+  signal?: globalThis.AbortSignal
+): Promise<string[]> {
   const communities = new Set<string>();
   let cursor: string | undefined;
   for (let page = 0; page < MEMBERSHIP_MAX_PAGES; page++) {
-    const { data } = await api.com.atproto.repo.listRecords({
-      repo: did,
-      collection: COMMUNITY_MEMBERSHIP_COLLECTION,
-      limit: MEMBERSHIP_PAGE_SIZE,
-      cursor,
-    });
+    const { data } = await api.com.atproto.repo.listRecords(
+      {
+        repo: did,
+        collection: COMMUNITY_MEMBERSHIP_COLLECTION,
+        limit: MEMBERSHIP_PAGE_SIZE,
+        cursor,
+      },
+      { signal }
+    );
     for (const record of data.records) {
       const community = record.value.community;
       if (typeof community === 'string' && isCommunityUri(community)) communities.add(community);

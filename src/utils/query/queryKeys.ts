@@ -72,8 +72,6 @@ export const queryKeys = {
     current: () => [...orbytProfileBase, 'current'] as const,
     /** `com.getorbyt.actor.getColorPalette` — server-owned pairs shared with Byte. */
     colorPalette: () => [...orbytProfileBase, 'color-palette'] as const,
-    /** `com.getorbyt.actor.getProfile` — the merged Orbyt actor view. */
-    actor: (did: string) => [...orbytProfileBase, 'actor', did] as const,
   },
 
   // Comment queries (merged from FeedService)
@@ -155,6 +153,10 @@ export const queryKeys = {
     detail: (uri: string) => [...queryKeys.channels.all, 'detail', uri] as const,
     /** A Community by the name a getorbyt.com/c/<name> link carries. */
     byName: (name: string) => [...queryKeys.channels.all, 'by-name', name] as const,
+    /** One Community (`com.getorbyt.community.getCommunity`), directory or not. */
+    community: (uri: string) => [...queryKeys.channels.all, 'community', uri] as const,
+    /** Communities matching a search (`listCommunities` `query`). */
+    search: (query: string) => [...queryKeys.channels.all, 'search', query] as const,
     colors: (uri: string) => [...queryKeys.channels.all, 'colors', uri] as const,
   },
 

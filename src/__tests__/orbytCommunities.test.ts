@@ -6,11 +6,19 @@
  */
 import { sha256 } from '@/utils/crypto/sha256';
 import {
+  communitySearchTerm,
   hashedRecordKey,
   isCommunityAvailable,
   isCommunityUri,
   parseCommunityFeedOption,
+  searchCommunities,
 } from '@/services/orbyt/communities';
+import { orbytPublicQuery } from '@/services/orbyt/orbytApi';
+
+jest.mock('@/services/orbyt/orbytApi', () => ({
+  orbytPublicQuery: jest.fn(),
+  orbytAuthedCall: jest.fn(),
+}));
 
 const toHex = (bytes: Uint8Array) =>
   Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
@@ -67,5 +75,43 @@ describe('community helpers', () => {
       sort: 'top',
     });
     expect(parseCommunityFeedOption('hashtag:art')).toBeNull();
+  });
+});
+
+describe('community search', () => {
+  const view = (name: string, extra: object = {}) => ({
+    uri: `at://did:plc:x/com.getorbyt.community.declaration/${name}`,
+    cid: 'c',
+    name,
+    ownerDid: 'did:plc:x',
+    createdAt: '',
+    ...extra,
+  });
+
+  afterEach(() => jest.mocked(orbytPublicQuery).mockReset());
+
+  it('normalizes the search term', () => {
+    expect(communitySearchTerm('  /Art ')).toBe('Art');
+    expect(communitySearchTerm('//')).toBe('');
+  });
+
+  it('asks the directory for the term and keeps available Communities', async () => {
+    jest.mocked(orbytPublicQuery).mockResolvedValue({
+      communities: [view('art'), view('artists', { access: 'private' })],
+      cursor: 'next',
+    });
+    const page = await searchCommunities('/art', { cursor: 'c1' });
+    expect(orbytPublicQuery).toHaveBeenCalledWith(
+      'com.getorbyt.community.listCommunities',
+      { sort: 'popular', query: 'art', cursor: 'c1', limit: 25 },
+      { signal: undefined }
+    );
+    expect(page.communities.map(c => c.name)).toEqual(['art']);
+    expect(page.cursor).toBe('next');
+  });
+
+  it('does not search for an empty term', async () => {
+    expect(await searchCommunities(' / ')).toEqual({ communities: [] });
+    expect(orbytPublicQuery).not.toHaveBeenCalled();
   });
 });

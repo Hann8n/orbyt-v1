@@ -287,6 +287,7 @@
     "checkConnection": "Vérifie ta connexion et réessaie",
     "noPeopleFound": "Aucune personne trouvée",
     "noFeedsFound": "Aucun fil trouvé",
+    "noChannelsFound": "Aucune chaîne trouvée",
     "noRecentVisits": "Aucune visite récente",
     "spotlight": "À la une",
     "searchPlaceholder": "rechercher",

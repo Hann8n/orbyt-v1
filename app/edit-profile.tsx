@@ -395,7 +395,7 @@ const EditProfileScreen: React.FC = () => {
 
   // Handle save
   const handleSave = useCallback(async () => {
-    if (!profileData?.handle) {
+    if (!profileData?.handle || !userDid) {
       return;
     }
 
@@ -447,6 +447,7 @@ const EditProfileScreen: React.FC = () => {
       // Only update if there are changes
       if (Object.keys(updates).length > 0) {
         await profileUpdateMutation.mutateAsync({
+          did: userDid,
           handle: profileData.handle,
           updates,
         });
@@ -466,7 +467,7 @@ const EditProfileScreen: React.FC = () => {
     defaultColors,
     profileUpdateMutation,
     router,
-    currentUser,
+    userDid,
     t,
   ]);
 
